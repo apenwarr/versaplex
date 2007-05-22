@@ -80,6 +80,7 @@ public class SqlSuckerProc
             ValidateOutputTable(ctxCon, outTable);
 
             string colDefs;
+            SqlParameter[] paramList;
             bool anyRows;
 
             ctxConCmd.CommandText = SQL.ToString();
@@ -90,7 +91,7 @@ public class SqlSuckerProc
                         "Query returned no usable results");
                 }
 
-                colDefs = GenerateSchema(reader);
+                colDefs = GenerateSchema(reader, out paramList);
 
                 if (sendDebugInfo)
                     SqlContext.Pipe.Send(colDefs);
@@ -109,7 +110,7 @@ public class SqlSuckerProc
                             "Could not create intermediate table", e);
                     }
 
-                    CopyReader(reader, tmpCon, tempTable);
+                    CopyReader(reader, tmpCon, tempTable, paramList);
                 }
             }
 
@@ -129,7 +130,7 @@ public class SqlSuckerProc
                         "Data was expected in intermediate table; none found");
                 }
 
-                CopyReader(reader, ctxCon, outTable);
+                CopyReader(reader, ctxCon, outTable, paramList);
             }
 
             DropTempTable(tmpCon);
@@ -138,7 +139,7 @@ public class SqlSuckerProc
 
     // Needs reader to be positioned on the first row
     private static void CopyReader(SqlDataReader reader, SqlConnection outCon,
-        string outTable)
+        string outTable, SqlParameter[] paramList)
     {
         using (SqlCommand outCmd = outCon.CreateCommand())
         try {
@@ -154,37 +155,26 @@ public class SqlSuckerProc
             }
             insertCmdStr.Append(")");
 
-            SqlParameter[] insertParams =
-                new SqlParameter[reader.FieldCount];
             for (int i = 0; i < reader.FieldCount; i++) {
-                insertParams[i] = new SqlParameter();
-                insertParams[i].ParameterName = string.Format("@col{0}", i);
-                insertParams[i].SqlValue = reader[i];
-                outCmd.Parameters.Add(insertParams[i]);
+                outCmd.Parameters.Add(paramList[i]);
             }
 
             outCmd.CommandText = insertCmdStr.ToString();
 
-            // It doesn't like this for some reason
-            // outCmd.Prepare();
+            outCmd.Prepare();
 
-            // We already filled in the first row
-            outCmd.ExecuteNonQuery();
-
-            if (sendDebugInfo)
-                SqlContext.Pipe.Send(string.Format("Record sent to {0}",
-                        outTable));
-
-            while (reader.Read()) {
+            do {
                 for (int i = 0; i < reader.FieldCount; i++) {
-                    insertParams[i].SqlValue = reader[i];
+                    paramList[i].SqlValue = reader[i];
                 }
                 outCmd.ExecuteNonQuery();
 
                 if (sendDebugInfo)
                     SqlContext.Pipe.Send(string.Format("Record sent to {0}",
                             outTable));
-            }
+            } while (reader.Read());
+
+            outCmd.Parameters.Clear();
         } catch (SqlException e) {
             throw new System.Exception(
                 string.Format("Could not send data to {0}", outTable), e);
@@ -226,9 +216,13 @@ public class SqlSuckerProc
         }
     }
 
-    private static string GenerateSchema(SqlDataReader reader)
+    private static string GenerateSchema(SqlDataReader reader,
+        out SqlParameter[] paramList)
     {
         System.Text.StringBuilder colDefs = new System.Text.StringBuilder();
+        paramList = new SqlParameter[reader.FieldCount];
+
+        int i = 0;
 
         using (DataTable schema = reader.GetSchemaTable()) {
             bool first = true;
@@ -248,7 +242,8 @@ public class SqlSuckerProc
                     if ((bool)col["IsLong"]) {
                         typeParams = "(max)";
                     } else {
-                        typeParams = string.Format("({0})", col["ColumnSize"]);
+                        typeParams = string.Format("({0})",
+                            col["ColumnSize"]);
                     }
                 } else if (dt == typeof(SqlDecimal)) {
                     typeParams = string.Format("({0},{1})",
@@ -259,7 +254,27 @@ public class SqlSuckerProc
                     col["ColumnName"].ToString().Replace("]", "]]"),
                     col["DataTypeName"], typeParams);
 
+                // This makes me cry, but if there is actually a better way to
+                // do this, it's hard to find. Extra crying for the try/catches
+                // with empty catch blocks.
+                SqlContext.Pipe.Send(col["ColumnName"].ToString()+" "+col["DataTypeName"]);
+                paramList[i] = new SqlParameter();
+                paramList[i].ParameterName = string.Format("@col{0}", i);
+                paramList[i].SqlDbType = (SqlDbType)System.Enum.Parse(typeof(SqlDbType),
+                    (string)col["DataTypeName"], true);
+                paramList[i].Direction = ParameterDirection.Input;
+                try {
+                    paramList[i].Size = (int)col["ColumnSize"];
+                } catch {}
+                try {
+                    paramList[i].Precision = (byte)((System.Int16)col["NumericPrecision"]);
+                } catch {}
+                try {
+                    paramList[i].Scale = (byte)((System.Int16)col["NumericScale"]);
+                } catch {}
+
                 first = false;
+                i++;
             }
         }
 
