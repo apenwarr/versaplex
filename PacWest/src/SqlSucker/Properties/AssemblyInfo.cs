@@ -29,8 +29,8 @@ using System.Data.SqlTypes;
 //      Build Number
 //      Revision
 //
-// You can specify all the values or you can default the Revision and Build Numbers
-// by using the '*' as shown below:
+// You can specify all the values or you can default the Revision and Build
+// Numbers by using the '*' as shown below:
 [assembly: AssemblyVersion("1.0.*")]
 
 public class SqlSuckerProc
@@ -137,94 +137,92 @@ public class SqlSuckerProc
     }
 
     // Needs reader to be positioned on the first row
-    private static void CopyReader(SqlDataReader reader, SqlConnection outCon, string outTable)
+    private static void CopyReader(SqlDataReader reader, SqlConnection outCon,
+        string outTable)
     {
-        using (SqlCommand outCmd = outCon.CreateCommand()) {
-            try {
-                System.Text.StringBuilder insertCmdStr =
-                    new System.Text.StringBuilder();
+        using (SqlCommand outCmd = outCon.CreateCommand())
+        try {
+            System.Text.StringBuilder insertCmdStr =
+                new System.Text.StringBuilder();
 
-                insertCmdStr.AppendFormat(
-                    "INSERT INTO {0} VALUES (@col0", outTable);
-                // There is always at least 1 column,
-                // so start loop at 1 instead of 0
-                for (int i = 1; i < reader.FieldCount; i++) {
-                    insertCmdStr.AppendFormat(", @col{0}", i);
-                }
-                insertCmdStr.Append(")");
+            insertCmdStr.AppendFormat(
+                "INSERT INTO {0} VALUES (@col0", outTable);
+            // There is always at least 1 column,
+            // so start loop at 1 instead of 0
+            for (int i = 1; i < reader.FieldCount; i++) {
+                insertCmdStr.AppendFormat(", @col{0}", i);
+            }
+            insertCmdStr.Append(")");
 
-                SqlParameter[] insertParams =
-                    new SqlParameter[reader.FieldCount];
+            SqlParameter[] insertParams =
+                new SqlParameter[reader.FieldCount];
+            for (int i = 0; i < reader.FieldCount; i++) {
+                insertParams[i] = new SqlParameter();
+                insertParams[i].ParameterName = string.Format("@col{0}", i);
+                insertParams[i].SqlValue = reader[i];
+                outCmd.Parameters.Add(insertParams[i]);
+            }
+
+            outCmd.CommandText = insertCmdStr.ToString();
+
+            // It doesn't like this for some reason
+            // outCmd.Prepare();
+
+            // We already filled in the first row
+            outCmd.ExecuteNonQuery();
+
+            if (sendDebugInfo)
+                SqlContext.Pipe.Send(string.Format("Record sent to {0}",
+                        outTable));
+
+            while (reader.Read()) {
                 for (int i = 0; i < reader.FieldCount; i++) {
-                    insertParams[i] = new SqlParameter();
-                    insertParams[i].ParameterName = string.Format(
-                        "@col{0}", i);
                     insertParams[i].SqlValue = reader[i];
-                    outCmd.Parameters.Add(insertParams[i]);
                 }
-
-                outCmd.CommandText = insertCmdStr.ToString();
-
-                // It doesn't like this for some reason
-                // outCmd.Prepare();
-
-                // We already filled in the first row
                 outCmd.ExecuteNonQuery();
 
                 if (sendDebugInfo)
-                    SqlContext.Pipe.Send(string.Format("Record sent to {0}", outTable));
-
-                while (reader.Read()) {
-                    for (int i = 0; i < reader.FieldCount; i++) {
-                        insertParams[i].SqlValue = reader[i];
-                    }
-                    outCmd.ExecuteNonQuery();
-
-                    if (sendDebugInfo)
-                        SqlContext.Pipe.Send(string.Format("Record sent to {0}", outTable));
-                }
-            } catch (SqlException e) {
-                throw new System.Exception(
-                    string.Format("Could not send data to {0}", outTable), e);
+                    SqlContext.Pipe.Send(string.Format("Record sent to {0}",
+                            outTable));
             }
+        } catch (SqlException e) {
+            throw new System.Exception(
+                string.Format("Could not send data to {0}", outTable), e);
         }
     }
 
     private static void SetupOutTable(string outTable, SqlConnection con, string colDefs)
     {
-        using (SqlCommand cmd = con.CreateCommand()) {
-            try {
-                // Empty it
-                cmd.CommandText =
-                    string.Format("TRUNCATE TABLE {0}", outTable);
-                cmd.ExecuteNonQuery();
+        using (SqlCommand cmd = con.CreateCommand())
+        try {
+            // Empty it
+            cmd.CommandText = string.Format("TRUNCATE TABLE {0}", outTable);
+            cmd.ExecuteNonQuery();
 
-                // Add new columns
-                cmd.CommandText = string.Format(
-                    "ALTER TABLE {0} ADD {1}", outTable, colDefs);
-                cmd.ExecuteNonQuery();
+            // Add new columns
+            cmd.CommandText = string.Format("ALTER TABLE {0} ADD {1}",
+                outTable, colDefs);
+            cmd.ExecuteNonQuery();
 
-                // Delete the dummy column
-                cmd.CommandText = string.Format(
-                    "ALTER TABLE {0} DROP COLUMN _", outTable);
-                cmd.ExecuteNonQuery();
-            } catch (SqlException e) {
-                throw new System.Exception("Could not set up output table", e);
-            }
+            // Delete the dummy column
+            cmd.CommandText = string.Format("ALTER TABLE {0} DROP COLUMN _",
+                outTable);
+            cmd.ExecuteNonQuery();
+        } catch (SqlException e) {
+            throw new System.Exception("Could not set up output table", e);
         }
     }
 
     private static void DropTempTable(SqlConnection con)
     {
-        using (SqlCommand cmd = con.CreateCommand()) {
-            try {
-                cmd.CommandText = string.Format("DROP TABLE {0}",
-                    tempTable);
-                cmd.ExecuteNonQuery();
-            } catch (SqlException e) {
-                throw new System.Exception(
-                    "Could not clean up intermediate table", e);
-            }
+        using (SqlCommand cmd = con.CreateCommand())
+        try {
+            cmd.CommandText = string.Format("DROP TABLE {0}",
+                tempTable);
+            cmd.ExecuteNonQuery();
+        } catch (SqlException e) {
+            throw new System.Exception(
+                "Could not clean up intermediate table", e);
         }
     }
 
@@ -270,21 +268,20 @@ public class SqlSuckerProc
 
     private static void ValidateOutputTable(SqlConnection con, string outTable)
     {
-        using (SqlCommand cmd = con.CreateCommand()) {
-            try {
-                // Get a column list in the output table
-                cmd.CommandText = string.Format(
-                    "SELECT * FROM {0} WHERE 1=2", outTable);
+        using (SqlCommand cmd = con.CreateCommand())
+        try {
+            // Get a column list in the output table
+            cmd.CommandText = string.Format("SELECT * FROM {0} WHERE 1=2",
+                outTable);
 
-                using (SqlDataReader reader = cmd.ExecuteReader()) {
-                    if (reader.FieldCount != 1 || reader.GetName(0) != "_") {
-                        throw new System.Exception(
-                            "Output table has incorrect schema");
-                    }
+            using (SqlDataReader reader = cmd.ExecuteReader()) {
+                if (reader.FieldCount != 1 || reader.GetName(0) != "_") {
+                    throw new System.Exception(
+                        "Output table has incorrect schema");
                 }
-            } catch (SqlException e) {
-                throw new System.Exception("Error with output table", e);
             }
+        } catch (SqlException e) {
+            throw new System.Exception("Error with output table", e);
         }
     }
 }
