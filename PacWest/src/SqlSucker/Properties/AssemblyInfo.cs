@@ -161,6 +161,8 @@ public class SqlSuckerProc
 
             outCmd.CommandText = insertCmdStr.ToString();
 
+            // If this throws, the most likely culprit is one (or more) of the
+            // SqlParameters being generated incorrectly in GenerateSchema()
             outCmd.Prepare();
 
             do {
@@ -263,14 +265,24 @@ public class SqlSuckerProc
                 paramList[i].SqlDbType = (SqlDbType)System.Enum.Parse(typeof(SqlDbType),
                     (string)col["DataTypeName"], true);
                 paramList[i].Direction = ParameterDirection.Input;
+
+                // So the story behind the rest of these is that they don't
+                // really have to be set for all data types, but it seems
+                // exceedingly horrible to exhaustively figure out which
+                // situations they're required for. Instead, we try to set
+                // them and ignore if it doesn't work. If something went wrong
+                // that matters, outCmd.Prepare() will throw in CopyReader()
+                // anyway.
                 try {
                     paramList[i].Size = (int)col["ColumnSize"];
                 } catch {}
                 try {
-                    paramList[i].Precision = (byte)((System.Int16)col["NumericPrecision"]);
+                    paramList[i].Precision =
+                        (byte)((System.Int16)col["NumericPrecision"]);
                 } catch {}
                 try {
-                    paramList[i].Scale = (byte)((System.Int16)col["NumericScale"]);
+                    paramList[i].Scale =
+                        (byte)((System.Int16)col["NumericScale"]);
                 } catch {}
 
                 first = false;
