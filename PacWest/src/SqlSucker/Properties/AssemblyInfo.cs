@@ -240,8 +240,10 @@ public class SqlSuckerProc
                 System.Type dt =
                     (System.Type)col["ProviderSpecificDataType"];
 
+                bool isLong = (bool)col["IsLong"];
+
                 if (dt == typeof(SqlString) || dt == typeof(SqlBinary)) {
-                    if ((bool)col["IsLong"]) {
+                    if (isLong) {
                         typeParams = "(max)";
                     } else {
                         typeParams = string.Format("({0})",
@@ -262,8 +264,32 @@ public class SqlSuckerProc
                 SqlContext.Pipe.Send(col["ColumnName"].ToString()+" "+col["DataTypeName"]);
                 paramList[i] = new SqlParameter();
                 paramList[i].ParameterName = string.Format("@col{0}", i);
-                paramList[i].SqlDbType = (SqlDbType)System.Enum.Parse(typeof(SqlDbType),
-                    (string)col["DataTypeName"], true);
+
+                SqlDbType dbt = (SqlDbType)System.Enum.Parse(typeof(SqlDbType),
+                        (string)col["DataTypeName"], true);
+                if (isLong) {
+                    // Clearly, when we have a long type, the SQL server should
+                    // keep calling it one thing, while we use a different enum
+                    // value for SqlParameter. Anything else would just make
+                    // too much sense!
+                    switch (dbt) {
+                    case SqlDbType.NVarChar:
+                        paramList[i].SqlDbType = SqlDbType.NText;
+                        break;
+                    case SqlDbType.VarChar:
+                        paramList[i].SqlDbType = SqlDbType.Text;
+                        break;
+                    case SqlDbType.VarBinary:
+                        paramList[i].SqlDbType = SqlDbType.Image;
+                        break;
+                    default:
+                        throw new System.Exception(string.Format(
+                            "Unknown long column type {0} detected",
+                            col["DataTypeName"]));
+                    }
+                } else {
+                    paramList[i].SqlDbType = dbt;
+                }
                 paramList[i].Direction = ParameterDirection.Input;
 
                 // So the story behind the rest of these is that they don't
@@ -274,7 +300,14 @@ public class SqlSuckerProc
                 // that matters, outCmd.Prepare() will throw in CopyReader()
                 // anyway.
                 try {
-                    paramList[i].Size = (int)col["ColumnSize"];
+                    // XXX: Apparently long datatypes set ColumnSize to 2^31-1.
+                    // This is fine for varchar and binary, but nvarchar needs
+                    // it to be 2^30-1. So hack around that.
+                    if (isLong && dbt == SqlDbType.NVarChar) {
+                        paramList[i].Size = (1 << 30) - 1;
+                    } else {
+                        paramList[i].Size = (int)col["ColumnSize"];
+                    }
                 } catch {}
                 try {
                     paramList[i].Precision =
