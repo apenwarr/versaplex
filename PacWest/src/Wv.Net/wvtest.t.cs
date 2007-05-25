@@ -54,5 +54,39 @@ public class WvTestTest
 	    WVPASSEQ(t.TotalSeconds, 7*24*60*60);
 	    WVPASSEQ(t.Minutes, 0);
 	}
-	
+
+	void throw_exception()
+	{
+	    throw new System.Exception("Exception thrown");
+	}
+	void no_throw_exception()
+	{
+	    return;
+	}
+
+	[Test] public void test_exceptions()
+	{
+	    bool caught = false;
+
+	    try {
+		WVEXCEPT(throw_exception());
+	    } catch (NUnit.Framework.AssertionException e) {
+		throw e;
+	    } catch (System.Exception e) {
+		caught = true;
+	    }
+
+	    WVPASS(caught);
+
+	    caught = false;
+
+	    System.Console.WriteLine("Ignore next failure: it is expected");
+	    try {
+		WVEXCEPT(no_throw_exception());
+	    } catch (NUnit.Framework.AssertionException e) {
+		caught = true;
+	    }
+
+	    WVPASS(caught);
+	}
 }
