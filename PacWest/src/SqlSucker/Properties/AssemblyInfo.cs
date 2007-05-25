@@ -86,7 +86,7 @@ public class SqlSuckerProc
             ctxConCmd.CommandText = SQL.ToString();
 
             using (SqlDataReader reader = ctxConCmd.ExecuteReader()) {
-                if (!reader.HasRows || reader.FieldCount <= 0) {
+                if (reader.FieldCount <= 0) {
                     throw new System.Exception(
                         "Query returned no usable results");
                 }
