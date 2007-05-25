@@ -6,10 +6,10 @@ all: $(DLL)
 
 SHELL=/bin/bash
 WVPATH=../../Wv.Net
-CPP=cc -E
 # cc -E tries to guess by extension what to do with the file.
-# Override that for C# (.cs files).
-CSCPP=$(CPP) -x c
+# And it does other weird things. cpp seems to Just Work(tm), so use that for
+# our C# (.cs) files
+CSCPP=cpp
 CPPFLAGS=-I$(WVPATH)
 
 CSFLAGS=-warn:4 -debug
