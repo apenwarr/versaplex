@@ -34,9 +34,10 @@ include $(patsubst %.cs.E,%.d,$(filter %.cs.E,$(FILES)))
 
 %.cs.E: %.cs
 	@rm -f $@
-	set -o pipefail; $(CSCPP) $(CPPFLAGS) -C -P -dI $< \
+	set -o pipefail; $(CSCPP) $(CPPFLAGS) -C -dI $< \
 		| expand -8 \
 		| sed -e 's,^#include,//#include,' \
+		| grep -v '^# [0-9]' \
 		>$@ || (rm -f $@ && exit 1)
 
 $(DLL): $(FILES) wv.dll
