@@ -5,6 +5,11 @@ namespace Wv.Test
 {
     public class WvTest
     {
+	public static bool booleanize(bool x)
+	{
+	    return x;
+	}
+
 	public static bool booleanize(long x)
 	{
 	    return x != 0;
@@ -28,6 +33,12 @@ namespace Wv.Test
 	    System.Console.Out.Flush();
 	    Assert.IsTrue(cond, String.Format("{0}:{1} {2}", file, line, s));
 	    return cond;
+	}
+
+	public static void test_exception(string file, int line, string s)
+	{
+	    System.Console.Out.WriteLine("! {0}:{1,-5} {2,-40} {3}",
+					 file, line, s, "EXCEPTION");
 	}
 	
 	public static bool test_eq(long cond1, long cond2,
