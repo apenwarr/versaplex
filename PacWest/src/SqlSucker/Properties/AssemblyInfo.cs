@@ -258,13 +258,16 @@ public class SqlSuckerProc
                     col["ColumnName"].ToString().Replace("]", "]]"),
                     col["DataTypeName"], typeParams);
 
-                // This makes me cry, but if there is actually a better way to
-                // do this, it's hard to find. Extra crying for the try/catches
-                // with empty catch blocks.
-                SqlContext.Pipe.Send(col["ColumnName"].ToString()+" "+col["DataTypeName"]);
+		if (sendDebugInfo)
+		    SqlContext.Pipe.Send(col["ColumnName"].ToString()+" "
+			    +col["DataTypeName"]);
+
                 paramList[i] = new SqlParameter();
                 paramList[i].ParameterName = string.Format("@col{0}", i);
 
+                // This makes me cry, but if there is actually a better way to
+                // do this, it's hard to find. Extra crying for the try/catches
+                // with empty catch blocks.
                 SqlDbType dbt = (SqlDbType)System.Enum.Parse(typeof(SqlDbType),
                         (string)col["DataTypeName"], true);
                 if (isLong) {
@@ -275,12 +278,18 @@ public class SqlSuckerProc
                     switch (dbt) {
                     case SqlDbType.NVarChar:
                         paramList[i].SqlDbType = SqlDbType.NText;
+			break;
+		    case SqlDbType.NText:
                         break;
                     case SqlDbType.VarChar:
                         paramList[i].SqlDbType = SqlDbType.Text;
+			break;
+		    case SqlDbType.Text:
                         break;
                     case SqlDbType.VarBinary:
                         paramList[i].SqlDbType = SqlDbType.Image;
+			break;
+		    case SqlDbType.Image:
                         break;
                     default:
                         throw new System.Exception(string.Format(
