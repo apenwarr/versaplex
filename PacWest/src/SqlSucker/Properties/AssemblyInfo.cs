@@ -230,66 +230,61 @@ public class SqlSuckerProc
             bool first = true;
 
             foreach (DataRowView col in schema.DefaultView) {
-                if (!first) {
-                    colDefs.Append(", ");
-                }
-
-                string typeParams = "";
-
-                // Ew. Gross.
-                System.Type dt =
-                    (System.Type)col["ProviderSpecificDataType"];
-
                 bool isLong = (bool)col["IsLong"];
 
-                if (dt == typeof(SqlString) || dt == typeof(SqlBinary)) {
-                    if (isLong) {
-                        typeParams = "(max)";
-                    } else {
-                        typeParams = string.Format("({0})",
-                            col["ColumnSize"]);
-                    }
-                } else if (dt == typeof(SqlDecimal)) {
-                    typeParams = string.Format("({0},{1})",
-                        col["NumericPrecision"], col["NumericScale"]);
-                }
-
-                colDefs.AppendFormat("[{0}] {1}{2}",
-                    col["ColumnName"].ToString().Replace("]", "]]"),
-                    col["DataTypeName"], typeParams);
-
-		if (sendDebugInfo)
-		    SqlContext.Pipe.Send(col["ColumnName"].ToString()+" "
-			    +col["DataTypeName"]);
-
+                // First set up the parameter list entry; keep the parsed enum
+                // around so that we can use it later.
                 paramList[i] = new SqlParameter();
                 paramList[i].ParameterName = string.Format("@col{0}", i);
 
                 // This makes me cry, but if there is actually a better way to
                 // do this, it's hard to find. Extra crying for the try/catches
                 // with empty catch blocks.
+                string dbtStr = (string)col["DataTypeName"];
+                
+                if (dbtStr.ToLower() == "sql_variant") {
+                    // The parse-the-string-as-enum-value trick works except
+                    // that sql_variant becomes Variant. Close. However,
+                    // sql_variant types seem to be difficult to handle
+                    // properly and thus are not supported.
+                    throw new System.Exception("Columns of type sql_variant "
+                        + "are not supported by SqlSucker at this time");
+                }
+
                 SqlDbType dbt = (SqlDbType)System.Enum.Parse(typeof(SqlDbType),
-                        (string)col["DataTypeName"], true);
+                        dbtStr, true);
+
+                switch (dbt) {
+                case SqlDbType.Timestamp:
+                    // Timestamp columns can not have a value explicitly set
+                    // into them, so they can't be copied and thus are not
+                    // supported (if necessary, perhaps it could be converted
+                    // into a datetime?)
+                    throw new System.Exception("Columns of type timestamp "
+                        + "are not supported by SqlSucker at this time");
+                }
+
                 if (isLong) {
                     // Clearly, when we have a long type, the SQL server should
                     // keep calling it one thing, while we use a different enum
-                    // value for SqlParameter. Anything else would just make
-                    // too much sense!
+                    // value for SqlParameter (with the name of a deprecated
+                    // data type!). Anything else would just make too much
+                    // sense!
                     switch (dbt) {
                     case SqlDbType.NVarChar:
+                    case SqlDbType.NText:
                         paramList[i].SqlDbType = SqlDbType.NText;
-			break;
-		    case SqlDbType.NText:
                         break;
                     case SqlDbType.VarChar:
+                    case SqlDbType.Text:
                         paramList[i].SqlDbType = SqlDbType.Text;
-			break;
-		    case SqlDbType.Text:
                         break;
                     case SqlDbType.VarBinary:
+                    case SqlDbType.Image:
                         paramList[i].SqlDbType = SqlDbType.Image;
-			break;
-		    case SqlDbType.Image:
+                        break;
+                    case SqlDbType.Xml:
+                        paramList[i].SqlDbType = SqlDbType.Xml;
                         break;
                     default:
                         throw new System.Exception(string.Format(
@@ -312,20 +307,74 @@ public class SqlSuckerProc
                     // XXX: Apparently long datatypes set ColumnSize to 2^31-1.
                     // This is fine for varchar and binary, but nvarchar needs
                     // it to be 2^30-1. So hack around that.
-                    if (isLong && dbt == SqlDbType.NVarChar) {
+                    if (dbt == SqlDbType.Xml) {
+                        // Um, this appears to magically work.
+                        paramList[i].Size = -1;
+                    } else if (isLong && dbt == SqlDbType.NVarChar) {
                         paramList[i].Size = (1 << 30) - 1;
                     } else {
                         paramList[i].Size = (int)col["ColumnSize"];
                     }
-                } catch {}
+                } catch { }
                 try {
                     paramList[i].Precision =
                         (byte)((System.Int16)col["NumericPrecision"]);
-                } catch {}
+                } catch { }
                 try {
                     paramList[i].Scale =
                         (byte)((System.Int16)col["NumericScale"]);
-                } catch {}
+                } catch { }
+
+                if (!first) {
+                    colDefs.Append(", ");
+                }
+
+                string typeParams = "";
+
+                // Ew. Gross.
+                System.Type dt =
+                    (System.Type)col["ProviderSpecificDataType"];
+
+                if (dt == typeof(SqlString) || dt == typeof(SqlBinary)) {
+                    if (isLong) {
+                        switch (dbt) {
+                        case SqlDbType.Image:
+                        case SqlDbType.NText:
+                        case SqlDbType.Text:
+                            // These are deprecated type names that are
+                            // identical to varbinary(max), nvarchar(max)
+                            // and varchar(max) (respectively), except that
+                            // you don't have to specify a size. In fact, if
+                            // you do, then it croaks with an error.
+                            break;
+                        default:
+                            typeParams = "(max)";
+                            break;
+                        }
+                    } else {
+                        switch (dbt) {
+                        case SqlDbType.Timestamp:
+                            // This is interpreted as a SqlBinary but it is
+                            // an error to specify a size.
+                            break;
+                        default:
+                            typeParams = string.Format("({0})",
+                                col["ColumnSize"]);
+                            break;
+                        }
+                    }
+                } else if (dt == typeof(SqlDecimal)) {
+                    typeParams = string.Format("({0},{1})",
+                        col["NumericPrecision"], col["NumericScale"]);
+                }
+
+                colDefs.AppendFormat("[{0}] {1}{2}",
+                    col["ColumnName"].ToString().Replace("]", "]]"),
+                    col["DataTypeName"], typeParams);
+
+                if (sendDebugInfo)
+		            SqlContext.Pipe.Send(col["ColumnName"].ToString()+" "
+			            +col["DataTypeName"]+" size "+col["ColumnSize"]);
 
                 first = false;
                 i++;
