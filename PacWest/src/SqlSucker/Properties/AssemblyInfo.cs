@@ -42,11 +42,15 @@ public class SqlSuckerProc
     private const string tempTable = "#SuckerTemp";
     // Set tempDatabase to null to use database name of context connection
     private const string tempDatabase = null;
+    // Name to use for output table's ordering column
+    private const string orderingColumn = "_";
+    // Name to use for input table's dummy column
+    private const string dummyColumn = "_";
 
     private const bool sendDebugInfo = false;
 
     [Microsoft.SqlServer.Server.SqlProcedure]
-    public static void SqlSucker(SqlString TableName, SqlString SQL)
+    public static void SqlSucker(SqlString TableName, SqlString SQL, bool ordered)
     {
         if (TableName.IsNull) {
             throw new System.Exception("Table name must not be null");
@@ -70,7 +74,7 @@ public class SqlSuckerProc
             ctxCon.Open();
 
             tmpCon.ConnectionString = string.Format(
-                "Server={0};UID={1};Password={2};Database={3}",
+                "Server={0};UID={1};Password={2};Database={3};enlist=false",
                 tempServer, tempUser, tempPassword,
                 tempDatabase == null ? ctxCon.Database : tempDatabase);
 
@@ -101,28 +105,26 @@ public class SqlSuckerProc
                 if (anyRows) {
                     tmpCon.Open();
 
-                    try {
-                        tmpConCmd.CommandText = string.Format(
-                            "CREATE TABLE {0} ({1})", tempTable, colDefs);
-                        tmpConCmd.ExecuteNonQuery();
-                    } catch (SqlException e) {
-                        throw new System.Exception(
-                            "Could not create intermediate table", e);
-                    }
-
+                    SetupTempTable(tmpCon, colDefs, ordered);
                     CopyReader(reader, tmpCon, tempTable, paramList);
                 }
             }
 
-            SetupOutTable(outTable, ctxCon, colDefs);
+            SetupOutTable(outTable, ctxCon, colDefs, ordered);
 
             if (!anyRows) {
                 // We're done because there's no data to copy
                 return;
             }
 
-            tmpConCmd.CommandText = string.Format(
-                "SELECT * FROM {0}", tempTable);
+            if (ordered) {
+                tmpConCmd.CommandText = string.Format(
+                    "SELECT * FROM {0} ORDER BY {1}", tempTable,
+                    orderingColumn);
+            } else {
+                tmpConCmd.CommandText = string.Format(
+                    "SELECT * FROM {0}", tempTable);
+            }
 
             using (SqlDataReader reader = tmpConCmd.ExecuteReader()) {
                 if (!reader.Read()) {
@@ -146,18 +148,17 @@ public class SqlSuckerProc
             System.Text.StringBuilder insertCmdStr =
                 new System.Text.StringBuilder();
 
-            insertCmdStr.AppendFormat(
-                "INSERT INTO {0} VALUES (@col0", outTable);
-            // There is always at least 1 column,
-            // so start loop at 1 instead of 0
-            for (int i = 1; i < reader.FieldCount; i++) {
-                insertCmdStr.AppendFormat(", @col{0}", i);
-            }
-            insertCmdStr.Append(")");
+            insertCmdStr.AppendFormat("INSERT INTO {0} VALUES (", outTable);
 
-            for (int i = 0; i < reader.FieldCount; i++) {
+            for (int i = 0; i < paramList.GetLength(0); i++) {
+                if (i > 0)
+                    insertCmdStr.Append(", ");
+
+                insertCmdStr.AppendFormat("@col{0}", i);
                 outCmd.Parameters.Add(paramList[i]);
             }
+
+            insertCmdStr.Append(")");
 
             outCmd.CommandText = insertCmdStr.ToString();
 
@@ -166,7 +167,7 @@ public class SqlSuckerProc
             outCmd.Prepare();
 
             do {
-                for (int i = 0; i < reader.FieldCount; i++) {
+                for (int i = 0; i < paramList.GetLength(0); i++) {
                     paramList[i].SqlValue = reader[i];
                 }
                 outCmd.ExecuteNonQuery();
@@ -183,7 +184,8 @@ public class SqlSuckerProc
         }
     }
 
-    private static void SetupOutTable(string outTable, SqlConnection con, string colDefs)
+    private static void SetupOutTable(string outTable, SqlConnection con,
+        string colDefs, bool ordered)
     {
         using (SqlCommand cmd = con.CreateCommand())
         try {
@@ -197,11 +199,40 @@ public class SqlSuckerProc
             cmd.ExecuteNonQuery();
 
             // Delete the dummy column
-            cmd.CommandText = string.Format("ALTER TABLE {0} DROP COLUMN _",
-                outTable);
+            cmd.CommandText = string.Format("ALTER TABLE {0} DROP COLUMN {1}",
+                outTable, dummyColumn);
             cmd.ExecuteNonQuery();
+
+            if (ordered)
+                AddOrderingColumn(con, outTable);
         } catch (SqlException e) {
             throw new System.Exception("Could not set up output table", e);
+        }
+    }
+
+    private static void AddOrderingColumn(SqlConnection con, string table)
+    {
+        using (SqlCommand cmd = con.CreateCommand()) {
+            cmd.CommandText = string.Format(
+                "ALTER TABLE {0} ADD {1} bigint IDENTITY NOT NULL PRIMARY KEY",
+                table, orderingColumn);
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    private static void SetupTempTable(SqlConnection con, string colDefs, bool ordered)
+    {
+        using (SqlCommand cmd = con.CreateCommand())
+        try {
+            cmd.CommandText = string.Format("CREATE TABLE {0} ({1})", tempTable,
+                colDefs);
+            cmd.ExecuteNonQuery();
+
+            if (ordered)
+                AddOrderingColumn(con, tempTable);
+        } catch (SqlException e) {
+            throw new System.Exception(
+                "Could not create intermediate table", e);
         }
     }
 
@@ -254,16 +285,6 @@ public class SqlSuckerProc
                 SqlDbType dbt = (SqlDbType)System.Enum.Parse(typeof(SqlDbType),
                         dbtStr, true);
 
-                switch (dbt) {
-                case SqlDbType.Timestamp:
-                    // Timestamp columns can not have a value explicitly set
-                    // into them, so they can't be copied and thus are not
-                    // supported (if necessary, perhaps it could be converted
-                    // into a datetime?)
-                    throw new System.Exception("Columns of type timestamp "
-                        + "are not supported by SqlSucker at this time");
-                }
-
                 if (isLong) {
                     // Clearly, when we have a long type, the SQL server should
                     // keep calling it one thing, while we use a different enum
@@ -272,24 +293,17 @@ public class SqlSuckerProc
                     // sense!
                     switch (dbt) {
                     case SqlDbType.NVarChar:
-                    case SqlDbType.NText:
                         paramList[i].SqlDbType = SqlDbType.NText;
                         break;
                     case SqlDbType.VarChar:
-                    case SqlDbType.Text:
                         paramList[i].SqlDbType = SqlDbType.Text;
                         break;
                     case SqlDbType.VarBinary:
-                    case SqlDbType.Image:
                         paramList[i].SqlDbType = SqlDbType.Image;
                         break;
-                    case SqlDbType.Xml:
-                        paramList[i].SqlDbType = SqlDbType.Xml;
-                        break;
                     default:
-                        throw new System.Exception(string.Format(
-                            "Unknown long column type {0} detected",
-                            col["DataTypeName"]));
+                        paramList[i].SqlDbType = dbt;
+                        break;
                     }
                 } else {
                     paramList[i].SqlDbType = dbt;
@@ -311,7 +325,7 @@ public class SqlSuckerProc
                         // Um, this appears to magically work.
                         paramList[i].Size = -1;
                     } else if (isLong && dbt == SqlDbType.NVarChar) {
-                        paramList[i].Size = (1 << 30) - 1;
+                        paramList[i].Size = ((int)col["ColumnSize"])/2;
                     } else {
                         paramList[i].Size = (int)col["ColumnSize"];
                     }
@@ -354,8 +368,8 @@ public class SqlSuckerProc
                     } else {
                         switch (dbt) {
                         case SqlDbType.Timestamp:
-                            // This is interpreted as a SqlBinary but it is
-                            // an error to specify a size.
+                            // This turns into a varbinary(8)
+                            typeParams = "(8)";
                             break;
                         default:
                             typeParams = string.Format("({0})",
@@ -368,13 +382,30 @@ public class SqlSuckerProc
                         col["NumericPrecision"], col["NumericScale"]);
                 }
 
+                if (col["ColumnName"].ToString().Length == 0) {
+                    throw new System.Exception(string.Format(
+                        "Result set column {0} needs to have a name",
+                        col["ColumnOrdinal"]));
+                }
+
+                // Magical special cases that need to be handled
+                switch (dbt) {
+                case SqlDbType.Timestamp:
+                    // timestamp is probably not what we actually want to use
+                    // in the results because it'll become a timestamp for the
+                    // new temporary table. Instead, store what the value was
+                    // in a varbinary(8) column (the 8 is set above).
+                    dbtStr = "varbinary";
+                    break;
+                }
+
                 colDefs.AppendFormat("[{0}] {1}{2}",
                     col["ColumnName"].ToString().Replace("]", "]]"),
-                    col["DataTypeName"], typeParams);
+                    dbtStr, typeParams);
 
                 if (sendDebugInfo)
 		            SqlContext.Pipe.Send(col["ColumnName"].ToString()+" "
-			            +col["DataTypeName"]+" size "+col["ColumnSize"]);
+			            +dbtStr+" size "+col["ColumnSize"]);
 
                 first = false;
                 i++;
@@ -393,7 +424,7 @@ public class SqlSuckerProc
                 outTable);
 
             using (SqlDataReader reader = cmd.ExecuteReader()) {
-                if (reader.FieldCount != 1 || reader.GetName(0) != "_") {
+                if (reader.FieldCount != 1 || reader.GetName(0) != dummyColumn) {
                     throw new System.Exception(
                         "Output table has incorrect schema");
                 }
