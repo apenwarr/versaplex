@@ -70,10 +70,16 @@ public class SqlSuckerTest
 
     bool RunSucker(string table, string query)
     {
+        return RunSucker(table, query, false);
+    }
+
+    bool RunSucker(string table, string query, bool ordered)
+    {
 	Exec(string.Format(
-		    "EXEC SqlSucker '{0}', '{1}'",
+		    "EXEC SqlSucker '{0}', '{1}', {2}",
 		    table.Replace("'", "''"),
-		    query.Replace("'", "''")));
+		    query.Replace("'", "''"),
+                    ordered));
 	return true;
     }
 
@@ -98,8 +104,13 @@ public class SqlSuckerTest
 	    cmd.Dispose();
 	cmd = null;
 
-	if (con != null)
+	if (con != null) {
+            try {
+                WVASSERT(Exec("DROP TABLE #suckout"));
+            } catch { }
+
 	    con.Dispose();
+        }
 	con = null;
     }
 
@@ -126,10 +137,13 @@ public class SqlSuckerTest
 	    DataRow schemaRow = schema.Rows[0];
 	    WVPASSEQ((string)schemaRow["ColumnName"], "testcol");
 	    WVPASSEQ(schemaRow["DataType"], typeof(System.Int32));
+
+            WVFAIL(reader.Read());
+            WVFAIL(reader.NextResult());
 	}
     }
 
-    [Test, Category("Sanity")]
+    [Test, Category("Errors")]
     public void NonexistantTable()
     {
 	// Check that a nonexistant output table throws an error
@@ -149,7 +163,7 @@ public class SqlSuckerTest
 	// something.
     }
 
-    [Test, Category("Sanity")]
+    [Test, Category("Errors")]
     public void BadSchemaTable()
     {
 	// Check that an output table with bad schema throws an error
@@ -177,7 +191,7 @@ public class SqlSuckerTest
 	}
     }
 
-    [Test, Category("Sanity")]
+    [Test, Category("Pedantic")]
     public void OutputNotEmpty()
     {
 	// Check that if an output table is non-empty that its contents are
@@ -211,10 +225,9 @@ public class SqlSuckerTest
 	    "decimal(18, 0)", "float", "image", "int", "money", "nchar(10)",
 	    "ntext", "numeric(18, 0)", "nvarchar(50)", "nvarchar(MAX)", "real",
 	    "smalldatetime", "smallint", "smallmoney", "text",
-	    "tinyint", "uniqueidentifier", "varbinary(50)",
+            "timestamp", "tinyint", "uniqueidentifier", "varbinary(50)",
 	    "varbinary(MAX)", "varchar(50)", "varchar(MAX)", "xml",
-            // , "sql_variant" // this is problematic, so it is unsupported
-            // , "timestamp" // this is problematic, so it is unsupported
+            // "sql_variant", // this is problematic, so it is unsupported
 
 	    // Plus a few more to mix up the parameters a bit, and providing
 	    // edge cases
@@ -267,8 +280,13 @@ public class SqlSuckerTest
 		// This one shouldn't be casted to IComparable or it doesn't
 		// work
 		WVPASSEQ(colInfo[0]["DataType"], colInfo[1]["DataType"]);
-		WVPASSEQ((IComparable)colInfo[0]["ProviderType"],
-			(IComparable)colInfo[1]["ProviderType"]);
+                // Timestamp gets converted into a varbinary(8), so there's
+                // some discrepancy here. Ignore it (other tests make sure
+                // that timestamp is handled properly).
+                if (colType != "timestamp") {
+                    WVPASSEQ((IComparable)colInfo[0]["ProviderType"],
+                            (IComparable)colInfo[1]["ProviderType"]);
+                }
 		WVPASSEQ((IComparable)colInfo[0]["IsLong"],
 			(IComparable)colInfo[1]["IsLong"]);
 	    }
@@ -276,6 +294,80 @@ public class SqlSuckerTest
 	    WVASSERT(Exec("DROP TABLE #test1out"));
 	    WVASSERT(Exec("DROP TABLE #test1"));
 	}
+    }
+
+    [Test, Category("Errors")]
+    public void EmptyColumnName()
+    {
+	// Check that a query with a missing column name throws an error
+	
+        try {
+            WVEXCEPT(RunSucker("#suckout", "SELECT 1"));
+        } catch (NUnit.Framework.AssertionException e) {
+            throw e;
+        } catch (System.Exception e) {
+            WVPASS(e is SqlException);
+        }
+
+        // The failed run shouldn't have modified #suckout, so this should work
+        WVASSERT(RunSucker("#suckout", "SELECT 1 as foo"));
+
+	SqlDataReader reader;
+	WVASSERT(Reader("SELECT * FROM #suckout", out reader));
+	using (reader)
+	using (DataTable schema = reader.GetSchemaTable()) {
+	    WVPASSEQ(reader.FieldCount, 1);
+	    WVPASSEQ(schema.Rows.Count, 1);
+
+	    DataRow schemaRow = schema.Rows[0];
+	    WVPASSEQ((string)schemaRow["ColumnName"], "foo");
+
+            WVPASS(reader.Read());
+            WVPASSEQ((int)reader["foo"], 1);
+
+            WVFAIL(reader.Read());
+            WVFAIL(reader.NextResult());
+	}
+    }
+
+    [Test]
+    public void RowOrdering()
+    {
+        // If these are all prime then the permutation is guaranteed to work
+        // without any duplicates (I think it actually works as long as numElems
+        // is coprime with the other two, but making them all prime is safe)
+        const int numElems = 101;
+        const int prime1 = 47;
+        const int prime2 = 53;
+
+	WVASSERT(Exec("CREATE TABLE #test1 (seq int NOT NULL, "
+                    + "num int NOT NULL)"));
+
+        // j will be a permutation of 0..numElems without resorting to random
+        // numbers, while making sure that we're not inserting in sorted order.
+        for (int i=0, j=0; i < numElems; i++, j = (i*prime1) % numElems) {
+            // This inserts 0..numElems into seq (in a permuted order), with
+            // 0..numElems in num, but permuted in a different order.
+            Exec(string.Format("INSERT INTO #test1 VALUES ({0}, {1})", j, 
+                        (j*prime2) % numElems));
+        }
+
+        WVASSERT(RunSucker("#suckout", "SELECT num from #test1 ORDER BY seq",
+                    true));
+
+        SqlDataReader reader;
+        WVASSERT(Reader("SELECT num FROM #suckout ORDER BY _", out reader));
+
+        using (reader) {
+            for (int i=0; i < numElems; i++) {
+                WVASSERT(reader.Read());
+                WVPASSEQ((int)reader["num"], (i*prime2) % numElems);
+            }
+
+            WVFAIL(reader.Read());
+        }
+
+        WVASSERT(Exec("DROP TABLE #test1"));
     }
 }
 
