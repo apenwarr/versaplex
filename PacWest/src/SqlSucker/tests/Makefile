@@ -43,7 +43,7 @@ include $(patsubst %.cs.E,%.d,$(filter %.cs.E,$(FILES)))
 $(DLL): $(FILES) wv.dll
 	gmcs $(PKGS) $(CSFLAGS) -target:library -out:$@ $(filter %.cs.E %.cs,$^)
 
-wv.dll:
+wv.dll: $(WVPATH)/wv.dll
 	rm -f $@
 	ln -s $(WVPATH)/wv.dll wv.dll
 	test -f wv.dll
