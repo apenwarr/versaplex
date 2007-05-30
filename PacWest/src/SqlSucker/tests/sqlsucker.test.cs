@@ -5,6 +5,7 @@ using System.Data;
 using System.Data.SqlClient;
 using NUnit.Framework;
 using Wv.Test;
+using Wv.Utils;
 
 namespace SqlSucker.Test
 {
@@ -81,6 +82,40 @@ public class SqlSuckerTest
 		    query.Replace("'", "''"),
                     ordered));
 	return true;
+    }
+
+    bool Insert(string table, params object [] param)
+    {
+        Console.WriteLine(" + Insert to {0} ({1})", table, String.Join(", ",
+                    wv.stringify(param)));
+
+        System.Text.StringBuilder query = new System.Text.StringBuilder();
+        query.AppendFormat("INSERT INTO [{0}] VALUES (",
+                table.Replace("]","]]"));
+
+        using (SqlCommand insCmd = con.CreateCommand()) {
+            for (int i=0; i < param.Length; i++) {
+                if (i > 0)
+                    query.Append(", ");
+
+                if (param[i] is DBNull) {
+                    query.Append("NULL");
+                } else {
+                    string paramName = string.Format("@col{0}", i);
+
+                    query.Append(paramName);
+                    insCmd.Parameters.Add(new SqlParameter(paramName,
+                                param[i]));
+                }
+            }
+
+            query.Append(")");
+            insCmd.CommandText = query.ToString();
+
+            insCmd.ExecuteNonQuery();
+        }
+
+        return true;
     }
 
     [SetUp]
@@ -199,8 +234,8 @@ public class SqlSuckerTest
 	
 	WVASSERT(Exec("CREATE TABLE #test1 (testcol int not null)"));
 
-	WVASSERT(Exec("INSERT INTO #suckout VALUES (1)"));
-	WVASSERT(Exec("INSERT INTO #suckout VALUES (2)"));
+	WVASSERT(Insert("#suckout", 1));
+	WVASSERT(Insert("#suckout", 2));
 
 	object result;
 
@@ -242,7 +277,7 @@ public class SqlSuckerTest
 	    WVASSERT(Exec(string.Format("CREATE TABLE #test1 (testcol {0})",
 			    colType)));
 	    // This makes sure it runs the prepare statement
-	    WVASSERT(Exec("INSERT INTO #test1 VALUES (NULL)"));
+	    WVASSERT(Insert("#test1", DBNull.Value));
 
 	    WVASSERT(SetupOutputTable("#test1out"));
 
@@ -330,9 +365,12 @@ public class SqlSuckerTest
 	}
     }
 
-    [Test]
+    [Test, Category("Data")]
     public void RowOrdering()
     {
+        // Make sure that data comes out in the right order when ordering is
+        // requested from SqlSucker
+
         // If these are all prime then the permutation is guaranteed to work
         // without any duplicates (I think it actually works as long as numElems
         // is coprime with the other two, but making them all prime is safe)
@@ -348,15 +386,15 @@ public class SqlSuckerTest
         for (int i=0, j=0; i < numElems; i++, j = (i*prime1) % numElems) {
             // This inserts 0..numElems into seq (in a permuted order), with
             // 0..numElems in num, but permuted in a different order.
-            Exec(string.Format("INSERT INTO #test1 VALUES ({0}, {1})", j, 
-                        (j*prime2) % numElems));
+            Insert("#test1", j, (j*prime2) % numElems);
         }
 
-        WVASSERT(RunSucker("#suckout", "SELECT num from #test1 ORDER BY seq",
-                    true));
+        WVASSERT(RunSucker("#suckout",
+                    "SELECT num from #test1 ORDER BY seq DESC", true));
 
         SqlDataReader reader;
-        WVASSERT(Reader("SELECT num FROM #suckout ORDER BY _", out reader));
+        WVASSERT(Reader("SELECT num FROM #suckout ORDER BY _ DESC",
+                    out reader));
 
         using (reader) {
             for (int i=0; i < numElems; i++) {
@@ -368,6 +406,312 @@ public class SqlSuckerTest
         }
 
         WVASSERT(Exec("DROP TABLE #test1"));
+    }
+
+    [Test, Category("Schema")]
+    public void ColumnOrdering()
+    {
+        // Make a bunch of columns and check that they come back in the right
+        // order
+
+        // For an explanation about the permutation stuff here, see the
+        // RowOrdering test, above
+        const int numCols = 101;
+        const int numSelected = 83;
+        const int prime1 = 47;
+        const int prime2 = 53;
+
+        System.Text.StringBuilder query = new System.Text.StringBuilder(
+                "CREATE TABLE #test1 (");
+
+        for (int i=0, j=0; i < numCols; i++, j = (i*prime1) % numCols) {
+            if (i > 0)
+                query.Append(", ");
+
+            query.AppendFormat("col{0} int", j);
+        }
+
+        query.Append(")");
+
+        WVASSERT(Exec(query.ToString()));
+
+        query = new System.Text.StringBuilder("SELECT ");
+
+        // Don't select all of them, in case that makes a difference. But still
+        // select from the entire range (as opposed to the first few), so still
+        // mod by numCols instead of numSelected.
+        for (int i=0, j=0; i < numSelected; i++, j = (i*prime2) % numCols) {
+            if (i > 0)
+                query.Append(", ");
+
+            query.AppendFormat("col{0}", j);
+        }
+        query.Append(" FROM #test1");
+
+        WVASSERT(RunSucker("#suckout", query.ToString()));
+
+        SqlDataReader reader;
+        WVASSERT(Reader("SELECT * FROM #suckout", out reader));
+
+        using (reader) {
+            WVPASSEQ(reader.FieldCount, numSelected);
+
+            for (int i=0; i < numSelected; i++) {
+                WVPASSEQ((string)reader.GetName(i),
+                        string.Format("col{0}", (i*prime2) % numCols));
+            }
+
+            WVFAIL(reader.Read());
+        }
+
+        WVASSERT(Exec("DROP TABLE #test1"));
+    }
+
+    [Test, Category("Data")]
+    public void VerifyIntegers()
+    {
+        // bigint, int, smallint, tinyint
+        // Insert 6 rows: max, 10, 0, -10, min, nulls (except tinyint is
+        // unsigned so it has 0 again instead of -10)
+        // Then check that they were copied correctly
+        // Assume that the schema of the output table is correct (tested
+        // elsewhere)
+
+        WVASSERT(Exec("CREATE TABLE #test1 (bi bigint, i int, si smallint, "
+                    + "ti tinyint, roworder int not null)"));
+
+        WVASSERT(Insert("#test1", Int64.MaxValue, Int32.MaxValue,
+                    Int16.MaxValue, Byte.MaxValue, 1));
+        WVASSERT(Insert("#test1", 10, 10, 10, 10, 2));
+        WVASSERT(Insert("#test1", 0, 0, 0, 0, 3));
+        WVASSERT(Insert("#test1", -10, -10, -10, 0, 4));
+        WVASSERT(Insert("#test1", Int64.MinValue, Int32.MinValue,
+                    Int16.MinValue, Byte.MinValue, 5));
+        WVASSERT(Insert("#test1", DBNull.Value, DBNull.Value, DBNull.Value,
+                    DBNull.Value, 6));
+
+        WVASSERT(RunSucker("#suckout", "SELECT * FROM #test1"));
+
+        WVASSERT(Exec("DROP TABLE #test1"));
+
+        SqlDataReader reader;
+        WVASSERT(Reader("SELECT bi,i,si,ti FROM #suckout ORDER BY roworder",
+                    out reader));
+
+        using (reader) {
+            WVASSERT(reader.Read());
+            WVPASSEQ(reader.GetInt64(0), Int64.MaxValue);
+            WVPASSEQ(reader.GetInt32(1), Int32.MaxValue);
+            WVPASSEQ(reader.GetInt16(2), Int16.MaxValue);
+            WVPASSEQ(reader.GetByte(3), Byte.MaxValue);
+
+            WVASSERT(reader.Read());
+            WVPASSEQ(reader.GetInt64(0), 10);
+            WVPASSEQ(reader.GetInt32(1), 10);
+            WVPASSEQ(reader.GetInt16(2), 10);
+            WVPASSEQ(reader.GetByte(3), 10);
+
+            WVASSERT(reader.Read());
+            WVPASSEQ(reader.GetInt64(0), 0);
+            WVPASSEQ(reader.GetInt32(1), 0);
+            WVPASSEQ(reader.GetInt16(2), 0);
+            WVPASSEQ(reader.GetByte(3), 0);
+
+            WVASSERT(reader.Read());
+            WVPASSEQ(reader.GetInt64(0), -10);
+            WVPASSEQ(reader.GetInt32(1), -10);
+            WVPASSEQ(reader.GetInt16(2), -10);
+            WVPASSEQ(reader.GetByte(3), 0);
+
+            WVASSERT(reader.Read());
+            WVPASSEQ(reader.GetInt64(0), Int64.MinValue);
+            WVPASSEQ(reader.GetInt32(1), Int32.MinValue);
+            WVPASSEQ(reader.GetInt16(2), Int16.MinValue);
+            WVPASSEQ(reader.GetByte(3), Byte.MinValue);
+
+            WVASSERT(reader.Read());
+            WVPASS(reader.IsDBNull(0));
+            WVPASS(reader.IsDBNull(1));
+            WVPASS(reader.IsDBNull(2));
+            WVPASS(reader.IsDBNull(3));
+
+            WVFAIL(reader.Read());
+        }
+    }
+
+    [Test, Category("Data")]
+    [Ignore("Not done")]
+    public void VerifyBinary()
+    {
+    }
+
+    [Test, Category("Data")]
+    public void VerifyBit()
+    {
+        // bit
+        // Insert 3 rows: true, false, null
+        // Then check that they were copied correctly
+        // Assume that the schema of the output table is correct (tested
+        // elsewhere)
+
+        WVASSERT(Exec("CREATE TABLE #test1 (b bit, roworder int not null)"));
+
+        WVASSERT(Insert("#test1", true, 1));
+        WVASSERT(Insert("#test1", false, 2));
+        WVASSERT(Insert("#test1", DBNull.Value, 3));
+
+        WVASSERT(RunSucker("#suckout", "SELECT * FROM #test1"));
+
+        WVASSERT(Exec("DROP TABLE #test1"));
+
+        SqlDataReader reader;
+        WVASSERT(Reader("SELECT b FROM #suckout ORDER BY roworder",
+                    out reader));
+
+        using (reader) {
+            WVASSERT(reader.Read());
+            WVPASSEQ(reader.GetBoolean(0), true);
+
+            WVASSERT(reader.Read());
+            WVPASSEQ(reader.GetBoolean(0), false);
+
+            WVASSERT(reader.Read());
+            WVPASS(reader.IsDBNull(0));
+
+            WVFAIL(reader.Read());
+        }
+    }
+
+    [Test, Category("Data")]
+    [Ignore("Not done")]
+    public void VerifyChar()
+    {
+    }
+
+    [Test, Category("Data")]
+    [Ignore("Not done")]
+    public void VerifyDateTime()
+    {
+    }
+
+    [Test, Category("Data")]
+    [Ignore("Not done")]
+    public void VerifyDecimal()
+    {
+    }
+
+    [Test, Category("Data")]
+    [Ignore("Not done")]
+    public void VerifyFloat()
+    {
+    }
+
+    [Test, Category("Data")]
+    [Ignore("Not done")]
+    public void VerifyImage()
+    {
+    }
+
+    [Test, Category("Data")]
+    [Ignore("Not done")]
+    public void VerifyMoney()
+    {
+    }
+
+    [Test, Category("Data")]
+    [Ignore("Not done")]
+    public void VerifyNChar()
+    {
+    }
+
+    [Test, Category("Data")]
+    [Ignore("Not done")]
+    public void VerifyNText()
+    {
+    }
+
+    [Test, Category("Data")]
+    [Ignore("Not done")]
+    public void VerifyNumeric()
+    {
+    }
+
+    [Test, Category("Data")]
+    [Ignore("Not done")]
+    public void VerifyNVarCharMax()
+    {
+    }
+
+    [Test, Category("Data")]
+    [Ignore("Not done")]
+    public void VerifyNVarChar()
+    {
+    }
+
+    [Test, Category("Data")]
+    [Ignore("Not done")]
+    public void VerifyReal()
+    {
+    }
+
+    [Test, Category("Data")]
+    [Ignore("Not done")]
+    public void VerifySmallDateTime()
+    {
+    }
+
+    [Test, Category("Data")]
+    [Ignore("Not done")]
+    public void VerifySmallMoney()
+    {
+    }
+
+    [Test, Category("Data")]
+    [Ignore("Not done")]
+    public void VerifyText()
+    {
+    }
+
+    [Test, Category("Data")]
+    [Ignore("Not done")]
+    public void VerifyTimestamp()
+    {
+    }
+
+    [Test, Category("Data")]
+    [Ignore("Not done")]
+    public void VerifyUniqueIdentifier()
+    {
+    }
+
+    [Test, Category("Data")]
+    [Ignore("Not done")]
+    public void VerifyVarBinary()
+    {
+    }
+
+    [Test, Category("Data")]
+    [Ignore("Not done")]
+    public void VerifyVarBinaryMax()
+    {
+    }
+
+    [Test, Category("Data")]
+    [Ignore("Not done")]
+    public void VerifyVarChar()
+    {
+    }
+
+    [Test, Category("Data")]
+    [Ignore("Not done")]
+    public void VerifyVarCharMax()
+    {
+    }
+
+    [Test, Category("Data")]
+    [Ignore("Not done")]
+    public void VerifyXML()
+    {
     }
 }
 
