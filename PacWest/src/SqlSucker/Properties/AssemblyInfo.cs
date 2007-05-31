@@ -168,7 +168,7 @@ public class SqlSuckerProc
 
             do {
                 for (int i = 0; i < paramList.GetLength(0); i++) {
-                    paramList[i].SqlValue = reader[i];
+                    paramList[i].SqlValue = reader.GetSqlValue(i);
                 }
                 outCmd.ExecuteNonQuery();
 
