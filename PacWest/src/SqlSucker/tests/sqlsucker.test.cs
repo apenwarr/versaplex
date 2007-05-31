@@ -3,6 +3,7 @@
 using System;
 using System.Data;
 using System.Data.SqlClient;
+using System.Data.SqlTypes;
 using NUnit.Framework;
 using Wv.Test;
 using Wv.Utils;
@@ -266,10 +267,10 @@ public class SqlSuckerTest
 
 	    // Plus a few more to mix up the parameters a bit, and providing
 	    // edge cases
-	    "numeric(1, 0)", "numeric(38, 18)", "numeric(1, 1)",
+	    "numeric(1, 0)", "numeric(38, 38)", "numeric(1, 1)",
 	    "numeric(38, 0)", "nvarchar(4000)", "nvarchar(1)",
 	    "varchar(8000)", "varchar(1)", "char(1)", "char(8000)",
-	    "nchar(1)", "nchar(4000)", "decimal(1, 0)", "decimal(38, 18)",
+	    "nchar(1)", "nchar(4000)", "decimal(1, 0)", "decimal(38, 38)",
 	    "decimal(1, 1)", "decimal(38, 0)", "binary(1)", "binary(8000)"
 	};
 
@@ -589,15 +590,230 @@ public class SqlSuckerTest
     }
 
     [Test, Category("Data")]
-    [Ignore("Not done")]
     public void VerifyDateTime()
     {
+        // datetime, smalldatetime
+        // Insert 7 rows: max, a date in the future, now, a date in the past,
+        // datetime epoch, min, null
+        //
+        // Then check that they were copied correctly
+        // Assume that the schema of the output table is correct (tested
+        // elsewhere)
+        //
+        // The actual dates don't really matter, but:
+        // - The date in the past is adewhurst's birthday (approximately, PST)
+        // - The date in the future is 1 second past the signed 32-bit overflow
+        //   of seconds since the unix epoch (UTC)
+        // - The datetime epoch is January 1 1900 at midnight
+        //
+        // Other notes:
+        // - The min/max values of SqlDateTime are supposed to correspond to the
+        //   min/max values of the SQL Server datetime type, except Mono doesn't
+        //   quite have the semantics right (at least, not as of 1.2.3.1, but
+        //   new versions may be better), so the min/max values are hard-coded
+        //   in instead.
+        // - All smalldatetime values are rounded down to the nearest minute,
+        //   since it only has per-minute granularity
+        
+        SqlDateTime epoch = new SqlDateTime(0, 0);
+        SqlDateTime smallMin = epoch;
+        SqlDateTime smallMax = new SqlDateTime(2079, 6, 6, 23, 59, 0, 0);
+
+        SqlDateTime dtMin = new SqlDateTime(1753, 1, 1, 0, 0, 0, 0);
+        // This is wrong, but mono seems to have trouble with the fractional
+        // parts.
+        SqlDateTime dtMax = new SqlDateTime(9999, 12, 31, 23, 59, 59, 0);
+
+        SqlDateTime pastDate = new SqlDateTime(1984, 12, 2, 3, 0, 0, 0);
+        SqlDateTime pastDateSmall = new SqlDateTime(1984, 12, 2, 3, 0, 0, 0);
+        SqlDateTime futureDate = new SqlDateTime(2038, 6, 19, 3, 14, 8, 0);
+        SqlDateTime futureDateSmall = new SqlDateTime(2038, 6, 19, 3, 14, 0, 0);
+
+        // Mono has difficulties converting DateTime to SqlDateTime directly, so
+        // take it down to per-second precision, which works reliably
+        DateTime now = DateTime.Now;
+        SqlDateTime sqlNow = new SqlDateTime(now.Year, now.Month, now.Day,
+                now.Hour, now.Minute, now.Second);
+        SqlDateTime sqlNowSmall = new SqlDateTime(now.Year, now.Month, now.Day,
+                now.Hour, now.Minute, 0);
+
+        WVASSERT(Exec("CREATE TABLE #test1 (dt datetime, sdt smalldatetime, "
+                    + "roworder int not null)"));
+
+        WVASSERT(Insert("#test1", dtMin, smallMin, 1));
+        WVASSERT(Insert("#test1", epoch, epoch, 2));
+        WVASSERT(Insert("#test1", pastDate, pastDateSmall, 3));
+        WVASSERT(Insert("#test1", sqlNow, sqlNowSmall, 4));
+        WVASSERT(Insert("#test1", futureDate, futureDateSmall, 5));
+        WVASSERT(Insert("#test1", dtMax, smallMax, 6));
+        WVASSERT(Insert("#test1", DBNull.Value, DBNull.Value, 7));
+
+        WVASSERT(RunSucker("#suckout", "SELECT * FROM #test1"));
+
+        WVASSERT(Exec("DROP TABLE #test1"));
+
+        SqlDataReader reader;
+        WVASSERT(Reader("SELECT dt, sdt FROM #suckout ORDER BY roworder",
+                    out reader));
+
+        using (reader) {
+            WVASSERT(reader.Read());
+            WVPASSEQ(reader.GetSqlDateTime(0), dtMin);
+            WVPASSEQ(reader.GetSqlDateTime(1), smallMin);
+
+            WVASSERT(reader.Read());
+            WVPASSEQ(reader.GetSqlDateTime(0), epoch);
+            WVPASSEQ(reader.GetSqlDateTime(1), epoch);
+
+            WVASSERT(reader.Read());
+            WVPASSEQ(reader.GetSqlDateTime(0), pastDate);
+            WVPASSEQ(reader.GetSqlDateTime(1), pastDateSmall);
+
+            WVASSERT(reader.Read());
+            WVPASSEQ(reader.GetSqlDateTime(0), sqlNow);
+            WVPASSEQ(reader.GetSqlDateTime(1), sqlNowSmall);
+
+            WVASSERT(reader.Read());
+            WVPASSEQ(reader.GetSqlDateTime(0), futureDate);
+            WVPASSEQ(reader.GetSqlDateTime(1), futureDateSmall);
+
+            WVASSERT(reader.Read());
+            WVPASSEQ(reader.GetSqlDateTime(0), dtMax);
+            WVPASSEQ(reader.GetSqlDateTime(1), smallMax);
+
+            WVASSERT(reader.Read());
+            WVPASS(reader.IsDBNull(0));
+            WVPASS(reader.IsDBNull(1));
+
+            WVFAIL(reader.Read());
+        }
     }
 
     [Test, Category("Data")]
-    [Ignore("Not done")]
     public void VerifyDecimal()
     {
+        // decimal(38,0), decimal(38,38), decimal(18,0), decimal(1,0),
+        // decimal(1,1), numeric as same types
+        // Insert 6 rows: max, something positive, 0, something negative, min,
+        // nulls
+        // Then check that they were copied correctly
+        // Assume that the schema of the output table is correct (tested
+        // elsewhere)
+
+        Byte [,] sizes = {
+            // {precision, scale}
+            {38, 0},
+            {38, 38},
+            {18, 0},
+            {1, 0},
+            {1, 1}
+        };
+
+        // Construct all of the things we will insert
+        // These are all strings because attempting to use the SqlDecimal class
+        // just leads to no end of problems. Even Microsoft's .NET
+        // implementation seems to have issues with the max/min value ones.
+        object [,] values = {
+            {
+                "99999999999999999999999999999999999999",
+                ".99999999999999999999999999999999999999",
+                "999999999999999999",
+                "9",
+                ".9"
+            }, {
+                "123456",
+                ".12345600000000000000000000000000000000",
+                "123456",
+                "1",
+                ".1"
+            }, {
+                /*
+                 * The "zero" data set actually makes Mono's TDS library croak.
+                 * But that's not a SqlSucker bug. The other data sets should
+                 * give reasonable confidence in SqlSucker anyway.
+                "0",
+                "0",
+                "0",
+                "0",
+                "0"
+            }, {
+                */
+                "-654321",
+                "-.65432100000000000000000000000000000000",
+                "-654321",
+                "-1",
+                "-.1"
+            }, {
+                "-99999999999999999999999999999999999999",
+                "-.99999999999999999999999999999999999999",
+                "-999999999999999999",
+                "-9",
+                "-.9"
+            }, {
+                DBNull.Value,
+                DBNull.Value,
+                DBNull.Value,
+                DBNull.Value,
+                DBNull.Value
+            }
+        };
+
+        // Make sure that the data is specified correctly here
+        WVPASSEQ(sizes.GetLength(0), values.GetLength(1));
+
+        // Make the table we're going to create
+        System.Text.StringBuilder schema = new System.Text.StringBuilder(
+                "CREATE TABLE #test1 (");
+
+        // Make one of each decimal and numeric column. These are in fact
+        // identical, but since either may show up in real-world tables, testing
+        // both is a good plan
+        for (int i=0; i < sizes.GetLength(0); i++) {
+            schema.AppendFormat("d{0}_{1} decimal({0},{1}), "
+                    + "n{0}_{1} numeric({0},{1}), ", sizes[i,0], sizes[i,1]);
+        }
+
+        schema.Append("roworder int not null)");
+
+        WVASSERT(Exec(schema.ToString()));
+
+        // Now insert them
+        object [] insertParams = new object[2*values.GetLength(1)+1];
+
+        for (int i=0; i < values.GetLength(0); i++) {
+            insertParams[insertParams.Length-1] = i;
+            for (int j=0; j < insertParams.Length-1; j++) {
+                insertParams[j] = values[i,j/2];
+            }
+            WVASSERT(Insert("#test1", insertParams));
+        }
+
+        WVASSERT(RunSucker("#suckout", "SELECT * FROM #test1"));
+
+        WVASSERT(Exec("DROP TABLE #test1"));
+
+        SqlDataReader reader;
+        WVASSERT(Reader("SELECT * FROM #suckout ORDER BY roworder",
+                    out reader));
+
+        using (reader) {
+            for (int i=0; i < values.GetLength(0); i++) {
+                WVASSERT(reader.Read());
+
+                for (int j=0; j < insertParams.Length-1; j++) {
+                    if (values[i,j/2] is DBNull) {
+                        WVPASS(reader.IsDBNull(j));
+                    } else {
+                        // The preprocessor doesn't like the comma in the array
+                        // subscripts
+                        string val = (string)values[i,j/2];
+                        WVPASSEQ(reader.GetSqlDecimal(j).ToString(), val);
+                    }
+                }
+            }
+
+            WVFAIL(reader.Read());
+        }
     }
 
     [Test, Category("Data")]
@@ -632,12 +848,6 @@ public class SqlSuckerTest
 
     [Test, Category("Data")]
     [Ignore("Not done")]
-    public void VerifyNumeric()
-    {
-    }
-
-    [Test, Category("Data")]
-    [Ignore("Not done")]
     public void VerifyNVarCharMax()
     {
     }
@@ -651,12 +861,6 @@ public class SqlSuckerTest
     [Test, Category("Data")]
     [Ignore("Not done")]
     public void VerifyReal()
-    {
-    }
-
-    [Test, Category("Data")]
-    [Ignore("Not done")]
-    public void VerifySmallDateTime()
     {
     }
 
