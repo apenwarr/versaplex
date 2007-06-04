@@ -3,7 +3,7 @@
 #define WVASSERT(x) try { WvTest.test(WvTest.booleanize(x), __FILE__, __LINE__, #x); } catch (NUnit.Framework.AssertionException _wvasserte) { throw _wvasserte; } catch (System.Exception _wvasserte) { WvTest.test_exception(__FILE__, __LINE__, #x); throw _wvasserte; }
 #define WVPASS(x) WVASSERT(x)
 #define WVFAIL(x) try { WvTest.test(!WvTest.booleanize(x), __FILE__, __LINE__, "NOT(" + #x + ")"); } catch (NUnit.Framework.AssertionException _wvasserte) { throw _wvasserte; } catch (System.Exception _wvasserte) { WvTest.test_exception(__FILE__, __LINE__, "NOT(" + #x + ")"); throw _wvasserte; }
-#define WVEXCEPT(x) { System.Exception _wvex = null; try { (x); } catch (System.Exception _wvasserte) { _wvex = _wvasserte; } WvTest.test(_wvex != null, __FILE__, __LINE__, "EXCEPT(" + #x + ")"); if (_wvex != null) throw _wvex; }
+#define WVEXCEPT(x) { System.Exception _wvex = null; try { x; } catch (System.Exception _wvasserte) { _wvex = _wvasserte; } WvTest.test(_wvex != null, __FILE__, __LINE__, "EXCEPT(" + #x + ")"); if (_wvex != null) throw _wvex; }
 #define WVPASSEQ(x, y) try { WvTest.test_eq((x), (y), __FILE__, __LINE__, #x, #y); } catch (NUnit.Framework.AssertionException _wvasserte) { throw _wvasserte; } catch (System.Exception _wvasserte) { WvTest.test_exception(__FILE__, __LINE__, string.Format("[{0}] == [{1}]", #x, #y)); throw _wvasserte; }
 #define WVPASSNE(x, y) try { WvTest.test_ne((x), (y), __FILE__, __LINE__, #x, #y); } catch (NUnit.Framework.AssertionException _wvasserte) { throw _wvasserte; } catch (System.Exception _wvasserte) { WvTest.test_exception(__FILE__, __LINE__, string.Format("[{0}] != [{1}]", #x, #y)); throw _wvasserte; }
 #endif // __WVTEST_CS_H

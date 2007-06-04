@@ -11,9 +11,23 @@ SHELL=/bin/bash
 CSCPP=cpp
 CPPFLAGS=
 
-CSFLAGS=-warn:4 -debug
-#CSFLAGS += -warnaserror
-PKGS=-r:System.Data -r:System.Web -pkg:nunit 
+ifeq ($(OS),Windows_NT)
+CSC?=csc
+PKGS=/r:nunit.framework.dll
+NUNIT=nunit.framework.dll
+NUNITPATH=/cygdrive/c/Program\ Files/NUnit\ 2.4.1/bin
+
+nunit.framework.dll: %.dll: $(NUNITPATH)/%.dll
+	rm -f "$@"
+	cp "$<" "$@"
+else
+CSC?=gmcs
+NUNIT=
+PKGS=/r:System.Data /r:System.Web /pkg:nunit
+endif
+
+CSFLAGS=/warn:4 /debug
+#CSFLAGS += /warnaserror
 
 LIBFILES = \
 	wvutils.cs wvtest.cs wvweb.cs wvdbi.cs wvini.cs assemblyinfo.cs
@@ -45,8 +59,8 @@ include $(patsubst %.cs.E,%.d,$(filter %.cs.E,$(FILES)))
 		| grep -v '^# [0-9]' \
 		>$@ || (rm -f $@ && exit 1)
 
-$(DLL): $(FILES)
-	gmcs $(PKGS) $(CSFLAGS) -target:library -out:$@ $(filter %.cs.E %.cs,$^)
+$(DLL): $(FILES) $(NUNIT)
+	$(CSC) $(PKGS) $(CSFLAGS) /target:library /out:$@ $(filter %.cs.E %.cs,$^)
 
 clean:
-	rm -f *~ *.E *.d *.exe *.dll TestResult.xml *.mdb
+	rm -f *~ *.E *.d *.exe *.dll TestResult.xml *.mdb *.pdb

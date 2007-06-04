@@ -8,7 +8,7 @@ using System.Runtime.CompilerServices;
 [assembly: AssemblyProduct("Wv.Net")]
 [assembly: AssemblyCopyright("Copyright (C) Versabanq Innovations Inc., 2007")]
 [assembly: AssemblyTrademark("")]
-[assembly: AssemblyCulture("en-CA")]
+[assembly: AssemblyCulture("")]
 
 [assembly: AssemblyVersion("1.0.*")]
 
