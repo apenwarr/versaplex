@@ -22,8 +22,14 @@ public class SqlSuckerTest
 
     // A file full of "lorem ipsum dolor" text
     private const string lipsum_file = "lipsum.txt";
+    // A UTF-8 test file
+    private const string unicode_file = "UTF-8-demo.txt";
     // A file with some sample XML
     private const string testxml_file = "test.xml";
+    // A random file of binary goop
+    private const string goop_file = "random.bin";
+    // THTBACS image
+    private const string image_file = "thtbacs.tiff";
 
     SqlConnection con;
     SqlCommand cmd;
@@ -134,6 +140,54 @@ public class SqlSuckerTest
         }
     }
 
+    string read_unicode()
+    {
+        WVASSERT(File.Exists(unicode_file));
+
+        using (StreamReader sr = new StreamReader(unicode_file)) {
+            return sr.ReadToEnd();
+        }
+    }
+
+    Byte [] read_goop()
+    {
+        WVASSERT(File.Exists(goop_file));
+
+        using (FileStream f = new FileStream(goop_file, FileMode.Open,
+                    FileAccess.Read))
+        using (BinaryReader sr = new BinaryReader(f)) {
+            return sr.ReadBytes((int)Math.Min(f.Length, Int32.MaxValue));
+        }
+    }
+
+    Byte [] read_image()
+    {
+        WVASSERT(File.Exists(image_file));
+
+        using (FileStream f = new FileStream(image_file, FileMode.Open,
+                    FileAccess.Read))
+        using (BinaryReader sr = new BinaryReader(f)) {
+            return sr.ReadBytes((int)Math.Min(f.Length, Int32.MaxValue));
+        }
+    }
+
+    long GetInt64(SqlDataReader reader, int colnum) {
+        // For some reason, it won't just up-convert int32 to int64
+        if (reader.GetFieldType(colnum) == typeof(System.Int32)) {
+            return reader.GetInt32(colnum);
+        } else if (reader.GetFieldType(colnum) == typeof(System.Int64)) {
+            return reader.GetInt64(colnum);
+        } else if (reader.GetFieldType(colnum) == typeof(System.Decimal)) {
+            return (long)reader.GetDecimal(colnum);
+        } else {
+            // Unknown type
+            bool unknown_type_in_result = true;
+            WVFAIL(unknown_type_in_result);
+
+            return -1;
+        }
+    }
+
     [SetUp]
     public void init()
     {
@@ -165,7 +219,7 @@ public class SqlSuckerTest
 	con = null;
     }
 
-    [Test, Category("Sanity")]
+    [Test, Category("Data"), Category("Sanity")]
     public void EmptyTable()
     {
 	// Check that an empty table stays empty
@@ -194,7 +248,7 @@ public class SqlSuckerTest
 	}
     }
 
-    [Test, Category("Errors")]
+    [Test, Category("Running"), Category("Errors")]
     public void NonexistantTable()
     {
 	// Check that a nonexistant output table throws an error
@@ -214,7 +268,7 @@ public class SqlSuckerTest
 	// something.
     }
 
-    [Test, Category("Errors")]
+    [Test, Category("Running"), Category("Errors")]
     public void BadSchemaTable()
     {
 	// Check that an output table with bad schema throws an error
@@ -242,7 +296,7 @@ public class SqlSuckerTest
 	}
     }
 
-    [Test, Category("Pedantic")]
+    [Test, Category("Running"), Category("Pedantic")]
     public void OutputNotEmpty()
     {
 	// Check that if an output table is non-empty that its contents are
@@ -264,7 +318,7 @@ public class SqlSuckerTest
 	WVPASSEQ((int)result, 0);
     }
 
-    [Test, Category("Sanity")]
+    [Test, Category("Schema"), Category("Sanity")]
     public void ColumnTypes()
     {
 	// Check that column types are copied correctly to the output table
@@ -347,7 +401,7 @@ public class SqlSuckerTest
 	}
     }
 
-    [Test, Category("Errors")]
+    [Test, Category("Schema"), Category("Errors")]
     public void EmptyColumnName()
     {
 	// Check that a query with a missing column name throws an error
@@ -556,9 +610,74 @@ public class SqlSuckerTest
     }
 
     [Test, Category("Data")]
-    [Ignore("Not done")]
     public void VerifyBinary()
     {
+        // binary, varbinary (not max)
+        
+        // This must be sorted
+        int [] sizes = { 1, 10, 50, 255, 4000, 8000 };
+
+        string [] types = { "binary", "varbinary" };
+        int [] typemax = { 8000, 8000 };
+        int [] charsize = { 1, 1 };
+        bool [] varsize = { false, true };
+
+        Byte [] binary_goop = read_goop();
+
+        WVASSERT(binary_goop.Length >= sizes[sizes.Length-1]);
+
+        for (int i=0; i < types.Length; i++) {
+            for (int j=0; j < sizes.Length && sizes[j] <= typemax[i]; j++) {
+                WVASSERT(Exec(string.Format("CREATE TABLE #test1 "
+                                + "(data {0}({1}), roworder int not null)",
+                                types[i], sizes[j])));
+
+                for (int k=0; k <= j; k++) {
+                    Byte [] data = new byte[sizes[k]];
+                    Array.Copy(binary_goop, data, sizes[k]);
+
+                    WVASSERT(Insert("#test1", new SqlBinary(data), k));
+                }
+
+                WVASSERT(Insert("#test1", DBNull.Value, j+1));
+
+                WVASSERT(SetupOutputTable("#test1out"));
+
+                WVASSERT(RunSucker("#test1out",
+                            "SELECT * FROM #test1 ORDER BY roworder", true));
+
+                WVASSERT(Exec("DROP TABLE #test1"));
+
+                SqlDataReader reader;
+                WVASSERT(Reader("SELECT LEN(data), DATALENGTH(data), data FROM "
+                            + "#test1out ORDER BY _",
+                            out reader));
+
+                using (reader) {
+                    for (int k=0; k <= j; k++) {
+                        Byte [] data = new byte[sizes[k]];
+                        Array.Copy(binary_goop, data, sizes[k]);
+
+                        WVASSERT(reader.Read());
+
+                        int len = sizes[varsize[i] ? k : j];
+                        WVPASSEQ(GetInt64(reader, 0), len);
+
+                        int datalen = sizes[varsize[i] ? k : j]*charsize[i];
+                        WVPASSEQ(GetInt64(reader, 1), datalen);
+
+                        WVPASSEQ(reader.GetSqlBinary(2), new SqlBinary(data));
+                    }
+
+                    WVASSERT(reader.Read());
+                    WVPASS(reader.IsDBNull(2));
+
+                    WVFAIL(reader.Read());
+                }
+
+                WVASSERT(Exec("DROP TABLE #test1out"));
+            }
+        }
     }
 
     [Test, Category("Data")]
@@ -598,20 +717,27 @@ public class SqlSuckerTest
         }
     }
 
-    [Test, Category("Data"), Category("dev")]
+    [Test, Category("Data")]
     public void VerifyChar()
     {
-        // char, nchar, varchar (not max), nvarchar (not max)
+        // char, nchar, varchar (in-row or max), nvarchar (in-row or max),
+        // text, ntext
         // This doesn't try to use any non-ascii characters. There is a separate
         // test for that.
         
         // This must be sorted
-        int [] sizes = { 1, 10, 50, 255, 4000, 8000 };
+        int [] sizes = { 1, 10, 50, 255, 4000, 8000, 8040, 8192, 16080, 16384,
+            24120, 32160, 32768, 50157 };
 
-        string [] types = { "char", "varchar", "nchar", "nvarchar" };
-        int [] typemax = { 8000, 8000, 4000, 4000 };
-        int [] charsize = { 1, 1, 2, 2 };
-        bool [] varsize = { false, true, false, true };
+        string [] types = { "char", "varchar", "nchar", "nvarchar", "text",
+            "ntext", "varchar(max)", "nvarchar(max)" };
+        int [] typemax = { 8000, 8000, 4000, 4000, Int32.MaxValue,
+            Int32.MaxValue/2, Int32.MaxValue, Int32.MaxValue/2 };
+        int [] charsize = { 1, 1, 2, 2, 1, 2, 1, 2 };
+        bool [] varsize = { false, true, false, true, true, true, true, true };
+        bool [] sizeparam = { true, true, true, true, false, false, false,
+            false };
+        bool [] lenok = { true, true, true, true, false, false, true, true };
 
         string lipsum_text = read_lipsum();
 
@@ -619,9 +745,16 @@ public class SqlSuckerTest
 
         for (int i=0; i < types.Length; i++) {
             for (int j=0; j < sizes.Length && sizes[j] <= typemax[i]; j++) {
-                WVASSERT(Exec(string.Format("CREATE TABLE #test1 "
-                                + "(data {0}({1}), roworder int not null)",
-                                types[i], sizes[j])));
+                if (sizeparam[i]) {
+                    WVASSERT(Exec(string.Format("CREATE TABLE #test1 "
+                                    + "(data {0}({1}), roworder int not null)",
+                                    types[i], sizes[j])));
+                } else {
+                    WVASSERT(Exec(string.Format("CREATE TABLE #test1 "
+                                    + "(data {0}, roworder int not null)",
+                                    types[i])));
+                    j = sizes.Length-1;
+                }
 
                 for (int k=0; k <= j; k++) {
                     WVASSERT(Exec(string.Format(
@@ -637,6 +770,8 @@ public class SqlSuckerTest
                                     */
                 }
 
+                WVASSERT(Insert("#test1", DBNull.Value, j+1));
+
                 WVASSERT(SetupOutputTable("#test1out"));
 
                 WVASSERT(RunSucker("#test1out",
@@ -645,20 +780,33 @@ public class SqlSuckerTest
                 WVASSERT(Exec("DROP TABLE #test1"));
 
                 SqlDataReader reader;
-                WVASSERT(Reader("SELECT LEN(data), DATALENGTH(data), data FROM "
-                            + "#test1out ORDER BY _",
-                            out reader));
+
+                if (lenok[i]) {
+                    WVASSERT(Reader("SELECT LEN(data), DATALENGTH(data), data "
+                                + "FROM #test1out ORDER BY _",
+                                out reader));
+                } else {
+                    WVASSERT(Reader("SELECT -1, "
+                                + "DATALENGTH(data), data FROM #test1out "
+                                + "ORDER BY _",
+                                out reader));
+                }
 
                 using (reader) {
                     for (int k=0; k <= j; k++) {
                         WVASSERT(reader.Read());
 
-                        WVPASSEQ(reader.GetInt32(0), sizes[k]);
-                        WVPASSEQ(reader.GetInt32(1),
+                        if (lenok[i])
+                            WVPASSEQ(GetInt64(reader, 0), sizes[k]);
+
+                        WVPASSEQ(GetInt64(reader, 1),
                                 sizes[varsize[i] ? k : j]*charsize[i]);
                         WVPASSEQ(reader.GetString(2).Substring(0, sizes[k]),
                                 lipsum_text.Substring(0, sizes[k]));
                     }
+
+                    WVASSERT(reader.Read());
+                    WVPASS(reader.IsDBNull(2));
 
                     WVFAIL(reader.Read());
                 }
@@ -1023,12 +1171,6 @@ public class SqlSuckerTest
     }
 
     [Test, Category("Data")]
-    [Ignore("Not done")]
-    public void VerifyImage()
-    {
-    }
-
-    [Test, Category("Data")]
     public void VerifyMoney()
     {
         // money, smallmoney
@@ -1086,24 +1228,6 @@ public class SqlSuckerTest
 
             WVFAIL(reader.Read());
         }
-    }
-
-    [Test, Category("Data")]
-    [Ignore("Not done")]
-    public void VerifyNText()
-    {
-    }
-
-    [Test, Category("Data")]
-    [Ignore("Not done")]
-    public void VerifyNVarCharMax()
-    {
-    }
-
-    [Test, Category("Data")]
-    [Ignore("Not done")]
-    public void VerifyText()
-    {
     }
 
     [Test, Category("Data")]
@@ -1196,21 +1320,65 @@ public class SqlSuckerTest
     }
 
     [Test, Category("Data")]
-    [Ignore("Not done")]
-    public void VerifyVarBinary()
-    {
-    }
-
-    [Test, Category("Data")]
-    [Ignore("Not done")]
     public void VerifyVarBinaryMax()
     {
-    }
+        // varbinary(max), image
 
-    [Test, Category("Data")]
-    [Ignore("Not done")]
-    public void VerifyVarCharMax()
-    {
+        // This must be sorted
+        long [] sizes = { 1, 10, 50, 255, 4000, 8000, 8040, 8192, 16080, 16384,
+            24120, 32160, 32768, 40200, 65536, 131072, 262144, 524288, 1048576,
+            2097152, 3076506 };
+
+        string [] types = { "varbinary(max)", "image" };
+
+        Byte [] image_data = read_image();
+
+        WVASSERT(image_data.Length >= sizes[sizes.Length-1]);
+
+        foreach (string type in types) {
+            WVASSERT(Exec(string.Format("CREATE TABLE #test1 "
+                            + "(data {0}, roworder int not null)", type)));
+
+            for (int k=0; k < sizes.Length; k++) {
+                Byte [] data = new byte[sizes[k]];
+                Array.Copy(image_data, data, sizes[k]);
+
+                WVASSERT(Insert("#test1", new SqlBinary(data), k));
+            }
+
+            WVASSERT(Insert("#test1", DBNull.Value, sizes.Length));
+
+            WVASSERT(SetupOutputTable("#test1out"));
+
+            WVASSERT(RunSucker("#test1out",
+                        "SELECT * FROM #test1 ORDER BY roworder", true));
+
+            WVASSERT(Exec("DROP TABLE #test1"));
+
+            SqlDataReader reader;
+            WVASSERT(Reader("SELECT DATALENGTH(data), data FROM "
+                        + "#test1out ORDER BY _",
+                        out reader));
+
+            using (reader) {
+                for (int k=0; k < sizes.Length; k++) {
+                    Byte [] data = new byte[sizes[k]];
+                    Array.Copy(image_data, data, sizes[k]);
+
+                    WVASSERT(reader.Read());
+
+                    WVPASSEQ(GetInt64(reader, 0), sizes[k]);
+                    WVPASSEQ(reader.GetSqlBinary(1), new SqlBinary(data));
+                }
+
+                WVASSERT(reader.Read());
+                WVPASS(reader.IsDBNull(1));
+
+                WVFAIL(reader.Read());
+            }
+
+            WVASSERT(Exec("DROP TABLE #test1out"));
+        }
     }
 
     [Test, Category("Data"), Category("dev")]
@@ -1254,6 +1422,91 @@ public class SqlSuckerTest
             WVFAIL(reader.Read());
         }
         */
+    }
+
+    [Test, Category("Data"), Category("dev")]
+    public void Unicode()
+    {
+        // nchar, nvarchar (in-row or max), ntext
+        // Using lots of non-ascii characters
+        
+        string unicode_text = read_unicode();
+
+        int [] sizes = { 4000, unicode_text.Length };
+        WVASSERT(unicode_text.Length >= sizes[0]);
+
+        string [] types = { "nchar", "nvarchar", "ntext", "nvarchar(max)" };
+        int [] typemax = { 4000, 4000, Int32.MaxValue/2, Int32.MaxValue/2 };
+        int [] charsize = { 2, 2, 2, 2 };
+        bool [] varsize = { false, true, true, true };
+        bool [] sizeparam = { true, true, false, false };
+        bool [] lenok = { true, true, false, true };
+
+        for (int i=0; i < types.Length; i++) {
+            for (int j=0; j < sizes.Length && sizes[j] <= typemax[i]; j++) {
+                if (sizeparam[i]) {
+                    WVASSERT(Exec(string.Format("CREATE TABLE #test1 "
+                                    + "(data {0}({1}), roworder int not null)",
+                                    types[i], sizes[j])));
+                } else {
+                    WVASSERT(Exec(string.Format("CREATE TABLE #test1 "
+                                    + "(data {0}, roworder int not null)",
+                                    types[i])));
+                    j = sizes.Length-1;
+                }
+
+                for (int k=0; k <= j; k++) {
+                    WVASSERT(Exec(string.Format(
+                                    "INSERT INTO #test1 VALUES (N'{0}', {1})",
+                                    unicode_text.Substring(0,
+                                        sizes[k]).Replace("'", "''"), k)));
+                }
+
+                WVASSERT(SetupOutputTable("#test1out"));
+
+                WVASSERT(RunSucker("#test1out",
+                            "SELECT * FROM #test1 ORDER BY roworder", true));
+
+                WVASSERT(Exec("DROP TABLE #test1"));
+
+                SqlDataReader reader;
+
+                if (lenok[i]) {
+                    WVASSERT(Reader("SELECT LEN(data), DATALENGTH(data), data "
+                                + "FROM #test1out ORDER BY _",
+                                out reader));
+                } else {
+                    WVASSERT(Reader("SELECT -1, "
+                                + "DATALENGTH(data), data FROM #test1out "
+                                + "ORDER BY _",
+                                out reader));
+                }
+
+                using (reader) {
+                    for (int k=0; k <= j; k++) {
+                        WVASSERT(reader.Read());
+
+                        if (lenok[i])
+                            WVPASSEQ(GetInt64(reader, 0), sizes[k]);
+
+                        WVPASSEQ(GetInt64(reader, 1),
+                                sizes[varsize[i] ? k : j]*charsize[i]);
+                        WVPASSEQ(reader.GetString(2).Substring(0, sizes[k]),
+                                unicode_text.Substring(0, sizes[k]));
+                    }
+
+                    WVFAIL(reader.Read());
+                }
+
+                WVASSERT(Exec("DROP TABLE #test1out"));
+            }
+        }
+    }
+
+    [Test, Category("Running")]
+    [Ignore("Not done")]
+    public void Recursion()
+    {
     }
 }
 
