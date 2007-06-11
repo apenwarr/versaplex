@@ -24,8 +24,6 @@ public class SqlSuckerTest
     private const string lipsum_file = "lipsum.txt";
     // A UTF-8 test file
     private const string unicode_file = "UTF-8-demo.txt";
-    // A file with some sample XML
-    private const string testxml_file = "test.xml";
     // A random file of binary goop
     private const string goop_file = "random.bin";
     // THTBACS image
@@ -1381,8 +1379,7 @@ public class SqlSuckerTest
         }
     }
 
-    [Test, Category("Data"), Category("dev")]
-    [Ignore("Doesn't work under Mono yet")]
+    [Test, Category("Data")]
     public void VerifyXML()
     {
         // xml
@@ -1392,10 +1389,11 @@ public class SqlSuckerTest
         // elsewhere)
         // This isn't very exhaustive, so improvements are welcome.
 
-        /*
-        WVASSERT(File.Exists(testxml_file));
-
-        SqlXml xml = new SqlXml(new StreamReader(testxml_file));
+        // This MUST not have any extra whitespace, as it will be stripped by
+        // MSSQL's XML stuff and won't be reproduced when it comes back out.
+        string xml =
+            "<outside><!--hi--><element1/>Text<element2 type=\"pretty\"/>"
+            + "</outside>";
 
         WVASSERT(Exec("CREATE TABLE #test1 (x xml, "
                     + "roworder int not null)"));
@@ -1414,17 +1412,16 @@ public class SqlSuckerTest
 
         using (reader) {
             WVASSERT(reader.Read());
-            WVPASSEQ(reader.GetSqlXml(0), xml);
+            WVPASSEQ(reader.GetString(0), xml);
 
             WVASSERT(reader.Read());
             WVPASS(reader.IsDBNull(0));
 
             WVFAIL(reader.Read());
         }
-        */
     }
 
-    [Test, Category("Data"), Category("dev")]
+    [Test, Category("Data")]
     public void Unicode()
     {
         // nchar, nvarchar (in-row or max), ntext
@@ -1504,9 +1501,67 @@ public class SqlSuckerTest
     }
 
     [Test, Category("Running")]
-    [Ignore("Not done")]
     public void Recursion()
     {
+        // Check that SqlSucker can be called recursively
+
+        // This will need redesigning to recurse past 25 levels because we run
+        // out of alphabet (primes list will need to be extended too)
+        // No, there is no particular reason that this has to use primes.
+        // Also, the default recursion depth of 32 limits recurse_lvl to 9
+        const int recurse_lvl = 9;
+        char colname_base = 'A';
+        int [] primes = { 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43,
+            47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101 };
+
+        WVASSERT(Exec(string.Format("CREATE PROCEDURE #sucker_test0\n"
+            + "AS BEGIN\n"
+            + "SELECT {0} as {1}\n"
+            + "END", primes[0], colname_base)));
+
+        System.Text.StringBuilder colnames = new System.Text.StringBuilder();
+
+        for (int i=1; i <= recurse_lvl; i++) {
+            if (i > 1) {
+                colnames.Append(", ");
+            }
+            colnames.AppendFormat("{0}", (char)(colname_base + i - 1));
+
+            WVASSERT(Exec(string.Format("CREATE PROCEDURE #sucker_test{0}\n"
+                    + "AS BEGIN\n"
+                    + "CREATE TABLE #out{1} (_ int)\n"
+                    + "EXEC SqlSucker '#out{1}','EXEC #sucker_test{1}',false\n"
+                    + "SELECT {2}, {3} as {4} FROM #out{1}\n"
+                    + "DROP TABLE #out{1}\n"
+                    + "END", i, i-1, colnames, primes[i],
+                    (char)(colname_base + i))));
+
+        }
+
+        WVASSERT(RunSucker("#suckout",
+                    string.Format("EXEC #sucker_test{0}", recurse_lvl)));
+
+        for (int i=recurse_lvl; i >= 0; i--) {
+            WVASSERT(Exec(string.Format("DROP PROCEDURE #sucker_test{0}", i)));
+        }
+
+        SqlDataReader reader;
+        WVASSERT(Reader("SELECT * FROM #suckout", out reader));
+        using (reader) {
+            WVPASSEQ(reader.FieldCount, recurse_lvl+1);
+
+            for (int i=0; i <= recurse_lvl; i++) {
+                WVPASSEQ(reader.GetName(i),
+                        string.Format("{0}", (char)(colname_base + i)));
+            }
+
+            WVASSERT(reader.Read());
+            for (int i=0; i <= recurse_lvl; i++) {
+                WVPASSEQ(reader.GetInt32(i), primes[i]);
+            }
+
+            WVFAIL(reader.Read());
+        }
     }
 }
 
