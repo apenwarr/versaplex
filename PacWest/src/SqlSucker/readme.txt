@@ -69,3 +69,23 @@ Notes:
     statement execute with the PERMISSION_SET = UNSAFE (or EXTERNAL_ACCESS).
     To set the database to trustworthy:
         ALTER DATABASE dbname SET TRUSTWORTHY ON
+
+--
+
+Tests:
+Tests are in the tests/ subdirectory. They run on Linux under Mono and on
+Windows (under cygwin). On Windows, the Makefile may require tweaking if nunit
+is not installed in the default directory or a version other than 2.4.1 is
+installed.
+
+Wv.Net must first be compiled into an assembly in ../Wv.Net
+
+In the tests directory, run "make" to build the assembly.
+-    On Linux, run "make test" to run the tests through nunit-console
+-    On Windows, open SqlSucker.test.dll in the nunit GUI and run the tests
+
+Known problems on Windows with Microsoft's .NET implementation:
+-    VerifyDecimal test fails because Microsoft prepends a "0" in front of
+     values in the range (-1, 0) and (0,1), but Mono does not.
+-    VerifyXML test fails because Microsoft applies whitespace differently than
+     Mono.
