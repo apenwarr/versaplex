@@ -10,7 +10,7 @@ go
 create table #Test1 (_ int not null)
 go
 
-exec SqlSucker '#Test1', 'SELECT * from test_table'
+exec SqlSucker '#Test1', 'SELECT * from test_table', false
 go
 
 select * from #Test1
