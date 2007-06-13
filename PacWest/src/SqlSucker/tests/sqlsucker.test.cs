@@ -941,16 +941,16 @@ public class SqlSuckerTest
         object [,] values = {
             {
                 "99999999999999999999999999999999999999",
-                ".99999999999999999999999999999999999999",
+                "0.99999999999999999999999999999999999999",
                 "999999999999999999",
                 "9",
-                ".9"
+                "0.9"
             }, {
                 "123456",
-                ".12345600000000000000000000000000000000",
+                "0.12345600000000000000000000000000000000",
                 "123456",
                 "1",
-                ".1"
+                "0.1"
             }, {
                 /*
                  * The "zero" data set actually makes Mono's TDS library croak.
@@ -964,16 +964,16 @@ public class SqlSuckerTest
             }, {
                 */
                 "-654321",
-                "-.65432100000000000000000000000000000000",
+                "-0.65432100000000000000000000000000000000",
                 "-654321",
                 "-1",
-                "-.1"
+                "-0.1"
             }, {
                 "-99999999999999999999999999999999999999",
-                "-.99999999999999999999999999999999999999",
+                "-0.99999999999999999999999999999999999999",
                 "-999999999999999999",
                 "-9",
-                "-.9"
+                "-0.9"
             }, {
                 DBNull.Value,
                 DBNull.Value,
@@ -1032,7 +1032,19 @@ public class SqlSuckerTest
                         // The preprocessor doesn't like the comma in the array
                         // subscripts
                         string val = (string)values[i,j/2];
-                        WVPASSEQ(reader.GetSqlDecimal(j).ToString(), val);
+                        string fromdb = reader.GetSqlDecimal(j).ToString();
+
+                        // Mono produces ".1" and "-.1"
+                        // Microsoft .NET produces "0.1" and "-0.1"
+                        // Deal with that here.
+                        if (val[0] == '0' && fromdb[0] == '.') {
+                            WVPASSEQ(fromdb, val.Substring(1));
+                        } else if (val[0] == '-' && val[1] == '0'
+                                && fromdb[0] == '-' && fromdb[1] == '.') {
+                            WVPASSEQ(fromdb, "-" + val.Substring(2));
+                        } else {
+                            WVPASSEQ(fromdb, val);
+                        }
                     }
                 }
             }
@@ -1388,10 +1400,17 @@ public class SqlSuckerTest
         // Assume that the schema of the output table is correct (tested
         // elsewhere)
         // This isn't very exhaustive, so improvements are welcome.
+        // This was going to use SqlXml instead of using a string, but Mono
+        // doesn't support that very well.
 
         // This MUST not have any extra whitespace, as it will be stripped by
-        // MSSQL's XML stuff and won't be reproduced when it comes back out.
+        // some SQL parser and won't be reproduced when it comes back out.
+        // This is the style that Microsoft's .NET returns
         string xml =
+            "<outside><!--hi--><element1 />Text<element2 type=\"pretty\" />"
+            + "</outside>";
+        // This is the style that Mono returns
+        string altxml =
             "<outside><!--hi--><element1/>Text<element2 type=\"pretty\"/>"
             + "</outside>";
 
@@ -1412,7 +1431,12 @@ public class SqlSuckerTest
 
         using (reader) {
             WVASSERT(reader.Read());
-            WVPASSEQ(reader.GetString(0), xml);
+            // Sigh. 
+            if (reader.GetString(0) == altxml) {
+                WVPASSEQ(reader.GetString(0), altxml);
+            } else {
+                WVPASSEQ(reader.GetString(0), xml);
+            }
 
             WVASSERT(reader.Read());
             WVPASS(reader.IsDBNull(0));
