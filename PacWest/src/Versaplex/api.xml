@@ -1,0 +1,38 @@
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN" "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node name="/com/versabanq/versaplex/db">
+    <interface name="com.versabanq.versaplex.db">
+        <annotation name="org.freedesktop.DBus.GLib.CSymbol" value="versaplex_db"/>
+        <method name="ExecNoResult">
+            <arg name="query" type="s" direction="in"/>
+        </method>
+
+        <method name="ExecScalar">
+            <arg name="query" type="s" direction="in"/>
+            <arg name="result" type="v" direction="out"/>
+        </method>
+
+        <method name="ExecRecordset">
+            <arg name="query" type="s" direction="in"/>
+            <arg name="colnames" type="as" direction="out"/>
+            <arg name="coltypes" type="as" direction="out"/>
+            <arg name="data" type="aa(yv)" direction="out"/>
+        </method>
+
+        <!-- Any of these can throw:
+             com.versabanq.versaplex.sqlerror - SQL statement error (text
+                     parameter will include actual error)
+             com.versabanq.versaplex.toomuchdata - Scalar or Recordset result
+                     is too large to transmit in a single d-bus message. Will
+                     need to use a different API (not yet defined). text
+                     parameter will indicate what the problem is
+        -->
+
+        <!-- Future:
+             - Transaction support
+             - Execute particular procedures, not just SQL
+             - Ability to stream results as signals rather than in a single
+               message (allows interleaving results and larger sized result
+               sets)
+        -->
+    </interface>
+</node>
