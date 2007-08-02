@@ -28,14 +28,14 @@ public class VxBufferStream : Stream
     public delegate void DataReadyHandler(object sender, object cookie);
     public event DataReadyHandler DataReady;
 
-    private VxNotifySocket sock;
+    protected VxNotifySocket sock;
 
     // Maximum value for rbuf_used to take; run the DataReady event when this
     // has filled
     private int rbuf_size = 0;
 
-    private Buffer rbuf = null;
-    private Buffer wbuf = null;
+    protected Buffer rbuf = null;
+    protected Buffer wbuf = null;
 
     public VxBufferStream(VxNotifySocket sock)
     {
@@ -170,8 +170,8 @@ public class VxBufferStream : Stream
         wbuf.AppendByte(value);
     }
 
-    private bool read_waiting = false;
-    private bool ReadWaiting {
+    protected bool read_waiting = false;
+    protected bool ReadWaiting {
         get { return read_waiting; }
         set {
             if (!read_waiting && value) {
@@ -184,8 +184,8 @@ public class VxBufferStream : Stream
         }
     }
 
-    private bool write_waiting = false;
-    private bool WriteWaiting {
+    protected bool write_waiting = false;
+    protected bool WriteWaiting {
         get { return write_waiting; }
         set {
             if (!write_waiting && value) {
@@ -198,7 +198,7 @@ public class VxBufferStream : Stream
         }
     }
 
-    private bool OnReadable()
+    protected virtual bool OnReadable()
     {
         const int READSZ = 16384;
 
@@ -226,7 +226,7 @@ public class VxBufferStream : Stream
         return read_waiting;
     }
 
-    private bool OnWritable()
+    protected virtual bool OnWritable()
     {
         try {
             int amt = sock.Send(wbuf.FilledBufferList);
@@ -245,7 +245,7 @@ public class VxBufferStream : Stream
         return write_waiting;
     }
 
-    private class Buffer {
+    protected class Buffer {
         private const int BUFCHUNKSZ = 16384;
 
         private int buf_start = 0;
