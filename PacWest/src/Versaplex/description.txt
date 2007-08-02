@@ -52,12 +52,11 @@ for how transactions could be done but that complexity seems to be
 unnecessary at this point. It will need to be extended anyway to
 support bigger recordsets.
 
-Column types:
+Column types (names are case-insensitive):
 "int64" (sent as a dbus int64, format "x"): MSSQL bigint
 "int32" (sent as a dbus int32, format "i"): MSSQL int
 "int16" (sent as a dbus int16, format "n"): MSSQL smallint
-"int8" (sent as a dbus byte, format "y" [an unsigned type], must be
-converted between signed/unsigned by each side): MSSQL tinyint
+"uint8" (sent as a dbus byte, format "y"): MSSQL tinyint
 "bool" (sent as a dbus boolean, format "b"): MSSQL bit
 "double" (sent as a dbus double, format "d"): MSSQL float, real
 * There is no dbus float, so those are converted to double
