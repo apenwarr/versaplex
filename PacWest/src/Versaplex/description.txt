@@ -74,7 +74,7 @@ the database was configured as).
 
 "datetime" (sent as dbus struct of int64 & int32, format "(xi)"; same
 format as struct timeval: first is seconds since unix epoch, second is
-microseconds; timezone is not specified): MSSQL datetime,
+microseconds (always nonnegative); timezone is not specified): MSSQL datetime,
 smalldatetime
 
 "decimal" (sent as dbus string, format "s"): MSSQL decimal, numeric,
