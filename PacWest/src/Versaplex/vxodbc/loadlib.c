@@ -217,7 +217,9 @@ void *CALL_PQconnectdb(const char *conninfo, BOOL *libpqLoaded)
 		*/
 	}
 #else
+#ifdef LIBPQ
 	pqconn = PQconnectdb(conninfo);
+#endif
 #endif /* _MSC_DELAY_LOAD_IMPORT */
 	return pqconn;
 }

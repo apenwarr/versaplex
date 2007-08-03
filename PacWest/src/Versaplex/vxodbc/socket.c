@@ -114,12 +114,14 @@ SOCK_Destructor(SocketClass *self)
 	{
 		if (self->pqconn)
 		{
+#ifdef LIBPQ
 			if (self->via_libpq)
 			{
 				if (self->pqconn)
 					PQfinish(self->pqconn);
 				/* UnloadDelayLoadedDLLs(NULL != self->ssl); */
 			}
+#endif
 			self->via_libpq = FALSE;
 			self->pqconn = NULL;
 			self->ssl = NULL;

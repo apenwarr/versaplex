@@ -3368,6 +3368,7 @@ LIBPQ_connect(ConnectionClass *self)
 {
 	CSTR	func = "LIBPQ_connect";
 	char	ret = 0;
+#ifdef LIBPQ
 	char *conninfo = NULL;
 	void		*pqconn = NULL;
 	SocketClass	*sock;
@@ -3491,7 +3492,9 @@ if (TRUE)
 		SOCK_Destructor(sock);
 		self->sock = NULL;
 	}
-	
+#else
+        ret = -1;
+#endif
 	mylog("%s: retuning %d\n", func, ret);
 	return ret;
 }
@@ -3499,6 +3502,7 @@ if (TRUE)
 static int
 LIBPQ_send_cancel_request(const ConnectionClass *conn)
 {
+#ifdef LIBPQ
 	int	ret = 0;
 	char	errbuf[256];
 	void	*cancel;
@@ -3515,6 +3519,7 @@ LIBPQ_send_cancel_request(const ConnectionClass *conn)
 	if(1 == ret)
 		return TRUE;
 	else
+#endif
 		return FALSE;
 }
 

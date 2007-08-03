@@ -1,0 +1,69 @@
+CC=i586-mingw32msvc-gcc
+WINDRES=i586-mingw32msvc-windres
+WVPORTS=$(HOME)/src/wvports
+OPENSSL=$(WVPORTS)/openssl/build/openssl
+CFLAGS=-w \
+	-D_MSC_VER=1300 \
+	-DUNICODE_SUPPORT -DODBCVER=0x0351 -D_WIN32_WINNT=0x0501 \
+	-I/usr/include/postgresql \
+	-I$(OPENSSL)/include
+RSCFLAGS=-DUNICODE_SUPPORT
+LIBS=-L$(OPENSSL) -lssl -lcrypto \
+	-lodbc32 -lodbccp32 -lws2_32 -lwinmm -lgdi32 -lkernel32
+LDFLAGS=--enable-stdcall-fixup
+
+OBJS=\
+	bind.o \
+	columninfo.o \
+	connection.o \
+	convert.o \
+	dlg_specific.o \
+	dlg_wingui.o \
+	drvconn.o \
+	environ.o \
+	execute.o \
+	info.o \
+	info30.o \
+	lobj.o \
+	win_md5.o \
+	misc.o \
+	mylog.o \
+	pgapi30.o \
+	multibyte.o \
+	options.o \
+	parse.o \
+	pgtypes.o \
+	psqlodbc.o \
+	qresult.o \
+	results.o \
+	setup.o \
+	socket.o \
+	statement.o \
+	tuple.o \
+	odbcapi.o \
+	odbcapi30.o \
+	descriptor.o \
+	loadlib.o \
+	win_unicode.o \
+	odbcapiw.o \
+	odbcapi30w.o \
+	inouealc.o \
+	psqlodbc.res.o \
+	vxodbc.def
+
+all: vxodbc.dll	
+
+vxodbc.dll: $(OBJS)
+
+clean:
+	rm -f *.o *~ *.res *.dll *.a
+
+%.res.o: %.rc
+	$(WINDRES) $< $@
+	
+%.o: %.c
+	$(CC) -o $@ -c $< $(CFLAGS)
+	
+%.dll: %.def
+	$(CC) -shared -o $@ $(LDFLAGS) $^ -Wl,--out-implib,$*.a $(LIBS)
+

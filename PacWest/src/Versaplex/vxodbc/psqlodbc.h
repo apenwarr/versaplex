@@ -39,7 +39,7 @@
 #endif /* WIN32 */
 
 #ifdef	WIN32
-#include <delayimp.h>
+//#include <delayimp.h>
 #endif /* WIN32 */
 /* Must come before sql.h */
 #ifndef ODBCVER
