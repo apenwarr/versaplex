@@ -1,11 +1,14 @@
 using System.Data;
 using System.Data.SqlClient;
 using versabanq.Versaplex.Server;
+using versabanq.Versaplex.Dbus;
+using NDesk.Dbus;
 
 namespace versabanq.Versaplex.Dbus.Db {
 
-public static class VxDb {
-    public static void ExecNoResult(string query)
+[Interface("com.versabanq.versaplex.db")]
+public class VxDb : MarshalByRefObject {
+    public void ExecNoResult(string query)
     {
         SqlConnection conn = null;
         try {
@@ -20,7 +23,7 @@ public static class VxDb {
         }
     }
 
-    public static void ExecScalar(string query, out object result)
+    public void ExecScalar(string query, out object result)
     {
         SqlConnection conn = null;
         try {
@@ -35,9 +38,9 @@ public static class VxDb {
         }
     }
 
-    public static void ExecRecordset(string query,
+    public void ExecRecordset(string query,
             out string[] colnames, out string[] coltypes_str,
-            out VxDbResult[][] data)
+            out VxDbusDbResult[][] data)
     {
         SqlConnection conn = null;
         try {
@@ -60,59 +63,58 @@ public static class VxDb {
                     coltypes_str[i] = coltypes[i].ToString();
                 }
 
-                List<VxDbResult[]> rows = new List<VxDbResult[]>();
+                List<VxDbusDbResult[]> rows = new List<VxDbusDbResult[]>();
 
                 while (reader.Read()) {
-                    VxDbResult row[] = new VxDbResult[reader.FieldCount];
+                    VxDbusDbResult row[]
+                        = new VxDbusDbResult[reader.FieldCount];
 
                     for (int = 0; i < reader.FieldCount; i++) {
                         if (reader.IsDBNull(i)) {
-                            row[i].nullity = true;
-                            row[i].data = null;
+                            row[i].Nullity = true;
+                            row[i].Data = null;
                             continue;
                         }
 
-                        row[i].nullity = false;
+                        row[i].Nullity = false;
 
                         switch (coltypes[i]) {
                             case VxColumnType.Int64:
-                                row[i].data = reader.GetInt64(i);
+                                row[i].Data = reader.GetInt64(i);
                                 break;
                             case VxColumnType.Int32:
-                                row[i].data = reader.GetInt32(i);
+                                row[i].Data = reader.GetInt32(i);
                                 break;
                             case VxColumnType.Int16:
-                                row[i].data = reader.GetInt16(i);
+                                row[i].Data = reader.GetInt16(i);
                                 break;
                             case VxColumnType.UInt8:
-                                row[i].data = reader.GetByte(i);
+                                row[i].Data = reader.GetByte(i);
                                 break;
                             case VxColumnType.Bool:
-                                row[i].data = reader.GetBoolean(i);
+                                row[i].Data = reader.GetBoolean(i);
                                 break;
                             case VxColumnType.Double:
-                                row[i].data = reader.GetDouble(i);
+                                row[i].Data = reader.GetDouble(i);
                                 break;
                             case VxColumnType.Uuid:
-                                // XXX Conversion needed
-                                row[i].data = reader.GetGuid(i);
+                                row[i].Data = reader.GetGuid(i).ToString();
                                 break;
                             case VxColumnType.Binary:
-                                row[i].data = reader.GetBinary(i);
+                                row[i].Data = reader.GetBinary(i);
                                 break;
                             case VxColumnType.String:
-                                row[i].data = reader.GetString(i);
+                                row[i].Data = reader.GetString(i);
                                 break;
                             case VxColumnType.DateTime:
-                                // XXX Conversion needed
-                                row[i].data = reader.GetDateTime(i);
+                                row[i].Data = new VxDbusDateTime(
+                                        reader.GetDateTime(i));
                                 break;
                             case VxColumnType.Decimal:
-                                row[i].data = reader.GetDecimal().ToString();
+                                row[i].Data = reader.GetDecimal().ToString();
                                 break;
                         }
                     }
-
                 }
             }
         } finally {
@@ -121,7 +123,7 @@ public static class VxDb {
         }
     }
 
-    private static void ProcessSchema(SqlReader reader, out string[] colnames,
+    private void ProcessSchema(SqlReader reader, out string[] colnames,
             out VxColumnType[] coltypes)
     {
         colnames = new string[reader.FieldCount];
@@ -212,11 +214,6 @@ public static class VxDb {
     }
 }
 
-public struct VxDbResult {
-    bool nullity;
-    object data;
-}
-
 private enum VxColumnType {
     Int64,
     Int32,
@@ -232,15 +229,69 @@ private enum VxColumnType {
 }
 
 public class VxSqlError : Exception {
-    // TODO
+    public VxSqlError()
+        : base()
+    {
+    }
+    
+    public VxSqlError(string msg)
+        : base(msg)
+    {
+    }
+
+    public VxSqlError(SerializationInfo si, StreamingContext sc)
+        : base(si, sc)
+    {
+    }
+
+    public VxSqlError(string msg, Exception inner)
+        : base(msg, inner)
+    {
+    }
 }
 
 public class VxTooMuchData : Exception {
-    // TODO
+    public VxTooMuchData()
+        : base()
+    {
+    }
+    
+    public VxTooMuchData(string msg)
+        : base(msg)
+    {
+    }
+
+    public VxTooMuchData(SerializationInfo si, StreamingContext sc)
+        : base(si, sc)
+    {
+    }
+
+    public VxTooMuchData(string msg, Exception inner)
+        : base(msg, inner)
+    {
+    }
 }
 
 public class VxBadSchema : Exception {
-    // TODO
+    public VxBadSchema()
+        : base()
+    {
+    }
+    
+    public VxBadSchema(string msg)
+        : base(msg)
+    {
+    }
+
+    public VxBadSchema(SerializationInfo si, StreamingContext sc)
+        : base(si, sc)
+    {
+    }
+
+    public VxBadSchema(string msg, Exception inner)
+        : base(msg, inner)
+    {
+    }
 }
 
 }
