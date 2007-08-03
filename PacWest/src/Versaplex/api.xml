@@ -25,6 +25,8 @@
                      is too large to transmit in a single d-bus message. Will
                      need to use a different API (not yet defined). text
                      parameter will indicate what the problem is
+             com.versabanq.versaplex.badschema - Schema returned by the query
+                     contains features not supported (such as sql_variant)
         -->
 
         <!-- Future:
