@@ -268,7 +268,7 @@ mylog("CONVERT_FUNCTIONS=" FORMAT_ULEN "\n", value);
 			break;
 
 		case SQL_DRIVER_VER:	/* ODBC 1.0 */
-			p = POSTGRESDRIVERVERSION;
+			p = VXODBCDRIVERVERSION;
 			break;
 
 		case SQL_EXPRESSIONS_IN_ORDERBY:		/* ODBC 1.0 */

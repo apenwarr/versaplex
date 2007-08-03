@@ -1253,7 +1253,7 @@ static char CC_initial_log(ConnectionClass *self, const char *func)
 #endif /* NOT_USED */
 		" library"
 #endif /* WIN32 */
-		"\n", POSTGRESDRIVERVERSION, PG_BUILD_VERSION);
+		"\n", VXODBCDRIVERVERSION, PG_BUILD_VERSION);
 	qlog(vermsg);
 	mylog(vermsg);
 	qlog("Global Options: fetch=%d, socket=%d, unknown_sizes=%d, max_varchar_size=%d, max_longvarchar_size=%d\n",
