@@ -48,7 +48,7 @@ OBJS=\
 	odbcapiw.o \
 	odbcapi30w.o \
 	inouealc.o \
-	psqlodbc.res.o \
+	vxodbc.res.o \
 	vxodbc.def
 
 all: vxodbc.dll	
