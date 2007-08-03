@@ -108,7 +108,7 @@ logs_on_off(int cnopen, int mylog_onoff, int qlog_onoff)
 				mylog_off_count = 0,
 				qlog_on_count = 0,
 				qlog_off_count = 0;
-
+    
 	ENTER_MYLOG_CS;
 	ENTER_QLOG_CS;
 	if (mylog_onoff)
@@ -156,7 +156,7 @@ mylog(const char *fmt,...)
 	char		filebuf[80];
 	int		gerrno;
 
-	if (!mylog_on)	return;
+//	if (!mylog_on)	return;
 
 	gerrno = GENERAL_ERRNO;
 	ENTER_MYLOG_CS;

@@ -13,7 +13,6 @@
  */
 
 #include <libpq-fe.h>
-#include <openssl/ssl.h>
 #include "socket.h"
 #include "loadlib.h"
 
@@ -451,108 +450,7 @@ static int SOCK_wait_for_ready(SocketClass *sock, BOOL output, int retry_count)
 	}
 	return ret;
 }
-/*
- *	The stuff for SSL.
- */
-/* included in  <openssl/ssl.h>
-#define SSL_ERROR_NONE			0
-#define SSL_ERROR_SSL			1
-#define SSL_ERROR_WANT_READ		2
-#define SSL_ERROR_WANT_WRITE		3
-#define SSL_ERROR_WANT_X509_LOOKUP	4
-#define SSL_ERROR_SYSCALL		5 // look at error stack/return value/errno
-#define SSL_ERROR_ZERO_RETURN		6
-#define SSL_ERROR_WANT_CONNECT		7
-#define SSL_ERROR_WANT_ACCEPT		8
-*/
 
-/*
- *	recv more than 1 bytes using SSL.
- */
-static int SOCK_SSL_recv(SocketClass *sock, void *buffer, int len)
-{
-	CSTR	func = "SOCK_SSL_recv";
-	int n, err, gerrno, retry_count = 0;
-
-retry:
-	n = SSL_read(sock->ssl, buffer, len);
-	err = SSL_get_error(sock->ssl, len);
-	gerrno = SOCK_ERRNO;
-inolog("%s: %d get_error=%d Lasterror=%d\n", func, n, err, gerrno);
-	switch (err)
-	{
-		case	SSL_ERROR_NONE:
-			break;
-		case	SSL_ERROR_WANT_READ:
-			retry_count++;
-			if (SOCK_wait_for_ready(sock, FALSE, retry_count) >= 0)
-				goto retry;
-			n = -1;
-			break;
-		case	SSL_ERROR_WANT_WRITE:
-			goto retry;
-			break;
-		case	SSL_ERROR_SYSCALL:
-			if (-1 != n)
-			{
-				n = -1;
-				SOCK_ERRNO_SET(ECONNRESET);
-			}
-			break;
-		case	SSL_ERROR_SSL:
-		case	SSL_ERROR_ZERO_RETURN:
-			n = -1;
-			SOCK_ERRNO_SET(ECONNRESET);
-			break;
-		default:
-			n = -1;
-	}
-
-	return n;
-}
-
-/*
- *	send more than 1 bytes using SSL.
- */
-static int SOCK_SSL_send(SocketClass *sock, void *buffer, int len)
-{
-	CSTR	func = "SOCK_SSL_send";
-	int n, err, gerrno, retry_count = 0;
-
-retry:
-	n = SSL_write(sock->ssl, buffer, len);
-	err = SSL_get_error(sock->ssl, len);
-	gerrno = SOCK_ERRNO;
-inolog("%s: %d get_error=%d Lasterror=%d\n", func,  n, err, gerrno);
-	switch (err)
-	{
-		case	SSL_ERROR_NONE:
-			break;
-		case	SSL_ERROR_WANT_READ:
-		case	SSL_ERROR_WANT_WRITE:
-			retry_count++;
-			if (SOCK_wait_for_ready(sock, TRUE, retry_count) >= 0)
-				goto retry;
-			n = -1;
-			break;
-		case	SSL_ERROR_SYSCALL:
-			if (-1 != n)
-			{
-				n = -1;
-				SOCK_ERRNO_SET(ECONNRESET);
-			}
-			break;
-		case	SSL_ERROR_SSL:
-		case	SSL_ERROR_ZERO_RETURN:
-			n = -1;
-			SOCK_ERRNO_SET(ECONNRESET);
-			break;
-		default:
-			n = -1;
-	}
-
-	return n;
-}
 
 
 int
@@ -729,10 +627,7 @@ SOCK_flush_output(SocketClass *self)
 		return -1;
 	while (self->buffer_filled_out > 0)
 	{
-		if (self->ssl)
-			written = SOCK_SSL_send(self, (char *) self->buffer_out + pos, self->buffer_filled_out);
-		else
-			written = send(self->socket, (char *) self->buffer_out + pos, self->buffer_filled_out, 0);
+	        written = send(self->socket, (char *) self->buffer_out + pos, self->buffer_filled_out, 0);
 		gerrno = SOCK_ERRNO;
 		if (written < 0)
 		{
@@ -775,10 +670,7 @@ SOCK_get_next_byte(SocketClass *self)
 		 */
 		self->buffer_read_in = 0;
 retry:
-		if (self->ssl)
-			self->buffer_filled_in = SOCK_SSL_recv(self, (char *) self->buffer_in, self->buffer_size);
-		else
-			self->buffer_filled_in = recv(self->socket, (char *) self->buffer_in, self->buffer_size, 0);
+	        self->buffer_filled_in = recv(self->socket, (char *) self->buffer_in, self->buffer_size, 0);
 		gerrno = SOCK_ERRNO;
 
 		mylog("read %d, global_socket_buffersize=%d\n", self->buffer_filled_in, self->buffer_size);
@@ -848,10 +740,7 @@ SOCK_put_next_byte(SocketClass *self, UCHAR next_byte)
 		/* buffer is full, so write it out */
 		do
 		{
-			if (self->ssl)
-				bytes_sent = SOCK_SSL_send(self, (char *) self->buffer_out + pos, self->buffer_filled_out);
-			else
-				bytes_sent = send(self->socket, (char *) self->buffer_out + pos, self->buffer_filled_out, 0);
+		        bytes_sent = send(self->socket, (char *) self->buffer_out + pos, self->buffer_filled_out, 0);
 			gerrno = SOCK_ERRNO;
 			if (bytes_sent < 0)
 			{

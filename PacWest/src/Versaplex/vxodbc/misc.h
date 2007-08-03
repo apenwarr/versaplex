@@ -69,7 +69,7 @@ extern "C" {
 #ifndef WIN32
 #define MYLOGDIR			"/tmp"
 #else
-#define MYLOGDIR			"c:"
+#define MYLOGDIR			"c:\\temp"
 #endif /* WIN32 */
 extern void mylog(const char *fmt,...);
 extern void forcelog(const char *fmt,...);
@@ -89,7 +89,7 @@ extern void MyLog(char *fmt,...);
 #ifndef WIN32
 #define QLOGDIR				"/tmp"
 #else
-#define QLOGDIR				"c:"
+#define QLOGDIR				"c:\\temp"
 #endif
 extern void qlog(char *fmt,...);
 

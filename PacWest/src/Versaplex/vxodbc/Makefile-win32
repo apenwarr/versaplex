@@ -1,16 +1,14 @@
 CC=i586-mingw32msvc-gcc
 WINDRES=i586-mingw32msvc-windres
-WVPORTS=$(HOME)/src/wvports
-OPENSSL=$(WVPORTS)/openssl/build/openssl
+#WVPORTS=$(HOME)/src/wvports
+#OPENSSL=$(WVPORTS)/openssl/build/openssl
 CFLAGS=-w \
 	-D_MSC_VER=1300 \
 	-DUNICODE_SUPPORT -DODBCVER=0x0351 -D_WIN32_WINNT=0x0501 \
 	-I/usr/include/postgresql \
-	-I$(OPENSSL)/include
 RSCFLAGS=-DUNICODE_SUPPORT
-LIBS=-L$(OPENSSL) -lssl -lcrypto \
-	-lodbc32 -lodbccp32 -lws2_32 -lwinmm -lgdi32 -lkernel32
-LDFLAGS=--enable-stdcall-fixup
+LIBS=-lodbc32 -lodbccp32 -lws2_32 -lwinmm -lgdi32 -lkernel32
+LDFLAGS=--enable-stdcall-fixup -s
 
 OBJS=\
 	bind.o \
@@ -60,6 +58,9 @@ clean:
 
 %.res.o: %.rc
 	$(WINDRES) $< $@
+
+%.E: %.c
+	$(CC) -o $@ -E $< $(CFLAGS)
 	
 %.o: %.c
 	$(CC) -o $@ -c $< $(CFLAGS)
