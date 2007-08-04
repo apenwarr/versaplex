@@ -80,9 +80,7 @@ SQLSMALLINT	sqlTypes[] = {
 	/* SQL_BINARY, -- Commented out because VarBinary is more correct. */
 	SQL_BIT,
 	SQL_CHAR,
-#if (ODBCVER >= 0x0300)
 	SQL_TYPE_DATE,
-#endif /* ODBCVER */
 	SQL_DATE,
 	SQL_DECIMAL,
 	SQL_DOUBLE,
@@ -93,10 +91,8 @@ SQLSMALLINT	sqlTypes[] = {
 	SQL_NUMERIC,
 	SQL_REAL,
 	SQL_SMALLINT,
-#if (ODBCVER >= 0x0300)
 	SQL_TYPE_TIME,
 	SQL_TYPE_TIMESTAMP,
-#endif /* ODBCVER */
 	SQL_TIME,
 	SQL_TIMESTAMP,
 	SQL_TINYINT,
@@ -110,12 +106,7 @@ SQLSMALLINT	sqlTypes[] = {
 	0
 };
 
-#if (ODBCVER >= 0x0300) && defined(ODBCINT64)
 #define	ALLOWED_C_BIGINT	SQL_C_SBIGINT
-/* #define	ALLOWED_C_BIGINT	SQL_C_CHAR */ /* Delphi should be either ? */
-#else
-#define	ALLOWED_C_BIGINT	SQL_C_CHAR
-#endif
 
 OID
 sqltype_to_pgtype(StatementClass *stmt, SQLSMALLINT fSqlType)
@@ -144,9 +135,7 @@ sqltype_to_pgtype(StatementClass *stmt, SQLSMALLINT fSqlType)
 			pgType = ci->drivers.bools_as_char ? PG_TYPE_CHAR : PG_TYPE_BOOL;
 			break;
 
-#if (ODBCVER >= 0x0300)
 		case SQL_TYPE_DATE:
-#endif /* ODBCVER */
 		case SQL_DATE:
 			pgType = PG_TYPE_DATE;
 			break;
@@ -196,16 +185,12 @@ sqltype_to_pgtype(StatementClass *stmt, SQLSMALLINT fSqlType)
 			break;
 
 		case SQL_TIME:
-#if (ODBCVER >= 0x0300)
 		case SQL_TYPE_TIME:
-#endif /* ODBCVER */
 			pgType = PG_TYPE_TIME;
 			break;
 
 		case SQL_TIMESTAMP:
-#if (ODBCVER >= 0x0300)
 		case SQL_TYPE_TIMESTAMP:
-#endif /* ODBCVER */
 			pgType = PG_TYPE_DATETIME;
 			break;
 
@@ -249,9 +234,7 @@ pgtype_to_concise_type(StatementClass *stmt, OID type, int col)
 {
 	ConnectionClass	*conn = SC_get_conn(stmt);
 	ConnInfo	*ci = &(conn->connInfo);
-#if (ODBCVER >= 0x0300)
 	EnvironmentClass *env = (EnvironmentClass *) (conn->henv);
-#endif /* ODBCVER */
 
 	switch (type)
 	{
@@ -320,11 +303,7 @@ pgtype_to_concise_type(StatementClass *stmt, OID type, int col)
 				return ci->int8_as;
 			if (conn->ms_jet) 
 				return SQL_NUMERIC; /* maybe a little better than SQL_VARCHAR */
-#if (ODBCVER >= 0x0300)
 			return SQL_BIGINT;
-#else
-			return SQL_VARCHAR;
-#endif /* ODBCVER */
 
 		case PG_TYPE_NUMERIC:
 			return SQL_NUMERIC;
@@ -334,25 +313,19 @@ pgtype_to_concise_type(StatementClass *stmt, OID type, int col)
 		case PG_TYPE_FLOAT8:
 			return SQL_FLOAT;
 		case PG_TYPE_DATE:
-#if (ODBCVER >= 0x0300)
 			if (EN_is_odbc3(env))
 				return SQL_TYPE_DATE;
-#endif /* ODBCVER */
 			return SQL_DATE;
 		case PG_TYPE_TIME:
-#if (ODBCVER >= 0x0300)
 			if (EN_is_odbc3(env))
 				return SQL_TYPE_TIME;
-#endif /* ODBCVER */
 			return SQL_TIME;
 		case PG_TYPE_ABSTIME:
 		case PG_TYPE_DATETIME:
 		case PG_TYPE_TIMESTAMP_NO_TMZONE:
 		case PG_TYPE_TIMESTAMP:
-#if (ODBCVER >= 0x0300)
 			if (EN_is_odbc3(env))
 				return SQL_TYPE_TIMESTAMP;
-#endif /* ODBCVER */
 			return SQL_TIMESTAMP;
 		case PG_TYPE_MONEY:
 			return SQL_FLOAT;
@@ -385,12 +358,10 @@ pgtype_to_sqldesctype(StatementClass *stmt, OID type, int col)
 
 	switch (rettype = pgtype_to_concise_type(stmt, type, col))
 	{
-#if (ODBCVER >= 0x0300)
 		case SQL_TYPE_DATE:
 		case SQL_TYPE_TIME:
 		case SQL_TYPE_TIMESTAMP:
 			return SQL_DATETIME;
-#endif /* ODBCVER */
 	}
 	return rettype;
 }
@@ -400,14 +371,12 @@ pgtype_to_datetime_sub(StatementClass *stmt, OID type)
 {
 	switch (pgtype_to_concise_type(stmt, type, PG_STATIC))
 	{
-#if (ODBCVER >= 0x0300)
 		case SQL_TYPE_DATE:
 			return SQL_CODE_DATE;
 		case SQL_TYPE_TIME:
 			return SQL_CODE_TIME;
 		case SQL_TYPE_TIMESTAMP:
 			return SQL_CODE_TIMESTAMP;
-#endif /* ODBCVER */
 	}
 	return -1;
 }
@@ -418,17 +387,13 @@ pgtype_to_ctype(StatementClass *stmt, OID type)
 {
 	ConnectionClass	*conn = SC_get_conn(stmt);
 	ConnInfo	*ci = &(conn->connInfo);
-#if (ODBCVER >= 0x0300)
 	EnvironmentClass *env = (EnvironmentClass *) (conn->henv);
-#endif /* ODBCVER */
 
 	switch (type)
 	{
 		case PG_TYPE_INT8:
-#if (ODBCVER >= 0x0300)
 			if (!conn->ms_jet)
 				return ALLOWED_C_BIGINT;
-#endif /* ODBCVER */
 			return SQL_C_CHAR;
 		case PG_TYPE_NUMERIC:
 			return SQL_C_CHAR;
@@ -444,25 +409,19 @@ pgtype_to_ctype(StatementClass *stmt, OID type)
 		case PG_TYPE_FLOAT8:
 			return SQL_C_DOUBLE;
 		case PG_TYPE_DATE:
-#if (ODBCVER >= 0x0300)
 			if (EN_is_odbc3(env))
 				return SQL_C_TYPE_DATE;
-#endif /* ODBCVER */
 			return SQL_C_DATE;
 		case PG_TYPE_TIME:
-#if (ODBCVER >= 0x0300)
 			if (EN_is_odbc3(env))
 				return SQL_C_TYPE_TIME;
-#endif /* ODBCVER */
 			return SQL_C_TIME;
 		case PG_TYPE_ABSTIME:
 		case PG_TYPE_DATETIME:
 		case PG_TYPE_TIMESTAMP_NO_TMZONE:
 		case PG_TYPE_TIMESTAMP:
-#if (ODBCVER >= 0x0300)
 			if (EN_is_odbc3(env))
 				return SQL_C_TYPE_TIMESTAMP;
-#endif /* ODBCVER */
 			return SQL_C_TIMESTAMP;
 		case PG_TYPE_MONEY:
 			return SQL_C_FLOAT;
@@ -745,10 +704,7 @@ getCharColumnSize(StatementClass *stmt, OID type, int col, int handle_unknown_si
 			case PG_TYPE_BPCHAR:
 				if (CC_is_in_unicode_driver(conn) || conn->ms_jet)
 					return attlen;
-#if (ODBCVER >= 0x0300)
 				return attlen;
-#endif /* ODBCVER */
-				return p;
 		}
 	}
 
@@ -1487,14 +1443,9 @@ sqltype_to_default_ctype(const ConnectionClass *conn, SQLSMALLINT sqltype)
 		case SQL_LONGVARCHAR:
 		case SQL_DECIMAL:
 		case SQL_NUMERIC:
-#if (ODBCVER < 0x0300)
-		case SQL_BIGINT:
-			return SQL_C_CHAR;
-#else
 			return SQL_C_CHAR;
 		case SQL_BIGINT:
 			return ALLOWED_C_BIGINT;
-#endif
 
 #ifdef	UNICODE_SUPPORT
 		case SQL_WCHAR:
@@ -1538,7 +1489,6 @@ sqltype_to_default_ctype(const ConnectionClass *conn, SQLSMALLINT sqltype)
 		case SQL_TIMESTAMP:
 			return SQL_C_TIMESTAMP;
 
-#if (ODBCVER >= 0x0300)
 		case SQL_TYPE_DATE:
 			return SQL_C_TYPE_DATE;
 
@@ -1547,7 +1497,6 @@ sqltype_to_default_ctype(const ConnectionClass *conn, SQLSMALLINT sqltype)
 
 		case SQL_TYPE_TIMESTAMP:
 			return SQL_C_TYPE_TIMESTAMP;
-#endif /* ODBCVER */
 
 		default:
 			/* should never happen */
@@ -1591,21 +1540,15 @@ ctype_length(SQLSMALLINT ctype)
 			return sizeof(UCHAR);
 
 		case SQL_C_DATE:
-#if (ODBCVER >= 0x0300)
 		case SQL_C_TYPE_DATE:
-#endif /* ODBCVER */
 			return sizeof(DATE_STRUCT);
 
 		case SQL_C_TIME:
-#if (ODBCVER >= 0x0300)
 		case SQL_C_TYPE_TIME:
-#endif /* ODBCVER */
 			return sizeof(TIME_STRUCT);
 
 		case SQL_C_TIMESTAMP:
-#if (ODBCVER >= 0x0300)
 		case SQL_C_TYPE_TIMESTAMP:
-#endif /* ODBCVER */
 			return sizeof(TIMESTAMP_STRUCT);
 
 		case SQL_C_BINARY:

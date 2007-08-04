@@ -341,14 +341,12 @@ CC_Constructor()
 		memset(rv->stmts, 0, sizeof(StatementClass *) * STMT_INCREMENT);
 
 		rv->num_stmts = STMT_INCREMENT;
-#if (ODBCVER >= 0x0300)
 		rv->descs = (DescriptorClass **) malloc(sizeof(DescriptorClass *) * STMT_INCREMENT);
 		if (!rv->descs)
 			goto cleanup;
 		memset(rv->descs, 0, sizeof(DescriptorClass *) * STMT_INCREMENT);
 
 		rv->num_descs = STMT_INCREMENT;
-#endif /* ODBCVER */
 
 		rv->lobj_type = PG_TYPE_LO_UNDEFINED;
 
@@ -425,13 +423,11 @@ CC_Destructor(ConnectionClass *self)
 		free(self->stmts);
 		self->stmts = NULL;
 	}
-#if (ODBCVER >= 0x0300)
 	if (self->descs)
 	{
 		free(self->descs);
 		self->descs = NULL;
 	}
-#endif /* ODBCVER */
 	mylog("after free statement holders\n");
 
 	NULL_THE_NAME(self->schemaIns);
@@ -591,7 +587,6 @@ CC_cleanup(ConnectionClass *self)
 			self->stmts[i] = NULL;
 		}
 	}
-#if (ODBCVER >= 0x0300)
 	/* Free all the descs on this connection */
 	for (i = 0; i < self->num_descs; i++)
 	{
@@ -604,7 +599,6 @@ CC_cleanup(ConnectionClass *self)
 			self->descs[i] = NULL;
 		}
 	}
-#endif /* ODBCVER */
 
 	/* Check for translation dll */
 #ifdef WIN32

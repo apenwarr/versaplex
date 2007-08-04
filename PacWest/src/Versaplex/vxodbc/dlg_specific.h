@@ -36,15 +36,7 @@ extern "C" {
 
 #define	ODBC_DATASOURCES	"ODBC Data Sources"
 
-#if (ODBCVER >= 0x0300)
-#ifdef  UNICODE_SUPPORT
 #define INI_DSN				"PostgreSQL30W"
-#else
-#define INI_DSN				"PostgreSQL30"
-#endif /* UNICODE_SUPPORT */
-#else
-#define INI_DSN				DBMS_NAME
-#endif   /* ODBCVER */
 
 #define INI_KDESC			"Description"	/* Data source
 							 * description */

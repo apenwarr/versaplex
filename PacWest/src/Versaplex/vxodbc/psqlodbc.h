@@ -43,7 +43,7 @@
 #endif /* WIN32 */
 /* Must come before sql.h */
 #ifndef ODBCVER
-#define ODBCVER						0x0250
+#define ODBCVER						0x0351
 #endif   /* ODBCVER_REP */
 
 #define NAMEDATALEN_V72					32
@@ -198,45 +198,12 @@ typedef double SDOUBLE;
 
 /* Driver stuff */
 
-#define DRIVERNAME				"PostgreSQL ODBC"
-#if (ODBCVER >= 0x0300)
-#if (ODBCVER >= 0x0351)
+#define DRIVERNAME				"Versabanq PLEXUS ODBC"
 #define DRIVER_ODBC_VER				"03.51"
-#else
-#define DRIVER_ODBC_VER				"03.00"
-#endif /* ODBCVER 0x0351 */
-#ifndef DBMS_NAME
-#ifdef	UNICODE_SUPPORT
-#define DBMS_NAME				"PostgreSQL Unicode"
-#else
-#define DBMS_NAME				"PostgreSQL ANSI"
-#endif /* UNICODE_SUPPORT */
-#endif /* DBMS_NAME */
-#else
-#define DRIVER_ODBC_VER				"02.50"
-#define DBMS_NAME				"PostgreSQL Legacy"
-#endif   /* ODBCVER */
+#define DBMS_NAME				"Versabanq PLEXUS"
 
 #ifdef WIN32
-#if (ODBCVER >= 0x0300)
-#ifdef	UNICODE_SUPPORT
-#if (ODBCVER >= 0x0350)
-#define DRIVER_FILE_NAME			"PSQLODBC35W.DLL"
-#else
-#define DRIVER_FILE_NAME			"PSQLODBC30W.DLL"
-#endif /* ODBCVER 0x0350 */
-#else
-#define DRIVER_FILE_NAME			"PSQLODBC.DLL"
-#endif   /* UNICODE_SUPPORT */
-#else
-#define DRIVER_FILE_NAME			"PSQLODBC25.DLL"
-#endif   /* ODBCVER 0x0300 */
-#else
-#ifdef  UNICODE_SUPPORT
-#define DRIVER_FILE_NAME                        "psqlodbcw.so"
-#else
-#define DRIVER_FILE_NAME                        "psqlodbca.so"
-#endif
+#define DRIVER_FILE_NAME			"VXODBC.DLL"
 #endif   /* WIN32 */
 
 #define	NULL_CATALOG_NAME				""
@@ -386,9 +353,7 @@ typedef struct StatementOptions_
 	SQLUINTEGER		retrieve_data;
 	SQLUINTEGER		use_bookmarks;
 	void			*bookmark_ptr;
-#if (ODBCVER >= 0x0300)
 	SQLUINTEGER		metadata_id;
-#endif /* ODBCVER */
 } StatementOptions;
 
 /*	Used to pass extra query info to send_query */

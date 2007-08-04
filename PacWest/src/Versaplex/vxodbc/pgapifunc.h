@@ -280,7 +280,6 @@ RETCODE SQL_API PGAPI_SetScrollOptions(
 					   SQLLEN crowKeyset,
 					   SQLUSMALLINT crowRowset);
 
-#if (ODBCVER >= 0x0300)
 RETCODE SQL_API PGAPI_GetDiagRec(SQLSMALLINT HandleType, SQLHANDLE Handle,
 		SQLSMALLINT RecNumber, SQLCHAR *Sqlstate,
 		SQLINTEGER *NativeError, SQLCHAR *MessageText,
@@ -318,7 +317,6 @@ RETCODE SQL_API PGAPI_DescError(SQLHDESC DescriptorHandle, SQLSMALLINT RecNumber
 			SQLCHAR *Sqlstate, SQLINTEGER *NativeError,
 			SQLCHAR *MessageText, SQLSMALLINT BufferLength,
 			SQLSMALLINT *TextLength, UWORD flag);
-#endif /* ODBCVER */
 
 #ifdef	__cplusplus
 }

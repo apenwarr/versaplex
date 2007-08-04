@@ -1147,9 +1147,7 @@ inolog("2stime fr=%d\n", std_time.fr);
 		switch (fCType)
 		{
 			case SQL_C_DATE:
-#if (ODBCVER >= 0x0300)
 			case SQL_C_TYPE_DATE:		/* 91 */
-#endif
 				len = 6;
 				{
 					DATE_STRUCT *ds;
@@ -1165,9 +1163,7 @@ inolog("2stime fr=%d\n", std_time.fr);
 				break;
 
 			case SQL_C_TIME:
-#if (ODBCVER >= 0x0300)
 			case SQL_C_TYPE_TIME:		/* 92 */
-#endif
 				len = 6;
 				{
 					TIME_STRUCT *ts;
@@ -1183,9 +1179,7 @@ inolog("2stime fr=%d\n", std_time.fr);
 				break;
 
 			case SQL_C_TIMESTAMP:
-#if (ODBCVER >= 0x0300)
 			case SQL_C_TYPE_TIMESTAMP:	/* 93 */
-#endif
 				len = 16;
 				{
 					TIMESTAMP_STRUCT *ts;
@@ -1267,7 +1261,6 @@ inolog("2stime fr=%d\n", std_time.fr);
 #endif /* HAVE_LOCALE_H */
 				break;
 
-#if (ODBCVER >= 0x0300)
                         case SQL_C_NUMERIC:
 #ifdef HAVE_LOCALE_H
 			/* strcpy(saved_locale, setlocale(LC_ALL, NULL));
@@ -1349,7 +1342,6 @@ inolog("2stime fr=%d\n", std_time.fr);
 			/* setlocale(LC_ALL, saved_locale); */
 #endif /* HAVE_LOCALE_H */
 			break;
-#endif /* ODBCVER */
 
 			case SQL_C_SSHORT:
 			case SQL_C_SHORT:
@@ -1385,7 +1377,6 @@ inolog("2stime fr=%d\n", std_time.fr);
 					*((SQLUINTEGER *) rgbValue + bind_row) = ATOI32U(neut_str);
 				break;
 
-#if (ODBCVER >= 0x0300) && defined(ODBCINT64)
 			case SQL_C_SBIGINT:
 				len = 8;
 				if (bind_size > 0)
@@ -1402,7 +1393,6 @@ inolog("2stime fr=%d\n", std_time.fr);
 					*((SQLUBIGINT *) rgbValue + bind_row) = ATOI64U(neut_str);
 				break;
 
-#endif /* ODBCINT64 */
 			case SQL_C_BINARY:
 				if (PG_TYPE_UNKNOWN == field_type ||
 				    PG_TYPE_TEXT == field_type ||
@@ -3102,7 +3092,6 @@ cleanup:
 	return ret;
 }
 
-#if (ODBCVER >= 0x0300)
 static BOOL
 ResolveNumericParam(const SQL_NUMERIC_STRUCT *ns, char *chrform)
 {
@@ -3232,7 +3221,6 @@ inolog(" len2=%d", len);
 inolog(" convval(2) len=%d %s\n", newlen, chrform);
 	return TRUE;
 }
-#endif /* ODBCVER */
 
 /*
  *
@@ -3578,7 +3566,6 @@ mylog("C_WCHAR=%s(%d)\n", buffer, used);
 					*((SQLINTEGER *) buffer));
 			break;
 
-#if (ODBCVER >= 0x0300) && defined(ODBCINT64)
 		case SQL_C_SBIGINT:
 		case SQL_BIGINT: /* Is this needed ? */
 			sprintf(param_string, FORMATI64,
@@ -3590,7 +3577,6 @@ mylog("C_WCHAR=%s(%d)\n", buffer, used);
 					*((SQLUBIGINT *) buffer));
 			break;
 
-#endif /* ODBCINT64 */
 		case SQL_C_SSHORT:
 		case SQL_C_SHORT:
 			sprintf(param_string, "%d",
@@ -3627,9 +3613,7 @@ mylog("C_WCHAR=%s(%d)\n", buffer, used);
 			}
 
 		case SQL_C_DATE:
-#if (ODBCVER >= 0x0300)
 		case SQL_C_TYPE_DATE:		/* 91 */
-#endif
 			{
 				DATE_STRUCT *ds = (DATE_STRUCT *) buffer;
 
@@ -3641,9 +3625,7 @@ mylog("C_WCHAR=%s(%d)\n", buffer, used);
 			}
 
 		case SQL_C_TIME:
-#if (ODBCVER >= 0x0300)
 		case SQL_C_TYPE_TIME:		/* 92 */
-#endif
 			{
 				TIME_STRUCT *ts = (TIME_STRUCT *) buffer;
 
@@ -3655,9 +3637,7 @@ mylog("C_WCHAR=%s(%d)\n", buffer, used);
 			}
 
 		case SQL_C_TIMESTAMP:
-#if (ODBCVER >= 0x0300)
 		case SQL_C_TYPE_TIMESTAMP:	/* 93 */
-#endif
 			{
 				TIMESTAMP_STRUCT *tss = (TIMESTAMP_STRUCT *) buffer;
 
@@ -3674,11 +3654,9 @@ mylog("C_WCHAR=%s(%d)\n", buffer, used);
 				break;
 
 			}
-#if (ODBCVER >= 0x0300)
 		case SQL_C_NUMERIC:
 			if (ResolveNumericParam((SQL_NUMERIC_STRUCT *) buffer, param_string))
 				break;
-#endif
 		default:
 			/* error */
 			qb->errormsg = "Unrecognized C_parameter type in copy_statement_with_parameters";
@@ -3763,9 +3741,7 @@ mylog("cvt_null_date_string=%d pgtype=%d buf=%p\n", conn->connInfo.cvt_null_date
 			break;
 
 		case SQL_DATE:
-#if (ODBCVER >= 0x0300)
 		case SQL_TYPE_DATE:	/* 91 */
-#endif
 			if (buf)
 			{				/* copy char data to time */
 				my_strcpy(cbuf, sizeof(cbuf), buf, used);
@@ -3781,9 +3757,7 @@ mylog("cvt_null_date_string=%d pgtype=%d buf=%p\n", conn->connInfo.cvt_null_date
 			break;
 
 		case SQL_TIME:
-#if (ODBCVER >= 0x0300)
 		case SQL_TYPE_TIME:	/* 92 */
-#endif
 			if (buf)
 			{				/* copy char data to time */
 				my_strcpy(cbuf, sizeof(cbuf), buf, used);
@@ -3796,9 +3770,7 @@ mylog("cvt_null_date_string=%d pgtype=%d buf=%p\n", conn->connInfo.cvt_null_date
 			break;
 
 		case SQL_TIMESTAMP:
-#if (ODBCVER >= 0x0300)
 		case SQL_TYPE_TIMESTAMP:	/* 93 */
-#endif
 
 			if (buf)
 			{

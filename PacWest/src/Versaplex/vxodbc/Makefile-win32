@@ -5,9 +5,9 @@ WINDRES=i586-mingw32msvc-windres
 CFLAGS=-w \
 	-D_MSC_VER=1300 \
 	-DUNICODE_SUPPORT -DODBCVER=0x0351 -D_WIN32_WINNT=0x0501 \
-	-I/usr/include/postgresql \
+	-I/usr/include/postgresql
 RSCFLAGS=-DUNICODE_SUPPORT
-LIBS=-lodbc32 -lodbccp32 -lws2_32 -lwinmm -lgdi32 -lkernel32
+LIBS=-lodbc32 -lodbccp32 -lws2_32 -lwinmm -lgdi32 -lkernel32 
 LDFLAGS=--enable-stdcall-fixup -s
 
 OBJS=\
@@ -66,5 +66,10 @@ clean:
 	$(CC) -o $@ -c $< $(CFLAGS)
 	
 %.dll: %.def
-	$(CC) -shared -o $@ $(LDFLAGS) $^ -Wl,--out-implib,$*.a $(LIBS)
+	$(CC) -shared -o $@ \
+		$(LDFLAGS) \
+		$^ \
+		-Wl,--out-implib,$*.a \
+		$(LIBS) \
+		2>&1 | grep -v '^Warning: resolving .* by linking to' >&2
 
