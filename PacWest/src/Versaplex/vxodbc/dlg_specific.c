@@ -27,65 +27,9 @@
 
 extern GLOBAL_VALUES globals;
 
-static void encode(const UCHAR * in, UCHAR * out);
-
-UInt4 getExtraOptions(const ConnInfo * ci)
-{
-    UInt4 flag = 0;
-    return flag;
-}
-
-CSTR hex_format = "%x";
-CSTR dec_format = "%u";
-CSTR octal_format = "%o";
-static UInt4 replaceExtraOptions(ConnInfo * ci, UInt4 flag,
-				 BOOL overwrite)
-{
-    return getExtraOptions(ci);
-}
-
-BOOL setExtraOptions(ConnInfo * ci, const char *optstr,
-		     const char *format)
-{
-    UInt4 flag = 0;
-
-    if (!format)
-    {
-	if ('0' == *optstr)
-	{
-	    switch (optstr[1])
-	    {
-	    case '\0':
-		format = dec_format;
-		break;
-	    case 'x':
-	    case 'X':
-		optstr += 2;
-		format = hex_format;
-		break;
-	    default:
-		format = octal_format;
-		break;
-	    }
-	} else
-	    format = dec_format;
-    }
-
-    if (sscanf(optstr, format, &flag) < 1)
-	return FALSE;
-    replaceExtraOptions(ci, flag, TRUE);
-    return TRUE;
-}
-
-UInt4 add_removeExtraOptions(ConnInfo * ci, UInt4 aflag, UInt4 dflag)
-{
-    return getExtraOptions(ci);
-}
-
 void makeConnectString(char *connect_string, const ConnInfo * ci, UWORD len)
 {
     char got_dsn = (ci->dsn[0] != '\0');
-    char encoded_conn_settings[LARGE_REGISTRY_LEN];
     ssize_t hlen, nlen, olen;
     /*BOOL          abbrev = (len <= 400); */
     BOOL abbrev = (len < 1024) || 0 < ci->force_abbrev_connstr;
@@ -105,8 +49,6 @@ void makeConnectString(char *connect_string, const ConnInfo * ci, UWORD len)
 	connect_string[0] = '\0';
 	return;
     }
-
-    encode(ci->conn_settings, encoded_conn_settings);
 
     /* extra info */
     hlen = strlen(connect_string);
@@ -411,29 +353,5 @@ getCommonDefaults(const char *section, const char *filename,
 	else
 	    comval->onlyread = DEFAULT_READONLY;
     }
-}
-
-static void encode(const UCHAR * in, UCHAR * out)
-{
-    size_t i, ilen = strlen(in), o = 0;
-    UCHAR inc;
-
-    for (i = 0; i < ilen; i++)
-    {
-	inc = in[i];
-	if (inc == '+')
-	{
-	    sprintf(&out[o], "%%2B");
-	    o += 3;
-	} else if (isspace(inc))
-	    out[o++] = '+';
-	else if (!isalnum(inc))
-	{
-	    sprintf(&out[o], "%%%02x", inc);
-	    o += 3;
-	} else
-	    out[o++] = inc;
-    }
-    out[o++] = '\0';
 }
 

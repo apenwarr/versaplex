@@ -254,19 +254,17 @@ LRESULT CALLBACK manage_dsnProc(HWND hdlg,
 			   LPARAM lParam);
 #endif   /* WIN32 */
 
-void		updateGlobals(void);
-int		writeDriverCommoninfo(const char *fileName, const char *sectionName,
-		const GLOBAL_VALUES *);
-void		writeDSNinfo(const ConnInfo *ci);
-void		getDSNdefaults(ConnInfo *ci);
-void		getDSNinfo(ConnInfo *ci, char overwrite);
-void		makeConnectString(char *connect_string, const ConnInfo *ci, UWORD);
-BOOL		copyAttributes(ConnInfo *ci, const char *attribute, const char *value);
-BOOL		copyCommonAttributes(ConnInfo *ci, const char *attribute, const char *value);
+void	updateGlobals(void);
+int	writeDriverCommoninfo(const char *fileName, const char *sectionName,
+			      const GLOBAL_VALUES *);
+void	writeDSNinfo(const ConnInfo *ci);
+void	getDSNdefaults(ConnInfo *ci);
+void	getDSNinfo(ConnInfo *ci, char overwrite);
+void	makeConnectString(char *connect_string, const ConnInfo *ci, UWORD);
+BOOL	copyAttributes(ConnInfo *ci, const char *attribute, const char *value);
+BOOL 	copyCommonAttributes(ConnInfo *ci, const char *attribute, const char *value);
 int	getDriverNameFromDSN(const char *dsn, char *driver_name, int namelen);
 int     changeDriverNameOfaDSN(const char *dsn, const char *driver_name, DWORD *errcode);
-UInt4	getExtraOptions(const ConnInfo *);
-BOOL	setExtraOptions(ConnInfo *, const char *str, const char *format);
 
 #ifdef	__cplusplus
 }

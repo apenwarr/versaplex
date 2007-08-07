@@ -184,8 +184,8 @@ void INTFUNC CenterDialog(HWND hdlg)
  *	Output	 :	TRUE if message processed, FALSE otherwise
  *-------
  */
-LRESULT CALLBACK
-ConfigDlgProc(HWND hdlg, UINT wMsg, WPARAM wParam, LPARAM lParam)
+BOOL CALLBACK ConfigDlgProc(HWND hdlg, UINT wMsg,
+			    WPARAM wParam, LPARAM lParam)
 {
     LPSETUPDLG lpsetupdlg;
     ConnInfo *ci;

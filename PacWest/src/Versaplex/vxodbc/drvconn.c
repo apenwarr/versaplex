@@ -65,7 +65,7 @@ static void dconn_get_common_attributes(const SQLCHAR FAR *
 					connect_string, ConnInfo * ci);
 
 #ifdef WIN32
-LRESULT CALLBACK dconn_FDriverConnectProc(HWND hdlg, UINT wMsg,
+BOOL CALLBACK dconn_FDriverConnectProc(HWND hdlg, UINT wMsg,
 					  WPARAM wParam, LPARAM lParam);
 RETCODE dconn_DoDialog(HWND hwnd, ConnInfo * ci);
 
@@ -349,9 +349,8 @@ RETCODE dconn_DoDialog(HWND hwnd, ConnInfo * ci)
 }
 
 
-LRESULT CALLBACK
-dconn_FDriverConnectProc(HWND hdlg,
-			 UINT wMsg, WPARAM wParam, LPARAM lParam)
+BOOL CALLBACK dconn_FDriverConnectProc(HWND hdlg, UINT wMsg,
+				       WPARAM wParam, LPARAM lParam)
 {
     ConnInfo *ci;
 
@@ -407,7 +406,7 @@ dconn_FDriverConnectProc(HWND hdlg,
 #endif				/* WIN32 */
 
 
-typedef void (*copyfunc) (ConnInfo *, const char *attribute,
+typedef BOOL (*copyfunc) (ConnInfo *, const char *attribute,
 			  const char *value);
 static void dconn_get_attributes(copyfunc func,
 				 const SQLCHAR FAR * connect_string,
@@ -475,18 +474,16 @@ static void dconn_get_attributes(copyfunc func,
     free(our_connect_string);
 }
 
-void
-dconn_get_connect_attributes(const SQLCHAR FAR * connect_string,
-			     ConnInfo * ci)
+void dconn_get_connect_attributes(const SQLCHAR FAR * connect_string,
+				  ConnInfo * ci)
 {
 
     CC_conninfo_init(ci);
     dconn_get_attributes(copyAttributes, connect_string, ci);
 }
 
-static void
-dconn_get_common_attributes(const SQLCHAR FAR * connect_string,
-			    ConnInfo * ci)
+static void dconn_get_common_attributes(const SQLCHAR FAR * connect_string,
+					ConnInfo * ci)
 {
     dconn_get_attributes(copyCommonAttributes, connect_string, ci);
 }

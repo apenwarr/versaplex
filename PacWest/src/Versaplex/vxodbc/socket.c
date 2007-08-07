@@ -124,16 +124,9 @@ void SOCK_Destructor(SocketClass * self)
     free(self);
 }
 
-#if defined(_MSC_VER) && (_MSC_VER < 1300)
-static freeaddrinfo_func freeaddrinfo_ptr = NULL;
-static getaddrinfo_func getaddrinfo_ptr = NULL;
-static getnameinfo_func getnameinfo_ptr = NULL;
-static HMODULE ws2_hnd = NULL;
-#else
 static freeaddrinfo_func freeaddrinfo_ptr = freeaddrinfo;
 static getaddrinfo_func getaddrinfo_ptr = getaddrinfo;
 static getnameinfo_func getnameinfo_ptr = getnameinfo;
-#endif				/* _MSC_VER */
 
 static BOOL format_sockerr(char *errmsg, size_t buflen, int errnum,
 			   const char *cmd, const char *host,
