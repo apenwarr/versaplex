@@ -40,29 +40,10 @@ void	generate_filename(const char *, const char *, char *);
 void
 generate_filename(const char *dirname, const char *prefix, char *filename)
 {
-#ifdef	WIN32
-	int	pid = 0;
-
-	pid = _getpid();
-#else
-	pid_t	pid = 0;
-	struct passwd *ptr = 0;
-
-	ptr = getpwuid(getuid());
-	pid = getpid();
-#endif
 	if (dirname == 0 || filename == 0)
 		return;
-
-	strcpy(filename, dirname);
-	strcat(filename, DIRSEPARATOR);
-	if (prefix != 0)
-		strcat(filename, prefix);
-#ifndef WIN32
-	strcat(filename, ptr->pw_name);
-#endif
-	sprintf(filename, "%s%u%s", filename, pid, ".log");
-	return;
+        sprintf(filename, "%s%s%s.log", dirname, DIRSEPARATOR, 
+		prefix ? prefix : "");
 }
 
 static void
@@ -176,7 +157,7 @@ mylog(const char *fmt,...)
 			MLOGFP = fopen(filebuf, PG_BINARY_A);
 		}
 		if (MLOGFP)
-			setbuf(MLOGFP, NULL);
+			/*setbuf(MLOGFP, NULL)*/;
 		else
 			mylog_on = 0;
 	}
@@ -195,6 +176,7 @@ mylog(const char *fmt,...)
 		fprintf(MLOGFP, "[%lu]", pthread_self());
 #endif /* POSIX_MULTITHREAD_SUPPORT */
 		vfprintf(MLOGFP, fmt, args);
+ 	        fflush(MLOGFP);
 	}
 
 	va_end(args);
@@ -253,6 +235,7 @@ forcelog(const char *fmt,...)
 		fprintf(MLOGFP, "[%u]", pthread_self());
 #endif /* POSIX_MULTITHREAD_SUPPORT */
 		vfprintf(MLOGFP, fmt, args);
+ 	        fflush(MLOGFP);
 	}
 	va_end(args);
 	LEAVE_MYLOG_CS;
@@ -323,6 +306,7 @@ qlog(char *fmt,...)
 		fprintf(QLOGFP, "[%d.%03d]", proc_time / 1000, proc_time % 1000);
 #endif /* LOGGING_PROCESS_TIME */
 		vfprintf(QLOGFP, fmt, args);
+	        fflush(QLOGFP);
 	}
 
 	va_end(args);
