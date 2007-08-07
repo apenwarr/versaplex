@@ -55,7 +55,7 @@ all: vxodbc.dll
 vxodbc.dll: $(OBJS)
 
 clean:
-	rm -f *.o *~ *.res *.dll *.a
+	rm -f *.o *~ *.res *.dll *.a .*.d *.d
 
 %.res.o: %.rc
 	$(WINDRES) $< $@
@@ -65,7 +65,7 @@ clean:
 	
 %.o: %.c
 	@echo Compiling $@...
-	@$(CC) -o $@ -c $< $(CFLAGS)
+	@$(CC) -o $@ -c -MMD -MF .$*.d $< $(CFLAGS)
 	
 %.dll: %.def
 	@echo Linking $@...
@@ -76,3 +76,4 @@ clean:
 		$(LIBS) \
 		2>&1 | grep -v '^Warning: resolving .* by linking to' >&2
 
+include $(wildcard .*.d)
