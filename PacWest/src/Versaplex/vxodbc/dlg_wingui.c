@@ -36,8 +36,6 @@ static int driver_options_update(HWND hdlg, ConnInfo * ci,
 
 void SetDlgStuff(HWND hdlg, const ConnInfo * ci)
 {
-    char buff[MEDIUM_REGISTRY_LEN + 1];
-
     /*
      * If driver attribute NOT present, then set the datasource name and
      * description
@@ -324,9 +322,6 @@ HMODULE DtcProc(const char *procname, FARPROC * proc)
 LRESULT CALLBACK
 global_optionsProc(HWND hdlg, UINT wMsg, WPARAM wParam, LPARAM lParam)
 {
-    HMODULE hmodule;
-    FARPROC proc;
-
     switch (wMsg)
     {
     case WM_INITDIALOG:
@@ -338,19 +333,7 @@ global_optionsProc(HWND hdlg, UINT wMsg, WPARAM wParam, LPARAM lParam)
 #ifndef MY_LOG
 	EnableWindow(GetDlgItem(hdlg, DRV_DEBUG), FALSE);
 #endif				/* MY_LOG */
-#ifdef _HANDLE_ENLIST_IN_DTC_
-	hmodule = DtcProc("GetMsdtclog", &proc);
-	if (proc)
-	{
-	    INT_PTR res = (*proc) ();
-	    CheckDlgButton(hdlg, DRV_DTCLOG, 0 != res);
-	} else
-	    EnableWindow(GetDlgItem(hdlg, DRV_DTCLOG), FALSE);
-	if (hmodule)
-	    FreeLibrary(hmodule);
-#else
 	ShowWindow(GetDlgItem(hdlg, DRV_DTCLOG), SW_HIDE);
-#endif				/* _HANDLE_ENLIST_IN_DTC_ */
 	break;
 
     case WM_COMMAND:
@@ -363,13 +346,6 @@ global_optionsProc(HWND hdlg, UINT wMsg, WPARAM wParam, LPARAM lParam)
 		MessageBox(hdlg,
 			   "Sorry, impossible to update the values\nWrite permission seems to be needed",
 			   "Update Error", MB_ICONEXCLAMATION | MB_OK);
-#ifdef _HANDLE_ENLIST_IN_DTC_
-	    hmodule = DtcProc("SetMsdtclog", &proc);
-	    if (proc)
-		(*proc) (IsDlgButtonChecked(hdlg, DRV_DTCLOG));
-	    if (hmodule)
-		FreeLibrary(hmodule);
-#endif				/* _HANDLE_ENLIST_IN_DTC_ */
 
 	case IDCANCEL:
 	    EndDialog(hdlg, GET_WM_COMMAND_ID(wParam, lParam) == IDOK);

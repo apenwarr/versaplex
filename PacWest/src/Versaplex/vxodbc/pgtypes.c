@@ -752,16 +752,6 @@ Int4 getCharColumnSize(StatementClass * stmt, OID type, int col,
 }
 
 static SQLSMALLINT
-getTimestampMaxDecimalDigits(StatementClass * stmt, OID type)
-{
-    ConnectionClass *conn = SC_get_conn(stmt);
-
-    if (PG_VERSION_LT(conn, 7.2))
-	return 0;
-    return 6;
-}
-
-static SQLSMALLINT
 getTimestampDecimalDigits(StatementClass * stmt, OID type, int col)
 {
     ConnectionClass *conn = SC_get_conn(stmt);

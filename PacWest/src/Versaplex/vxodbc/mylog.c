@@ -162,14 +162,15 @@ void mylog(const char *fmt, ...)
 #ifdef	WIN_MULTITHREAD_SUPPORT
 #ifdef	LOGGING_PROCESS_TIME
 	DWORD proc_time = timeGetTime() - start_time;
-	fprintf(MLOGFP, "[%u-%d.%03d]", GetCurrentThreadId(),
-		proc_time / 1000, proc_time % 1000);
+	fprintf(MLOGFP, "[%lu-%ld.%03ld]",
+		(unsigned long)GetCurrentThreadId(),
+		(long)proc_time / 1000, (long)proc_time % 1000);
 #else
-	fprintf(MLOGFP, "[%u]", GetCurrentThreadId());
+	fprintf(MLOGFP, "[%lu]", (unsigned long)GetCurrentThreadId());
 #endif				/* LOGGING_PROCESS_TIME */
 #endif				/* WIN_MULTITHREAD_SUPPORT */
 #if defined(POSIX_MULTITHREAD_SUPPORT)
-	fprintf(MLOGFP, "[%lu]", pthread_self());
+	fprintf(MLOGFP, "[%lu]", (unsigned long)pthread_self());
 #endif				/* POSIX_MULTITHREAD_SUPPORT */
 	vfprintf(MLOGFP, fmt, args);
 	fflush(MLOGFP);
@@ -224,8 +225,8 @@ void forcelog(const char *fmt, ...)
 	time(&ntime);
 	strcpy(ctim, ctime(&ntime));
 	ctim[strlen(ctim) - 1] = '\0';
-	fprintf(MLOGFP, "[%d.%d(%s)]", GetCurrentProcessId(),
-		GetCurrentThreadId(), ctim);
+	fprintf(MLOGFP, "[%ld.%ld(%s)]", (long)GetCurrentProcessId(),
+		(long)GetCurrentThreadId(), ctim);
 #endif				/* WIN32 */
 #endif				/* WIN_MULTITHREAD_SUPPORT */
 #if defined(POSIX_MULTITHREAD_SUPPORT)
@@ -303,8 +304,8 @@ void qlog(char *fmt, ...)
     {
 #ifdef	LOGGING_PROCESS_TIME
 	DWORD proc_time = timeGetTime() - start_time;
-	fprintf(QLOGFP, "[%d.%03d]", proc_time / 1000,
-		proc_time % 1000);
+	fprintf(QLOGFP, "[%ld.%03ld]", (long)proc_time / 1000,
+		(long)proc_time % 1000);
 #endif				/* LOGGING_PROCESS_TIME */
 	vfprintf(QLOGFP, fmt, args);
 	fflush(QLOGFP);

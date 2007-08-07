@@ -77,7 +77,6 @@ CSTR OTHER_STRING = "OTHER";
 int pg_CS_code(const UCHAR * characterset_string)
 {
     int i, c = -1;
-    size_t len = 0;
 
     for (i = 0; CS_Table[i].code != OTHER; i++)
     {

@@ -20,10 +20,7 @@
 
 #include <string.h>
 #include <stdio.h>
-
-#ifndef WIN32
 #include <ctype.h>
-#endif
 
 #include "tuple.h"
 #include "pgtypes.h"
@@ -163,11 +160,9 @@ PGAPI_GetInfo(HDBC hdbc,
     case SQL_CONVERT_VARBINARY:	/* ODBC 1.0 */
     case SQL_CONVERT_CHAR:
     case SQL_CONVERT_LONGVARCHAR:
-#ifdef	UNICODE_SUPPORT
     case SQL_CONVERT_WCHAR:
     case SQL_CONVERT_WLONGVARCHAR:
     case SQL_CONVERT_WVARCHAR:
-#endif				/* UNICODE_SUPPORT */
 	len = sizeof(SQLUINTEGER);
 	value = 0;		/* CONVERT is unavailable */
 	break;
@@ -789,7 +784,6 @@ PGAPI_GetInfo(HDBC hdbc,
 
 	if (rgbInfoValue)
 	{
-#ifdef	UNICODE_SUPPORT
 	    if (CC_is_in_unicode_driver(conn))
 	    {
 		len =
@@ -797,7 +791,6 @@ PGAPI_GetInfo(HDBC hdbc,
 				 cbInfoValueMax / WCLEN);
 		len *= WCLEN;
 	    } else
-#endif				/* UNICODE_SUPPORT */
 		strncpy_null((char *) rgbInfoValue, p,
 			     (size_t) cbInfoValueMax);
 
@@ -827,8 +820,7 @@ PGAPI_GetInfo(HDBC hdbc,
 
     if (pcbInfoValue)
 	*pcbInfoValue = (SQLSMALLINT) len;
-  cleanup:
-
+    
     return result;
 }
 
@@ -998,7 +990,6 @@ RETCODE SQL_API PGAPI_GetTypeInfo(HSTMT hstmt, SQLSMALLINT fSqlType)
 	}
     }
 
-  cleanup:
 #undef	return
     /*
      * also, things need to think that this statement is finished so the
@@ -3018,7 +3009,7 @@ RETCODE SQL_API PGAPI_Statistics(HSTMT hstmt, const SQLCHAR FAR * szTableQualifi
     int i;
     StatementClass *col_stmt, *indx_stmt;
     char column_name[MAX_INFO_STRING],
-	table_schemaname[MAX_INFO_STRING], relhasrules[10], relkind[8];
+	table_schemaname[MAX_INFO_STRING], relhasrules[10];
     struct columns_idx {
 	int pnum;
 	char *col_name;
@@ -3630,7 +3621,7 @@ RETCODE SQL_API PGAPI_ColumnPrivileges(HSTMT hstmt, const SQLCHAR FAR * szTableQ
     extend_column_bindings(SC_get_ARDF(stmt), 8);
     /* set up the current tuple pointer for SQLFetch */
     result = SQL_SUCCESS;
-  cleanup:
+    
     /* set up the current tuple pointer for SQLFetch */
     stmt->status = STMT_FINISHED;
     stmt->currTuple = -1;

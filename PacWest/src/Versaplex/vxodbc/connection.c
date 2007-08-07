@@ -239,30 +239,6 @@ RETCODE SQL_API PGAPI_FreeConnect(HDBC hdbc)
 }
 
 
-static void CC_globals_init(GLOBAL_VALUES * globs)
-{
-    memset(globs, 0, sizeof(GLOBAL_VALUES));
-    globs->fetch_max = -1001;
-    globs->socket_buffersize = -1001;
-    globs->unknown_sizes = -1;
-    globs->max_varchar_size = -1001;
-    globs->max_longvarchar_size = -1001;
-
-    globs->debug = -1;
-    globs->commlog = -1;
-    globs->disable_optimizer = -1;
-    globs->ksqo = -1;
-    globs->unique_index = -1;
-    globs->onlyread = -1;
-    globs->use_declarefetch = -1;
-    globs->text_as_longvarchar = -1;
-    globs->unknowns_as_longvarchar = -1;
-    globs->bools_as_char = -1;
-    globs->lie = -1;
-    globs->parse = -1;
-    globs->cancel_as_freestmt = -1;
-}
-
 void CC_conninfo_init(ConnInfo * conninfo)
 {
     memset(conninfo, 0, sizeof(ConnInfo));
@@ -1183,78 +1159,6 @@ static int protocol3_packet_build(ConnectionClass * self)
     free(packet);
 
     return 1;
-}
-
-CSTR l_login_timeout = "connect_timeout";
-static char *protocol3_opts_build(ConnectionClass * self)
-{
-    CSTR func = "protocol3_opts_build";
-    size_t slen;
-    char *conninfo, *ppacket;
-    const char *opts[20][2];
-    int cnt, i;
-    BOOL blankExist;
-
-    cnt =
-	protocol3_opts_array(self, opts, TRUE,
-			     sizeof(opts) / sizeof(opts[0]));
-
-    slen = sizeof(ProtocolVersion);
-    for (i = 0, slen = 0; i < cnt; i++)
-    {
-	slen += (strlen(opts[i][0]) + 2 + 2);	/* add 2 bytes for safety (literal quotes) */
-	slen += strlen(opts[i][1]);
-    }
-    if (self->login_timeout > 0)
-    {
-	char tmout[16];
-
-	slen += (strlen(l_login_timeout) + 2 + 2);
-	snprintf(tmout, sizeof(tmout), FORMAT_UINTEGER,
-		 self->login_timeout);
-	slen += strlen(tmout);
-    }
-    slen++;
-
-    if (conninfo = malloc(slen), !conninfo)
-    {
-	CC_set_error(self, CONNECTION_SERVER_NOT_REACHED,
-		     "Could not allocate a connectdb option", func);
-	return 0;
-    }
-
-    mylog("sizeof connectdb option = %d\n", slen);
-
-    for (i = 0, ppacket = conninfo; i < cnt; i++)
-    {
-	sprintf(ppacket, " %s=", opts[i][0]);
-	ppacket += (strlen(opts[i][0]) + 2);
-	blankExist = FALSE;
-	if (strchr(opts[i][1], ' '))
-	    blankExist = TRUE;
-	if (blankExist)
-	{
-	    *ppacket = '\'';
-	    ppacket++;
-	}
-	strcpy(ppacket, opts[i][1]);
-	ppacket += strlen(opts[i][1]);
-	if (blankExist)
-	{
-	    *ppacket = '\'';
-	    ppacket++;
-	}
-    }
-    if (self->login_timeout > 0)
-    {
-	sprintf(ppacket, " %s=", l_login_timeout);
-	ppacket += (strlen(l_login_timeout) + 2);
-	sprintf(ppacket, FORMAT_UINTEGER, self->login_timeout);
-	ppacket = strchr(ppacket, '\0');
-    }
-    *ppacket = '\0';
-    inolog("return conninfo=%s(%d)\n", conninfo, strlen(conninfo));
-    return conninfo;
 }
 
 static char CC_initial_log(ConnectionClass * self, const char *func)

@@ -19,9 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#ifndef	WIN32
 #include <ctype.h>
-#endif				/* WIN32 */
 
 #include "environ.h"
 #include "connection.h"

@@ -939,7 +939,7 @@ void getDSNinfo(ConnInfo * ci, char overwrite)
 	UCHAR *enc = check_client_encoding(ci->conn_settings);
 
 	qlog("          conn_settings='%s',conn_encoding='%s'\n",
-	     ci->conn_settings, enc ? enc : "(null)");
+	     ci->conn_settings, enc ? enc : (UCHAR*)"(null)");
 	if (enc)
 	    free(enc);
 	qlog("          translation_dll='%s',translation_option='%s'\n",

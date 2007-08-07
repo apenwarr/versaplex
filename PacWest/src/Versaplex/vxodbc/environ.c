@@ -495,7 +495,6 @@ PGAPI_Error(HENV henv,
  */
 EnvironmentClass *EN_Constructor(void)
 {
-    CSTR func = "EN_Constructor";
     EnvironmentClass *rv = NULL;
 #ifdef WIN32
 #ifndef	_WSASTARTUP_IN_DLLMAIN_

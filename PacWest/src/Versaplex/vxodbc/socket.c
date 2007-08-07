@@ -13,24 +13,10 @@
  */
 
 #include <libpq-fe.h>
+#include <time.h>
 #include "socket.h"
-
 #include "connection.h"
 
-#ifndef WIN32
-#include <stdlib.h>
-#include <string.h>		/* for memset */
-#ifdef TIME_WITH_SYS_TIME
-#include <sys/time.h>
-#include <time.h>
-#else
-#ifdef	HAVE_SYS_TIME_H
-#include <sys/time.h>
-#else
-#include <time.h>
-#endif				/* HAVE_SYS_TIME_H */
-#endif				/* TIME_WITH__SYS_TIME */
-#endif				/* WIN32 */
 
 extern GLOBAL_VALUES globals;
 

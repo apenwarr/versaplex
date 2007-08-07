@@ -418,21 +418,19 @@ PGAPI_DescribeParam(HSTMT hstmt,
 
 
 /*
- *	This function should really talk to the dbms to determine the number of
- *	"parameter markers" (not bound parameters) in the statement.  But, since
- *	Postgres doesn't support that, the driver should just count the number of markers
- *	and return that.  The reason the driver just can't say this function is unsupported
- *	like it does for SQLDescribeParam is that some applications don't care and try
- *	to call it anyway.
- *	If the statement does not have parameters, it should just return 0.
+ * This function should really talk to the dbms to determine the number of
+ * "parameter markers" (not bound parameters) in the statement.  But, since
+ * Postgres doesn't support that, the driver should just count the number
+ * of markers and return that.  The reason the driver just can't say this
+ * function is unsupported like it does for SQLDescribeParam is that some
+ * applications don't care and try to call it anyway. If the statement does
+ * not have parameters, it should just return 0.
  */
 RETCODE SQL_API PGAPI_NumParams(HSTMT hstmt, SQLSMALLINT FAR * pcpar)
 {
     StatementClass *stmt = (StatementClass *) hstmt;
     CSTR func = "PGAPI_NumParams";
-    char literal_quote = LITERAL_QUOTE, identifier_quote =
-	IDENTIFIER_QUOTE, dollar_quote = DOLLAR_QUOTE;
-
+    
     mylog("%s: entering...\n", func);
 
     if (!stmt)
@@ -628,7 +626,6 @@ int
 CountParameters(const StatementClass * self, Int2 * inputCount,
 		Int2 * ioCount, Int2 * outputCount)
 {
-    CSTR func = "CountParameters";
     IPDFields *ipdopts = SC_get_IPDF(self);
     int i, num_params, valid_count;
 

@@ -2206,79 +2206,6 @@ static BOOL tupleExists(const StatementClass * stmt,
     QR_Destructor(res);
     return ret;
 }
-static BOOL tupleIsAdding(const StatementClass * stmt,
-			  const QResultClass * res, SQLLEN index)
-{
-    SQLLEN i;
-    BOOL ret = FALSE;
-    UWORD status;
-
-    if (!res->added_keyset)
-	return ret;
-    if (index < res->num_total_read
-	|| index >= QR_get_num_total_read(res))
-	return ret;
-    i = index - res->num_total_read;
-    status = res->added_keyset[i].status;
-    if (0 == (status & CURS_SELF_ADDING))
-	return ret;
-    if (tupleExists(stmt, res->added_keyset + i))
-	ret = TRUE;
-
-    return ret;
-}
-
-static BOOL tupleIsUpdating(const StatementClass * stmt,
-			    const QResultClass * res, SQLLEN index)
-{
-    int i;
-    BOOL ret = FALSE;
-    UWORD status;
-
-    if (!res->updated || !res->updated_keyset)
-	return ret;
-    for (i = res->up_count - 1; i >= 0; i--)
-    {
-	if (index == res->updated[i])
-	{
-	    status = res->updated_keyset[i].status;
-	    if (0 == (status & CURS_SELF_UPDATING))
-		continue;
-	    if (tupleExists(stmt, res->updated_keyset + i))
-	    {
-		ret = TRUE;
-		break;
-	    }
-	}
-    }
-    return ret;
-}
-static BOOL tupleIsDeleting(const StatementClass * stmt,
-			    const QResultClass * res, SQLLEN index)
-{
-    int i;
-    BOOL ret = FALSE;
-    UWORD status;
-
-    if (!res->deleted || !res->deleted_keyset)
-	return ret;
-    for (i = 0; i < res->dl_count; i++)
-    {
-	if (index == res->deleted[i])
-	{
-	    status = res->deleted_keyset[i].status;
-	    if (0 == (status & CURS_SELF_DELETING))
-		;
-	    else if (tupleExists(stmt, res->deleted_keyset + i))
-		;
-	    else
-		ret = TRUE;
-	    break;
-	}
-    }
-    return ret;
-}
-
 
 static BOOL enlargeAdded(QResultClass * res, UInt4 number,
 			 const StatementClass * stmt)
@@ -2943,58 +2870,6 @@ static void DiscardRollback(StatementClass * stmt, QResultClass * res)
     res->rb_count = res->rb_alloc = 0;
 }
 
-static BOOL IndexExists(const StatementClass * stmt,
-			const QResultClass * res,
-			const Rollback * rollback)
-{
-    SQLLEN index = rollback->index, i, *updated;
-    BOOL ret = TRUE;
-
-    inolog("IndexExists index=%d(%d,%d)\n", rollback->index,
-	   rollback->blocknum, rollback->offset);
-    if (QR_get_cursor(res))
-    {
-	KeySet *updated_keyset = res->updated_keyset, *keyset;
-	SQLLEN num_read = QR_get_num_total_read(res), pidx, midx, marki;
-
-	updated = res->updated;
-	if (!updated || res->up_count < 1)
-	    return FALSE;
-	if (index < 0)
-	{
-	    midx = index;
-	    pidx = num_read - index - 1;
-	} else
-	{
-	    pidx = index;
-	    if (index >= num_read)
-		midx = num_read - index - 1;
-	    else
-		midx = index;
-	}
-	for (i = res->up_count - 1, marki = -1; i >= 0; i--)
-	{
-	    if (updated[i] == pidx || updated[i] == midx)
-	    {
-		keyset = updated_keyset + i;
-		if (keyset->blocknum == rollback->blocknum &&
-		    keyset->offset == rollback->offset)
-		    break;
-		else
-		    marki = i;
-	    }
-	}
-	if (marki < 0)
-	    ret = FALSE;
-	if (marki >= 0)
-	{
-	    if (!tupleExists(stmt, updated_keyset + marki))
-		ret = FALSE;
-	}
-    }
-    return ret;
-}
-
 static QResultClass *positioned_load(StatementClass * stmt, UInt4 flag,
 				     const UInt4 * oidint,
 				     const char *tid);
@@ -3079,12 +2954,6 @@ static void UndoRollback(StatementClass * stmt, QResultClass * res,
 				       rollback[j].index);
 				break;
 			    }
-			    /*else if (SQL_UPDATE == rollback[j].option)
-			       {
-			       inolog("update[%d].index=%d\n", j, rollback[j].index);
-			       if (IndexExists(stmt, res, rollback + j))
-			       break;
-			       } */
 			}
 		    }
 		    if (j <= i)
