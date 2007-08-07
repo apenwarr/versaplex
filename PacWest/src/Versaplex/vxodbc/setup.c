@@ -222,8 +222,6 @@ ConfigDlgProc(HWND hdlg, UINT wMsg, WPARAM wParam, LPARAM lParam)
 	/* Initialize dialog fields */
 	SetDlgStuff(hdlg, ci);
 
-	if (lpsetupdlg->fNewDSN || !ci->dsn[0])
-	    ShowWindow(GetDlgItem(hdlg, IDC_MANAGEDSN), SW_HIDE);
 	if (lpsetupdlg->fDefault)
 	{
 	    EnableWindow(GetDlgItem(hdlg, IDC_DSNAME), FALSE);
@@ -233,8 +231,6 @@ ConfigDlgProc(HWND hdlg, UINT wMsg, WPARAM wParam, LPARAM lParam)
 			       EM_LIMITTEXT, (WPARAM) (MAXDSNAME - 1),
 			       0L);
 
-	SendDlgItemMessage(hdlg, IDC_DESC,
-			   EM_LIMITTEXT, (WPARAM) (MAXDESC - 1), 0L);
 	return TRUE;		/* Focus was not set */
 
 	/* Process buttons */
@@ -261,7 +257,6 @@ ConfigDlgProc(HWND hdlg, UINT wMsg, WPARAM wParam, LPARAM lParam)
 
 	    /* Accept results */
 	case IDOK:
-	case IDAPPLY:
 	    lpsetupdlg = (LPSETUPDLG) GetWindowLong(hdlg, DWLP_USER);
 	    /* Retrieve dialog values */
 	    if (!lpsetupdlg->fDefault)
@@ -273,8 +268,6 @@ ConfigDlgProc(HWND hdlg, UINT wMsg, WPARAM wParam, LPARAM lParam)
 
 	    /* Update ODBC.INI */
 	    SetDSNAttributes(hdlg, lpsetupdlg, NULL);
-	    if (IDAPPLY == cmd)
-		break;
 	    /* Return to caller */
 	case IDCANCEL:
 	    EndDialog(hdlg, wParam);
@@ -330,37 +323,6 @@ ConfigDlgProc(HWND hdlg, UINT wMsg, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	    }
-	case IDC_DATASOURCE:
-	    lpsetupdlg = (LPSETUPDLG) GetWindowLong(hdlg, DWLP_USER);
-	    DialogBoxParam(s_hModule, MAKEINTRESOURCE(DLG_OPTIONS_DRV),
-			   hdlg, ds_options1Proc,
-			   (LPARAM) & lpsetupdlg->ci);
-	    return TRUE;
-
-	case IDC_DRIVER:
-	    lpsetupdlg = (LPSETUPDLG) GetWindowLong(hdlg, DWLP_USER);
-	    DialogBoxParam(s_hModule,
-			   MAKEINTRESOURCE(DLG_OPTIONS_GLOBAL), hdlg,
-			   global_optionsProc,
-			   (LPARAM) & lpsetupdlg->ci);
-
-	    return TRUE;
-	case IDC_MANAGEDSN:
-	    lpsetupdlg = (LPSETUPDLG) GetWindowLong(hdlg, DWLP_USER);
-	    if (DialogBoxParam
-		(s_hModule, MAKEINTRESOURCE(DLG_DRIVER_CHANGE), hdlg,
-		 manage_dsnProc, (LPARAM) lpsetupdlg) > 0)
-		EndDialog(hdlg, 0);
-
-	    return TRUE;
-	}
-	break;
-    case WM_CTLCOLORSTATIC:
-	if (lParam == (LPARAM) GetDlgItem(hdlg, IDC_NOTICE_USER))
-	{
-	    HBRUSH hBrush = (HBRUSH) GetStockObject(LTGRAY_BRUSH);
-	    SetTextColor((HDC) wParam, RGB(255, 0, 0));
-	    return (long) hBrush;
 	}
 	break;
     }

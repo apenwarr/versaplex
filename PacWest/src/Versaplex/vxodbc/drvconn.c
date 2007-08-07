@@ -355,7 +355,6 @@ dconn_FDriverConnectProc(HWND hdlg,
 			 UINT wMsg, WPARAM wParam, LPARAM lParam)
 {
     ConnInfo *ci;
-    char strbuf[64];
 
     switch (wMsg)
     {
@@ -363,26 +362,19 @@ dconn_FDriverConnectProc(HWND hdlg,
 	ci = (ConnInfo *) lParam;
 
 	/* Change the caption for the setup dialog */
-	SetWindowText(hdlg, "PostgreSQL Connection");
-
-	LoadString(s_hModule, IDS_ADVANCE_CONNECTION, strbuf,
-		   sizeof(strbuf));
-	SetWindowText(GetDlgItem(hdlg, IDC_DATASOURCE), strbuf);
+	SetWindowText(hdlg, "Versabanq PLEXUS Connection");
 
 	/* Hide the DSN and description fields */
 	ShowWindow(GetDlgItem(hdlg, IDC_DSNAMETEXT), SW_HIDE);
 	ShowWindow(GetDlgItem(hdlg, IDC_DSNAME), SW_HIDE);
-	ShowWindow(GetDlgItem(hdlg, IDC_DESCTEXT), SW_HIDE);
-	ShowWindow(GetDlgItem(hdlg, IDC_DESC), SW_HIDE);
-	ShowWindow(GetDlgItem(hdlg, IDC_DRIVER), SW_HIDE);
 	ShowWindow(GetDlgItem(hdlg, IDC_TEST), SW_HIDE);
 	if ('\0' != ci->server[0])
 	    EnableWindow(GetDlgItem(hdlg, IDC_SERVER), FALSE);
 	if ('\0' != ci->port[0])
 	    EnableWindow(GetDlgItem(hdlg, IDC_PORT), FALSE);
 
-	SetWindowLongPtr(hdlg, DWLP_USER, lParam);	/* Save the ConnInfo for
-							 * the "OK" */
+	SetWindowLongPtr(hdlg, DWLP_USER, lParam); /* Save the ConnInfo for
+						    * the "OK" */
 	SetDlgStuff(hdlg, ci);
 
 	if (ci->database[0] == '\0')
@@ -408,18 +400,6 @@ dconn_FDriverConnectProc(HWND hdlg,
 	case IDCANCEL:
 	    EndDialog(hdlg, GET_WM_COMMAND_ID(wParam, lParam) == IDOK);
 	    return TRUE;
-
-	case IDC_DATASOURCE:
-	    ci = (ConnInfo *) GetWindowLongPtr(hdlg, DWLP_USER);
-	    DialogBoxParam(s_hModule, MAKEINTRESOURCE(DLG_OPTIONS_DRV),
-			   hdlg, ds_options1Proc, (LPARAM) ci);
-	    break;
-
-	case IDC_DRIVER:
-	    ci = (ConnInfo *) GetWindowLongPtr(hdlg, DWLP_USER);
-	    DialogBoxParam(s_hModule, MAKEINTRESOURCE(DLG_OPTIONS_DRV),
-			   hdlg, driver_optionsProc, (LPARAM) ci);
-	    break;
 	}
     }
 

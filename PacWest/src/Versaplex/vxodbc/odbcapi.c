@@ -434,7 +434,6 @@ SQLGetInfo(HDBC ConnectionHandle,
 	   SQLUSMALLINT InfoType, PTR InfoValue,
 	   SQLSMALLINT BufferLength, SQLSMALLINT * StringLength)
 {
-    CSTR func = "SQLGetInfo";
     RETCODE ret;
     ConnectionClass *conn = (ConnectionClass *) ConnectionHandle;
 

@@ -444,8 +444,6 @@ SQLSetDescRec(SQLHDESC DescriptorHandle,
 	      SQLSMALLINT Precision, SQLSMALLINT Scale,
 	      PTR Data, SQLLEN * StringLength, SQLLEN * Indicator)
 {
-    CSTR func = "SQLSetDescRec";
-
     mylog("[[SQLSetDescRec]]\n");
     mylog("Error not implemented\n");
     return SQL_ERROR;

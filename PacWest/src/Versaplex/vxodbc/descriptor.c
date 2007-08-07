@@ -631,7 +631,6 @@ DESC_COUNT_FIELD_INCORRECT, "07002", "07002"},};
 
 static PG_ErrorInfo *DC_create_errorinfo(const DescriptorClass * desc)
 {
-    CSTR func = "DC_create_erroinfo";
     PG_ErrorInfo *error;
     ConnectionClass *conn;
     EnvironmentClass *env;
