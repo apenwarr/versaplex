@@ -30,7 +30,6 @@
 #include "qresult.h"
 #include "lobj.h"
 #include "dlg_specific.h"
-#include "loadlib.h"
 
 #include "multibyte.h"
 

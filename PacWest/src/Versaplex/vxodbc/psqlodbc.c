@@ -26,7 +26,6 @@
 #ifdef _WSASTARTUP_IN_DLLMAIN_
 #include <winsock2.h>
 #endif /* _WSASTARTUP_IN_DLLMAIN_ */
-#include "loadlib.h"
 int	platformId = 0;
 #endif
 
@@ -160,7 +159,6 @@ DllMain(HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
 
 		case DLL_PROCESS_DETACH:
 			mylog("DETACHING PROCESS\n");
-			CleanupDelayLoadedDLLs();
 			/* my(q)log is unavailable from here */
 			finalize_global_cs();
 #ifdef	_WSASTARTUP_IN_DLLMAIN_

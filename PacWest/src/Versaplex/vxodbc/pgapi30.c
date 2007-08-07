@@ -26,7 +26,6 @@
 #include "descriptor.h"
 #include "qresult.h"
 #include "pgapifunc.h"
-#include "loadlib.h"
 
 
 /*	SQLError -> SQLDiagRec */

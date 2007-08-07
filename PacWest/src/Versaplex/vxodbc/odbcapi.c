@@ -35,7 +35,6 @@
 #include "connection.h"
 #include "statement.h"
 #include "qresult.h"
-#include "loadlib.h"
 
 RETCODE		SQL_API
 SQLBindCol(HSTMT StatementHandle,

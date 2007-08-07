@@ -26,7 +26,6 @@
 #include <winsock2.h>
 #endif /* _WSASTARTUP_IN_DLLMAIN_ */
 #endif /* WIN32 */
-#include "loadlib.h"
 
 extern GLOBAL_VALUES globals;
 

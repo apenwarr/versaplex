@@ -14,7 +14,6 @@
 
 #include <libpq-fe.h>
 #include "socket.h"
-#include "loadlib.h"
 
 #include "connection.h"
 

@@ -42,9 +42,9 @@ BEGIN
 //    RTEXT           "SS&L Mode",IDC_STATIC,143,40,45,12,NOT WS_GROUP
 //    COMBOBOX        IDC_SSLMODE,192,36,104,50,CBS_DROPDOWNLIST | WS_VSCROLL | 
 //                    WS_TABSTOP
-    CTEXT           "Couldn't load libpq - SSL mode is unavailable",
-                    IDC_NOTICE_USER,53,87,200,11,SS_NOTIFY | SS_CENTERIMAGE | 
-                    WS_BORDER
+//    CTEXT           "Couldn't load libpq - SSL mode is unavailable",
+//                    IDC_NOTICE_USER,53,87,200,11,SS_NOTIFY | SS_CENTERIMAGE | 
+//                    WS_BORDER
     RTEXT           "&Server",IDC_STATIC,24,55,29,12,NOT WS_GROUP
     EDITTEXT        IDC_SERVER,57,54,72,12,ES_AUTOHSCROLL
     RTEXT           "&Port",IDC_STATIC,166,56,22,12

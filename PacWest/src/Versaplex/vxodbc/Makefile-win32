@@ -2,7 +2,8 @@ CC=i586-mingw32msvc-gcc
 WINDRES=i586-mingw32msvc-windres
 #WVPORTS=$(HOME)/src/wvports
 #OPENSSL=$(WVPORTS)/openssl/build/openssl
-CFLAGS=-w \
+WVSTREAMS=$(HOME)/src/wvstreams-win32-2007
+CFLAGS=-Wall \
 	-D_MSC_VER=1300 \
 	-DUNICODE_SUPPORT -DODBCVER=0x0351 -D_WIN32_WINNT=0x0501 \
 	-I/usr/include/postgresql
@@ -41,7 +42,6 @@ OBJS=\
 	odbcapi.o \
 	odbcapi30.o \
 	descriptor.o \
-	loadlib.o \
 	win_unicode.o \
 	odbcapiw.o \
 	odbcapi30w.o \
