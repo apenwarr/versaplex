@@ -238,9 +238,7 @@ static int inquireHowToPrepare(const StatementClass * stmt)
 	{
 	    if (STMT_TYPE_SELECT == stmt->statement_type)
 	    {
-		if (ci->drivers.use_declarefetch)
-		    return PARSE_REQ_FOR_INFO;
-		else if (SQL_CURSOR_FORWARD_ONLY !=
+		if (SQL_CURSOR_FORWARD_ONLY !=
 			 stmt->options.cursor_type)
 		    ret = PARSE_REQ_FOR_INFO;
 		else
@@ -250,8 +248,7 @@ static int inquireHowToPrepare(const StatementClass * stmt)
 	} else
 	{
 	    if (STMT_TYPE_SELECT == stmt->statement_type &&
-		(SQL_CURSOR_FORWARD_ONLY != stmt->options.cursor_type ||
-		 ci->drivers.use_declarefetch))
+		(SQL_CURSOR_FORWARD_ONLY != stmt->options.cursor_type))
 		ret = PREPARE_BY_THE_DRIVER;
 	    else
 		ret = USING_PREPARE_COMMAND;
@@ -1210,25 +1207,10 @@ RETCODE SQL_API PGAPI_Cancel(HSTMT hstmt)	/* Statement to cancel. */
 
 	if (conn->driver_version < 0x0350)
 	{
-#ifdef WIN32
-	    if (ci->drivers.cancel_as_freestmt)
-	    {
-		typedef SQLRETURN(SQL_API * SQLAPIPROC) ();
-		HMODULE hmodule;
-		SQLAPIPROC addr;
-
-		hmodule = GetModuleHandle("ODBC32");
-		addr =
-		    (SQLAPIPROC) GetProcAddress(hmodule, "SQLFreeStmt");
-		ret = addr((char *) (stmt->phstmt) - 96, SQL_CLOSE);
-	    } else
-#endif				/* WIN32 */
-	    {
-		ENTER_STMT_CS(stmt);
-		entered_cs = TRUE;
-		SC_clear_error(hstmt);
-		ret = PGAPI_FreeStmt(hstmt, SQL_CLOSE);
-	    }
+	    ENTER_STMT_CS(stmt);
+	    entered_cs = TRUE;
+	    SC_clear_error(hstmt);
+	    ret = PGAPI_FreeStmt(hstmt, SQL_CLOSE);
 
 	    mylog("PGAPI_Cancel:  PGAPI_FreeStmt returned %d\n", ret);
 	}

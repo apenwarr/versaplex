@@ -115,7 +115,7 @@ PGAPI_Connect(HDBC hdbc,
     /* get the values for the DSN from the registry */
     memcpy(&ci->drivers, &globals, sizeof(globals));
     getDSNinfo(ci, CONN_OVERWRITE);
-    logs_on_off(1, ci->drivers.debug, ci->drivers.commlog);
+    logs_on_off(1, true, true);
     /* initialize pg_version from connInfo.protocol    */
     CC_initialize_pg_version(conn);
 
@@ -195,8 +195,7 @@ RETCODE SQL_API PGAPI_Disconnect(HDBC hdbc)
 	return SQL_ERROR;
     }
 
-    logs_on_off(-1, conn->connInfo.drivers.debug,
-		conn->connInfo.drivers.commlog);
+    logs_on_off(-1, true, true);
     mylog("%s: about to CC_cleanup\n", func);
 
     /* Close the connection and free statements */
@@ -1086,10 +1085,7 @@ static int protocol3_opts_array(ConnectionClass * self,
 	opts[cnt++][1] = "2";
 	/* geqo */
 	opts[cnt][0] = "geqo";
-	if (ci->drivers.disable_optimizer)
-	    opts[cnt++][1] = "off";
-	else
-	    opts[cnt++][1] = "on";
+	opts[cnt++][1] = "on";
 	/* client_encoding */
 	enc =
 	    get_environment_encoding(self,
@@ -1164,7 +1160,7 @@ static int protocol3_packet_build(ConnectionClass * self)
 static char CC_initial_log(ConnectionClass * self, const char *func)
 {
     const ConnInfo *ci = &self->connInfo;
-    char *encoding, vermsg[128];
+    char vermsg[128];
 
     snprintf(vermsg, sizeof(vermsg), "Driver Version='%s,%s'"
 #ifdef	WIN32
@@ -1191,22 +1187,9 @@ static char CC_initial_log(ConnectionClass * self, const char *func)
 	     "\n", VXODBCDRIVERVERSION, PG_BUILD_VERSION);
     qlog(vermsg);
     mylog(vermsg);
-    qlog("Global Options: fetch=%d, socket=%d, unknown_sizes=%d, max_varchar_size=%d, max_longvarchar_size=%d\n", ci->drivers.fetch_max, ci->drivers.socket_buffersize, ci->drivers.unknown_sizes, ci->drivers.max_varchar_size, ci->drivers.max_longvarchar_size);
-    qlog("                disable_optimizer=%d, ksqo=%d, unique_index=%d, use_declarefetch=%d\n", ci->drivers.disable_optimizer, ci->drivers.ksqo, ci->drivers.unique_index, ci->drivers.use_declarefetch);
-    qlog("                text_as_longvarchar=%d, unknowns_as_longvarchar=%d, bools_as_char=%d NAMEDATALEN=%d\n", ci->drivers.text_as_longvarchar, ci->drivers.unknowns_as_longvarchar, ci->drivers.bools_as_char, TABLE_NAME_STORAGE_LEN);
 
-    encoding = check_client_encoding(ci->conn_settings);
-    if (encoding)
-	self->original_client_encoding = encoding;
-    else
-    {
-	encoding = check_client_encoding(ci->drivers.conn_settings);
-	if (encoding)
-	    self->original_client_encoding = encoding;
-    }
     if (self->original_client_encoding)
 	self->ccsc = pg_CS_code(self->original_client_encoding);
-    qlog("                extra_systable_prefixes='%s', conn_settings='%s' conn_encoding='%s'\n", ci->drivers.extra_systable_prefixes, ci->drivers.conn_settings, encoding ? encoding : "");
     if (self->status != CONN_NOT_CONNECTED)
     {
 	CC_set_error(self, CONN_OPENDB_ERROR, "Already connected.",
@@ -1755,16 +1738,9 @@ CC_connect(ConnectionClass * self, char password_req, char *salt_para)
     ci->updatable_cursors = DISALLOW_UPDATABLE_CURSORS;
     if (ci->allow_keyset && PG_VERSION_GE(self, 7.0))	/* Tid scan since 7.0 */
     {
-	if (ci->drivers.lie || !ci->drivers.use_declarefetch)
+	if (PG_VERSION_GE(self, 7.4))	/* HOLDABLE CURSORS since 7.4 */
 	    ci->updatable_cursors |=
-		(ALLOW_STATIC_CURSORS | ALLOW_KEYSET_DRIVEN_CURSORS |
-		 ALLOW_BULK_OPERATIONS | SENSE_SELF_OPERATIONS);
-	else
-	{
-	    if (PG_VERSION_GE(self, 7.4))	/* HOLDABLE CURSORS since 7.4 */
-		ci->updatable_cursors |=
-		    (ALLOW_STATIC_CURSORS | SENSE_SELF_OPERATIONS);
-	}
+	    (ALLOW_STATIC_CURSORS | SENSE_SELF_OPERATIONS);
     }
 
     if (CC_get_errornumber(self) > 0)
@@ -2896,8 +2872,6 @@ CC_send_function(ConnectionClass * self, int fnid, void *result_buf,
 
 static char CC_setenv(ConnectionClass * self)
 {
-    ConnInfo *ci = &(self->connInfo);
-
     HSTMT hstmt;
     StatementClass *stmt;
     RETCODE result;
@@ -2927,31 +2901,6 @@ static char CC_setenv(ConnectionClass * self)
 
     mylog("%s: result %d, status %d from set DateStyle\n", func, result,
 	  status);
-    /* Disable genetic optimizer based on global flag */
-    if (ci->drivers.disable_optimizer)
-    {
-	result =
-	    PGAPI_ExecDirect(hstmt, "set geqo to 'OFF'", SQL_NTS, 0);
-	if (!SQL_SUCCEEDED(result))
-	    status = FALSE;
-
-	mylog("%s: result %d, status %d from set geqo\n", func, result,
-	      status);
-
-    }
-
-    /* KSQO (not applicable to 7.1+ - DJP 21/06/2002) */
-    if (ci->drivers.ksqo && PG_VERSION_LT(self, 7.1))
-    {
-	result =
-	    PGAPI_ExecDirect(hstmt, "set ksqo to 'ON'", SQL_NTS, 0);
-	if (!SQL_SUCCEEDED(result))
-	    status = FALSE;
-
-	mylog("%s: result %d, status %d from set ksqo\n", func, result,
-	      status);
-
-    }
 
     /* extra_float_digits (applicable since 7.4) */
     if (PG_VERSION_GT(self, 7.3))
@@ -2974,15 +2923,10 @@ static char CC_setenv(ConnectionClass * self)
 
 char CC_send_settings(ConnectionClass * self)
 {
-    /* char ini_query[MAX_MESSAGE_LEN]; */
-    ConnInfo *ci = &(self->connInfo);
-
-/* QResultClass *res; */
     HSTMT hstmt;
     StatementClass *stmt;
     RETCODE result;
     char status = TRUE;
-    char *cs, *ptr;
 #ifdef	HAVE_STRTOK_R
     char *last;
 #endif				/* HAVE_STRTOK_R */
@@ -3002,63 +2946,6 @@ char CC_send_settings(ConnectionClass * self)
     stmt = (StatementClass *) hstmt;
 
     stmt->internal = TRUE;	/* ensure no BEGIN/COMMIT/ABORT stuff */
-
-    /* Global settings */
-    if (ci->drivers.conn_settings[0] != '\0')
-    {
-	cs = strdup(ci->drivers.conn_settings);
-#ifdef	HAVE_STRTOK_R
-	ptr = strtok_r(cs, ";", &last);
-#else
-	ptr = strtok(cs, ";");
-#endif				/* HAVE_STRTOK_R */
-	while (ptr)
-	{
-	    result = PGAPI_ExecDirect(hstmt, ptr, SQL_NTS, 0);
-	    if (!SQL_SUCCEEDED(result))
-		status = FALSE;
-
-	    mylog("%s: result %d, status %d from '%s'\n", func, result,
-		  status, ptr);
-
-#ifdef	HAVE_STRTOK_R
-	    ptr = strtok_r(NULL, ";", &last);
-#else
-	    ptr = strtok(NULL, ";");
-#endif				/* HAVE_STRTOK_R */
-	}
-
-	free(cs);
-    }
-
-    /* Per Datasource settings */
-    if (ci->conn_settings[0] != '\0')
-    {
-	cs = strdup(ci->conn_settings);
-#ifdef	HAVE_STRTOK_R
-	ptr = strtok_r(cs, ";", &last);
-#else
-	ptr = strtok(cs, ";");
-#endif				/* HAVE_STRTOK_R */
-	while (ptr)
-	{
-	    result = PGAPI_ExecDirect(hstmt, ptr, SQL_NTS, 0);
-	    if (!SQL_SUCCEEDED(result))
-		status = FALSE;
-
-	    mylog("%s: result %d, status %d from '%s'\n", func, result,
-		  status, ptr);
-
-#ifdef	HAVE_STRTOK_R
-	    ptr = strtok_r(NULL, ";", &last);
-#else
-	    ptr = strtok(NULL, ";");
-#endif				/* HAVE_STRTOK_R */
-	}
-
-	free(cs);
-    }
-
 
     PGAPI_FreeStmt(hstmt, SQL_DROP);
 

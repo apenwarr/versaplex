@@ -102,7 +102,7 @@ void logs_on_off(int cnopen, int mylog_onoff, int qlog_onoff)
     } else if (mylog_off_count > 0)
 	mylog_on = 0;
     else
-	mylog_on = globals.debug;
+	mylog_on = 1;
     if (qlog_onoff)
 	qlog_on_count += cnopen;
     else
@@ -112,7 +112,7 @@ void logs_on_off(int cnopen, int mylog_onoff, int qlog_onoff)
     else if (qlog_off_count > 0)
 	qlog_on = 0;
     else
-	qlog_on = globals.commlog;
+	qlog_on = 1;
     LEAVE_QLOG_CS;
     LEAVE_MYLOG_CS;
 }

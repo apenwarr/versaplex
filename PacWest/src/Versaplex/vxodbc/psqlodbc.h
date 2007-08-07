@@ -319,28 +319,8 @@ typedef struct lo_arg LO_ARG;
 
 typedef struct GlobalValues_
 {
-	int			fetch_max;
-	int			socket_buffersize;
-	int			unknown_sizes;
-	int			max_varchar_size;
-	int			max_longvarchar_size;
-	char		debug;
-	char		commlog;
-	char		disable_optimizer;
-	char		ksqo;
-	char		unique_index;
-	char		onlyread;		/* readonly is reserved on Digital C++
-								 * compiler */
-	char		use_declarefetch;
-	char		text_as_longvarchar;
-	char		unknowns_as_longvarchar;
-	char		bools_as_char;
-	char		lie;
-	char		parse;
-	char		cancel_as_freestmt;
-	char		extra_systable_prefixes[MEDIUM_REGISTRY_LEN];
-	char		conn_settings[LARGE_REGISTRY_LEN];
-	char		protocol[SMALL_REGISTRY_LEN];
+	char		onlyread; /* readonly is reserved on Digital C++
+				   * compiler */
 } GLOBAL_VALUES;
 
 typedef struct StatementOptions_

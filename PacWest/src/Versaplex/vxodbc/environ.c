@@ -54,11 +54,8 @@ RETCODE SQL_API PGAPI_AllocEnv(HENV FAR * phenv)
      * the first function called in this shared library, doing it here
      * should work.
      */
-    if (globals.socket_buffersize <= 0)
-    {
-	initialize_global_cs();
-	getCommonDefaults(DBMS_NAME, ODBCINST_INI, NULL);
-    }
+    initialize_global_cs();
+    getCommonDefaults(DBMS_NAME, ODBCINST_INI, NULL);
 
     *phenv = (HENV) EN_Constructor();
     if (!*phenv)

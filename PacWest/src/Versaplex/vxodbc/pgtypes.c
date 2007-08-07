@@ -132,8 +132,7 @@ OID sqltype_to_pgtype(StatementClass * stmt, SQLSMALLINT fSqlType)
 #endif				/* UNICODE_SUPPORT */
 
     case SQL_BIT:
-	pgType =
-	    ci->drivers.bools_as_char ? PG_TYPE_CHAR : PG_TYPE_BOOL;
+	pgType = PG_TYPE_CHAR;
 	break;
 
     case SQL_TYPE_DATE:
@@ -167,18 +166,12 @@ OID sqltype_to_pgtype(StatementClass * stmt, SQLSMALLINT fSqlType)
 	break;
 
     case SQL_LONGVARCHAR:
-	pgType =
-	    ci->drivers.
-	    text_as_longvarchar ? PG_TYPE_TEXT : PG_TYPE_VARCHAR;
+	pgType = PG_TYPE_TEXT;
 	break;
 
-#ifdef	UNICODE_SUPPORT
     case SQL_WLONGVARCHAR:
-	pgType =
-	    ci->drivers.
-	    text_as_longvarchar ? PG_TYPE_TEXT : PG_TYPE_VARCHAR;
+	pgType = PG_TYPE_TEXT;
 	break;
-#endif				/* UNICODE_SUPPORT */
 
     case SQL_REAL:
 	pgType = PG_TYPE_FLOAT4;
@@ -255,8 +248,7 @@ pgtype_to_concise_type(StatementClass * stmt, OID type, int col)
     case PG_TYPE_BPCHAR:
 	if (col >= 0 &&
 	    getCharColumnSize(stmt, type, col,
-			      UNKNOWNS_AS_MAX) >
-	    ci->drivers.max_varchar_size)
+			      UNKNOWNS_AS_MAX) > MAX_VARCHAR_SIZE)
 	    return ALLOW_WCHAR(conn) ? SQL_WLONGVARCHAR :
 		SQL_LONGVARCHAR;
 	return ALLOW_WCHAR(conn) ? SQL_WCHAR : SQL_CHAR;
@@ -264,16 +256,13 @@ pgtype_to_concise_type(StatementClass * stmt, OID type, int col)
     case PG_TYPE_VARCHAR:
 	if (col >= 0 &&
 	    getCharColumnSize(stmt, type, col,
-			      UNKNOWNS_AS_MAX) >
-	    ci->drivers.max_varchar_size)
+			      UNKNOWNS_AS_MAX) > MAX_VARCHAR_SIZE)
 	    return ALLOW_WCHAR(conn) ? SQL_WLONGVARCHAR :
 		SQL_LONGVARCHAR;
 	return ALLOW_WCHAR(conn) ? SQL_WVARCHAR : SQL_VARCHAR;
 
     case PG_TYPE_TEXT:
-	return ci->drivers.text_as_longvarchar ?
-	    (ALLOW_WCHAR(conn) ? SQL_WLONGVARCHAR : SQL_LONGVARCHAR) :
-	    (ALLOW_WCHAR(conn) ? SQL_WVARCHAR : SQL_VARCHAR);
+	return (ALLOW_WCHAR(conn) ? SQL_WLONGVARCHAR : SQL_LONGVARCHAR);
 
 #else
     case PG_TYPE_BPCHAR:
@@ -346,7 +335,7 @@ pgtype_to_concise_type(StatementClass * stmt, OID type, int col)
     case PG_TYPE_MONEY:
 	return SQL_FLOAT;
     case PG_TYPE_BOOL:
-	return ci->drivers.bools_as_char ? SQL_CHAR : SQL_BIT;
+	return SQL_CHAR;
 
     default:
 
@@ -359,14 +348,7 @@ pgtype_to_concise_type(StatementClass * stmt, OID type, int col)
 	if (type == stmt->hdbc->lobj_type)
 	    return SQL_LONGVARBINARY;
 
-#ifdef	EXPERIMENTAL_CURRENTLY
-	if (ALLOW_WCHAR(conn))
-	    return ci->drivers.
-		unknowns_as_longvarchar ? SQL_WLONGVARCHAR :
-		SQL_WVARCHAR;
-#endif				/* EXPERIMENTAL_CURRENTLY */
-	return ci->drivers.
-	    unknowns_as_longvarchar ? SQL_LONGVARCHAR : SQL_VARCHAR;
+	return SQL_VARCHAR;
     }
 }
 
@@ -403,7 +385,6 @@ SQLSMALLINT pgtype_to_datetime_sub(StatementClass * stmt, OID type)
 SQLSMALLINT pgtype_to_ctype(StatementClass * stmt, OID type)
 {
     ConnectionClass *conn = SC_get_conn(stmt);
-    ConnInfo *ci = &(conn->connInfo);
     EnvironmentClass *env = (EnvironmentClass *) (conn->henv);
 
     switch (type)
@@ -443,7 +424,7 @@ SQLSMALLINT pgtype_to_ctype(StatementClass * stmt, OID type)
     case PG_TYPE_MONEY:
 	return SQL_C_FLOAT;
     case PG_TYPE_BOOL:
-	return ci->drivers.bools_as_char ? SQL_C_CHAR : SQL_C_BIT;
+	return SQL_C_CHAR;
 
     case PG_TYPE_BYTEA:
 	return SQL_C_BINARY;
@@ -646,7 +627,6 @@ Int4 getCharColumnSize(StatementClass * stmt, OID type, int col,
     int p = -1, attlen = -1, adtsize = -1, maxsize;
     QResultClass *result;
     ConnectionClass *conn = SC_get_conn(stmt);
-    ConnInfo *ci = &(conn->connInfo);
 
     mylog("getCharColumnSize: type=%d, col=%d, unknown = %d\n", type,
 	  col, handle_unknown_size_as);
@@ -655,22 +635,16 @@ Int4 getCharColumnSize(StatementClass * stmt, OID type, int col,
     switch (type)
     {
     case PG_TYPE_TEXT:
-	if (ci->drivers.text_as_longvarchar)
-	    maxsize = ci->drivers.max_longvarchar_size;
-	else
-	    maxsize = ci->drivers.max_varchar_size;
+	maxsize = MAX_VARCHAR_SIZE;
 	break;
 
     case PG_TYPE_VARCHAR:
     case PG_TYPE_BPCHAR:
-	maxsize = ci->drivers.max_varchar_size;
+	maxsize = MAX_VARCHAR_SIZE;
 	break;
 
     default:
-	if (ci->drivers.unknowns_as_longvarchar)
-	    maxsize = ci->drivers.max_longvarchar_size;
-	else
-	    maxsize = ci->drivers.max_varchar_size;
+	maxsize = MAX_VARCHAR_SIZE;
 	break;
     }
 
@@ -1026,7 +1000,7 @@ Int4 pgtype_buffer_length(StatementClass * stmt, OID type, int col,
 		coef = 2;
 	    if (coef == 1)
 		return prec;
-	    maxvarc = conn->connInfo.drivers.max_varchar_size;
+	    maxvarc = MAX_VARCHAR_SIZE;
 	    if (prec <= maxvarc && prec * coef > maxvarc)
 		return maxvarc;
 	    return coef * prec;
@@ -1112,7 +1086,7 @@ Int4 pgtype_transfer_octet_length(StatementClass * stmt, OID type,
 	    coef = 2;
 	if (coef == 1)
 	    return prec;
-	maxvarc = conn->connInfo.drivers.max_varchar_size;
+	maxvarc = MAX_VARCHAR_SIZE;
 	if (prec <= maxvarc && prec * coef > maxvarc)
 	    return maxvarc;
 	return coef * prec;

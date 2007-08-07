@@ -1,14 +1,14 @@
 /*-------
   Module:			drvconn.c
  *
- * Description:		This module contains only routines related to
- *					implementing SQLDriverConnect.
+ * Description:	This module contains only routines related to
+ *		implementing SQLDriverConnect.
  *
  * Classes:			n/a
  *
- * API functions:	SQLDriverConnect
+ * API functions: SQLDriverConnect
  *
- * Comments:		See "notice.txt" for copyright and license information.
+ * Comments:	See "notice.txt" for copyright and license information.
  *-------
  */
 
@@ -142,7 +142,7 @@ PGAPI_DriverConnect(HDBC hdbc,
      */
     getDSNinfo(ci, CONN_DONT_OVERWRITE);
     dconn_get_common_attributes(connStrIn, ci);
-    logs_on_off(1, ci->drivers.debug, ci->drivers.commlog);
+    logs_on_off(1, TRUE, TRUE);
     if (connStrIn)
     {
 	free(connStrIn);
@@ -151,7 +151,6 @@ PGAPI_DriverConnect(HDBC hdbc,
 
     /* Fill in any default parameters if they are not there. */
     getDSNdefaults(ci);
-    /* initialize pg_version */
     CC_initialize_pg_version(conn);
     memset(salt, 0, sizeof(salt));
 

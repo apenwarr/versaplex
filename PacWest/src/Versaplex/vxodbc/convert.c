@@ -2575,19 +2575,6 @@ copy_statement_with_parameters(StatementClass * stmt,
 		strcpy(new_statement, "BEGIN;");
 		begin_first = TRUE;
 	    }
-	} else if (ci->drivers.use_declarefetch
-			 /** && SQL_CONCUR_READ_ONLY == stmt->options.scroll_concurrency **/
-	    )
-	{
-	    SC_set_fetchcursor(stmt);
-	    if (SC_is_with_hold(stmt))
-		opt_hold = " with hold";
-	    if (PG_VERSION_GE(conn, 7.4))
-	    {
-		if (SQL_CURSOR_FORWARD_ONLY !=
-		    stmt->options.cursor_type)
-		    opt_scroll = " scroll";
-	    }
 	}
 	if (SC_is_fetchcursor(stmt))
 	{
@@ -4000,8 +3987,7 @@ static int ResolveOneParam(QueryBuild * qb, QueryParse * qp)
 	    odbc_lo_close(conn, lobj_fd);
 
 	    /* commit transaction if needed */
-	    if (!ci->drivers.use_declarefetch
-		&& CC_is_in_autocommit(conn))
+	    if (CC_is_in_autocommit(conn))
 	    {
 		if (!CC_commit(conn))
 		{
@@ -5006,7 +4992,6 @@ convert_lo(StatementClass * stmt, const void *value, SQLSMALLINT fCType,
     SQLLEN left = -1;
     GetDataClass *gdata = NULL;
     ConnectionClass *conn = SC_get_conn(stmt);
-    ConnInfo *ci = &(conn->connInfo);
     GetDataInfo *gdata_info = SC_get_GDTI(stmt);
     int factor;
 
@@ -5095,7 +5080,7 @@ convert_lo(StatementClass * stmt, const void *value, SQLSMALLINT fCType,
 	odbc_lo_close(conn, stmt->lobj_fd);
 
 	/* commit transaction if needed */
-	if (!ci->drivers.use_declarefetch && CC_is_in_autocommit(conn))
+	if (CC_is_in_autocommit(conn))
 	{
 	    if (!CC_commit(conn))
 	    {
@@ -5131,7 +5116,7 @@ convert_lo(StatementClass * stmt, const void *value, SQLSMALLINT fCType,
 	odbc_lo_close(conn, stmt->lobj_fd);
 
 	/* commit transaction if needed */
-	if (!ci->drivers.use_declarefetch && CC_is_in_autocommit(conn))
+	if (CC_is_in_autocommit(conn))
 	{
 	    if (!CC_commit(conn))
 	    {

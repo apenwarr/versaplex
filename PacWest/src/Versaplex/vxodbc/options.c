@@ -61,8 +61,6 @@ set_statement_option(ConnectionClass * conn,
 	setval = SQL_CONCUR_READ_ONLY;
 	if (SQL_CONCUR_READ_ONLY == vParam)
 	    ;
-	else if (ci->drivers.lie)
-	    setval = vParam;
 	else if (0 != ci->updatable_cursors)
 	    setval = SQL_CONCUR_ROWVER;
 	if (conn)
@@ -93,9 +91,7 @@ set_statement_option(ConnectionClass * conn,
 	 */
 	mylog("SetStmtOption(): SQL_CURSOR_TYPE = %d ", vParam);
 	setval = SQL_CURSOR_FORWARD_ONLY;
-	if (ci->drivers.lie)
-	    setval = vParam;
-	else if (SQL_CURSOR_STATIC == vParam)
+	if (SQL_CURSOR_STATIC == vParam)
 	    setval = vParam;
 	else if (SQL_CURSOR_KEYSET_DRIVEN == vParam ||
 		 SQL_CURSOR_DYNAMIC == vParam)
@@ -527,7 +523,6 @@ PGAPI_GetConnectOption(HDBC hdbc,
 {
     CSTR func = "PGAPI_GetConnectOption";
     ConnectionClass *conn = (ConnectionClass *) hdbc;
-    ConnInfo *ci = &(conn->connInfo);
     const char *p = NULL;
     SQLLEN len = sizeof(SQLINTEGER);
     SQLRETURN result = SQL_SUCCESS;
@@ -562,7 +557,7 @@ PGAPI_GetConnectOption(HDBC hdbc,
 	break;
 
     case SQL_PACKET_SIZE:	/* NOT SUPPORTED */
-	*((SQLUINTEGER *) pvParam) = ci->drivers.socket_buffersize;
+	*((SQLUINTEGER *) pvParam) = SOCK_BUFFER_SIZE;
 	break;
 
     case SQL_QUIET_MODE:	/* NOT SUPPORTED */

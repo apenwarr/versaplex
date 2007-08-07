@@ -43,8 +43,7 @@ PGAPI_GetInfo30(HDBC hdbc, SQLUSMALLINT fInfoType, PTR rgbInfoValue,
     case SQL_FORWARD_ONLY_CURSOR_ATTRIBUTES2:
 	len = 4;
 	value = SQL_CA2_READ_ONLY_CONCURRENCY;
-	if (!ci->drivers.use_declarefetch || ci->drivers.lie)
-	    value |= SQL_CA2_CRC_EXACT;
+	value |= SQL_CA2_CRC_EXACT;
 	break;
     case SQL_KEYSET_CURSOR_ATTRIBUTES1:
 	len = 4;
@@ -58,12 +57,6 @@ PGAPI_GetInfo30(HDBC hdbc, SQLUSMALLINT fInfoType, PTR rgbInfoValue,
 		      | SQL_CA1_BULK_UPDATE_BY_BOOKMARK
 		      | SQL_CA1_BULK_DELETE_BY_BOOKMARK
 		      | SQL_CA1_BULK_FETCH_BY_BOOKMARK);
-	if (ci->drivers.lie)
-	    value |= (SQL_CA1_LOCK_EXCLUSIVE
-		      | SQL_CA1_LOCK_UNLOCK
-		      | SQL_CA1_POSITIONED_UPDATE
-		      | SQL_CA1_POSITIONED_DELETE
-		      | SQL_CA1_SELECT_FOR_UPDATE);
 	break;
     case SQL_KEYSET_CURSOR_ATTRIBUTES2:
 	len = 4;
@@ -76,20 +69,7 @@ PGAPI_GetInfo30(HDBC hdbc, SQLUSMALLINT fInfoType, PTR rgbInfoValue,
 	    value |= (SQL_CA2_SENSITIVITY_DELETIONS
 		      | SQL_CA2_SENSITIVITY_UPDATES
 		      | SQL_CA2_SENSITIVITY_ADDITIONS);
-	if (!ci->drivers.use_declarefetch || ci->drivers.lie)
-	    value |= SQL_CA2_CRC_EXACT;
-	if (ci->drivers.lie)
-	    value |= (SQL_CA2_LOCK_CONCURRENCY
-		      | SQL_CA2_OPT_VALUES_CONCURRENCY
-		      | SQL_CA2_MAX_ROWS_SELECT
-		      | SQL_CA2_MAX_ROWS_INSERT
-		      | SQL_CA2_MAX_ROWS_DELETE
-		      | SQL_CA2_MAX_ROWS_UPDATE
-		      | SQL_CA2_MAX_ROWS_CATALOG
-		      | SQL_CA2_MAX_ROWS_AFFECTS_ALL
-		      | SQL_CA2_SIMULATE_NON_UNIQUE
-		      | SQL_CA2_SIMULATE_TRY_UNIQUE
-		      | SQL_CA2_SIMULATE_UNIQUE);
+	value |= SQL_CA2_CRC_EXACT;
 	break;
 
     case SQL_STATIC_CURSOR_ATTRIBUTES1:
@@ -115,15 +95,12 @@ PGAPI_GetInfo30(HDBC hdbc, SQLUSMALLINT fInfoType, PTR rgbInfoValue,
 	    value |= (SQL_CA2_SENSITIVITY_DELETIONS
 		      | SQL_CA2_SENSITIVITY_UPDATES
 		      | SQL_CA2_SENSITIVITY_ADDITIONS);
-	if (!ci->drivers.use_declarefetch || ci->drivers.lie)
-	    value |= (SQL_CA2_CRC_EXACT);
+	value |= (SQL_CA2_CRC_EXACT);
 	break;
 
     case SQL_ODBC_INTERFACE_CONFORMANCE:
 	len = 4;
 	value = SQL_OIC_CORE;
-	if (ci->drivers.lie)
-	    value = SQL_OIC_LEVEL2;
 	break;
     case SQL_ACTIVE_ENVIRONMENTS:
 	len = 2;

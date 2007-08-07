@@ -515,7 +515,6 @@ QR_fetch_tuples(QResultClass * self, ConnectionClass * conn,
      */
     if (conn != NULL)
     {
-	ConnInfo *ci = &(conn->connInfo);
 	BOOL fetch_cursor = (cursor && cursor[0]);
 
 	QR_set_conn(self, conn);
@@ -561,7 +560,7 @@ QR_fetch_tuples(QResultClass * self, ConnectionClass * conn,
 	if (fetch_cursor)
 	{
 	    if (self->cache_size <= 0)
-		self->cache_size = ci->drivers.fetch_max;
+		self->cache_size = FETCH_MAX;
 	    tuple_size = self->cache_size;
 	} else
 	    tuple_size = TUPLE_MALLOC_INC;
@@ -1083,12 +1082,10 @@ int QR_next_tuple(QResultClass * self, StatementClass * stmt)
 
 	    /* not a correction */
 	    /* Determine the optimum cache size.  */
-	    if (ci->drivers.fetch_max % req_size == 0)
-		fetch_size = ci->drivers.fetch_max;
-	    else if ((Int4) req_size < ci->drivers.fetch_max)
-		/*fetch_size = (ci->drivers.fetch_max / req_size + 1) * req_size; */
-		fetch_size =
-		    (ci->drivers.fetch_max / req_size) * req_size;
+	    if (FETCH_MAX % req_size == 0)
+		fetch_size = FETCH_MAX;
+	    else if ((Int4) req_size < FETCH_MAX)
+		fetch_size = (FETCH_MAX / req_size) * req_size;
 	    else
 		fetch_size = req_size;
 

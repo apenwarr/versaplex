@@ -369,10 +369,8 @@ PGAPI_DescribeCol(HSTMT hstmt,
 	col_name = QR_get_fieldname(res, icol);
 	fieldtype = QR_get_field_type(res, icol);
 
-	/* atoi(ci->unknown_sizes) */
 	column_size =
-	    pgtype_column_size(stmt, fieldtype, icol,
-			       ci->drivers.unknown_sizes);
+	    pgtype_column_size(stmt, fieldtype, icol, UNKNOWNS_AS_MAX);
 	decimal_digits = pgtype_decimal_digits(stmt, fieldtype, icol);
     }
 
@@ -531,7 +529,7 @@ PGAPI_ColAttributes(HSTMT hstmt,
     col_idx = icol - 1;
 
     /* atoi(ci->unknown_sizes); */
-    unknown_sizes = ci->drivers.unknown_sizes;
+    unknown_sizes = UNKNOWNS_AS_MAX;
 
     /* not appropriate for SQLColAttributes() */
     if (unknown_sizes == UNKNOWNS_AS_DONTKNOW)
@@ -3969,7 +3967,6 @@ SC_pos_update(StatementClass * stmt,
     {
 	HSTMT hstmt;
 	int j;
-	ConnInfo *ci = &(conn->connInfo);
 	APDFields *apdopts;
 	OID fieldtype = 0;
 	const char *bestitem = GET_NAME(ti->bestitem);
@@ -4022,8 +4019,7 @@ SC_pos_update(StatementClass * stmt,
 					column_size :
 					pgtype_column_size(s.stmt,
 							   fieldtype, i,
-							   ci->drivers.
-							   unknown_sizes),
+							   UNKNOWNS_AS_MAX),
 					(SQLSMALLINT) fi[i]->
 					decimal_digits,
 					bindings[i].buffer,
@@ -4431,12 +4427,8 @@ RETCODE SC_pos_add(StatementClass * stmt, SQLSETPOSIROW irow)
 				    fi[i]->column_size >
 				    0 ? fi[i]->
 				    column_size : pgtype_column_size(s.
-								     stmt,
-								     fieldtype,
-								     i,
-								     ci->
-								     drivers.
-								     unknown_sizes),
+					     stmt, fieldtype,
+					     i, UNKNOWNS_AS_MAX),
 				    (SQLSMALLINT) fi[i]->decimal_digits,
 				    bindings[i].buffer,
 				    bindings[i].buflen,

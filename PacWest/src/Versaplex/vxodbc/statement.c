@@ -333,8 +333,6 @@ static void SC_init_parse_method(StatementClass * self)
 	return;
     if (self->catalog_result)
 	return;
-    if (conn->connInfo.drivers.parse)
-	SC_set_parse_forced(self);
     if (self->multi_statement <= 0 && conn->connInfo.disallow_premature)
 	SC_set_parse_tricky(self);
 }
@@ -1913,7 +1911,7 @@ RETCODE SC_execute(StatementClass * self)
 	     */
 	    qi.result_in = NULL;
 	    qi.cursor = SC_cursor_name(self);
-	    qi.row_size = ci->drivers.fetch_max;
+	    qi.row_size = FETCH_MAX;
 
 	    /*
 	     * Most likely the rowset size will not be set by the

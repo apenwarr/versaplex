@@ -36,10 +36,10 @@ extern "C" {
 
 #define	ODBC_DATASOURCES	"ODBC Data Sources"
 
-#define INI_DSN				"PostgreSQL30W"
+#define INI_DSN				"VxDSN"
 
-#define INI_KDESC			"Description"	/* Data source
-							 * description */
+//#define INI_KDESC			"Description"	/* Data source
+//							 * description */
 #define INI_SERVER			"Servername"	/* Name of Server
 							 * running the Postgres
 							 * service */
@@ -51,6 +51,8 @@ extern "C" {
 #define INI_USER			"Username"	/* Default User Name */
 #define INI_PASSWORD			"Password"	/* Default Password */
 
+#define INI_READONLY			"ReadOnly"	/* Database is read only */
+#if 0
 #define	INI_ABBREVIATE			"CX"
 #define INI_DEBUG			"Debug"		/* Debug flag */
 #define ABBR_DEBUG			"B2"
@@ -58,7 +60,6 @@ extern "C" {
 #define ABBR_FETCH			"A7"
 #define INI_SOCKET			"Socket"	/* Socket buffer size */
 #define ABBR_SOCKET			"A8"
-#define INI_READONLY			"ReadOnly"	/* Database is read only */
 #define ABBR_READONLY			"A0"
 #define INI_COMMLOG			"CommLog"	/* Communication to
 							 * backend logging */
@@ -140,10 +141,6 @@ extern "C" {
 #define	SSLMODE_PREFER		"prefer"
 #define	SSLMODE_REQUIRE		"require"
 
-#ifdef	_HANDLE_ENLIST_IN_DTC_
-#define INI_XAOPT			"XaOpt"
-const char *GetXaLibPath();
-#endif /* _HANDLE_ENLIST_IN_DTC_ */
 /* Bit representaion for abbreviated connection strings */
 #define BIT_LFCONVERSION			(1L)
 #define BIT_UPDATABLECURSORS			(1L<<1)
@@ -180,12 +177,15 @@ const char *GetXaLibPath();
 #define	BIT_FAKE_MSS				(1L << 1)
 #define	BIT_BDE_ENVIRONMENT			(1L << 2)
 #define	BIT_CVT_NULL_DATE			(1L << 3)
-
+#endif
+    
 /*	Connection Defaults */
 #define DEFAULT_PORT				"5432"
 #define DEFAULT_READONLY			0
+    
+#if 1
 #define DEFAULT_PROTOCOL			"7.4"	/* the latest protocol is
-												 * the default */
+							 * the default */
 #define DEFAULT_USEDECLAREFETCH			0
 #define DEFAULT_TEXTASLONGVARCHAR		1
 #define DEFAULT_UNKNOWNSASLONGVARCHAR		0
@@ -221,11 +221,9 @@ const char *GetXaLibPath();
 #define DEFAULT_BYTEAASLONGVARBINARY	0
 #define DEFAULT_USESERVERSIDEPREPARE	0
 #define DEFAULT_LOWERCASEIDENTIFIER	0
-#define DEFAULT_SSLMODE			SSLMODE_DISABLE
+#define DEFAULT_SSLMODE			"disable"
 
-#ifdef	_HANDLE_ENLIST_IN_DTC_
-#define DEFAULT_XAOPT			1
-#endif /* _HANDLE_ENLIST_IN_DTC_ */
+#endif
 
 /*	prototypes */
 void		getCommonDefaults(const char *section, const char *filename, ConnInfo *ci);

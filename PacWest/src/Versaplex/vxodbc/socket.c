@@ -60,10 +60,7 @@ SocketClass *SOCK_Constructor(const ConnectionClass * conn)
 	rv->buffer_filled_out = 0;
 	rv->buffer_read_in = 0;
 
-	if (rv)
-	    rv->buffer_size = conn->connInfo.drivers.socket_buffersize;
-	else
-	    rv->buffer_size = globals.socket_buffersize;
+	rv->buffer_size = SOCK_BUFFER_SIZE;
 	rv->buffer_in = (UCHAR *) malloc(rv->buffer_size);
 	if (!rv->buffer_in)
 	{
