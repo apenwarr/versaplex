@@ -1471,7 +1471,7 @@ PGAPI_ExtendedFetch(HSTMT hstmt,
     UWORD pstatus;
     BOOL currp_is_valid, reached_eof;
 
-    mylog("%s: stmt=%p rowsetSize=%d\n", func, stmt, rowsetSize);
+    mylog("stmt=%p rowsetSize=%d\n", stmt, rowsetSize);
 
     if (!stmt)
     {

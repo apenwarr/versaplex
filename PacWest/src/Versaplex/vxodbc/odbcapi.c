@@ -43,8 +43,8 @@ SQLBindCol(HSTMT StatementHandle,
 {
     RETCODE ret;
     StatementClass *stmt = (StatementClass *) StatementHandle;
+    mylog("Start\n");
 
-    mylog("[SQLBindCol]");
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
@@ -60,8 +60,8 @@ RETCODE SQL_API SQLCancel(HSTMT StatementHandle)
 {
     RETCODE ret;
     StatementClass *stmt = (StatementClass *) StatementHandle;
+    mylog("Start\n");
 
-    mylog("[SQLCancel]");
     /* Not that neither ENTER_STMT_CS nor StartRollbackState is called */
     /* SC_clear_error((StatementClass *) StatementHandle); maybe this neither */
     ret = PGAPI_Cancel(StatementHandle);
@@ -81,8 +81,8 @@ SQLColumns(HSTMT StatementHandle,
     SQLCHAR *ctName = CatalogName, *scName = SchemaName,
 	*tbName = TableName, *clName = ColumnName;
     UWORD flag = PODBC_SEARCH_PUBLIC_SCHEMA;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
@@ -161,8 +161,8 @@ SQLConnect(HDBC ConnectionHandle,
 {
     RETCODE ret;
     ConnectionClass *conn = (ConnectionClass *) ConnectionHandle;
+    mylog("Start\n");
 
-    mylog("[SQLConnect]");
     ENTER_CONN_CS(conn);
     CC_clear_error(conn);
     ret = PGAPI_Connect(ConnectionHandle, ServerName, NameLength1,
@@ -184,8 +184,8 @@ SQLDriverConnect(HDBC hdbc,
 {
     RETCODE ret;
     ConnectionClass *conn = (ConnectionClass *) hdbc;
+    mylog("Start\n");
 
-    mylog("[SQLDriverConnect]");
     ENTER_CONN_CS(conn);
     CC_clear_error(conn);
     ret = PGAPI_DriverConnect(hdbc, hwnd, szConnStrIn, cbConnStrIn,
@@ -205,8 +205,8 @@ SQLBrowseConnect(HDBC hdbc,
 {
     RETCODE ret;
     ConnectionClass *conn = (ConnectionClass *) hdbc;
+    mylog("Start\n");
 
-    mylog("[SQLBrowseConnect]");
     ENTER_CONN_CS(conn);
     CC_clear_error(conn);
     ret = PGAPI_BrowseConnect(hdbc, szConnStrIn, cbConnStrIn,
@@ -223,7 +223,7 @@ SQLDataSources(HENV EnvironmentHandle,
 	       SQLCHAR * Description, SQLSMALLINT BufferLength2,
 	       SQLSMALLINT * NameLength2)
 {
-    mylog("[SQLDataSources]");
+    mylog("Not implemented!\n");
 
     /*
      * return PGAPI_DataSources(EnvironmentHandle, Direction, ServerName,
@@ -242,8 +242,8 @@ SQLDescribeCol(HSTMT StatementHandle,
 {
     RETCODE ret;
     StatementClass *stmt = (StatementClass *) StatementHandle;
+    mylog("Start\n");
 
-    mylog("[SQLDescribeCol]");
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
@@ -258,11 +258,10 @@ SQLDescribeCol(HSTMT StatementHandle,
 
 RETCODE SQL_API SQLDisconnect(HDBC ConnectionHandle)
 {
-    CSTR func = "SQLDisconnect";
     RETCODE ret;
     ConnectionClass *conn = (ConnectionClass *) ConnectionHandle;
+    mylog("Start\n");
 
-    mylog("[%s for %p]", func, ConnectionHandle);
 #ifdef	_HANDLE_ENLIST_IN_DTC_
     CALL_DtcOnDisconnect(conn);	/* must be called without holding the connection lock */
 #endif				/* _HANDLE_ENLIST_IN_DTC_ */
@@ -282,8 +281,8 @@ SQLExecDirect(HSTMT StatementHandle,
     RETCODE ret;
     StatementClass *stmt = (StatementClass *) StatementHandle;
     UWORD flag = 0;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     if (PG_VERSION_GE(SC_get_conn(stmt), 7.4))
@@ -308,8 +307,8 @@ RETCODE SQL_API SQLExecute(HSTMT StatementHandle)
     RETCODE ret;
     StatementClass *stmt = (StatementClass *) StatementHandle;
     UWORD flag = 0;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     if (PG_VERSION_GE(SC_get_conn(stmt), 7.4))
@@ -328,9 +327,9 @@ RETCODE SQL_API SQLExecute(HSTMT StatementHandle)
 
 RETCODE SQL_API SQLFetch(HSTMT StatementHandle)
 {
-    CSTR func = "SQLFetch";
     RETCODE ret;
     StatementClass *stmt = (StatementClass *) StatementHandle;
+    mylog("Start\n");
 
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
@@ -342,16 +341,13 @@ RETCODE SQL_API SQLFetch(HSTMT StatementHandle)
 	SQLUSMALLINT *rowStatusArray = irdopts->rowStatusArray;
 	SQLLEN *pcRow = irdopts->rowsFetched;
 
-	mylog("[[%s]]", func);
 	ret = PGAPI_ExtendedFetch(StatementHandle, SQL_FETCH_NEXT, 0,
 				  pcRow, rowStatusArray, 0,
 				  ardopts->size_of_rowset);
 	stmt->transition_status = 6;
-    } else
-    {
-	mylog("[%s]", func);
-	ret = PGAPI_Fetch(StatementHandle);
     }
+    else
+	ret = PGAPI_Fetch(StatementHandle);
     ret = DiscardStatementSvp(stmt, ret, FALSE);
     LEAVE_STMT_CS(stmt);
     return ret;
@@ -361,8 +357,8 @@ RETCODE SQL_API SQLFetch(HSTMT StatementHandle)
 RETCODE SQL_API SQLFreeStmt(HSTMT StatementHandle, SQLUSMALLINT Option)
 {
     RETCODE ret;
+    mylog("Start\n");
 
-    mylog("[SQLFreeStmt]");
     ret = PGAPI_FreeStmt(StatementHandle, Option);
     return ret;
 }
@@ -375,8 +371,8 @@ SQLGetCursorName(HSTMT StatementHandle,
 {
     RETCODE ret;
     StatementClass *stmt = (StatementClass *) StatementHandle;
+    mylog("Start\n");
 
-    mylog("[SQLGetCursorName]");
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
@@ -394,8 +390,8 @@ SQLGetData(HSTMT StatementHandle,
 {
     RETCODE ret;
     StatementClass *stmt = (StatementClass *) StatementHandle;
+    mylog("Start\n");
 
-    mylog("[SQLGetData]");
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
@@ -412,8 +408,8 @@ SQLGetFunctions(HDBC ConnectionHandle,
 {
     RETCODE ret;
     ConnectionClass *conn = (ConnectionClass *) ConnectionHandle;
+    mylog("Start\n");
 
-    mylog("[SQLGetFunctions]");
     ENTER_CONN_CS(conn);
     CC_clear_error(conn);
     if (FunctionId == SQL_API_ODBC3_ALL_FUNCTIONS)
@@ -436,10 +432,10 @@ SQLGetInfo(HDBC ConnectionHandle,
 {
     RETCODE ret;
     ConnectionClass *conn = (ConnectionClass *) ConnectionHandle;
+    mylog("Start\n");
 
     ENTER_CONN_CS(conn);
     CC_clear_error(conn);
-    mylog("[SQLGetInfo(30)]");
     if ((ret = PGAPI_GetInfo(ConnectionHandle, InfoType, InfoValue,
 			     BufferLength, StringLength)) == SQL_ERROR)
     {
@@ -465,8 +461,8 @@ SQLGetTypeInfo(HSTMT StatementHandle, SQLSMALLINT DataType)
     CSTR func = "SQLGetTypeInfo";
     RETCODE ret;
     StatementClass *stmt = (StatementClass *) StatementHandle;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     if (SC_opencheck(stmt, func))
@@ -486,8 +482,8 @@ SQLNumResultCols(HSTMT StatementHandle, SQLSMALLINT * ColumnCount)
 {
     RETCODE ret;
     StatementClass *stmt = (StatementClass *) StatementHandle;
+    mylog("Start\n");
 
-    mylog("[SQLNumResultCols]");
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
@@ -501,8 +497,8 @@ RETCODE SQL_API SQLParamData(HSTMT StatementHandle, PTR * Value)
 {
     RETCODE ret;
     StatementClass *stmt = (StatementClass *) StatementHandle;
+    mylog("Start\n");
 
-    mylog("[SQLParamData]");
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     ret = PGAPI_ParamData(StatementHandle, Value);
@@ -517,8 +513,8 @@ SQLPrepare(HSTMT StatementHandle,
 {
     RETCODE ret;
     StatementClass *stmt = (StatementClass *) StatementHandle;
+    mylog("Start\n");
 
-    mylog("[SQLPrepare]");
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
@@ -533,8 +529,8 @@ SQLPutData(HSTMT StatementHandle, PTR Data, SQLLEN StrLen_or_Ind)
 {
     RETCODE ret;
     StatementClass *stmt = (StatementClass *) StatementHandle;
+    mylog("Start\n");
 
-    mylog("[SQLPutData]");
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     ret = PGAPI_PutData(StatementHandle, Data, StrLen_or_Ind);
@@ -547,8 +543,8 @@ RETCODE SQL_API SQLRowCount(HSTMT StatementHandle, SQLLEN * RowCount)
 {
     RETCODE ret;
     StatementClass *stmt = (StatementClass *) StatementHandle;
+    mylog("Start\n");
 
-    mylog("[SQLRowCount]");
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
@@ -565,8 +561,8 @@ SQLSetCursorName(HSTMT StatementHandle,
 {
     RETCODE ret;
     StatementClass *stmt = (StatementClass *) StatementHandle;
+    mylog("Start\n");
 
-    mylog("[SQLSetCursorName]");
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
@@ -583,7 +579,7 @@ SQLSetParam(HSTMT StatementHandle,
 	    SQLSMALLINT ParameterScale, PTR ParameterValue,
 	    SQLLEN * StrLen_or_Ind)
 {
-    mylog("[SQLSetParam]");
+    mylog("Start\n");
     SC_clear_error((StatementClass *) StatementHandle);
 
     /*
@@ -608,8 +604,8 @@ SQLSpecialColumns(HSTMT StatementHandle,
     StatementClass *stmt = (StatementClass *) StatementHandle;
     SQLCHAR *ctName = CatalogName, *scName = SchemaName, *tbName =
 	TableName;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
@@ -683,8 +679,8 @@ SQLStatistics(HSTMT StatementHandle,
     StatementClass *stmt = (StatementClass *) StatementHandle;
     SQLCHAR *ctName = CatalogName, *scName = SchemaName, *tbName =
 	TableName;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
@@ -755,8 +751,8 @@ SQLTables(HSTMT StatementHandle,
     SQLCHAR *ctName = CatalogName, *scName = SchemaName, *tbName =
 	TableName;
     UWORD flag = 0;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
@@ -833,8 +829,8 @@ SQLColumnPrivileges(HSTMT hstmt,
     SQLCHAR *ctName = szCatalogName, *scName = szSchemaName,
 	*tbName = szTableName, *clName = szColumnName;
     UWORD flag = 0;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
@@ -914,8 +910,8 @@ SQLDescribeParam(HSTMT hstmt,
 {
     RETCODE ret;
     StatementClass *stmt = (StatementClass *) hstmt;
+    mylog("Start\n");
 
-    mylog("[SQLDescribeParam]");
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
@@ -937,8 +933,8 @@ SQLExtendedFetch(HSTMT hstmt, SQLUSMALLINT fFetchType, SQLLEN irow,
 {
     RETCODE ret;
     StatementClass *stmt = (StatementClass *) hstmt;
+    mylog("Start\n");
 
-    mylog("[SQLExtendedFetch]");
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
@@ -986,8 +982,8 @@ SQLForeignKeys(HSTMT hstmt,
     SQLCHAR *pkctName = szPkCatalogName, *pkscName = szPkSchemaName,
 	*pktbName = szPkTableName, *fkctName = szFkCatalogName,
 	*fkscName = szFkSchemaName, *fktbName = szFkTableName;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
@@ -1085,8 +1081,8 @@ RETCODE SQL_API SQLMoreResults(HSTMT hstmt)
 {
     RETCODE ret;
     StatementClass *stmt = (StatementClass *) hstmt;
+    mylog("Start\n");
 
-    mylog("[SQLMoreResults]");
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
@@ -1105,8 +1101,8 @@ SQLNativeSql(HDBC hdbc,
 {
     RETCODE ret;
     ConnectionClass *conn = (ConnectionClass *) hdbc;
+    mylog("Start\n");
 
-    mylog("[SQLNativeSql]");
     ENTER_CONN_CS(conn);
     CC_clear_error(conn);
     ret = PGAPI_NativeSql(hdbc, szSqlStrIn, cbSqlStrIn, szSqlStr,
@@ -1119,8 +1115,8 @@ RETCODE SQL_API SQLNumParams(HSTMT hstmt, SQLSMALLINT * pcpar)
 {
     RETCODE ret;
     StatementClass *stmt = (StatementClass *) hstmt;
+    mylog("Start\n");
 
-    mylog("[SQLNumParams]");
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
@@ -1144,8 +1140,8 @@ SQLPrimaryKeys(HSTMT hstmt,
     StatementClass *stmt = (StatementClass *) hstmt;
     SQLCHAR *ctName = szCatalogName, *scName = szSchemaName,
 	*tbName = szTableName;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
@@ -1219,8 +1215,8 @@ SQLProcedureColumns(HSTMT hstmt,
     SQLCHAR *ctName = szCatalogName, *scName = szSchemaName,
 	*prName = szProcName, *clName = szColumnName;
     UWORD flag = 0;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
@@ -1305,8 +1301,8 @@ SQLProcedures(HSTMT hstmt,
     SQLCHAR *ctName = szCatalogName, *scName = szSchemaName,
 	*prName = szProcName;
     UWORD flag = 0;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
@@ -1372,8 +1368,8 @@ SQLSetPos(HSTMT hstmt,
 {
     RETCODE ret;
     StatementClass *stmt = (StatementClass *) hstmt;
+    mylog("Start\n");
 
-    mylog("[SQLSetPos]");
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
@@ -1397,8 +1393,8 @@ SQLTablePrivileges(HSTMT hstmt,
     SQLCHAR *ctName = szCatalogName, *scName = szSchemaName,
 	*tbName = szTableName;
     UWORD flag = 0;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
@@ -1470,8 +1466,8 @@ SQLBindParameter(HSTMT hstmt,
 {
     RETCODE ret;
     StatementClass *stmt = (StatementClass *) hstmt;
+    mylog("Start\n");
 
-    mylog("[SQLBindParameter]");
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);

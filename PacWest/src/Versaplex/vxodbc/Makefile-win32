@@ -1,15 +1,23 @@
 CC=i586-mingw32msvc-gcc
+CXX=i586-mingw32msvc-g++
 WINDRES=i586-mingw32msvc-windres
-#WVPORTS=$(HOME)/src/wvports
+WVPORTS=$(HOME)/src/wvports
+XPLC=$(WVPORTS)/xplc/build/xplc
 #OPENSSL=$(WVPORTS)/openssl/build/openssl
-WVSTREAMS=$(HOME)/src/wvstreams-win32-2007
+WVSTREAMS=$(HOME)/src/wvstreams-win32-2007/wvstreams.new
 CFLAGS=-Wall \
 	-D_MSC_VER=1300 \
 	-DUNICODE_SUPPORT -DODBCVER=0x0351 -D_WIN32_WINNT=0x0501 \
 	-DWIN_MULTITHREAD_SUPPORT \
+	-I$(WVSTREAMS)/include -I$(XPLC)/include \
 	-I/usr/include/postgresql
+CXXFLAGS=$(CFLAGS)
 RSCFLAGS=-DUNICODE_SUPPORT
-LIBS=-lodbc32 -lodbccp32 -lws2_32 -lwinmm -lgdi32 -lkernel32 
+LIBS=\
+	-L$(WVSTREAMS) -lwvwin32 \
+	-L$(XPLC) -lxplc-cxx -lxplc \
+	-lodbc32 -lodbccp32 \
+	-lws2_32 -lwinmm -lgdi32 -lkernel32 
 LDFLAGS=--enable-stdcall-fixup -s
 
 OBJS=\
@@ -47,6 +55,7 @@ OBJS=\
 	odbcapiw.o \
 	odbcapi30w.o \
 	inouealc.o \
+	wvlogger.o \
 	vxodbc.res.o \
 	vxodbc.def
 
@@ -65,11 +74,15 @@ clean:
 	
 %.o: %.c
 	@echo Compiling $@...
-	@$(CC) -o $@ -c -MMD -MF .$*.d $< $(CFLAGS)
+	@$(CC) -o $@ -c -MMD -MP -MF .$*.d $< $(CFLAGS)
+
+%.o: %.cc
+	@echo Compiling $@...
+	@$(CXX) -o $@ -c -MMD -MP -MF .$*.d $< $(CXXFLAGS)
 	
 %.dll: %.def
 	@echo Linking $@...
-	@$(CC) -shared -o $@ \
+	@$(CXX) -shared -o $@ \
 		$(LDFLAGS) \
 		$^ \
 		-Wl,--out-implib,$*.a \

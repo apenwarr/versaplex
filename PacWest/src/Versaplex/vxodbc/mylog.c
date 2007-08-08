@@ -1,18 +1,19 @@
 /*-------
- * Module:			mylog.c
+ * Module:	mylog.c
  *
- * Description:		This module contains miscellaneous routines
- *					such as for debugging/logging and string functions.
+ * Description:	This module contains miscellaneous routines
+ *		such as for debugging/logging and string functions.
  *
- * Classes:			n/a
+ * Classes:	n/a
  *
- * API functions:	none
+ * API functions: none
  *
- * Comments:		See "notice.txt" for copyright and license information.
+ * Comments:	See "notice.txt" for copyright and license information.
  *-------
  */
 
 #include "psqlodbc.h"
+#include "wvlogger.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,40 +31,7 @@
 #else
 #define	GENERAL_ERRNO		(GetLastError())
 #define	GENERAL_ERRNO_SET(e)	SetLastError(e)
-#include <process.h>		/* Byron: is this where Windows keeps def.
-				 * of getpid ? */
 #endif
-
-extern GLOBAL_VALUES globals;
-void generate_filename(const char *, const char *, char *);
-
-void generate_filename(const char *dirname, const char *prefix,
-		       char *filename)
-{
-    if (dirname == 0 || filename == 0)
-	return;
-    sprintf(filename, "%s%s%s.log", dirname, DIRSEPARATOR,
-	    prefix ? prefix : "");
-}
-
-static void generate_homefile(const char *prefix, char *filename)
-{
-    char dir[PATH_MAX];
-#ifdef	WIN32
-    const char *ptr;
-
-    dir[0] = '\0';
-    if (ptr = getenv("HOMEDRIVE"), NULL != ptr)
-	strcat(dir, ptr);
-    if (ptr = getenv("HOMEPATH"), NULL != ptr)
-	strcat(dir, ptr);
-#else
-    strcpy(dir, "~");
-#endif				/* WIN32 */
-    generate_filename(dir, prefix, filename);
-
-    return;
-}
 
 #if defined(WIN_MULTITHREAD_SUPPORT)
 static CRITICAL_SECTION qlog_cs, mylog_cs;
@@ -117,127 +85,43 @@ void logs_on_off(int cnopen, int mylog_onoff, int qlog_onoff)
     LEAVE_MYLOG_CS;
 }
 
-#ifdef	WIN32
-#define	LOGGING_PROCESS_TIME
-#endif				/* WIN32 */
-#ifdef	LOGGING_PROCESS_TIME
-#include <mmsystem.h>
-static DWORD start_time = 0;
-#endif				/* LOGGING_PROCESS_TIME */
-#ifdef MY_LOG
-static FILE *MLOGFP = NULL;
-void mylog(const char *fmt, ...)
+static void _vmylog(const char *file, int line,
+		    const char *fmt, va_list args)
 {
-    va_list args;
-    char filebuf[80];
+    char buf[1024];
     int gerrno;
-
-//      if (!mylog_on)  return;
-
+    
     gerrno = GENERAL_ERRNO;
     ENTER_MYLOG_CS;
-#ifdef	LOGGING_PROCESS_TIME
-    if (!start_time)
-	start_time = timeGetTime();
-#endif				/* LOGGING_PROCESS_TIME */
-    va_start(args, fmt);
 
-    if (!MLOGFP)
-    {
-	generate_filename(MYLOGDIR, MYLOGFILE, filebuf);
-	MLOGFP = fopen(filebuf, PG_BINARY_A);
-	if (!MLOGFP)
-	{
-	    generate_homefile(MYLOGFILE, filebuf);
-	    MLOGFP = fopen(filebuf, PG_BINARY_A);
-	}
-	if (MLOGFP)
-	    /*setbuf(MLOGFP, NULL) */ ;
-	else
-	    mylog_on = 0;
-    }
+    vsnprintf(buf, sizeof(buf)-1, fmt, args);
+    buf[sizeof(buf)-1] = 0;
+    wvlog_print(file, line, buf);
 
-    if (MLOGFP)
-    {
-#ifdef	WIN_MULTITHREAD_SUPPORT
-#ifdef	LOGGING_PROCESS_TIME
-	DWORD proc_time = timeGetTime() - start_time;
-	fprintf(MLOGFP, "[%lu-%ld.%03ld]",
-		(unsigned long)GetCurrentThreadId(),
-		(long)proc_time / 1000, (long)proc_time % 1000);
-#else
-	fprintf(MLOGFP, "[%lu]", (unsigned long)GetCurrentThreadId());
-#endif				/* LOGGING_PROCESS_TIME */
-#endif				/* WIN_MULTITHREAD_SUPPORT */
-#if defined(POSIX_MULTITHREAD_SUPPORT)
-	fprintf(MLOGFP, "[%lu]", (unsigned long)pthread_self());
-#endif				/* POSIX_MULTITHREAD_SUPPORT */
-	vfprintf(MLOGFP, fmt, args);
-	fflush(MLOGFP);
-    }
-
-    va_end(args);
     LEAVE_MYLOG_CS;
     GENERAL_ERRNO_SET(gerrno);
 }
 
-void forcelog(const char *fmt, ...)
+
+#ifdef MY_LOG
+
+void _mylog(const char *file, int line, const char *fmt, ...)
 {
-    static BOOL force_on = TRUE;
     va_list args;
-    char filebuf[80];
-    int gerrno = GENERAL_ERRNO;
 
-    if (!force_on)
-	return;
-
-    ENTER_MYLOG_CS;
+//      if (!mylog_on)  return;
+    
     va_start(args, fmt);
-
-    if (!MLOGFP)
-    {
-	generate_filename(MYLOGDIR, MYLOGFILE, filebuf);
-	MLOGFP = fopen(filebuf, PG_BINARY_A);
-	if (MLOGFP)
-	    setbuf(MLOGFP, NULL);
-	if (!MLOGFP)
-	{
-	    generate_homefile(MYLOGFILE, filebuf);
-	    MLOGFP = fopen(filebuf, PG_BINARY_A);
-	}
-	if (!MLOGFP)
-	{
-	    generate_filename("C:\\podbclog", MYLOGFILE, filebuf);
-	    MLOGFP = fopen(filebuf, PG_BINARY_A);
-	}
-	if (MLOGFP)
-	    setbuf(MLOGFP, NULL);
-	else
-	    force_on = FALSE;
-    }
-    if (MLOGFP)
-    {
-#ifdef	WIN_MULTITHREAD_SUPPORT
-#ifdef	WIN32
-	time_t ntime;
-	char ctim[128];
-
-	time(&ntime);
-	strcpy(ctim, ctime(&ntime));
-	ctim[strlen(ctim) - 1] = '\0';
-	fprintf(MLOGFP, "[%ld.%ld(%s)]", (long)GetCurrentProcessId(),
-		(long)GetCurrentThreadId(), ctim);
-#endif				/* WIN32 */
-#endif				/* WIN_MULTITHREAD_SUPPORT */
-#if defined(POSIX_MULTITHREAD_SUPPORT)
-	fprintf(MLOGFP, "[%u]", pthread_self());
-#endif				/* POSIX_MULTITHREAD_SUPPORT */
-	vfprintf(MLOGFP, fmt, args);
-	fflush(MLOGFP);
-    }
+    _vmylog(file, line, fmt, args);
     va_end(args);
-    LEAVE_MYLOG_CS;
-    GENERAL_ERRNO_SET(gerrno);
+}
+
+void _forcelog(const char *file, int line, const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    _vmylog(file, line, fmt, args);
+    va_end(args);
 }
 static void mylog_initialize()
 {
@@ -246,11 +130,7 @@ static void mylog_initialize()
 static void mylog_finalize()
 {
     mylog_on = 0;
-    if (MLOGFP)
-    {
-	fclose(MLOGFP);
-	MLOGFP = NULL;
-    }
+    wvlog_close();
     DELETE_MYLOG_CS;
 }
 #else
@@ -267,53 +147,12 @@ static void mylog_finalize()
 
 
 #ifdef Q_LOG
-static FILE *QLOGFP = NULL;
-void qlog(char *fmt, ...)
+void _qlog(const char *file, int line, const char *fmt, ...)
 {
     va_list args;
-    char filebuf[80];
-    int gerrno;
-
-    if (!qlog_on)
-	return;
-
-    gerrno = GENERAL_ERRNO;
-    ENTER_QLOG_CS;
-#ifdef	LOGGING_PROCESS_TIME
-    if (!start_time)
-	start_time = timeGetTime();
-#endif				/* LOGGING_PROCESS_TIME */
     va_start(args, fmt);
-
-    if (!QLOGFP)
-    {
-	generate_filename(QLOGDIR, QLOGFILE, filebuf);
-	QLOGFP = fopen(filebuf, PG_BINARY_A);
-	if (!QLOGFP)
-	{
-	    generate_homefile(QLOGFILE, filebuf);
-	    QLOGFP = fopen(filebuf, PG_BINARY_A);
-	}
-	if (QLOGFP)
-	    setbuf(QLOGFP, NULL);
-	else
-	    qlog_on = 0;
-    }
-
-    if (QLOGFP)
-    {
-#ifdef	LOGGING_PROCESS_TIME
-	DWORD proc_time = timeGetTime() - start_time;
-	fprintf(QLOGFP, "[%ld.%03ld]", (long)proc_time / 1000,
-		(long)proc_time % 1000);
-#endif				/* LOGGING_PROCESS_TIME */
-	vfprintf(QLOGFP, fmt, args);
-	fflush(QLOGFP);
-    }
-
+    _vmylog(file, line, fmt, args);
     va_end(args);
-    LEAVE_QLOG_CS;
-    GENERAL_ERRNO_SET(gerrno);
 }
 static void qlog_initialize()
 {
@@ -322,11 +161,6 @@ static void qlog_initialize()
 static void qlog_finalize()
 {
     qlog_on = 0;
-    if (QLOGFP)
-    {
-	fclose(QLOGFP);
-	QLOGFP = NULL;
-    }
     DELETE_QLOG_CS;
 }
 #else

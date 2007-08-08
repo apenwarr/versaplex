@@ -43,8 +43,8 @@ RETCODE SQL_API SQLColumnsW(HSTMT StatementHandle,
     ConnectionClass *conn;
     BOOL lower_id;
     UWORD flag = PODBC_SEARCH_PUBLIC_SCHEMA;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     conn = SC_get_conn(stmt);
     lower_id = SC_is_lower_case(stmt, conn);
     ctName = ucs2_to_utf8(CatalogName, NameLength1, &nmlen1, lower_id);
@@ -86,13 +86,12 @@ RETCODE SQL_API SQLConnectW(HDBC ConnectionHandle,
 			    SQLWCHAR * Authentication,
 			    SQLSMALLINT NameLength3)
 {
-    CSTR func = "SQLConnectW";
     char *svName, *usName, *auth;
     SQLLEN nmlen1, nmlen2, nmlen3;
     RETCODE ret;
     ConnectionClass *conn = (ConnectionClass *) ConnectionHandle;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     ENTER_CONN_CS(conn);
     CC_clear_error(conn);
     CC_set_in_unicode_driver(conn);
@@ -128,8 +127,8 @@ RETCODE SQL_API SQLDriverConnectW(HDBC hdbc,
     SQLSMALLINT olen, *pCSO;
     RETCODE ret;
     ConnectionClass *conn = (ConnectionClass *) hdbc;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     ENTER_CONN_CS(conn);
     CC_clear_error(conn);
     CC_set_in_unicode_driver(conn);
@@ -184,15 +183,14 @@ RETCODE SQL_API SQLBrowseConnectW(HDBC hdbc,
 				  SQLSMALLINT cbConnStrOutMax,
 				  SQLSMALLINT * pcbConnStrOut)
 {
-    CSTR func = "SQLBrowseConnectW";
     char *szIn, *szOut;
     SQLLEN inlen;
     SQLUSMALLINT obuflen;
     SQLSMALLINT olen;
     RETCODE ret;
     ConnectionClass *conn = (ConnectionClass *) hdbc;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     ENTER_CONN_CS(conn);
     CC_clear_error(conn);
     CC_set_in_unicode_driver(conn);
@@ -224,8 +222,7 @@ RETCODE SQL_API SQLDataSourcesW(HENV EnvironmentHandle,
 				SQLSMALLINT BufferLength2,
 				SQLSMALLINT * NameLength2)
 {
-    CSTR func = "SQLDataSourcesW";
-    mylog("[%s]", func);
+    mylog("Start\n");
     /*
        return PGAPI_DataSources(EnvironmentHandle, Direction, ServerName,
        BufferLength1, NameLength1, Description, BufferLength2,
@@ -249,8 +246,8 @@ RETCODE SQL_API SQLDescribeColW(HSTMT StatementHandle,
     StatementClass *stmt = (StatementClass *) StatementHandle;
     SQLSMALLINT buflen, nmlen;
     char *clName = NULL;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     buflen = 0;
     if (BufferLength > 0)
 	buflen = BufferLength * 3;
@@ -303,8 +300,8 @@ RETCODE SQL_API SQLExecDirectW(HSTMT StatementHandle,
     SQLLEN slen;
     StatementClass *stmt = (StatementClass *) StatementHandle;
     UWORD flag = 0;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     stxt = ucs2_to_utf8(StatementText, TextLength, &slen, FALSE);
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
@@ -335,7 +332,6 @@ RETCODE SQL_API SQLGetCursorNameW(HSTMT StatementHandle,
     char *crName;
     SQLSMALLINT clen, buflen;
 
-    mylog("[%s]", func);
     if (BufferLength > 0)
 	buflen = BufferLength * 3;
     else
@@ -378,14 +374,13 @@ RETCODE SQL_API SQLGetInfoW(HDBC ConnectionHandle,
 			    SQLSMALLINT BufferLength,
 			    SQLSMALLINT * StringLength)
 {
-    CSTR func = "SQLGetInfoW";
     ConnectionClass *conn = (ConnectionClass *) ConnectionHandle;
     RETCODE ret;
+    mylog("Start\n");
 
     ENTER_CONN_CS(conn);
     CC_set_in_unicode_driver(conn);
     CC_clear_error(conn);
-    mylog("[%s(30)]", func);
     if ((ret = PGAPI_GetInfo(ConnectionHandle, InfoType, InfoValue,
 			     BufferLength, StringLength)) == SQL_ERROR)
     {
@@ -406,13 +401,12 @@ RETCODE SQL_API SQLPrepareW(HSTMT StatementHandle,
 			    SQLWCHAR * StatementText,
 			    SQLINTEGER TextLength)
 {
-    CSTR func = "SQLPrepareW";
     StatementClass *stmt = (StatementClass *) StatementHandle;
     RETCODE ret;
     char *stxt;
     SQLLEN slen;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     stxt = ucs2_to_utf8(StatementText, TextLength, &slen, FALSE);
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
@@ -429,13 +423,12 @@ RETCODE SQL_API SQLSetCursorNameW(HSTMT StatementHandle,
 				  SQLWCHAR * CursorName,
 				  SQLSMALLINT NameLength)
 {
-    CSTR func = "SQLSetCursorNameW";
     RETCODE ret;
     StatementClass *stmt = (StatementClass *) StatementHandle;
     char *crName;
     SQLLEN nlen;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     crName = ucs2_to_utf8(CursorName, NameLength, &nlen, FALSE);
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
@@ -468,8 +461,8 @@ RETCODE SQL_API SQLSpecialColumnsW(HSTMT StatementHandle,
     StatementClass *stmt = (StatementClass *) StatementHandle;
     ConnectionClass *conn;
     BOOL lower_id;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     conn = SC_get_conn(stmt);
     lower_id = SC_is_lower_case(stmt, conn);
     ctName = ucs2_to_utf8(CatalogName, NameLength1, &nmlen1, lower_id);
@@ -514,13 +507,14 @@ RETCODE SQL_API SQLStatisticsW(HSTMT StatementHandle,
     StatementClass *stmt = (StatementClass *) StatementHandle;
     ConnectionClass *conn;
     BOOL lower_id;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     conn = SC_get_conn(stmt);
     lower_id = SC_is_lower_case(stmt, conn);
     ctName = ucs2_to_utf8(CatalogName, NameLength1, &nmlen1, lower_id);
     scName = ucs2_to_utf8(SchemaName, NameLength2, &nmlen2, lower_id);
     tbName = ucs2_to_utf8(TableName, NameLength3, &nmlen3, lower_id);
+    
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
@@ -561,8 +555,8 @@ RETCODE SQL_API SQLTablesW(HSTMT StatementHandle,
     ConnectionClass *conn;
     BOOL lower_id;
     UWORD flag = 0;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     conn = SC_get_conn(stmt);
     lower_id = SC_is_lower_case(stmt, conn);
     ctName = ucs2_to_utf8(CatalogName, NameLength1, &nmlen1, lower_id);
@@ -613,8 +607,8 @@ RETCODE SQL_API SQLColumnPrivilegesW(HSTMT hstmt,
     ConnectionClass *conn;
     BOOL lower_id;
     UWORD flag = 0;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     conn = SC_get_conn(stmt);
     lower_id = SC_is_lower_case(stmt, conn);
     ctName =
@@ -671,8 +665,8 @@ RETCODE SQL_API SQLForeignKeysW(HSTMT hstmt,
     StatementClass *stmt = (StatementClass *) hstmt;
     ConnectionClass *conn;
     BOOL lower_id;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     conn = SC_get_conn(stmt);
     lower_id = SC_is_lower_case(stmt, conn);
     ctName =
@@ -731,8 +725,8 @@ RETCODE SQL_API SQLNativeSqlW(HDBC hdbc,
     SQLLEN slen;
     SQLINTEGER buflen, olen;
     ConnectionClass *conn = (ConnectionClass *) hdbc;
+    mylog("Start\n");
 
-    mylog("[%s}", func);
     ENTER_CONN_CS(conn);
     CC_clear_error(conn);
     CC_set_in_unicode_driver(conn);
@@ -786,8 +780,8 @@ RETCODE SQL_API SQLPrimaryKeysW(HSTMT hstmt,
     StatementClass *stmt = (StatementClass *) hstmt;
     ConnectionClass *conn;
     BOOL lower_id;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     conn = SC_get_conn(stmt);
     lower_id = SC_is_lower_case(stmt, conn);
     ctName =
@@ -833,8 +827,8 @@ RETCODE SQL_API SQLProcedureColumnsW(HSTMT hstmt,
     ConnectionClass *conn;
     BOOL lower_id;
     UWORD flag = 0;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     conn = SC_get_conn(stmt);
     lower_id = SC_is_lower_case(stmt, conn);
     ctName =
@@ -886,8 +880,8 @@ RETCODE SQL_API SQLProceduresW(HSTMT hstmt,
     ConnectionClass *conn;
     BOOL lower_id;
     UWORD flag = 0;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     conn = SC_get_conn(stmt);
     lower_id = SC_is_lower_case(stmt, conn);
     ctName =
@@ -933,8 +927,8 @@ RETCODE SQL_API SQLTablePrivilegesW(HSTMT hstmt,
     ConnectionClass *conn;
     BOOL lower_id;
     UWORD flag = 0;
+    mylog("Start\n");
 
-    mylog("[%s]", func);
     conn = SC_get_conn(stmt);
     lower_id = SC_is_lower_case(stmt, conn);
     ctName =
@@ -971,7 +965,6 @@ RETCODE SQL_API SQLGetTypeInfoW(SQLHSTMT StatementHandle,
     RETCODE ret;
     StatementClass *stmt = (StatementClass *) StatementHandle;
 
-    mylog("[%s]", func);
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);

@@ -64,42 +64,30 @@ extern "C" {
 #define	DELETE_MYLOG_CS
 #endif /* WIN_MULTITHREAD_SUPPORT */
 
-#ifdef MY_LOG
-#define MYLOGFILE			"mylog_"
 #ifndef WIN32
 #define MYLOGDIR			"/tmp"
 #else
 #define MYLOGDIR			"c:\\temp"
 #endif /* WIN32 */
-extern void mylog(const char *fmt,...);
-extern void forcelog(const char *fmt,...);
 
-#else /* MY_LOG */
-#ifndef WIN32
-#define mylog(args...)			/* GNU convention for variable arguments */
-#else
-extern void MyLog(char *fmt,...);
-#define mylog	if (0) MyLog		/* mylog */
-#endif /* WIN32 */
+#ifdef MY_LOG
+# define mylog(fmt, args...)       _mylog(__func__, __LINE__, fmt, ## args)
+# define forcelog(fmt, args...) _forcelog(__func__, __LINE__, fmt, ## args)
+  extern void _mylog(const char *file, int line, const char *fmt, ...);
+  extern void _forcelog(const char *file, int line, const char *fmt, ...);
+#else /* !MY_LOG */
+# define mylog(fmt, args...)
 #endif /* MY_LOG */
+    
 #define	inolog	if (get_mylog() > 1) mylog /* for really temporary debug */
 
 #ifdef Q_LOG
-#define QLOGFILE			"psqlodbc_"
-#ifndef WIN32
-#define QLOGDIR				"/tmp"
-#else
-#define QLOGDIR				"c:\\temp"
+# define qlog(fmt, args...)  _qlog(__func__, __LINE__, fmt, ## args)
+  extern void _qlog(const char *file, int line, const char *fmt, ...);
+#else /* !Q_LOG */
+# define qlog(fmt, args...)
 #endif
-extern void qlog(char *fmt,...);
-
-#else
-#ifndef WIN32
-#define qlog(args...)			/* GNU convention for variable arguments */
-#else
-#define qlog					/* qlog */
-#endif
-#endif
+    
 #define	inoqlog	qlog
 int	get_qlog(void);
 int	get_mylog(void);
@@ -126,20 +114,21 @@ int	get_mylog(void);
 void	InitializeLogging();
 void	FinalizeLogging();
 
-void		remove_newlines(char *string);
-char	   *strncpy_null(char *dst, const char *src, ssize_t len);
-char	   *trim(char *string);
-char	   *make_string(const char *s, ssize_t len, char *buf, size_t bufsize);
-char	   *make_lstring_ifneeded(ConnectionClass *, const char *s, ssize_t len, BOOL);
-char	   *my_strcat(char *buf, const char *fmt, const char *s, ssize_t len);
-char	   *schema_strcat(char *buf, const char *fmt, const char *s, ssize_t len,
-		const char *, int, ConnectionClass *conn);
-char	   *my_strcat1(char *buf, const char *fmt, const char *s1, const char *s, ssize_t len);
-char	   *schema_strcat1(char *buf, const char *fmt, const char *s1,
-				const char *s, ssize_t len,
-				const char *, int, ConnectionClass *conn);
-int			snprintf_add(char *buf, size_t size, const char *format, ...);
-size_t			snprintf_len(char *buf, size_t size, const char *format, ...);
+void remove_newlines(char *string);
+char *strncpy_null(char *dst, const char *src, ssize_t len);
+char *trim(char *string);
+char *make_string(const char *s, ssize_t len, char *buf, size_t bufsize);
+char *make_lstring_ifneeded(ConnectionClass *, const char *s, ssize_t len, BOOL);
+char *my_strcat(char *buf, const char *fmt, const char *s, ssize_t len);
+char *schema_strcat(char *buf, const char *fmt, const char *s, ssize_t len,
+		    const char *, int, ConnectionClass *conn);
+char *my_strcat1(char *buf, const char *fmt, const char *s1,
+		 const char *s, ssize_t len);
+char *schema_strcat1(char *buf, const char *fmt, const char *s1,
+		     const char *s, ssize_t len,
+		     const char *, int, ConnectionClass *conn);
+int	snprintf_add(char *buf, size_t size, const char *format, ...);
+size_t	snprintf_len(char *buf, size_t size, const char *format, ...);
 /* #define	GET_SCHEMA_NAME(nspname) 	(stricmp(nspname, "public") ? nspname : "") */
 #define	GET_SCHEMA_NAME(nspname) 	(nspname)
 
@@ -149,7 +138,7 @@ size_t			snprintf_len(char *buf, size_t size, const char *format, ...);
 #define STRCPY_TRUNCATED	(-1)
 #define STRCPY_NULL			(-2)
 
-ssize_t			my_strcpy(char *dst, ssize_t dst_len, const char *src, ssize_t src_len);
+ssize_t my_strcpy(char *dst, ssize_t dst_len, const char *src, ssize_t src_len);
 
 /* Define a type for defining a constant string expression */
 #define CSTR static const char * const

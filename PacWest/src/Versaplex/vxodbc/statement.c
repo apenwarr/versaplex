@@ -212,8 +212,7 @@ RETCODE SQL_API PGAPI_FreeStmt(HSTMT hstmt, SQLUSMALLINT fOption)
     CSTR func = "PGAPI_FreeStmt";
     StatementClass *stmt = (StatementClass *) hstmt;
 
-    mylog("%s: entering...hstmt=%p, fOption=%hi\n", func, hstmt,
-	  fOption);
+    mylog("hstmt=%p, fOption=%hi\n", hstmt, fOption);
 
     if (!stmt)
     {
@@ -437,7 +436,7 @@ char SC_Destructor(StatementClass * self)
 
     if (!self)
 	return FALSE;
-    mylog("SC_Destructor: self=%p, self->result=%p, self->hdbc=%p\n",
+    mylog("self=%p, self->result=%p, self->hdbc=%p\n",
 	  self, res, self->hdbc);
     SC_clear_error(self);
     if (STMT_EXECUTING == self->status)
@@ -481,8 +480,7 @@ char SC_Destructor(StatementClass * self)
     DELETE_STMT_CS(self);
     free(self);
 
-    mylog("SC_Destructor: EXIT\n");
-
+    mylog("done\n");
     return TRUE;
 }
 

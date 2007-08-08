@@ -151,18 +151,16 @@ PGAPI_BindCol(HSTMT hstmt,
 	      SQLSMALLINT fCType,
 	      PTR rgbValue, SQLLEN cbValueMax, SQLLEN FAR * pcbValue)
 {
-    StatementClass *stmt = (StatementClass *) hstmt;
     CSTR func = "PGAPI_BindCol";
+    StatementClass *stmt = (StatementClass *) hstmt;
     ARDFields *opts;
     GetDataInfo *gdata_info;
     BindInfoClass *bookmark;
     RETCODE ret = SQL_SUCCESS;
 
-    mylog("%s: entering...\n", func);
-
-    mylog("**** PGAPI_BindCol: stmt = %p, icol = %d\n", stmt, icol);
-    mylog("**** : fCType=%d rgb=%p valusMax=%d pcb=%p\n", fCType,
-	  rgbValue, cbValueMax, pcbValue);
+    mylog("Entering(%p, %d)\n", stmt, icol);
+    mylog("fCType=%d rgb=%p valusMax=%d pcb=%p\n",
+	  fCType, rgbValue, cbValueMax, pcbValue);
 
     if (!stmt)
     {
@@ -274,7 +272,7 @@ PGAPI_BindCol(HSTMT hstmt,
 	    opts->bindings[icol].precision = 0;
 	opts->bindings[icol].scale = 0;
 
-	mylog("       bound buffer[%d] = %p\n", icol,
+	mylog("bound buffer[%d] = %p\n", icol,
 	      opts->bindings[icol].buffer);
     }
 
@@ -580,11 +578,8 @@ void extend_iparameter_bindings(IPDFields * self, int num_params)
 
 void reset_a_parameter_binding(APDFields * self, int ipar)
 {
-    CSTR func = "reset_a_parameter_binding";
-
-    mylog
-	("%s: entering ... self=%p, parameters_allocated=%d, ipar=%d\n",
-	 func, self, self->allocated, ipar);
+    mylog("entering... self=%p, parameters_allocated=%d, ipar=%d\n",
+	  self, self->allocated, ipar);
 
     if (ipar < 1 || ipar > self->allocated)
 	return;
@@ -602,11 +597,8 @@ void reset_a_parameter_binding(APDFields * self, int ipar)
 
 void reset_a_iparameter_binding(IPDFields * self, int ipar)
 {
-    CSTR func = "reset_a_iparameter_binding";
-
-    mylog
-	("%s: entering ... self=%p, parameters_allocated=%d, ipar=%d\n",
-	 func, self, self->allocated, ipar);
+    mylog("entering... self=%p, parameters_allocated=%d, ipar=%d\n",
+	  self, self->allocated, ipar);
 
     if (ipar < 1 || ipar > self->allocated)
 	return;
@@ -622,9 +614,8 @@ void reset_a_iparameter_binding(IPDFields * self, int ipar)
     self->parameters[ipar].PGType = 0;
 }
 
-int
-CountParameters(const StatementClass * self, Int2 * inputCount,
-		Int2 * ioCount, Int2 * outputCount)
+int CountParameters(const StatementClass * self, Int2 * inputCount,
+		    Int2 * ioCount, Int2 * outputCount)
 {
     IPDFields *ipdopts = SC_get_IPDF(self);
     int i, num_params, valid_count;
@@ -801,11 +792,10 @@ void extend_column_bindings(ARDFields * self, int num_columns)
 
 void reset_a_column_binding(ARDFields * self, int icol)
 {
-    CSTR func = "reset_a_column_binding";
     BindInfoClass *bookmark;
 
-    mylog("%s: entering ... self=%p, bindings_allocated=%d, icol=%d\n",
-	  func, self, self->allocated, icol);
+    mylog("self=%p, allocated=%d, icol=%d\n",
+	  self, self->allocated, icol);
 
     if (icol > self->allocated)
 	return;
@@ -898,16 +888,14 @@ static GetDataClass *create_empty_gdata(int num_columns)
     }
 
     return new_gdata;
+
 }
-void
-extend_getdata_info(GetDataInfo * self, int num_columns, BOOL shrink)
+void extend_getdata_info(GetDataInfo * self, int num_columns, BOOL shrink)
 {
-    CSTR func = "extend_getdata_info";
     GetDataClass *new_gdata;
 
-    mylog
-	("%s: entering ... self=%p, gdata_allocated=%d, num_columns=%d\n",
-	 func, self, self->allocated, num_columns);
+    mylog("self=%p, allocated=%d, num_columns=%d\n",
+	  self, self->allocated, num_columns);
 
     /*
      * if we have too few, allocate room for more, and copy the old
@@ -919,8 +907,8 @@ extend_getdata_info(GetDataInfo * self, int num_columns, BOOL shrink)
 	if (!new_gdata)
 	{
 	    mylog
-		("%s: unable to create %d new gdata from %d old gdata\n",
-		 func, num_columns, self->allocated);
+		("unable to create %d new gdata from %d old gdata\n",
+		 num_columns, self->allocated);
 
 	    if (self->gdata)
 	    {
@@ -960,8 +948,9 @@ extend_getdata_info(GetDataInfo * self, int num_columns, BOOL shrink)
      * about it by unbinding those columns.
      */
 
-    mylog("exit extend_gdata_info=%p\n", self->gdata);
+    mylog("exit(%p)\n", self->gdata);
 }
+
 void reset_a_getdata_info(GetDataInfo * gdata_info, int icol)
 {
     if (icol < 1 || icol > gdata_info->allocated)
@@ -985,12 +974,10 @@ void PutDataInfoInitialize(PutDataInfo * pdata_info)
 void
 extend_putdata_info(PutDataInfo * self, int num_params, BOOL shrink)
 {
-    CSTR func = "extend_putdata_info";
     PutDataClass *new_pdata;
 
-    mylog
-	("%s: entering ... self=%p, parameters_allocated=%d, num_params=%d\n",
-	 func, self, self->allocated, num_params);
+    mylog("self=%p, parameters_allocated=%d, num_params=%d\n",
+	 self, self->allocated, num_params);
 
     /*
      * if we have too few, allocate room for more, and copy the old
@@ -1008,9 +995,8 @@ extend_putdata_info(PutDataInfo * self, int num_params, BOOL shrink)
 				     sizeof(PutDataClass) * num_params);
 	if (!new_pdata)
 	{
-	    mylog
-		("%s: unable to create %d new pdata from %d old pdata\n",
-		 func, num_params, self->allocated);
+	    mylog("unable to create %d new pdata from %d old pdata\n",
+		  num_params, self->allocated);
 
 	    self->pdata = NULL;
 	    self->allocated = 0;
@@ -1035,8 +1021,10 @@ extend_putdata_info(PutDataInfo * self, int num_params, BOOL shrink)
 	}
     }
 
-    mylog("exit %s=%p\n", func, self->pdata);
+    mylog("exit(%p)\n", self->pdata);
 }
+
+
 void reset_a_putdata_info(PutDataInfo * pdata_info, int ipar)
 {
     if (ipar < 1 || ipar > pdata_info->allocated)
@@ -1054,6 +1042,7 @@ void reset_a_putdata_info(PutDataInfo * pdata_info, int ipar)
     }
     pdata_info->pdata[ipar].lobj_oid = 0;
 }
+
 
 void SC_param_next(const StatementClass * stmt, int *param_number,
 		   ParameterInfoClass ** apara,

@@ -107,13 +107,13 @@ SQLSetDescFieldW	@127
 SQLGetTypeInfoW		@128
 SQLGetDiagFieldW	@129
 
-forcelog
-mylog
-PGAPI_AllocConnect
-PGAPI_FreeConnect
-CC_connect
-CC_set_error
-CC_commit
-CC_abort
-CC_send_query
-QR_Destructor
+;forcelog
+;mylog
+;PGAPI_AllocConnect
+;PGAPI_FreeConnect
+;CC_connect
+;CC_set_error
+;CC_commit
+;CC_abort
+;CC_send_query
+;QR_Destructor
