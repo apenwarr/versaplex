@@ -13,7 +13,7 @@ namespace NDesk.DBus
 		public BadAddressException (string reason) : base (reason) {}
 	}
 
-	class AddressEntry
+	public class AddressEntry
 	{
 		public string Method;
 		public IDictionary<string,string> Properties = new Dictionary<string,string> ();

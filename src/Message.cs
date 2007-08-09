@@ -8,7 +8,7 @@ using System.IO;
 
 namespace NDesk.DBus
 {
-	class Message
+	public class Message
 	{
 		public Message ()
 		{

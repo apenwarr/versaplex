@@ -8,6 +8,8 @@ using org.freedesktop.DBus;
 
 namespace NDesk.DBus
 {
+	using Transports;
+
 	public sealed class Bus : Connection
 	{
 		static Bus systemBus = null;
@@ -93,6 +95,20 @@ namespace NDesk.DBus
 
 		public Bus (string address) : base (address)
 		{
+			bus = GetObject<IBus> (DBusName, DBusPath);
+
+			/*
+					bus.NameAcquired += delegate (string acquired_name) {
+			Console.WriteLine ("NameAcquired: " + acquired_name);
+		};
+		*/
+			Register ();
+		}
+
+		public Bus (Transport trans) : base (trans)
+		{
+			Authenticate();
+
 			bus = GetObject<IBus> (DBusName, DBusPath);
 
 			/*

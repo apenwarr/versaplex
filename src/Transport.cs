@@ -7,7 +7,7 @@ using System.IO;
 
 namespace NDesk.DBus.Transports
 {
-	abstract class Transport
+	public abstract class Transport
 	{
 		public static Transport Create (AddressEntry entry)
 		{

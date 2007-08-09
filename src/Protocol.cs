@@ -8,7 +8,7 @@ using System.Collections.Generic;
 namespace NDesk.DBus
 {
 	//yyyyuua{yv}
-	struct Header
+	public struct Header
 	{
 		public EndianFlag Endianness;
 		public MessageType MessageType;
@@ -76,7 +76,7 @@ namespace NDesk.DBus
 	}
 	*/
 
-	enum MessageType : byte
+	public enum MessageType : byte
 	{
 		//This is an invalid type.
 		Invalid,
@@ -90,7 +90,7 @@ namespace NDesk.DBus
 		Signal,
 	}
 
-	enum FieldCode : byte
+	public enum FieldCode : byte
 	{
 		Invalid,
 			Path,
@@ -106,14 +106,14 @@ namespace NDesk.DBus
 #endif
 	}
 
-	enum EndianFlag : byte
+	public enum EndianFlag : byte
 	{
 		Little = (byte)'l',
 		Big = (byte)'B',
 	}
 
 	[Flags]
-	enum HeaderFlag : byte
+	public enum HeaderFlag : byte
 	{
 		None = 0,
 		NoReplyExpected = 0x1,
