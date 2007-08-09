@@ -89,7 +89,7 @@ namespace NDesk.DBus
 			if (transport != null)
 				transport.WriteCred ();
 
-			SaslClient auth = new SaslClient (this);
+			SaslProcess auth = new ExternalAuthClient (this);
 			auth.Run ();
 			isAuthenticated = true;
 		}
