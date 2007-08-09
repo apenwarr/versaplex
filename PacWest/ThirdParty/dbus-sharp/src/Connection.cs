@@ -1,4 +1,5 @@
 // Copyright 2006 Alp Toker <alp@atoker.com>
+// Copyright 2007 Versabanq (Adrian Dewhurst <adewhurst@versabanq.com>)
 // This software is made available under the MIT License
 // See COPYING for details
 
@@ -201,6 +202,87 @@ namespace NDesk.DBus
 		}
 		*/
 
+		// Given the first 16 bytes of the header, returns the full header and
+		// body lengths (including the 16 bytes of the header already read)
+		internal static void GetMessageSize(Stream s, out int headerSize,
+				out int bodySize)
+		{
+			int read;
+
+			byte[] buf = new byte[16];
+			read = s.Read (buf, 0, 16);
+
+			if (read != 16)
+				throw new Exception ("Header read length mismatch: " + read + " of expected " + "16");
+
+			EndianFlag endianness = (EndianFlag)buf[0];
+			MessageReader reader = new MessageReader (endianness, buf);
+
+			//discard the endian byte as we've already read it
+			byte tmp;
+			reader.GetValue (out tmp);
+
+			//discard message type and flags, which we don't care about here
+			reader.GetValue (out tmp);
+			reader.GetValue (out tmp);
+
+			byte version;
+			reader.GetValue (out version);
+
+			if (version < Protocol.MinVersion || version > Protocol.MaxVersion)
+				throw new NotSupportedException ("Protocol version '" + version.ToString () + "' is not supported");
+
+			if (Protocol.Verbose)
+				if (version != Protocol.Version)
+					Console.Error.WriteLine ("Warning: Protocol version '" + version.ToString () + "' is not explicitly supported but may be compatible");
+
+			uint bodyLength, serial, headerLength;
+			reader.GetValue (out bodyLength);
+			reader.GetValue (out serial);
+			reader.GetValue (out headerLength);
+
+			//TODO: remove this limitation
+			if (bodyLength > Int32.MaxValue || headerLength > Int32.MaxValue)
+				throw new NotImplementedException ("Long messages are not yet supported");
+
+			bodySize = (int)bodyLength;
+			headerSize = Protocol.Padded ((int)headerLength, 8) + 16;
+		}
+
+		internal Message BuildMessage (Stream s,
+				int headerSize, int bodySize)
+		{
+			if (s.Length != headerSize + bodySize)
+				throw new Exception("Buffer is not header + body sizes");
+
+			Message msg = new Message ();
+			msg.Connection = this;
+
+			int len;
+
+			byte[] header = new byte[headerSize];
+			len = s.Read(header, 0, headerSize);
+
+			if (len != headerSize)
+				throw new Exception ("Read length mismatch: " + len + " of expected " + headerSize);
+
+			msg.HeaderData = header;
+
+			if (bodySize != 0) {
+				byte[] body = new byte[bodySize];
+				len = s.Read(body, 0, bodySize);
+
+				if (len != bodySize)
+					throw new Exception ("Read length mismatch: " + len + " of expected " + bodySize);
+
+				msg.Body = body;
+			}
+
+			msg.ParseHeader();
+			
+			return msg;
+		}
+
 		internal Message ReadMessage ()
 		{
 			//FIXME: fix reading algorithm to work in one step
@@ -302,6 +384,37 @@ namespace NDesk.DBus
 					HandleSignal (msg);
 				}
 			}
+		}
+
+		// somewhat hacky
+		MemoryStream msgbuf = new MemoryStream();
+		public long NonBlockIterate ()
+		{
+			// FIXME: This could be improved
+			while (msgbuf.Length > 16) {
+				msgbuf.Seek(0, SeekOrigin.Begin);
+
+				int headerSize, bodySize;
+				GetMessageSize(msgbuf, out headerSize, out bodySize);
+
+				if (msgbuf.Length < headerSize + bodySize)
+					return headerSize + bodySize - msgbuf.Length;
+
+				msgbuf.Seek(0, SeekOrigin.Begin);
+
+				Message msg = BuildMessage(msgbuf, headerSize, bodySize);
+				HandleMessage(msg);
+				DispatchSignals();
+			}
+
+			return 16 - msgbuf.Length;
+		}
+
+		// hacky
+		public void ReceiveBuffer(byte[] buf, int offset, int count)
+		{
+			msgbuf.Seek(0, SeekOrigin.End);
+			msgbuf.Write(buf, offset, count);
 		}
 
 		//temporary hack
