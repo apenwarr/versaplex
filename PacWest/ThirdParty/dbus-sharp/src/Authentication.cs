@@ -45,8 +45,10 @@ namespace NDesk.DBus.Authentication
 		{
 			//NetworkStream ns = new NetworkStream (sock);
 			//UnixStream ns = new UnixStream ((int)sock.Handle);
-			StreamReader sr = new StreamReader (conn.Transport.Stream, Encoding.ASCII);
-			StreamWriter sw = new StreamWriter (conn.Transport.Stream, Encoding.ASCII);
+			//StreamReader sr = new StreamReader (conn.Transport.Stream, Encoding.ASCII);
+			//StreamWriter sw = new StreamWriter (conn.Transport.Stream, Encoding.ASCII);
+			StreamReader sr = new StreamReader (conn.ns, Encoding.ASCII);
+			StreamWriter sw = new StreamWriter (conn.ns, Encoding.ASCII);
 
 			sw.NewLine = "\r\n";
 			//sw.AutoFlush = true;

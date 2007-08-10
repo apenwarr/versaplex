@@ -17,10 +17,11 @@ namespace NDesk.DBus
 	public class Connection
 	{
 		//TODO: reconsider this field
-		Stream ns = null;
+		//FIXME: This definitely shouldn't be public
+		public Stream ns = null;
 
 		Transport transport;
-		internal Transport Transport {
+		public Transport Transport {
 			get {
 				return transport;
 			} set {
@@ -28,7 +29,9 @@ namespace NDesk.DBus
 			}
 		}
 
-		protected Connection () {}
+		// FIXME: There should be a better way to hack in a socket
+		// created elsewhere
+		public Connection () {}
 
 		internal Connection (Transport transport)
 		{
@@ -66,6 +69,14 @@ namespace NDesk.DBus
 			return conn;
 		}
 
+		public static Connection Open (Transport transport)
+		{
+			Connection conn = new Connection (transport);
+			conn.Authenticate();
+
+			return conn;
+		}
+
 		internal void OpenPrivate (string address)
 		{
 			if (address == null)
@@ -84,7 +95,7 @@ namespace NDesk.DBus
 			ns = transport.Stream;
 		}
 
-		void Authenticate ()
+		internal void Authenticate ()
 		{
 			if (transport != null)
 				transport.WriteCred ();
@@ -391,7 +402,7 @@ namespace NDesk.DBus
 		public long NonBlockIterate ()
 		{
 			// FIXME: This could be improved
-			while (msgbuf.Length > 16) {
+			while (msgbuf.Length >= 16) {
 				msgbuf.Seek(0, SeekOrigin.Begin);
 
 				int headerSize, bodySize;
