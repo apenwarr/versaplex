@@ -1,3 +1,4 @@
+using System;
 using System.Net.Sockets;
 
 namespace versabanq.Versaplex.Server {
@@ -16,7 +17,7 @@ public class VxNotifySocket : VxSocket
     {
     }
 
-    public delegate void ReadyHandler(object sender);
+    public delegate bool ReadyHandler(object sender);
     public event ReadyHandler ReadReady = null;
     public event ReadyHandler WriteReady = null;
 
@@ -25,7 +26,7 @@ public class VxNotifySocket : VxSocket
         if (ReadReady != null)
             return ReadReady(this);
 
-        throw InvalidOperationException("No readable handler is registered");
+        throw new InvalidOperationException("No readable handler is registered");
     }
 
     public override bool OnWritable()
@@ -33,7 +34,7 @@ public class VxNotifySocket : VxSocket
         if (WriteReady != null)
             return WriteReady(this);
 
-        throw InvalidOperationException("No writable handler is registered");
+        throw new InvalidOperationException("No writable handler is registered");
     }
 }
 

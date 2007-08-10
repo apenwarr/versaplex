@@ -1,5 +1,8 @@
+using System;
 using System.IO;
 using System.Collections.Generic;
+using System.Net.Sockets;
+using System.Runtime.InteropServices;
 
 namespace versabanq.Versaplex.Server {
 
@@ -7,19 +10,19 @@ public class VxBufferStream : Stream
 {
     private bool closed = false;
 
-    virtual public bool CanRead { get { return true; } }
-    virtual public bool CanWrite { get { return true; } }
-    virtual public bool CanSeek { get { return false; } }
+    public override bool CanRead { get { return true; } }
+    public override bool CanWrite { get { return true; } }
+    public override bool CanSeek { get { return false; } }
 
-    virtual public long Length {
+    public override long Length {
         get { throw new NotSupportedException(); }
     }
-    virtual public long Position {
+    public override long Position {
         get { throw new NotSupportedException(); }
         set { throw new NotSupportedException(); }
     }
 
-    private object cookie;
+    private object cookie = null;
     public object Cookie {
         get { return cookie; }
         set { cookie = value; }
@@ -32,7 +35,7 @@ public class VxBufferStream : Stream
 
     // Maximum value for rbuf_used to take; run the DataReady event when this
     // has filled
-    private int rbuf_size = 0;
+    private long rbuf_size = 0;
 
     protected Buffer rbuf = null;
     protected Buffer wbuf = null;
@@ -40,14 +43,15 @@ public class VxBufferStream : Stream
     public VxBufferStream(VxNotifySocket sock)
     {
         sock.Blocking = false;
-        sock.KeepAlive = true;
-        sock.ReadReady = OnReadable;
-        sock.WriteReady = OnWritable;
+        sock.SetSocketOption(SocketOptionLevel.Socket,
+                SocketOptionName.KeepAlive, true);
+        sock.ReadReady += OnReadable;
+        sock.WriteReady += OnWritable;
 
         this.sock = sock;
     }
 
-    public int BufferAmount {
+    public long BufferAmount {
         get { return rbuf_size; }
         set {
             if (value < 0)
@@ -60,7 +64,7 @@ public class VxBufferStream : Stream
                 ReadWaiting = false;
 
                 if (rbuf.Size > 0) {
-                    EventLoop.AddAction(new VxEvent(
+                    VxEventLoop.AddAction(new VxEvent(
                                 delegate() {
                                     DataReady(this, cookie);
                                 }));
@@ -100,7 +104,7 @@ public class VxBufferStream : Stream
 
         closed = true;
 
-        Stream.Dispose(disposing);
+        base.Dispose(disposing);
     }
 
     public override void Flush()
@@ -149,7 +153,7 @@ public class VxBufferStream : Stream
         throw new NotSupportedException();
     }
 
-    public override void SetLength()
+    public override void SetLength(long len)
     {
         throw new NotSupportedException();
     }
@@ -175,9 +179,9 @@ public class VxBufferStream : Stream
         get { return read_waiting; }
         set {
             if (!read_waiting && value) {
-                EventLoop.RegisterRead(sock);
+                VxEventLoop.RegisterRead(sock);
             } else if (read_waiting && !value) {
-                EventLoop.UnregisterRead(sock);
+                VxEventLoop.UnregisterRead(sock);
             }
 
             read_waiting = value;
@@ -189,16 +193,16 @@ public class VxBufferStream : Stream
         get { return write_waiting; }
         set {
             if (!write_waiting && value) {
-                EventLoop.RegisterWrite(sock);
+                VxEventLoop.RegisterWrite(sock);
             } else if (write_waiting && !value) {
-                EventLoop.UnregisterWrite(sock);
+                VxEventLoop.UnregisterWrite(sock);
             }
 
             write_waiting = value;
         }
     }
 
-    protected virtual bool OnReadable()
+    protected virtual bool OnReadable(object cookie)
     {
         const int READSZ = 16384;
 
@@ -206,11 +210,11 @@ public class VxBufferStream : Stream
             byte[] data = new byte[READSZ];
 
             while (rbuf.Size < rbuf_size) {
-                int amt = sock.Recv(data);
+                int amt = sock.Receive(data);
                 rbuf.Append(data, 0, amt);
             }
         } catch (SocketException e) {
-            if (e.ErrorCode != SocketError.WouldBlock) {
+            if (e.ErrorCode != (int)SocketError.WouldBlock) {
                 throw e;
             }
         }
@@ -226,14 +230,14 @@ public class VxBufferStream : Stream
         return read_waiting;
     }
 
-    protected virtual bool OnWritable()
+    protected virtual bool OnWritable(object cookie)
     {
         try {
             int amt = sock.Send(wbuf.FilledBufferList);
 
             wbuf.Discard(amt);
         } catch (SocketException e) {
-            if (e.ErrorCode != SocketError.WouldBlock) {
+            if (e.ErrorCode != (int)SocketError.WouldBlock) {
                 throw e;
             }
         }
@@ -310,7 +314,7 @@ public class VxBufferStream : Stream
                 IList<ArraySegment<byte>> outlist
                     = new List<ArraySegment<byte>>(buf.Count);
 
-                LinkedListNode node = buf.First;
+                LinkedListNode<byte[]> node = buf.First;
 
                 outlist.Add(new ArraySegment<byte>(node.Value, buf_start,
                             FirstUsed));
@@ -409,6 +413,8 @@ public class VxBufferStream : Stream
             }
 
             OptimizeBuf();
+
+            return sofar;
         }
 
         public int RetrieveByte()

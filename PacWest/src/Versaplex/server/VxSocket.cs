@@ -16,12 +16,14 @@ public abstract class VxSocket : Socket
     {
     }
 
-    public virtual void OnReadable()
+    public virtual bool OnReadable()
     {
+        return false;
     }
 
-    public virtual void OnWritable()
+    public virtual bool OnWritable()
     {
+        return false;
     }
 }
 

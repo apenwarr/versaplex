@@ -1,21 +1,39 @@
+using System;
 using System.Data;
 using System.Data.SqlClient;
+using System.Runtime.Serialization;
+using System.Collections.Generic;
 using versabanq.Versaplex.Server;
 using versabanq.Versaplex.Dbus;
-using NDesk.Dbus;
+using NDesk.DBus;
 
 namespace versabanq.Versaplex.Dbus.Db {
 
 [Interface("com.versabanq.versaplex.db")]
-public class VxDb : MarshalByRefObject {
+public sealed class VxDb : MarshalByRefObject {
+    private static VxDb instance;
+    public static VxDb Instance {
+        get { return instance; }
+    }
+
+    static VxDb()
+    {
+        instance = new VxDb();
+    }
+
+    private VxDb()
+    {
+    }
+
     public void ExecNoResult(string query)
     {
         SqlConnection conn = null;
         try {
             conn = VxSqlPool.TakeConnection();
 
-            using (SqlCommand cmd = conn.CreateCommand(query)) {
-                cmd.ExecuteNoResult();
+            using (SqlCommand cmd = conn.CreateCommand()) {
+                cmd.CommandText = query;
+                cmd.ExecuteNonQuery();
             }
         } finally {
             if (conn != null)
@@ -29,7 +47,8 @@ public class VxDb : MarshalByRefObject {
         try {
             conn = VxSqlPool.TakeConnection();
 
-            using (SqlCommand cmd = conn.CreateCommand(query)) {
+            using (SqlCommand cmd = conn.CreateCommand()) {
+                cmd.CommandText = query;
                 result = cmd.ExecuteScalar();
             }
         } finally {
@@ -46,11 +65,11 @@ public class VxDb : MarshalByRefObject {
         try {
             conn = VxSqlPool.TakeConnection();
 
-            using (SqlCommand cmd = conn.CreateCommand(query))
+            using (SqlCommand cmd = new SqlCommand(query, conn))
             using (SqlDataReader reader = cmd.ExecuteReader()) {
                 if (reader.FieldCount <= 0) {
                     colnames = null;
-                    coltypes = null;
+                    coltypes_str = null;
                     data = null;
                     return;
                 }
@@ -66,10 +85,10 @@ public class VxDb : MarshalByRefObject {
                 List<VxDbusDbResult[]> rows = new List<VxDbusDbResult[]>();
 
                 while (reader.Read()) {
-                    VxDbusDbResult row[]
+                    VxDbusDbResult[] row
                         = new VxDbusDbResult[reader.FieldCount];
 
-                    for (int = 0; i < reader.FieldCount; i++) {
+                    for (int i = 0; i < reader.FieldCount; i++) {
                         if (reader.IsDBNull(i)) {
                             row[i].Nullity = true;
                             row[i].Data = null;
@@ -101,8 +120,14 @@ public class VxDb : MarshalByRefObject {
                                 row[i].Data = reader.GetGuid(i).ToString();
                                 break;
                             case VxColumnType.Binary:
-                                row[i].Data = reader.GetBinary(i);
+                            {
+                                byte[] cell = new byte[reader.GetBytes(i, 0,
+                                        null, 0, 0)];
+                                reader.GetBytes(i, 0, cell, 0, cell.Length);
+
+                                row[i].Data = cell;
                                 break;
+                            }
                             case VxColumnType.String:
                                 row[i].Data = reader.GetString(i);
                                 break;
@@ -111,11 +136,15 @@ public class VxDb : MarshalByRefObject {
                                         reader.GetDateTime(i));
                                 break;
                             case VxColumnType.Decimal:
-                                row[i].Data = reader.GetDecimal().ToString();
+                                row[i].Data = reader.GetDecimal(i).ToString();
                                 break;
                         }
                     }
+
+                    rows.Add(row);
                 }
+
+                data = rows.ToArray();
             }
         } finally {
             if (conn != null)
@@ -123,11 +152,11 @@ public class VxDb : MarshalByRefObject {
         }
     }
 
-    private void ProcessSchema(SqlReader reader, out string[] colnames,
+    private void ProcessSchema(SqlDataReader reader, out string[] colnames,
             out VxColumnType[] coltypes)
     {
         colnames = new string[reader.FieldCount];
-        coltypes = new string[reader.FieldCount];
+        coltypes = new VxColumnType[reader.FieldCount];
 
         int i = 0;
 
@@ -148,7 +177,7 @@ public class VxDb : MarshalByRefObject {
                 SqlDbType dbt = (SqlDbType)System.Enum.Parse(
                         typeof(SqlDbType), dbtStr, true);
 
-                string coltype;
+                VxColumnType coltype;
 
                 switch (dbt) {
                     case SqlDbType.BigInt:
@@ -190,7 +219,7 @@ public class VxDb : MarshalByRefObject {
                         break;
                     case SqlDbType.DateTime:
                     case SqlDbType.SmallDateTime:
-                        coltype = VxColumnType.Datetime;
+                        coltype = VxColumnType.DateTime;
                         break;
                     case SqlDbType.Decimal:
                     case SqlDbType.Money:
@@ -209,12 +238,10 @@ public class VxDb : MarshalByRefObject {
                 i++;
             }
         }
-
-        return colDefs.ToString();
     }
 }
 
-private enum VxColumnType {
+enum VxColumnType {
     Int64,
     Int32,
     Int16,

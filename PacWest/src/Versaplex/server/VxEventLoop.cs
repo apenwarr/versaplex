@@ -1,5 +1,8 @@
+using System;
 using System.Threading;
+using System.Net;
 using System.Net.Sockets;
+using System.Collections;
 using System.Collections.Generic;
 
 namespace versabanq.Versaplex.Server {
@@ -38,14 +41,14 @@ public static class VxEventLoop {
 
     public static void AddEvent(DateTime when, EmptyCallback cb)
     {
-        AddEvent(when, new FutureVxEvent(cb, when));
+        AddEvent(new FutureVxEvent(cb, when));
     }
 
     public static void AddEvent(TimeSpan delta, EmptyCallback cb)
     {
         DateTime when = DateTime.Now + delta;
 
-        AddEvent(when, new FutureVxEvent(cb, when));
+        AddEvent(new FutureVxEvent(cb, when));
     }
 
     // XXX: Should there be a RemoveEvent? Kind of awkward to do.
@@ -56,7 +59,7 @@ public static class VxEventLoop {
                     delegate() {
                         // XXX: This should maybe verify that c is not already
                         // in readlist
-                        readlist.Add(c);
+                        readlist.AddLast(c);
                     }));
     }
 
@@ -75,7 +78,7 @@ public static class VxEventLoop {
                     delegate() {
                         // XXX: This should maybe verify that c is not already
                         // in writelist
-                        writelist.Add(c);
+                        writelist.AddLast(c);
                     }));
     }
 
@@ -106,7 +109,7 @@ public static class VxEventLoop {
     }
 
     // Private members
-    static Queue<IVxEvent> actions;
+    static Queue<IVxEvent> actions = new Queue<IVxEvent>();
 
     // This is terribly inefficient (O(n)) for Unregister{Read,Write}()
     //
@@ -148,7 +151,8 @@ public static class VxEventLoop {
         try {
             socks[0].Blocking = false;
             socks[0].NoDelay = true;
-            socks[0].KeepAlive = true;
+            socks[0].SetSocketOption(SocketOptionLevel.Socket,
+                    SocketOptionName.KeepAlive, true);
             socks[0].SendBufferSize = 1;
 
             using (Socket listener = new Socket(AddressFamily.InterNetwork,
@@ -187,7 +191,8 @@ public static class VxEventLoop {
 
             try {
                 socks[1].ReceiveBufferSize = 1;
-                socks[1].KeepAlive = true;
+                socks[1].SetSocketOption(SocketOptionLevel.Socket,
+                        SocketOptionName.KeepAlive, true);
 
                 // Wait for the connection to be detected by both sides
                 if (!socks[0].Poll(POLLTIME, SelectMode.SelectWrite)) {
@@ -207,11 +212,11 @@ public static class VxEventLoop {
                 socks[0].Shutdown(SocketShutdown.Receive);
                 socks[1].Shutdown(SocketShutdown.Send);
             } catch (Exception e) {
-                socks[1].Dispose();
+                socks[1].Close();
                 throw e;
             }
         } catch (Exception e) {
-            socks[0].Dispose();
+            socks[0].Close();
             throw e;
         }
 
@@ -254,17 +259,17 @@ public static class VxEventLoop {
 
     private static void SinglePass()
     {
-        IList<Socket> readers = new List<Socket>();
-        IList<Socket> writers = new List<Socket>();
+        IList readers = new ArrayList();
+        IList writers = new ArrayList();
 
         // Set up sockets
         readers.Add(notify_socket_receiver);
 
         foreach (VxSocket r in readlist) {
-            readers.Add(r.Socket);
+            readers.Add(r);
         }
         foreach (VxSocket w in writelist) {
-            writers.Add(w.Socket);
+            writers.Add(w);
         }
 
         // Set up events
@@ -274,17 +279,22 @@ public static class VxEventLoop {
 
             TimeSpan sleeptime = next - DateTime.Now;
 
-            if (sleeptime <= 0) {
+            if (sleeptime <= TimeSpan.Zero) {
                 sleeptime = TimeSpan.Zero;
             }
 
-            waittime = sleeptime.Ticks / 10;
+            if (sleeptime.Ticks > Int32.MaxValue) {
+                waittime = Int32.MaxValue;
+            } else {
+                waittime = (int)(sleeptime.Ticks / 10);
+            }
         }
 
         // Do Select()
-        Select(readers, writers, null, waittime);
+        Socket.Select(readers, writers, null, waittime);
 
         // Process socket activity
+        // FIXME: This can probably be done better
 
         // - Writing first
         foreach (Socket s in writers) {
@@ -293,9 +303,15 @@ public static class VxEventLoop {
             while (node != null) {
                 VxSocket w = node.Value;
 
-                if (w.Socket == s) {
-                    if (!w.OnWritable()) {
-                        writelist.Remove(node);
+                if (w == s) {
+                    try {
+                        if (!w.OnWritable()) {
+                            writelist.Remove(node);
+                        }
+                    } catch (Exception e) {
+                        Console.WriteLine("Executing write handler for "
+                                + "socket:");
+                        Console.WriteLine(e.ToString());
                     }
                     break;
                 }
@@ -316,9 +332,15 @@ public static class VxEventLoop {
             while (node != null) {
                 VxSocket r = node.Value;
 
-                if (r.Socket == s) {
-                    if (!r.OnReadable()) {
-                        readlist.Remove(node);
+                if (r == s) {
+                    try {
+                        if (!r.OnReadable()) {
+                            readlist.Remove(node);
+                        }
+                    } catch (Exception e) {
+                        Console.WriteLine("Executing write handler for "
+                                + "socket:");
+                        Console.WriteLine(e.ToString());
                     }
                     break;
                 }
@@ -333,7 +355,15 @@ public static class VxEventLoop {
         while (events.Count > 0 && NextEventTime <= now) {
             IVxEvent nextevent = (IVxEvent)events.Dequeue();
 
-            nextevent.Run();
+            try {
+                nextevent.Run();
+            } catch (Exception e) {
+                Console.WriteLine("Executing scheduled event:");
+                Console.WriteLine(e.ToString());
+
+                // This should probably be fatal
+                throw e;
+            }
         }
     }
 
@@ -347,7 +377,9 @@ public static class VxEventLoop {
     private static void SendNotification()
     {
         try {
-            notify_socket_sender.Send('\0');
+            byte[] notify_octet = new byte[1];
+            notify_octet[0] = 0;
+            notify_socket_sender.Send(notify_octet);
         } catch (SocketException e) {
             if (e.SocketErrorCode == SocketError.WouldBlock) {
                 // Ignore. This only happens if there are already pending
@@ -382,8 +414,8 @@ public static class VxEventLoop {
 
         // Get the list of things to do right now so that
         // 1. The lock is not held while we process the action events
-        // 2. Action events can't add to the action queue for this pass, so the
-        //    sockets can't be starved
+        // 2. Action events can't add to the action queue for the current pass,
+        //    so the sockets can't be starved easily
         IVxEvent[] actions_now;
         lock (actions) {
             if (actions.Count == 0) {
@@ -396,15 +428,30 @@ public static class VxEventLoop {
 
         foreach (IVxEvent e in actions_now) {
             switch (e.Context) {
-                case EventContext.MainThread:
+            case EventContext.MainThread:
+                try {
                     e.Run();
-                    break;
-                case EventContext.ThreadPool:
-                    ThreadPool.QueueUserWorkItem(
-                            delegate(object state) {
+                } catch (Exception ex) {
+                    Console.WriteLine("Executing from action queue:");
+                    Console.WriteLine(ex.ToString());
+
+                    // This should probably be fatal
+                    throw ex;
+                }
+                break;
+            case EventContext.ThreadPool:
+                ThreadPool.QueueUserWorkItem(
+                        delegate(object state) {
+                            try {
                                 e.Run();
-                            });
-                    break;
+                            } catch (Exception ex) {
+                                Console.WriteLine("Executing in thread pool:");
+                                Console.WriteLine(ex.ToString());
+
+                                // XXX: Not fatal? Look at this later.
+                            }
+                        });
+                break;
             }
         }
     }

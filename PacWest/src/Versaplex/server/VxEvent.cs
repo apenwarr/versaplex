@@ -1,3 +1,5 @@
+using System;
+
 namespace versabanq.Versaplex.Server {
 
 public enum EventContext {
@@ -13,7 +15,7 @@ public interface IVxEvent {
     }
 }
 
-public interface IFutureVxEvent : IVxEvent {
+public interface IFutureVxEvent : IVxEvent, IComparable {
     DateTime When {
         get;
     }
@@ -76,6 +78,16 @@ public class FutureVxEvent : VxEvent, IFutureVxEvent {
     public DateTime When {
         get { return when; }
     }
+
+    public int CompareTo(object other)
+    {
+        if (!(other is IFutureVxEvent)) {
+            throw new ArgumentException("Other is not an IFutureVxEvent");
+        }
+
+        IFutureVxEvent o = (IFutureVxEvent)other;
+        return when.CompareTo(o.When);
+    }
 }
 
 public class ArgFutureVxEvent : ArgVxEvent, IFutureVxEvent {
@@ -95,6 +107,16 @@ public class ArgFutureVxEvent : ArgVxEvent, IFutureVxEvent {
 
     public DateTime When {
         get { return when; }
+    }
+
+    public int CompareTo(object other)
+    {
+        if (!(other is IFutureVxEvent)) {
+            throw new ArgumentException("Other is not an IFutureVxEvent");
+        }
+
+        IFutureVxEvent o = (IFutureVxEvent)other;
+        return when.CompareTo(o.When);
     }
 }
 
