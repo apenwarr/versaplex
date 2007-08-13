@@ -37,8 +37,8 @@ public class VxBufferStream : Stream
     // has filled
     private long rbuf_size = 0;
 
-    protected Buffer rbuf = null;
-    protected Buffer wbuf = null;
+    protected Buffer rbuf = new Buffer();
+    protected Buffer wbuf = new Buffer();
 
     public VxBufferStream(VxNotifySocket sock)
     {
@@ -202,7 +202,7 @@ public class VxBufferStream : Stream
         }
     }
 
-    protected virtual bool OnReadable(object cookie)
+    protected virtual bool OnReadable(object sockcookie)
     {
         const int READSZ = 16384;
 
@@ -210,6 +210,8 @@ public class VxBufferStream : Stream
             byte[] data = new byte[READSZ];
 
             while (rbuf.Size < rbuf_size) {
+                Console.WriteLine("Attempting receive (available = {0})", sock.Available);
+
                 int amt = sock.Receive(data);
                 rbuf.Append(data, 0, amt);
             }
@@ -230,7 +232,7 @@ public class VxBufferStream : Stream
         return read_waiting;
     }
 
-    protected virtual bool OnWritable(object cookie)
+    protected virtual bool OnWritable(object sockcookie)
     {
         try {
             int amt = sock.Send(wbuf.FilledBufferList);
@@ -356,9 +358,10 @@ public class VxBufferStream : Stream
                 while (LastLeft == 0)
                     Expand();
 
-                int amt = Math.Min(count, LastLeft);
+                int amt = Math.Min(count - sofar, LastLeft);
 
-                Array.ConstrainedCopy(buffer, sofar+offset, buf.Last.Value,
+                Console.WriteLine("Copy buf({3}), {0}, internal, {1}, {2}", sofar+offset, buf_end, amt, buffer.Length);
+                Array.Copy(buffer, sofar+offset, buf.Last.Value,
                         buf_end, amt);
 
                 buf_end += amt;

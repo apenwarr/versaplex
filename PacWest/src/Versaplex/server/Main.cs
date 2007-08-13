@@ -2,13 +2,18 @@ using System;
 using System.Net.Sockets;
 using Mono.Unix;
 using NDesk.DBus;
+using org.freedesktop.DBus;
 using versabanq.Versaplex.Server;
+using versabanq.Versaplex.Dbus.Db;
 
 public static class Versaplex
 {
     public static void DataReady(object sender, object cookie)
     {
         VxBufferStream vxbs = (VxBufferStream)sender;
+
+        Console.WriteLine(cookie.GetType().ToString());
+
         Connection conn = (Connection)cookie;
 
         if (vxbs.BufferPending == 0) {
@@ -19,31 +24,68 @@ public static class Versaplex
         // XXX: Ew.
         byte[] buf = new byte[vxbs.BufferPending];
         vxbs.Read(buf, 0, buf.Length);
-        conn.ReceiveBuffer(buf, 0, buf.Length);
-
-        vxbs.BufferAmount = conn.NonBlockIterate();
+        vxbs.BufferAmount = conn.ReceiveBuffer(buf, 0, buf.Length);
     }
 
     public static void Main()
     {
-        VxNotifySocket dbus_socket = new VxNotifySocket (AddressFamily.Unix,
-                SocketType.Stream, 0);
-
         Console.WriteLine("Connecting to " + Address.Session);
         AddressEntry aent = AddressEntry.Parse(Address.Session);
 
-        NDesk.DBus.Transports.Transport trans = new DodgyTransport();
+        DodgyTransport trans = new DodgyTransport();
         trans.Open(aent);
 
-        Connection conn = Connection.Open(trans);
+        Bus conn = new Bus(trans);
 
-        using (VxBufferStream vxbs = new VxBufferStream(dbus_socket)) {
-            conn.Transport.Stream = new VxBufferStream(dbus_socket);
-            conn.ns = conn.Transport.Stream;
-            vxbs.Cookie = conn;
-            vxbs.DataReady += DataReady;
-            vxbs.BufferAmount = 16;
+        ObjectPath myOpath = new ObjectPath ("/com/versabanq/versaplex/db");
+        string myNameReq = "com.versabanq.versaplex.db";
+
+        VxDb dbapi = VxDb.Instance;
+        conn.Register(myNameReq, myOpath, dbapi);
+
+        RequestNameReply rnr = conn.RequestName(myNameReq,
+                NameFlag.DoNotQueue);
+
+        switch (rnr) {
+            case RequestNameReply.PrimaryOwner:
+                Console.WriteLine("Name registered, ready");
+                break;
+            default:
+                Console.WriteLine("Register name result: " + rnr.ToString());
+                return;
         }
+
+        VxBufferStream vxbs = new VxBufferStream(trans.Socket);
+        conn.Transport.Stream = new VxBufferStream(trans.Socket);
+        conn.ns = conn.Transport.Stream;
+        vxbs.Cookie = conn;
+        vxbs.DataReady += DataReady;
+        vxbs.BufferAmount = 16;
+
+        VxEventLoop.AddEvent(new TimeSpan(0, 0, 14),
+                delegate() {
+                    Console.WriteLine("5");
+                });
+        VxEventLoop.AddEvent(new TimeSpan(0, 0, 1),
+                delegate() {
+                    Console.WriteLine("1");
+                });
+        VxEventLoop.AddEvent(new TimeSpan(0, 0, 10),
+                delegate() {
+                    Console.WriteLine("3");
+                });
+        VxEventLoop.AddEvent(new TimeSpan(0, 0, 5),
+                delegate() {
+                    Console.WriteLine("2");
+                });
+        VxEventLoop.AddEvent(new TimeSpan(0, 0, 12),
+                delegate() {
+                    Console.WriteLine("4");
+                });
+        VxEventLoop.AddEvent(new TimeSpan(0, 5, 0),
+                delegate() {
+                    VxEventLoop.Shutdown();
+                });
 
         VxEventLoop.Run();
     }
@@ -108,4 +150,7 @@ class DodgyTransport : NDesk.DBus.Transports.Transport
     }
 
     protected VxNotifySocket socket;
+    public VxNotifySocket Socket {
+        get { return socket; }
+    }
 }

@@ -27,6 +27,8 @@ public sealed class VxDb : MarshalByRefObject {
 
     public void ExecNoResult(string query)
     {
+        Console.WriteLine("ExecNoResult " + query);
+
         SqlConnection conn = null;
         try {
             conn = VxSqlPool.TakeConnection();
@@ -43,6 +45,8 @@ public sealed class VxDb : MarshalByRefObject {
 
     public void ExecScalar(string query, out object result)
     {
+        Console.WriteLine("ExecScalar " + query);
+
         SqlConnection conn = null;
         try {
             conn = VxSqlPool.TakeConnection();
@@ -61,6 +65,8 @@ public sealed class VxDb : MarshalByRefObject {
             out string[] colnames, out string[] coltypes_str,
             out VxDbusDbResult[][] data)
     {
+        Console.WriteLine("ExecRecordset " + query);
+
         SqlConnection conn = null;
         try {
             conn = VxSqlPool.TakeConnection();

@@ -35,7 +35,7 @@ public static class VxEventLoop {
     {
         AddAction(new VxEvent(
                     delegate() {
-                        events.Enqueue(e.When, e);
+                        events.Enqueue(e, e.When);
                     }));
     }
 
@@ -55,6 +55,7 @@ public static class VxEventLoop {
 
     public static void RegisterRead(VxSocket c)
     {
+        Console.WriteLine("RegisterRead");
         AddAction(new VxEvent(
                     delegate() {
                         // XXX: This should maybe verify that c is not already
@@ -74,6 +75,7 @@ public static class VxEventLoop {
 
     public static void RegisterWrite(VxSocket c)
     {
+        Console.WriteLine("RegisterWrite");
         AddAction(new VxEvent(
                     delegate() {
                         // XXX: This should maybe verify that c is not already
@@ -290,8 +292,14 @@ public static class VxEventLoop {
             }
         }
 
+        Console.WriteLine("Selecting on {0} readers, {1} writers, waiting {2}",
+                readers.Count, writers.Count, waittime);
+
         // Do Select()
         Socket.Select(readers, writers, null, waittime);
+
+        Console.WriteLine("Selected on {0} readers, {1} writers, waiting {2}",
+                readers.Count, writers.Count, waittime);
 
         // Process socket activity
         // FIXME: This can probably be done better
@@ -305,6 +313,7 @@ public static class VxEventLoop {
 
                 if (w == s) {
                     try {
+                        Console.WriteLine("Writability handler");
                         if (!w.OnWritable()) {
                             writelist.Remove(node);
                         }
@@ -322,30 +331,55 @@ public static class VxEventLoop {
 
         // - Then reading
         foreach (Socket s in readers) {
+            if (s.Available == 0) {
+                Console.WriteLine("Liar!");
+            }
+
             if (s == notify_socket_receiver) {
+                Console.WriteLine("It's the notify socket");
                 HandleActions();
-                break;
+                continue;
             }
 
             LinkedListNode<VxSocket> node = readlist.First;
 
+            /*
             while (node != null) {
                 VxSocket r = node.Value;
 
                 if (r == s) {
                     try {
+                        Console.WriteLine("Readability handler");
                         if (!r.OnReadable()) {
                             readlist.Remove(node);
                         }
                     } catch (Exception e) {
-                        Console.WriteLine("Executing write handler for "
+                        Console.WriteLine("Executing read handler for "
                                 + "socket:");
                         Console.WriteLine(e.ToString());
                     }
-                    break;
+                    continue;
                 }
 
                 node = node.Next;
+            }
+            */
+
+            /*
+             * XXX this would be better but doesn't remove from the list
+             * Should probably see if sockets can happily go into a hashtable
+             */
+            VxSocket vs = (VxSocket)s;
+
+            try {
+                Console.WriteLine("Readability handler");
+                if (!vs.OnReadable()) {
+                    UnregisterRead(vs);
+                }
+            } catch (Exception e) {
+                Console.WriteLine("Executing read handler for "
+                        + "socket:");
+                Console.WriteLine(e.ToString());
             }
         }
 
@@ -356,6 +390,7 @@ public static class VxEventLoop {
             IVxEvent nextevent = (IVxEvent)events.Dequeue();
 
             try {
+                Console.WriteLine("Running scheduled event");
                 nextevent.Run();
             } catch (Exception e) {
                 Console.WriteLine("Executing scheduled event:");
@@ -376,6 +411,7 @@ public static class VxEventLoop {
 
     private static void SendNotification()
     {
+        Console.WriteLine("SendNotification");
         try {
             byte[] notify_octet = new byte[1];
             notify_octet[0] = 0;
@@ -401,7 +437,7 @@ public static class VxEventLoop {
         // Drain the receive socket
         do {
             try {
-                rcvd = notify_socket_sender.Receive(buffer);
+                rcvd = notify_socket_receiver.Receive(buffer);
             } catch (SocketException e) {
                 if (e.SocketErrorCode == SocketError.WouldBlock) {
                     // We've read everything.
@@ -430,6 +466,7 @@ public static class VxEventLoop {
             switch (e.Context) {
             case EventContext.MainThread:
                 try {
+                    Console.WriteLine("Running event from main thread");
                     e.Run();
                 } catch (Exception ex) {
                     Console.WriteLine("Executing from action queue:");
@@ -440,9 +477,11 @@ public static class VxEventLoop {
                 }
                 break;
             case EventContext.ThreadPool:
+                Console.WriteLine("Queueing into thread pool");
                 ThreadPool.QueueUserWorkItem(
                         delegate(object state) {
                             try {
+                                Console.WriteLine("Running event from thread pool");
                                 e.Run();
                             } catch (Exception ex) {
                                 Console.WriteLine("Executing in thread pool:");
