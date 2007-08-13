@@ -401,7 +401,7 @@ namespace NDesk.DBus
 		MemoryStream msgbuf = new MemoryStream();
 		public long NonBlockIterate ()
 		{
-			// FIXME: This could be improved
+			// FIXME: This could be greatly improved
 			while (msgbuf.Length >= 16) {
 				msgbuf.Seek(0, SeekOrigin.Begin);
 
@@ -418,12 +418,55 @@ namespace NDesk.DBus
 				DispatchSignals();
 			}
 
-			return 16 - msgbuf.Length;
 		}
 
 		// hacky
-		public void ReceiveBuffer(byte[] buf, int offset, int count)
+		public long ReceiveBuffer(byte[] buf, int offset, int count)
 		{
+			/// This isn't done being redesigned yet.
+			long sofar = 0;
+
+			msgbuf.Seek(0, SeekOrigin.Begin);
+
+			while (msgbuf.Length >= 16) {
+				int headerSize, bodySize;
+				GetMessageSize(msgbuf, out headerSize,
+						out bodySize);
+
+				if (msgbuf.Length > headerSize+bodySize) {
+					msgbuf.Seek
+
+					byte[] tmp =
+						new byte[msgbuf.Length
+							- headerSize
+							- bodySize];
+
+					msgbuf.Seek(headerSize+bodySize,
+							SeekOrigin.Begin);
+					msgbuf.Read(tmp, 0, tmp.Length);
+
+					msgbuf.SetLength(tmp.Length);
+					
+					msgbuf.Seek(0, SeekOrigin.Begin);
+					msgbuf.Write(tmp, 0, tmp.Length);
+				} else {
+					long needed = headerSize+bodySize
+						- msgbuf.Length;
+
+					if (needed > buf.Length-sofar) {
+
+						return needed - (buf.Length-sofar);
+					}
+
+
+				}
+			}
+
+			if (msgbuf.Length < 16) {
+				needed = 16 - msgbuf.Length;
+			}
+
+			return needed;
 			msgbuf.Seek(0, SeekOrigin.End);
 			msgbuf.Write(buf, offset, count);
 		}
