@@ -15,7 +15,11 @@
             <arg name="query" type="s" direction="in"/>
             <arg name="colnames" type="as" direction="out"/>
             <arg name="coltypes" type="as" direction="out"/>
-            <arg name="data" type="aa(yv)" direction="out"/>
+            <arg name="data" type="av" direction="out"/>
+            <!-- column-major order; each of the variants is an array of all of
+                 the row data for that particular column -->
+            <arg name="flags" type="aay" direction="out"/>
+            <!-- VERSAPLEX_FLAG_ISNULL = 0x1 -->
         </method>
 
         <!-- Any of these can throw:
