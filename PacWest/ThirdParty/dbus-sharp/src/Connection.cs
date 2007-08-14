@@ -215,6 +215,7 @@ namespace NDesk.DBus
 
 		// Given the first 16 bytes of the header, returns the full header and
 		// body lengths (including the 16 bytes of the header already read)
+		// Positions the stream after execution at the point where it began
 		internal static void GetMessageSize(Stream s, out int headerSize,
 				out int bodySize)
 		{
@@ -222,6 +223,8 @@ namespace NDesk.DBus
 
 			byte[] buf = new byte[16];
 			read = s.Read (buf, 0, 16);
+
+			s.Seek(-read, SeekOrigin.Current);
 
 			if (read != 16)
 				throw new Exception ("Header read length mismatch: " + read + " of expected " + "16");
@@ -263,7 +266,7 @@ namespace NDesk.DBus
 		internal Message BuildMessage (Stream s,
 				int headerSize, int bodySize)
 		{
-			if (s.Length != headerSize + bodySize)
+			if (s.Length-s.Position < headerSize + bodySize)
 				throw new Exception("Buffer is not header + body sizes");
 
 			Message msg = new Message ();
@@ -397,78 +400,52 @@ namespace NDesk.DBus
 			}
 		}
 
-		// somewhat hacky
-		MemoryStream msgbuf = new MemoryStream();
-		public long NonBlockIterate ()
-		{
-			// FIXME: This could be greatly improved
-			while (msgbuf.Length >= 16) {
-				msgbuf.Seek(0, SeekOrigin.Begin);
-
-				int headerSize, bodySize;
-				GetMessageSize(msgbuf, out headerSize, out bodySize);
-
-				if (msgbuf.Length < headerSize + bodySize)
-					return headerSize + bodySize - msgbuf.Length;
-
-				msgbuf.Seek(0, SeekOrigin.Begin);
-
-				Message msg = BuildMessage(msgbuf, headerSize, bodySize);
-				HandleMessage(msg);
-				DispatchSignals();
-			}
-
-		}
-
 		// hacky
+		MemoryStream msgbuf = new MemoryStream();
 		public long ReceiveBuffer(byte[] buf, int offset, int count)
 		{
-			/// This isn't done being redesigned yet.
-			long sofar = 0;
+			msgbuf.Seek(0, SeekOrigin.End);
+			msgbuf.Write(buf, offset, count);
 
 			msgbuf.Seek(0, SeekOrigin.Begin);
 
-			while (msgbuf.Length >= 16) {
+			long left = msgbuf.Length;
+			long want = 0;
+
+			while (left >= 16) {
 				int headerSize, bodySize;
-				GetMessageSize(msgbuf, out headerSize,
-						out bodySize);
+				GetMessageSize(msgbuf, out headerSize, out bodySize);
 
-				if (msgbuf.Length > headerSize+bodySize) {
-					msgbuf.Seek
+				if (left >= headerSize + bodySize) {
+					Message msg = BuildMessage(msgbuf, headerSize,
+							bodySize);
+					HandleMessage(msg);
+					DispatchSignals();
 
-					byte[] tmp =
-						new byte[msgbuf.Length
-							- headerSize
-							- bodySize];
-
-					msgbuf.Seek(headerSize+bodySize,
-							SeekOrigin.Begin);
-					msgbuf.Read(tmp, 0, tmp.Length);
-
-					msgbuf.SetLength(tmp.Length);
-					
-					msgbuf.Seek(0, SeekOrigin.Begin);
-					msgbuf.Write(tmp, 0, tmp.Length);
+					left -= headerSize + bodySize;
 				} else {
-					long needed = headerSize+bodySize
-						- msgbuf.Length;
-
-					if (needed > buf.Length-sofar) {
-
-						return needed - (buf.Length-sofar);
-					}
-
-
+					want = headerSize + bodySize - left;
+					break;
 				}
 			}
 
-			if (msgbuf.Length < 16) {
-				needed = 16 - msgbuf.Length;
+			if (left > 0 && msgbuf.Length != left) {
+				byte[] tmp = new byte[left];
+
+				msgbuf.Read(tmp, 0, tmp.Length);
+
+				msgbuf.SetLength(tmp.Length);
+
+				msgbuf.Seek(0, SeekOrigin.Begin);
+				msgbuf.Write(tmp, 0, tmp.Length);
+			} else if (left == 0) {
+				msgbuf.SetLength(0);
 			}
 
-			return needed;
-			msgbuf.Seek(0, SeekOrigin.End);
-			msgbuf.Write(buf, offset, count);
+			if (want > 0)
+				return want;
+
+			return 16 - left;
 		}
 
 		//temporary hack
