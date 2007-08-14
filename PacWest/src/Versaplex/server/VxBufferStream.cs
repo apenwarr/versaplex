@@ -8,6 +8,9 @@ namespace versabanq.Versaplex.Server {
 
 public class VxBufferStream : Stream
 {
+    private static int streamcount = 0;
+    public readonly int streamno = System.Threading.Interlocked.Increment(ref streamcount);
+
     private bool closed = false;
 
     public override bool CanRead { get { return true; } }
@@ -118,12 +121,21 @@ public class VxBufferStream : Stream
         try {
             sock.Blocking = true;
 
+            byte[] buf = new byte[wbuf.Size];
+            wbuf.Retrieve(buf, 0, buf.Length);
+
+            int sofar = 0;
+
             do {
-                int amt = sock.Send(wbuf.FilledBufferList);
+                int amt = sock.Send(buf, sofar, buf.Length-sofar, SocketFlags.None);
 
-                wbuf.Discard(amt);
-            } while (wbuf.Size > 0);
+                // This shouldn't happen, but checking for it guarantees that
+                // this method will complete eventually
+                if (amt <= 0)
+                    throw new Exception("Send returned " + amt);
 
+                sofar += amt;
+            } while (sofar < buf.Length);
         } finally {
             sock.Blocking = false;
         }
@@ -163,7 +175,10 @@ public class VxBufferStream : Stream
         if (closed)
             throw new ObjectDisposedException("Stream is closed");
 
+        Console.WriteLine("{0} Write", streamno);
         wbuf.Append(buffer, offset, count);
+        WriteWaiting = true;
+        Console.WriteLine("{1} Written {0}", wbuf.Size, streamno);
     }
 
     public override void WriteByte(byte value)
@@ -172,6 +187,7 @@ public class VxBufferStream : Stream
             throw new ObjectDisposedException("Stream is closed");
 
         wbuf.AppendByte(value);
+        WriteWaiting = true;
     }
 
     protected bool read_waiting = false;
@@ -204,13 +220,16 @@ public class VxBufferStream : Stream
 
     protected virtual bool OnReadable(object sockcookie)
     {
+        if (closed)
+            throw new ObjectDisposedException("Stream is closed");
+
         const int READSZ = 16384;
 
         try {
             byte[] data = new byte[READSZ];
 
             while (rbuf.Size < rbuf_size) {
-                Console.WriteLine("Attempting receive (available = {0})", sock.Available);
+                Console.WriteLine("{1} Attempting receive (available = {0})", sock.Available, streamno);
 
                 int amt = sock.Receive(data);
                 rbuf.Append(data, 0, amt);
@@ -234,8 +253,19 @@ public class VxBufferStream : Stream
 
     protected virtual bool OnWritable(object sockcookie)
     {
+        if (closed)
+            throw new ObjectDisposedException("Stream is closed");
+
         try {
-            int amt = sock.Send(wbuf.FilledBufferList);
+            Console.WriteLine("{1} Writable {0}", wbuf.Size, streamno);
+
+            int offset, length;
+            byte[] buf = wbuf.RetrieveBuf(out offset, out length);
+
+            if (buf == null)
+                throw new Exception("Writable handler called with nothing to write");
+
+            int amt = sock.Send(buf, offset, length, SocketFlags.None);
 
             wbuf.Discard(amt);
         } catch (SocketException e) {
@@ -267,7 +297,7 @@ public class VxBufferStream : Stream
                     case 0:
                         return 0;
                     default:
-                        return buf.Count * BUFCHUNKSZ - buf_start - LastLeft;
+                        return buf.Count * BUFCHUNKSZ + buf_end - buf_start - BUFCHUNKSZ;
                 }
             }
         }
@@ -300,45 +330,6 @@ public class VxBufferStream : Stream
             }
         }
 
-        // For the Socket.Send(IList<ArraySegment<byte>>) overload
-        public IList<ArraySegment<byte>> FilledBufferList
-        {
-            get {
-                if (Size == 0) {
-                    throw new InvalidOperationException(
-                            "Attempt to get buffer list of empty Buffer");
-                }
-
-                while (FirstUsed == 0) {
-                    Contract();
-                }
-
-                IList<ArraySegment<byte>> outlist
-                    = new List<ArraySegment<byte>>(buf.Count);
-
-                LinkedListNode<byte[]> node = buf.First;
-
-                outlist.Add(new ArraySegment<byte>(node.Value, buf_start,
-                            FirstUsed));
-                node = node.Next;
-
-                if (node != null) {
-                    while (node.Next != null) {
-                        outlist.Add(new ArraySegment<byte>(node.Value, 0,
-                                    BUFCHUNKSZ));
-                        node = node.Next;
-                    }
-
-                    if (buf_end > 0) {
-                        outlist.Add(new ArraySegment<byte>(node.Value, 0,
-                                    buf_end));
-                    }
-                }
-
-                return outlist;
-            }
-        }
-
         public void Append(byte[] buffer, int offset, int count)
         {
             if (offset+count > buffer.Length)
@@ -360,7 +351,7 @@ public class VxBufferStream : Stream
 
                 int amt = Math.Min(count - sofar, LastLeft);
 
-                Console.WriteLine("Copy buf({3}), {0}, internal, {1}, {2}", sofar+offset, buf_end, amt, buffer.Length);
+                Console.WriteLine("Copy buf({3}), {0}, internal, {1}, {2}, count {4}", sofar+offset, buf_end, amt, buffer.Length, buf.Count);
                 Array.Copy(buffer, sofar+offset, buf.Last.Value,
                         buf_end, amt);
 
@@ -434,6 +425,30 @@ public class VxBufferStream : Stream
             OptimizeBuf();
 
             return result;
+        }
+
+        public byte[] RetrieveBuf(out int offset, out int count)
+        {
+            while (FirstUsed == 0) {
+                if (buf.Count == 0) {
+                    offset = 0;
+                    count = 0;
+                    return null;
+                }
+
+                Contract();
+            }
+
+            if (buf.Count == 0) {
+                offset = 0;
+                count = 0;
+                return null;
+            }
+
+            offset = buf_start;
+            count = FirstUsed;
+
+            return buf.First.Value;
         }
 
         public void Discard(int amt)

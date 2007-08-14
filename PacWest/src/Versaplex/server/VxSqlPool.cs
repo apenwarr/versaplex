@@ -9,7 +9,8 @@ public static class VxSqlPool
         SqlConnectionStringBuilder conStr =
             new SqlConnectionStringBuilder();
 
-        conStr.Enlist = false;
+        // Mono doesn't support this
+        //conStr.Enlist = false;
         conStr.DataSource = "amsdev";
         conStr.UserID = "asta";
         conStr.Password = "m!ddle-tear";

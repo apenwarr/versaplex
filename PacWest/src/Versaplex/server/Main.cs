@@ -56,7 +56,7 @@ public static class Versaplex
         }
 
         VxBufferStream vxbs = new VxBufferStream(trans.Socket);
-        conn.Transport.Stream = new VxBufferStream(trans.Socket);
+        conn.Transport.Stream = vxbs;
         conn.ns = conn.Transport.Stream;
         vxbs.Cookie = conn;
         vxbs.DataReady += DataReady;

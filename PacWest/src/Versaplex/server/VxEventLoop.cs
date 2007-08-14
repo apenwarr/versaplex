@@ -285,7 +285,7 @@ public static class VxEventLoop {
                 sleeptime = TimeSpan.Zero;
             }
 
-            if (sleeptime.Ticks > Int32.MaxValue) {
+            if (sleeptime.Ticks/10 > Int32.MaxValue) {
                 waittime = Int32.MaxValue;
             } else {
                 waittime = (int)(sleeptime.Ticks / 10);
