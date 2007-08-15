@@ -406,7 +406,7 @@ namespace NDesk.DBus
 
 		// hacky
 		public delegate void MessageHandler(Message msg);
-		public event MessageHandler OnMessage;
+		public MessageHandler OnMessage;
 
 		MemoryStream msgbuf = new MemoryStream();
 		public long ReceiveBuffer(byte[] buf, int offset, int count)
