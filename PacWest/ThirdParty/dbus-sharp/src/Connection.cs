@@ -31,10 +31,13 @@ namespace NDesk.DBus
 
 		// FIXME: There should be a better way to hack in a socket
 		// created elsewhere
-		public Connection () {}
+		public Connection () {
+			OnMessage = HandleMessage;
+		}
 
 		internal Connection (Transport transport)
 		{
+			OnMessage = HandleMessage;
 			this.transport = transport;
 			transport.Connection = this;
 
@@ -45,6 +48,7 @@ namespace NDesk.DBus
 		//should this be public?
 		internal Connection (string address)
 		{
+			OnMessage = HandleMessage;
 			OpenPrivate (address);
 			Authenticate ();
 		}
@@ -401,6 +405,9 @@ namespace NDesk.DBus
 		}
 
 		// hacky
+		public delegate void MessageHandler(Message msg);
+		public event MessageHandler OnMessage;
+
 		MemoryStream msgbuf = new MemoryStream();
 		public long ReceiveBuffer(byte[] buf, int offset, int count)
 		{
@@ -419,7 +426,7 @@ namespace NDesk.DBus
 				if (left >= headerSize + bodySize) {
 					Message msg = BuildMessage(msgbuf, headerSize,
 							bodySize);
-					HandleMessage(msg);
+					OnMessage(msg);
 					DispatchSignals();
 
 					left -= headerSize + bodySize;
