@@ -30,7 +30,11 @@
                      need to use a different API (not yet defined). text
                      parameter will indicate what the problem is
              com.versabanq.versaplex.badschema - Schema returned by the query
-                     contains features not supported (such as sql_variant)
+                     contains features not supported (such as sql_variant).
+                     text parameter will indicate what the problem is
+             com.versabanq.versaplex.exception - Method threw an exception
+                     other than those listed above. Text parameter will contain
+                     the normal .NET exception description and backtrace
         -->
 
         <!-- Future:
