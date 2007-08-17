@@ -540,7 +540,7 @@ namespace NDesk.DBus
 		Out,
 	}
 
-	enum DType : byte
+	public enum DType : byte
 	{
 		Invalid = (byte)'\0',
 

@@ -10,7 +10,7 @@ using System.Reflection;
 
 namespace NDesk.DBus
 {
-	class MessageWriter
+	public class MessageWriter
 	{
 		protected EndianFlag endianness;
 		protected MemoryStream stream;

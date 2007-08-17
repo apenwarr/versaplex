@@ -149,7 +149,7 @@ namespace NDesk.DBus
 			return Send (msg);
 		}
 
-		internal uint Send (Message msg)
+		public uint Send (Message msg)
 		{
 			msg.Header.Serial = GenerateSerial ();
 
@@ -675,6 +675,6 @@ namespace NDesk.DBus
 				NativeEndianness = EndianFlag.Big;
 		}
 
-		internal static readonly EndianFlag NativeEndianness;
+		public static readonly EndianFlag NativeEndianness;
 	}
 }
