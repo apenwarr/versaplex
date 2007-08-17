@@ -86,7 +86,7 @@ public static class VxDb {
                     for (int i = 0; i < reader.FieldCount; i++) {
                         if (reader.IsDBNull(i)) {
                             row[i].Nullity = true;
-                            row[i].Data = null;
+                            row[i].Data = (byte)0;
                             continue;
                         }
 
@@ -109,7 +109,8 @@ public static class VxDb {
                                 row[i].Data = reader.GetBoolean(i);
                                 break;
                             case VxColumnType.Double:
-                                row[i].Data = reader.GetDouble(i);
+                                // Might return a Single or Double
+                                row[i].Data = (double)reader.GetValue(i);
                                 break;
                             case VxColumnType.Uuid:
                                 row[i].Data = reader.GetGuid(i).ToString();
@@ -159,74 +160,54 @@ public static class VxDb {
 
         using (DataTable schema = reader.GetSchemaTable()) {
             foreach (DataRowView col in schema.DefaultView) {
-                // This trick is the same one SqlSucker uses
-                string dbtStr = (string)col["DataTypeName"];
+                Console.WriteLine("---");
+                foreach (DataColumn c in schema.Columns) {
+                    Console.WriteLine("{0}:\t{1}", c.ColumnName,
+                            col[c.ColumnName]);
+                }
 
-                if (dbtStr.ToLower() == "sql_variant") {
-                    // The parse-the-string-as-enum-value trick works except
-                    // that sql_variant becomes Variant. Close. However,
-                    // sql_variant types seem to be difficult to handle
-                    // properly and thus are not supported.
+                System.Type type = (System.Type)col["DataType"];
+
+                if (type == typeof(object)) {
+                    // We're not even going to try to handle this yet
                     throw new VxBadSchema("Columns of type sql_variant "
                         + "are not supported by Versaplex at this time");
                 }
 
-                SqlDbType dbt = (SqlDbType)System.Enum.Parse(
-                        typeof(SqlDbType), dbtStr, true);
-
                 VxColumnType coltype;
 
-                switch (dbt) {
-                    case SqlDbType.BigInt:
-                        coltype = VxColumnType.Int64;
-                        break;
-                    case SqlDbType.Int:
-                        coltype = VxColumnType.Int32;
-                        break;
-                    case SqlDbType.SmallInt:
-                        coltype = VxColumnType.Int16;
-                        break;
-                    case SqlDbType.TinyInt:
-                        coltype = VxColumnType.UInt8;
-                        break;
-                    case SqlDbType.Bit:
-                        coltype = VxColumnType.Bool;
-                        break;
-                    case SqlDbType.Float:
-                    case SqlDbType.Real:
-                        coltype = VxColumnType.Double;
-                        break;
-                    case SqlDbType.UniqueIdentifier:
-                        coltype = VxColumnType.Uuid;
-                        break;
-                    case SqlDbType.Binary:
-                    case SqlDbType.VarBinary:
-                    case SqlDbType.Image:
-                    case SqlDbType.Timestamp:
-                        coltype = VxColumnType.Binary;
-                        break;
-                    case SqlDbType.Char:
-                    case SqlDbType.VarChar:
-                    case SqlDbType.Text:
-                    case SqlDbType.NChar:
-                    case SqlDbType.NVarChar:
-                    case SqlDbType.NText:
-                    case SqlDbType.Xml:
-                        coltype = VxColumnType.String;
-                        break;
-                    case SqlDbType.DateTime:
-                    case SqlDbType.SmallDateTime:
-                        coltype = VxColumnType.DateTime;
-                        break;
-                    case SqlDbType.Decimal:
-                    case SqlDbType.Money:
-                    case SqlDbType.SmallMoney:
-                        coltype = VxColumnType.Decimal;
-                        break;
-                    default:
-                        throw new VxBadSchema("Columns of type "
-                                + dbt.ToString() + "are not supported by "
-                                + "Versaplex at this time");
+                // FIXME: There must be *some* way to turn this into a
+                // switch...
+                if (type == typeof(Int64)) {
+                    coltype = VxColumnType.Int64;
+                } else if (type == typeof(Int32)) {
+                    coltype = VxColumnType.Int32;
+                } else if (type == typeof(Int16)) {
+                    coltype = VxColumnType.Int16;
+                } else if (type == typeof(Byte)) {
+                    coltype = VxColumnType.UInt8;
+                } else if (type == typeof(Boolean)) {
+                    coltype = VxColumnType.Bool;
+                } else if (type == typeof(Single) || type == typeof(Double)) {
+                    coltype = VxColumnType.Double;
+                } else if (type == typeof(Guid)) {
+                    coltype = VxColumnType.Uuid;
+                } else if (type == typeof(Byte[])) {
+                    coltype = VxColumnType.Binary;
+                } else if (type == typeof(string)) {
+                    // || type == typeof(Xml)
+                    // FIXME: Maybe? But the above doesn't work... and just
+                    // testing for string does work. Heh.
+                    coltype = VxColumnType.String;
+                } else if (type == typeof(DateTime)) {
+                    coltype = VxColumnType.DateTime;
+                } else if (type == typeof(Decimal)) {
+                    coltype = VxColumnType.Decimal;
+                } else {
+                    throw new VxBadSchema("Columns of type "
+                            + type.ToString() + " are not supported by "
+                            + "Versaplex at this time " +
+                            "(column " + col["ColumnName"].ToString() + ")");
                 }
 
                 colnames[i] = col["ColumnName"].ToString();
@@ -256,12 +237,11 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         methods.Add("ExecRecordset", CallExecRecordset);
     }
 
-    // XXX: This feels hacky, but keeps the VxDbApi specific stuff in its own
-    // file...
-    public override bool RouteMessage(Message call, out Message reply)
+    protected override void ExecuteCall(MethodCallProcessor processor,
+            Message call, out Message reply)
     {
         try {
-            return base.RouteMessage(call, out reply);
+            processor(call, out reply);
         } catch (VxSqlError e) {
             reply = VxDbus.CreateError(
                     "com.versabanq.versaplex.sqlerror", e.ToString(), call);
@@ -278,8 +258,6 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
                     "com.versabanq.versaplex.exception", e.ToString(),
                     call);
         }
-
-        return true;
     }
 
     private static void CallExecNoResult(Message call, out Message reply)
@@ -293,20 +271,91 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
-        reply = VxDbus.CreateError("com.good", "good", call);
+        if (call.Body == null) {
+            reply = VxDbus.CreateError(
+                    "org.freedesktop.DBus.Error.InvalidSignature",
+                    "Signature provided but no body received", call);
+            return;
+        }
 
-        //string query;
-        //ExecNoResult(query);
+        MessageReader reader = new MessageReader(call);
+
+        object query;
+        reader.GetValue(typeof(string), out query);
+
+        VxDb.ExecNoResult((string)query);
+
+        reply = VxDbus.CreateReply(call);
     }
 
     private static void CallExecScalar(Message call, out Message reply)
     {
-        throw new NotImplementedException();
+        if (call.Signature.ToString() != "s") {
+            reply = VxDbus.CreateError(
+                    "org.freedesktop.DBus.Error.UnknownMethod",
+                    String.Format(
+                        "No overload of ExecNoResult has signature '{0}'",
+                        call.Signature), call);
+            return;
+        }
+
+        if (call.Body == null) {
+            reply = VxDbus.CreateError(
+                    "org.freedesktop.DBus.Error.InvalidSignature",
+                    "Signature provided but no body received", call);
+            return;
+        }
+
+        MessageReader reader = new MessageReader(call);
+
+        object query;
+        reader.GetValue(typeof(string), out query);
+
+        object result;
+        VxDb.ExecScalar((string)query, out result);
+
+        MessageWriter writer =
+                new MessageWriter(Connection.NativeEndianness);
+        writer.Write(result);
+
+        reply = VxDbus.CreateReply(call, "v", writer);
     }
 
     private static void CallExecRecordset(Message call, out Message reply)
     {
-        throw new NotImplementedException();
+        if (call.Signature.ToString() != "s") {
+            reply = VxDbus.CreateError(
+                    "org.freedesktop.DBus.Error.UnknownMethod",
+                    String.Format(
+                        "No overload of ExecNoResult has signature '{0}'",
+                        call.Signature), call);
+            return;
+        }
+
+        if (call.Body == null) {
+            reply = VxDbus.CreateError(
+                    "org.freedesktop.DBus.Error.InvalidSignature",
+                    "Signature provided but no body received", call);
+            return;
+        }
+
+        MessageReader reader = new MessageReader(call);
+
+        object query;
+        reader.GetValue(typeof(string), out query);
+
+        string[] colnames, coltypes_str;
+        VxDbusDbResult[][] data;
+        VxDb.ExecRecordset((string)query, out colnames, out coltypes_str,
+                out data);
+
+        MessageWriter writer =
+                new MessageWriter(Connection.NativeEndianness);
+        writer.Write(typeof(string[]), colnames);
+        writer.Write(typeof(string[]), coltypes_str);
+        writer.Write(typeof(VxDbusDbResult[][]), data);
+
+        reply = VxDbus.CreateReply(call, "asasaa(bv)", writer);
     }
 }
 

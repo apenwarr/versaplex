@@ -41,6 +41,9 @@ public static class Versaplex
 
     private static void MessageReady(Message msg)
     {
+        // FIXME: This should really queue things to be run from the thread
+        // pool and then the response would be sent back through the action
+        // queue
         Console.WriteLine("MessageReady");
 
         switch (msg.Header.MessageType) {

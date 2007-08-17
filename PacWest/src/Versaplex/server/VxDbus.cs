@@ -29,23 +29,31 @@ public static class VxDbus {
         return error;
     }
 
-        /*
     public static Message CreateReply(Message call)
     {
+        return CreateReply(call, null, null);
+    }
+
+    public static Message CreateReply(Message call, string signature,
+            MessageWriter body)
+    {
         Message reply = new Message();
-        reply.Header.MessageType = MessageType.Error;
+        reply.Header.MessageType = MessageType.MethodReturn;
         reply.Header.Flags =
             HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
-        reply.Header.Fields[FieldCode.ErrorName] = type;
-        reply.Header.Fields[FieldCode.ReplySerial] = cause.Header.Serial;
+        reply.Header.Fields[FieldCode.ReplySerial] = call.Header.Serial;
 
-        string sender;
-        if (cause.Header.Fields.TryGetValue(FieldCode.Sender, out sender))
+        object sender;
+        if (call.Header.Fields.TryGetValue(FieldCode.Sender, out sender))
             reply.Header.Fields[FieldCode.Destination] = sender;
 
-        return error;
+        if (signature != null && signature != "") {
+            reply.Signature = new Signature(signature);
+            reply.Body = body.ToArray();
+        }
+
+        return reply;
     }
-        */
 }
 
 public class VxMethodCallRouter {
@@ -108,7 +116,7 @@ public abstract class VxInterfaceRouter {
     protected IDictionary<string,MethodCallProcessor> methods
         = new Dictionary<string,MethodCallProcessor>();
 
-    public virtual bool RouteMessage(Message call, out Message reply)
+    public bool RouteMessage(Message call, out Message reply)
     {
         if (call.Header.MessageType != MessageType.MethodCall)
             throw new ArgumentException("Not a method call message");
@@ -130,15 +138,21 @@ public abstract class VxInterfaceRouter {
             return true;
         }
 
+        ExecuteCall(processor, call, out reply);
+
+        return true;
+    }
+
+    protected virtual void ExecuteCall(MethodCallProcessor processor,
+            Message call, out Message reply)
+    {
         try {
             processor(call, out reply);
         } catch (Exception e) {
             reply = VxDbus.CreateError(
-                    "com.versabanq.versaplex.DBus.Error.Exception",
+                    "com.versabanq.versaplex.exception",
                     e.ToString(), call);
         }
-
-        return true;
     }
 }
 
