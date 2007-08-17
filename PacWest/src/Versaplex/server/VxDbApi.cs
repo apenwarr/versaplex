@@ -3,29 +3,14 @@ using System.Data;
 using System.Data.SqlClient;
 using System.Runtime.Serialization;
 using System.Collections.Generic;
+using NDesk.DBus;
 using versabanq.Versaplex.Server;
 using versabanq.Versaplex.Dbus;
-using NDesk.DBus;
 
 namespace versabanq.Versaplex.Dbus.Db {
 
-[Interface("com.versabanq.versaplex.db")]
-public sealed class VxDb : MarshalByRefObject {
-    private static VxDb instance;
-    public static VxDb Instance {
-        get { return instance; }
-    }
-
-    static VxDb()
-    {
-        instance = new VxDb();
-    }
-
-    private VxDb()
-    {
-    }
-
-    public void ExecNoResult(string query)
+public static class VxDb {
+    public static void ExecNoResult(string query)
     {
         Console.WriteLine("ExecNoResult " + query);
 
@@ -37,13 +22,15 @@ public sealed class VxDb : MarshalByRefObject {
                 cmd.CommandText = query;
                 cmd.ExecuteNonQuery();
             }
+        } catch (SqlException e) {
+            throw new VxSqlError("Error in query", e);
         } finally {
             if (conn != null)
                 VxSqlPool.ReleaseConnection(conn);
         }
     }
 
-    public void ExecScalar(string query, out object result)
+    public static void ExecScalar(string query, out object result)
     {
         Console.WriteLine("ExecScalar " + query);
 
@@ -55,13 +42,15 @@ public sealed class VxDb : MarshalByRefObject {
                 cmd.CommandText = query;
                 result = cmd.ExecuteScalar();
             }
+        } catch (SqlException e) {
+            throw new VxSqlError("Error in query", e);
         } finally {
             if (conn != null)
                 VxSqlPool.ReleaseConnection(conn);
         }
     }
 
-    public void ExecRecordset(string query,
+    public static void ExecRecordset(string query,
             out string[] colnames, out string[] coltypes_str,
             out VxDbusDbResult[][] data)
     {
@@ -152,14 +141,16 @@ public sealed class VxDb : MarshalByRefObject {
 
                 data = rows.ToArray();
             }
+        } catch (SqlException e) {
+            throw new VxSqlError("Error in query", e);
         } finally {
             if (conn != null)
                 VxSqlPool.ReleaseConnection(conn);
         }
     }
 
-    private void ProcessSchema(SqlDataReader reader, out string[] colnames,
-            out VxColumnType[] coltypes)
+    private static void ProcessSchema(SqlDataReader reader,
+            out string[] colnames, out VxColumnType[] coltypes)
     {
         colnames = new string[reader.FieldCount];
         coltypes = new VxColumnType[reader.FieldCount];
@@ -244,6 +235,78 @@ public sealed class VxDb : MarshalByRefObject {
                 i++;
             }
         }
+    }
+}
+
+public class VxDbInterfaceRouter : VxInterfaceRouter
+{
+    static readonly VxDbInterfaceRouter instance;
+    public static VxDbInterfaceRouter Instance {
+        get { return instance; }
+    }
+
+    static VxDbInterfaceRouter() {
+        instance = new VxDbInterfaceRouter();
+    }
+
+    private VxDbInterfaceRouter() : base("com.versabanq.versaplex.db")
+    {
+        methods.Add("ExecNoResult", CallExecNoResult);
+        methods.Add("ExecScalar", CallExecScalar);
+        methods.Add("ExecRecordset", CallExecRecordset);
+    }
+
+    // XXX: This feels hacky, but keeps the VxDbApi specific stuff in its own
+    // file...
+    public override bool RouteMessage(Message call, out Message reply)
+    {
+        try {
+            return base.RouteMessage(call, out reply);
+        } catch (VxSqlError e) {
+            reply = VxDbus.CreateError(
+                    "com.versabanq.versaplex.sqlerror", e.ToString(), call);
+        } catch (VxTooMuchData e) {
+            reply = VxDbus.CreateError(
+                    "com.versabanq.versaplex.toomuchdata", e.ToString(),
+                    call);
+        } catch (VxBadSchema e) {
+            reply = VxDbus.CreateError(
+                    "com.versabanq.versaplex.badschema", e.ToString(),
+                    call);
+        } catch (Exception e) {
+            reply = VxDbus.CreateError(
+                    "com.versabanq.versaplex.exception", e.ToString(),
+                    call);
+        }
+
+        return true;
+    }
+
+    private static void CallExecNoResult(Message call, out Message reply)
+    {
+        if (call.Signature.ToString() != "s") {
+            reply = VxDbus.CreateError(
+                    "org.freedesktop.DBus.Error.UnknownMethod",
+                    String.Format(
+                        "No overload of ExecNoResult has signature '{0}'",
+                        call.Signature), call);
+            return;
+        }
+
+        reply = VxDbus.CreateError("com.good", "good", call);
+
+        //string query;
+        //ExecNoResult(query);
+    }
+
+    private static void CallExecScalar(Message call, out Message reply)
+    {
+        throw new NotImplementedException();
+    }
+
+    private static void CallExecRecordset(Message call, out Message reply)
+    {
+        throw new NotImplementedException();
     }
 }
 

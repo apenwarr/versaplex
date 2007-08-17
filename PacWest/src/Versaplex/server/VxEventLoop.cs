@@ -16,8 +16,15 @@ public static class VxEventLoop {
                     +"the event loop");
         }
 
-        try {
+        if (eventloop_running) {
+            Monitor.Exit(run_lock);
 
+            throw new InvalidOperationException("Can not recursively call "
+                    +"the event loop");
+        }
+
+        try {
+            eventloop_running = true;
             keep_going = true;
 
             while (keep_going)
@@ -27,6 +34,7 @@ public static class VxEventLoop {
             HandleActions();
 
         } finally {
+            eventloop_running = false;
             Monitor.Exit(run_lock);
         }
     }
@@ -130,6 +138,7 @@ public static class VxEventLoop {
     static Socket notify_socket_receiver;
 
     static object run_lock = new object();
+    static bool eventloop_running = false;
     static bool keep_going = false;
 
     static VxEventLoop()
@@ -252,11 +261,6 @@ public static class VxEventLoop {
             throw new Exception("list corruption: socket appeared "
                     + hits + " times");
         }
-
-        if (hits == 0) {
-            throw new InvalidOperationException(
-                    "socket was not in list");
-        }
     }
 
     private static void SinglePass()
@@ -308,6 +312,13 @@ public static class VxEventLoop {
         foreach (Socket s in writers) {
             LinkedListNode<VxSocket> node = writelist.First;
 
+            /* This is O(n^2), which makes me sad, but is efficient for
+             * removing from the writelist. Also, the writelist should
+             * tend to be small with frequent removals, so maybe it's
+             * better to do it this way for now?
+             *
+             * On second thought, probably not. But this works and I don't
+             * want to needlessly risk breaking things now. */
             while (node != null) {
                 VxSocket w = node.Value;
 
@@ -341,9 +352,10 @@ public static class VxEventLoop {
                 continue;
             }
 
+            /* This is O(n^2), which makes me sad, but is efficient for
+             * removing from the readlist
             LinkedListNode<VxSocket> node = readlist.First;
 
-            /*
             while (node != null) {
                 VxSocket r = node.Value;
 
@@ -366,8 +378,10 @@ public static class VxEventLoop {
             */
 
             /*
-             * XXX this would be better but doesn't remove from the list
+             * XXX this is better but then removing from the list is slow
              * Should probably see if sockets can happily go into a hashtable
+             * and use that instead. The LinkedList idea was good before the
+             * derive-from-Socket idea came through
              */
             VxSocket vs = (VxSocket)s;
 

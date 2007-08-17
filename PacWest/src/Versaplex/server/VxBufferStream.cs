@@ -13,6 +13,11 @@ public class VxBufferStream : Stream
 
     private bool closed = false;
 
+    private bool eof = false;
+    public bool Eof {
+        get { return eof; }
+    }
+
     public override bool CanRead { get { return true; } }
     public override bool CanWrite { get { return true; } }
     public override bool CanSeek { get { return false; } }
@@ -33,6 +38,7 @@ public class VxBufferStream : Stream
 
     public delegate void DataReadyHandler(object sender, object cookie);
     public event DataReadyHandler DataReady;
+    public event DataReadyHandler NoMoreData;
 
     protected VxNotifySocket sock;
 
@@ -218,7 +224,7 @@ public class VxBufferStream : Stream
         }
     }
 
-    protected virtual bool OnReadable(object sockcookie)
+    protected virtual bool OnReadable(object sender)
     {
         if (closed)
             throw new ObjectDisposedException("Stream is closed");
@@ -232,6 +238,12 @@ public class VxBufferStream : Stream
                 Console.WriteLine("{1} Attempting receive (available = {0})", sock.Available, streamno);
 
                 int amt = sock.Receive(data);
+
+                if (amt == 0) {
+                    eof = true;
+                    break;
+                }
+
                 rbuf.Append(data, 0, amt);
             }
         } catch (SocketException e) {
@@ -244,14 +256,18 @@ public class VxBufferStream : Stream
             DataReady(this, cookie);
         }
 
+        if (eof) {
+            NoMoreData(this, cookie);
+        }
+
         // Don't use ReadWaiting to change this since the return value will
         // determine the fate in the event loop, far more efficiently than
         // generic removal
-        read_waiting = rbuf.Size < rbuf_size;
+        read_waiting = !eof && rbuf.Size < rbuf_size;
         return read_waiting;
     }
 
-    protected virtual bool OnWritable(object sockcookie)
+    protected virtual bool OnWritable(object sender)
     {
         if (closed)
             throw new ObjectDisposedException("Stream is closed");

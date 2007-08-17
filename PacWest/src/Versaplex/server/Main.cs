@@ -4,15 +4,17 @@ using Mono.Unix;
 using NDesk.DBus;
 using org.freedesktop.DBus;
 using versabanq.Versaplex.Server;
+using versabanq.Versaplex.Dbus;
 using versabanq.Versaplex.Dbus.Db;
 
 public static class Versaplex
 {
-    public static void DataReady(object sender, object cookie)
+    static Connection.MessageHandler oldhandler = null;
+    static VxMethodCallRouter msgrouter = new VxMethodCallRouter();
+
+    private static void DataReady(object sender, object cookie)
     {
         VxBufferStream vxbs = (VxBufferStream)sender;
-
-        Console.WriteLine(cookie.GetType().ToString());
 
         Connection conn = (Connection)cookie;
 
@@ -27,8 +29,49 @@ public static class Versaplex
         vxbs.BufferAmount = conn.ReceiveBuffer(buf, 0, buf.Length);
     }
 
+    private static void NoMoreData(object sender, object cookie)
+    {
+        Console.WriteLine("D-bus connection closed by server");
+
+        VxBufferStream vxbs = (VxBufferStream)sender;
+        vxbs.Close();
+
+        VxEventLoop.Shutdown();
+    }
+
+    private static void MessageReady(Message msg)
+    {
+        Console.WriteLine("MessageReady");
+
+        switch (msg.Header.MessageType) {
+            case MessageType.MethodCall:
+            {
+                Message reply;
+                if (msgrouter.RouteMessage(msg, out reply)) {
+                    if (reply == null) {
+                        // FIXME: Do something if this happens, maybe?
+                        Console.WriteLine("Empty reply from RouteMessage");
+                    } else {
+                        // XXX: Should this be done further down rather than
+                        // passing the reply out here?
+                        msg.Connection.Send(reply);
+                    }
+                    return;
+                }
+            
+                break;
+            }
+        }
+
+        // FIXME: This is hacky. But it covers stuff I don't want to deal with
+        // yet.
+        oldhandler(msg);
+    }
+
     public static void Main()
     {
+        msgrouter.AddInterface(VxDbInterfaceRouter.Instance);
+
         Console.WriteLine("Connecting to " + Address.Session);
         AddressEntry aent = AddressEntry.Parse(Address.Session);
 
@@ -37,12 +80,7 @@ public static class Versaplex
 
         Bus conn = new Bus(trans);
 
-        ObjectPath myOpath = new ObjectPath ("/com/versabanq/versaplex/db");
         string myNameReq = "com.versabanq.versaplex.db";
-
-        VxDb dbapi = VxDb.Instance;
-        conn.Register(myNameReq, myOpath, dbapi);
-
         RequestNameReply rnr = conn.RequestName(myNameReq,
                 NameFlag.DoNotQueue);
 
@@ -60,34 +98,22 @@ public static class Versaplex
         conn.ns = conn.Transport.Stream;
         vxbs.Cookie = conn;
         vxbs.DataReady += DataReady;
+        vxbs.NoMoreData += NoMoreData;
         vxbs.BufferAmount = 16;
 
-        VxEventLoop.AddEvent(new TimeSpan(0, 0, 14),
-                delegate() {
-                    Console.WriteLine("5");
-                });
-        VxEventLoop.AddEvent(new TimeSpan(0, 0, 1),
-                delegate() {
-                    Console.WriteLine("1");
-                });
-        VxEventLoop.AddEvent(new TimeSpan(0, 0, 10),
-                delegate() {
-                    Console.WriteLine("3");
-                });
-        VxEventLoop.AddEvent(new TimeSpan(0, 0, 5),
-                delegate() {
-                    Console.WriteLine("2");
-                });
-        VxEventLoop.AddEvent(new TimeSpan(0, 0, 12),
-                delegate() {
-                    Console.WriteLine("4");
-                });
+        oldhandler = conn.OnMessage;
+        conn.OnMessage = MessageReady;
+
+        // XXX: Shutdown after 5 minutes
+        // You probably don't want to keep this
         VxEventLoop.AddEvent(new TimeSpan(0, 5, 0),
                 delegate() {
                     VxEventLoop.Shutdown();
                 });
 
         VxEventLoop.Run();
+
+        Console.WriteLine("Done!");
     }
 }
 
