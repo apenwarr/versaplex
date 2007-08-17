@@ -20,7 +20,7 @@ namespace NDesk.DBus
 		internal Stream ns = null;
 
 		Transport transport;
-		internal Transport Transport {
+		public Transport Transport {
 			get {
 				return transport;
 			} set {
@@ -30,7 +30,7 @@ namespace NDesk.DBus
 
 		// FIXME: There should be a better way to hack in a socket
 		// created elsewhere
-		protected Connection () {
+		public Connection () {
 			OnMessage = HandleMessage;
 		}
 
@@ -124,7 +124,7 @@ namespace NDesk.DBus
 			return (uint)Interlocked.Increment (ref serial);
 		}
 
-		internal Message SendWithReplyAndBlock (Message msg)
+		public Message SendWithReplyAndBlock (Message msg)
 		{
 			PendingCall pending = SendWithReply (msg);
 			return pending.Reply;
@@ -144,7 +144,7 @@ namespace NDesk.DBus
 			return pending;
 		}
 
-		internal uint Send (Message msg)
+		public uint Send (Message msg)
 		{
 			msg.Header.Serial = GenerateSerial ();
 
@@ -695,6 +695,6 @@ namespace NDesk.DBus
 				NativeEndianness = EndianFlag.Big;
 		}
 
-		internal static readonly EndianFlag NativeEndianness;
+		public static readonly EndianFlag NativeEndianness;
 	}
 }

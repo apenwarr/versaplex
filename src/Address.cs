@@ -107,7 +107,7 @@ namespace NDesk.DBus
 		}
 	}
 
-	static class Address
+	public static class Address
 	{
 		//(unix:(path|abstract)=.*,guid=.*|tcp:host=.*(,port=.*)?);? ...
 		public static AddressEntry[] Parse (string addresses)

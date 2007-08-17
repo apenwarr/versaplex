@@ -10,13 +10,17 @@ using System.Reflection;
 
 namespace NDesk.DBus
 {
-	class MessageReader
+	public class MessageReader
 	{
 		protected EndianFlag endianness;
 		protected byte[] data;
 		//TODO: this should be uint or long to handle long messages
 		protected int pos = 0;
 		protected Message message;
+
+                public int Position {
+                    get { return pos; }
+                }
 
 		public MessageReader (EndianFlag endianness, byte[] data)
 		{
