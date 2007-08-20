@@ -1,15 +1,6 @@
-/*-------
- * Module:	mylog.c
- *
+/*
  * Description:	This module contains miscellaneous routines
  *		such as for debugging/logging and string functions.
- *
- * Classes:	n/a
- *
- * API functions: none
- *
- * Comments:	See "notice.txt" for copyright and license information.
- *-------
  */
 
 #include "psqlodbc.h"

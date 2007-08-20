@@ -1,16 +1,6 @@
-/*-------
- * Module:			execute.c
- *
- * Description:		This module contains routines related to
- *					preparing and executing an SQL statement.
- *
- * Classes:			n/a
- *
- * API functions:	SQLPrepare, SQLExecute, SQLExecDirect, SQLTransact,
- *					SQLCancel, SQLNativeSql, SQLParamData, SQLPutData
- *
- * Comments:		See "notice.txt" for copyright and license information.
- *-------
+/*
+ * Description:	This module contains routines related to
+ *		preparing and executing an SQL statement.
  */
 
 #include "psqlodbc.h"

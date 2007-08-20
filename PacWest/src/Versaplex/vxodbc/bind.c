@@ -1,19 +1,7 @@
-/*-------
- * Module:			bind.c
- *
- * Description:		This module contains routines related to binding
- *					columns and parameters.
- *
- * Classes:			BindInfoClass, ParameterInfoClass
- *
- * API functions:	SQLBindParameter, SQLBindCol, SQLDescribeParam, SQLNumParams,
- *					SQLParamOptions
- *
- * Comments:		See "notice.txt" for copyright and license information.
- *-------
+/*
+ * Description:	This module contains routines related to binding
+ *		columns and parameters.
  */
-
-/* #include <stdlib.h> */
 #include <string.h>
 #include <ctype.h>
 #include "bind.h"

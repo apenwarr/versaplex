@@ -1,21 +1,11 @@
-/*---------
- * Module:			qresult.c
- *
- * Description:		This module contains functions related to
- *			managing result information (i.e, fetching rows
- *			from the backend, managing the tuple cache, etc.)
- *			and retrieving it.	Depending on the situation, a
- *			QResultClass will hold either data from the backend
- *			or a manually built result.
- *
- * Classes:		QResultClass (Functions prefix: "QR_")
- *
- * API functions:	none
- *
- * Comments:		See "notice.txt" for copyright and license information.
- *---------
+/*
+ * Description:	This module contains functions related to
+ *		managing result information (i.e, fetching rows
+ *		from the backend, managing the tuple cache, etc.)
+ *		and retrieving it.	Depending on the situation, a
+ *		QResultClass will hold either data from the backend
+ *		or a manually built result.
  */
-
 #include "qresult.h"
 #include "statement.h"
 

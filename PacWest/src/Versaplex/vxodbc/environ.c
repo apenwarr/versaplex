@@ -1,16 +1,7 @@
-/*-------
- * Module:			environ.c
- *
- * Description:		This module contains routines related to
- *					the environment, such as storing connection handles,
- *					and returning errors.
- *
- * Classes:			EnvironmentClass (Functions prefix: "EN_")
- *
- * API functions:	SQLAllocEnv, SQLFreeEnv, SQLError
- *
- * Comments:		See "notice.txt" for copyright and license information.
- *-------
+/*
+ * Description:	This module contains routines related to
+ *		the environment, such as storing connection handles,
+ *		and returning errors.
  */
 
 #include "environ.h"

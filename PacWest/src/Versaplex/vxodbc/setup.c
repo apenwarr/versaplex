@@ -1,16 +1,7 @@
-/*-------
- * Module:			setup.c
- *
- * Description:		This module contains the setup functions for
- *					adding/modifying a Data Source in the ODBC.INI portion
- *					of the registry.
- *
- * Classes:			n/a
- *
- * API functions:	ConfigDSN
- *
- * Comments:		See "notice.txt" for copyright and license information.
- *-------
+/*
+ * Description:	This module contains the setup functions for
+ *		adding/modifying a Data Source in the ODBC.INI portion
+ *		of the registry.
  */
 
 #include  "psqlodbc.h"

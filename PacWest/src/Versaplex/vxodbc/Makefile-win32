@@ -4,7 +4,8 @@ WINDRES=i586-mingw32msvc-windres
 WVPORTS=$(HOME)/src/wvports
 XPLC=$(WVPORTS)/xplc/build/xplc
 OPENSSL=$(WVPORTS)/openssl/build/openssl
-WVSTREAMS=$(HOME)/src/wvstreams-win32-2007/wvstreams.new
+DBUS=$(WVPORTS)/dbus/build/dbus/dbus/.libs
+WVSTREAMS=$(HOME)/src/wvstreams-win32
 CFLAGS=-Wall \
 	-D_MSC_VER=1300 \
 	-DUNICODE_SUPPORT -DODBCVER=0x0351 -D_WIN32_WINNT=0x0501 \
@@ -15,6 +16,7 @@ CXXFLAGS=$(CFLAGS)
 RSCFLAGS=-DUNICODE_SUPPORT
 LIBS=\
 	-L$(WVSTREAMS) -lwvwin32 \
+	-L$(DBUS) -ldbus-1 \
 	-L$(XPLC) -lxplc-cxx -lxplc \
 	-L$(OPENSSL) -lssl -lcrypto \
 	-lodbc32 -lodbccp32 \

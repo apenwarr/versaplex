@@ -1,15 +1,6 @@
-/*-------
-  Module:			drvconn.c
- *
+/*
  * Description:	This module contains only routines related to
  *		implementing SQLDriverConnect.
- *
- * Classes:			n/a
- *
- * API functions: SQLDriverConnect
- *
- * Comments:	See "notice.txt" for copyright and license information.
- *-------
  */
 
 #include "psqlodbc.h"

@@ -1,9 +1,6 @@
-/*-------
- * Module:			info30.c
- *
- * Description:		This module contains routines related to ODBC 3.0
- *			SQLGetInfo().
- *
+/*
+ * Description:	This module contains routines related to ODBC 3.0
+ *		SQLGetInfo().
  */
 
 #include "psqlodbc.h"

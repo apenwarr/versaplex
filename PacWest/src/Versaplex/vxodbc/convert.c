@@ -1,19 +1,10 @@
-/*-------
- * Module:				 convert.c
- *
- * Description:    This module contains routines related to
- *				   converting parameters and columns into requested data types.
- *				   Parameters are converted from their SQL_C data types into
- *				   the appropriate postgres type.  Columns are converted from
- *				   their postgres type (SQL type) into the appropriate SQL_C
- *				   data type.
- *
- * Classes:		   n/a
- *
- * API functions:  none
- *
- * Comments:	   See "notice.txt" for copyright and license information.
- *-------
+/*
+ * Description: This module contains routines related to
+ *	   converting parameters and columns into requested data types.
+ *	   Parameters are converted from their SQL_C data types into
+ *	   the appropriate postgres type.  Columns are converted from
+ *	   their postgres type (SQL type) into the appropriate SQL_C
+ *	   data type.
  */
 /* Multibyte support  Eiji Tokuya	2001-03-15	*/
 

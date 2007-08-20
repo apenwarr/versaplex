@@ -1,16 +1,7 @@
-/*-------
- * Module:			descriptor.c
- *
- * Description:		This module contains functions related to creating
- *					and manipulating a statement.
- *
- * Classes:			DescriptorClass (Functions prefix: "DC_")
- *
- *
- * Comments:		See "notice.txt" for copyright and license information.
- *-------
+/*
+ * Description:	This module contains functions related to creating
+ *		and manipulating a statement.
  */
-
 #include "environ.h"
 #include "connection.h"
 #include "descriptor.h"

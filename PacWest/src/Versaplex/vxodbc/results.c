@@ -1,20 +1,7 @@
 /*
- * Module:			results.c
- *
- * Description:		This module contains functions related to
- *					retrieving result information through the ODBC API.
- *
- * Classes:			n/a
- *
- * API functions:	SQLRowCount, SQLNumResultCols, SQLDescribeCol,
- *					SQLColAttributes, SQLGetData, SQLFetch, SQLExtendedFetch,
- *					SQLMoreResults, SQLSetPos, SQLSetScrollOptions(NI),
- *					SQLSetCursorName, SQLGetCursorName
- *
- * Comments:		See "notice.txt" for copyright and license information.
- *-------
+ * Description:	This module contains functions related to
+ *		retrieving result information through the ODBC API.
  */
-
 #include "psqlodbc.h"
 
 #include <string.h>

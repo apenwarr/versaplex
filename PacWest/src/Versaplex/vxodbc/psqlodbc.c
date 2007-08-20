@@ -1,16 +1,7 @@
-/*--------
- * Module:			psqlodbc.c
- *
- * Description:		This module contains the main entry point (DllMain)
- *					for the library.  It also contains functions to get
- *					and set global variables for the driver in the registry.
- *
- * Classes:			n/a
- *
- * API functions:	none
- *
- * Comments:		See "notice.txt" for copyright and license information.
- *--------
+/*
+ * Description:	This module contains the main entry point (DllMain)
+ *		for the library.  It also contains functions to get
+ *		and set global variables for the driver in the registry.
  */
 
 #ifdef	WIN32

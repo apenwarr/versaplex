@@ -1,15 +1,6 @@
-/*-------
- * Module:			socket.c
- *
- * Description:		This module contains functions for low level socket
- *					operations (connecting/reading/writing to the backend)
- *
- * Classes:			SocketClass (Functions prefix: "SOCK_")
- *
- * API functions:	none
- *
- * Comments:		See "notice.txt" for copyright and license information.
- *-------
+/*
+ * Description:	This module contains functions for low level socket
+ *		operations (connecting/reading/writing to the backend)
  */
 
 #include <libpq-fe.h>

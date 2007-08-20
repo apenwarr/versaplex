@@ -1,19 +1,10 @@
-/*--------
- * Module:			pgtypes.c
- *
- * Description:		This module contains routines for getting information
- *					about the supported Postgres data types.  Only the
- *					function pgtype_to_sqltype() returns an unknown condition.
- *					All other functions return a suitable default so that
- *					even data types that are not directly supported can be
- *					used (it is handled as char data).
- *
- * Classes:			n/a
- *
- * API functions:	none
- *
- * Comments:		See "notice.txt" for copyright and license information.
- *--------
+/*
+ * Description:	This module contains routines for getting information
+ *		about the supported Postgres data types.  Only the
+ *		function pgtype_to_sqltype() returns an unknown condition.
+ *		All other functions return a suitable default so that
+ *		even data types that are not directly supported can be
+ *		used (it is handled as char data).
  */
 
 #include "pgtypes.h"

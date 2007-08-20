@@ -1,16 +1,6 @@
-/*--------
- * Module:			options.c
- *
- * Description:		This module contains routines for getting/setting
- *					connection and statement options.
- *
- * Classes:			n/a
- *
- * API functions:	SQLSetConnectOption, SQLSetStmtOption, SQLGetConnectOption,
- *					SQLGetStmtOption
- *
- * Comments:		See "notice.txt" for copyright and license information.
- *--------
+/*
+ * Description:	This module contains routines for getting/setting
+ *		connection and statement options.
  */
 
 #include "psqlodbc.h"

@@ -1,24 +1,15 @@
-/*--------
- * Module:			parse.c
+/*
+ * Description:	This module contains routines related to parsing SQL
+ *		statements.  This can be useful for two reasons:
  *
- * Description:		This module contains routines related to parsing SQL
- *					statements.  This can be useful for two reasons:
+ *		1. So the query does not actually have to be executed
+ *		to return data about it
  *
- *					1. So the query does not actually have to be executed
- *					to return data about it
- *
- *					2. To be able to return information about precision,
- *					nullability, aliases, etc. in the functions
- *					SQLDescribeCol and SQLColAttributes.  Currently,
- *					Postgres doesn't return any information about
- *					these things in a query.
- *
- * Classes:			none
- *
- * API functions:	none
- *
- * Comments:		See "notice.txt" for copyright and license information.
- *--------
+ *		2. To be able to return information about precision,
+ *		nullability, aliases, etc. in the functions
+ *		SQLDescribeCol and SQLColAttributes.  Currently,
+ *		Postgres doesn't return any information about
+ *		these things in a query.
  */
 /* Multibyte support	Eiji Tokuya 2001-03-15 */
 

@@ -1,20 +1,11 @@
-/*-------
- * Module:			tuple.c
+/*
+ * Description:	This module contains functions for setting the data
+ *		for individual fields (TupleField structure) of a
+ *		manual result set.
  *
- * Description:		This module contains functions for setting the data
- *					for individual fields (TupleField structure) of a
- *					manual result set.
- *
- * Important Note:	These functions are ONLY used in building manual
- *					result sets for info functions (SQLTables,
- *					SQLColumns, etc.)
- *
- * Classes:			n/a
- *
- * API functions:	none
- *
- * Comments:		See "notice.txt" for copyright and license information.
- *-------
+ * Important Note: These functions are ONLY used in building manual
+ *		result sets for info functions (SQLTables,
+ *		SQLColumns, etc.)
  */
 
 #include "tuple.h"

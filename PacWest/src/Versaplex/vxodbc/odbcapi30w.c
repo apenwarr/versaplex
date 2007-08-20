@@ -1,15 +1,5 @@
-/*-------
- * Module:			odbcapi30w.c
- *
- * Description:		This module contains UNICODE routines
- *
- * Classes:			n/a
- *
- * API functions:	SQLColAttributeW, SQLGetStmtAttrW, SQLSetStmtAttrW,
- 			SQLSetConnectAttrW, SQLGetConnectAttrW,
-			SQLGetDescFieldW, SQLGetDescRecW, SQLGetDiagFieldW,
-			SQLGetDiagRecW,
- *-------
+/*
+ * Description:	This module contains UNICODE routines
  */
 
 #include "psqlodbc.h"

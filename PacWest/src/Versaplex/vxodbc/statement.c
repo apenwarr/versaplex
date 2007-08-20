@@ -1,15 +1,6 @@
-/*-------
- * Module:			statement.c
- *
- * Description:		This module contains functions related to creating
- *					and manipulating a statement.
- *
- * Classes:			StatementClass (Functions prefix: "SC_")
- *
- * API functions:	SQLAllocStmt, SQLFreeStmt
- *
- * Comments:		See "notice.txt" for copyright and license information.
- *-------
+/*
+ * Description:	This module contains functions related to creating
+ *		and manipulating a statement.
  */
 
 #ifndef	_WIN32_WINNT

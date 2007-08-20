@@ -1,12 +1,7 @@
-/*-------
- * Module:			win_unicode.c
- *
- * Description:		This module contains utf8 <-> ucs2 conversion routines
- *					under WIndows
- *
- *-------
+/*
+ * Description:	This module contains utf8 <-> ucs2 conversion routines
+ *		under Windows
  */
-
 #include "psqlodbc.h"
 #ifdef  WIN32
 /* gcc <malloc.h> has been replaced by <stdlib.h> */

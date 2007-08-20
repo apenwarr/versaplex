@@ -1,15 +1,6 @@
-/*--------
- * Module:			lobj.c
- *
- * Description:		This module contains routines related to manipulating
- *					large objects.
- *
- * Classes:			none
- *
- * API functions:	none
- *
- * Comments:		See "notice.txt" for copyright and license information.
- *--------
+/*
+ * Description:	This module contains routines related to manipulating
+ *		large objects.
  */
 
 #include "lobj.h"

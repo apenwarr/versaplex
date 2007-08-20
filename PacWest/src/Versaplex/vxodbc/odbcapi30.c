@@ -1,23 +1,9 @@
-/*-------
- * Module:			odbcapi30.c
- *
- * Description:		This module contains routines related to ODBC 3.0
- *			most of their implementations are temporary
- *			and must be rewritten properly.
- *			2001/07/23	inoue
- *
- * Classes:			n/a
- *
- * API functions:	SQLAllocHandle, SQLBindParam, SQLCloseCursor,
-			SQLColAttribute, SQLCopyDesc, SQLEndTran,
-			SQLFetchScroll, SQLFreeHandle, SQLGetDescField,
-			SQLGetDescRec, SQLGetDiagField, SQLGetDiagRec,
-			SQLGetEnvAttr, SQLGetConnectAttr, SQLGetStmtAttr,
-			SQLSetConnectAttr, SQLSetDescField, SQLSetDescRec,
-			SQLSetEnvAttr, SQLSetStmtAttr, SQLBulkOperations
- *-------
+/*
+ * Description:	This module contains routines related to ODBC 3.0
+ *		most of their implementations are temporary
+ *		and must be rewritten properly.
+ *		2001/07/23	inoue
  */
-
 #include "psqlodbc.h"
 #include "misc.h"
 

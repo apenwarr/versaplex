@@ -1,17 +1,8 @@
-/*-------
- * Module:			pgapi30.c
- *
+/*
  * Description:		This module contains routines related to ODBC 3.0
  *			most of their implementations are temporary
  *			and must be rewritten properly.
  *			2001/07/23	inoue
- *
- * Classes:			n/a
- *
- * API functions:	PGAPI_ColAttribute, PGAPI_GetDiagRec,
-			PGAPI_GetConnectAttr, PGAPI_GetStmtAttr,
-			PGAPI_SetConnectAttr, PGAPI_SetStmtAttr
- *-------
  */
 
 #include "psqlodbc.h"

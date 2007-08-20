@@ -1,19 +1,6 @@
-/*--------
- * Module:			info.c
- *
- * Description:		This module contains routines related to
- *					ODBC informational functions.
- *
- * Classes:			n/a
- *
- * API functions:	SQLGetInfo, SQLGetTypeInfo, SQLGetFunctions,
- *					SQLTables, SQLColumns, SQLStatistics, SQLSpecialColumns,
- *					SQLPrimaryKeys, SQLForeignKeys,
- *					SQLProcedureColumns, SQLProcedures,
- *					SQLTablePrivileges, SQLColumnPrivileges(NI)
- *
- * Comments:		See "notice.txt" for copyright and license information.
- *--------
+/*
+ * Description:	This module contains routines related to
+ *		ODBC informational functions.
  */
 
 #include "psqlodbc.h"

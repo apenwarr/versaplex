@@ -1,20 +1,11 @@
 #ifdef	WIN32
-/*-------
- * Module:			dlg_wingui.c
- *
+/*
  * Description:	This module contains any specific code for handling
  *		dialog boxes such as driver/datasource options.  Both the
  *		ConfigDSN() and the SQLDriverConnect() functions use
  *		functions in this module.  If you were to add a new option
  *		to any dialog box, you would most likely only have to change
  *		things in here rather than in 2 separate places as before.
- *
- * Classes:	none
- *
- * API functions: none
- *
- * Comments:	See "notice.txt" for copyright and license information.
- *-------
  */
 /* Multibyte support	Eiji Tokuya 2001-03-15 */
 

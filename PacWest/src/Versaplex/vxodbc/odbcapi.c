@@ -1,31 +1,7 @@
-/*-------
- * Module:			odbcapi.c
- *
- * Description:		This module contains routines related to
- *					preparing and executing an SQL statement.
- *
- * Classes:			n/a
- *
- * API functions:	SQLAllocConnect, SQLAllocEnv, SQLAllocStmt,
-			SQLBindCol, SQLCancel, SQLColumns, SQLConnect,
-			SQLDataSources, SQLDescribeCol, SQLDisconnect,
-			SQLError, SQLExecDirect, SQLExecute, SQLFetch,
-			SQLFreeConnect, SQLFreeEnv, SQLFreeStmt,
-			SQLGetConnectOption, SQLGetCursorName, SQLGetData,
-			SQLGetFunctions, SQLGetInfo, SQLGetStmtOption,
-			SQLGetTypeInfo, SQLNumResultCols, SQLParamData,
-			SQLPrepare, SQLPutData, SQLRowCount,
-			SQLSetConnectOption, SQLSetCursorName, SQLSetParam,
-			SQLSetStmtOption, SQLSpecialColumns, SQLStatistics,
-			SQLTables, SQLTransact, SQLColAttributes,
-			SQLColumnPrivileges, SQLDescribeParam, SQLExtendedFetch,
-			SQLForeignKeys, SQLMoreResults, SQLNativeSql,
-			SQLNumParams, SQLParamOptions, SQLPrimaryKeys,
-			SQLProcedureColumns, SQLProcedures, SQLSetPos,
-			SQLTablePrivileges, SQLBindParameter
- *-------
+/*
+ * Description:	This module contains routines related to
+ *		preparing and executing an SQL statement.
  */
-
 #include "psqlodbc.h"
 #include <stdio.h>
 #include <string.h>

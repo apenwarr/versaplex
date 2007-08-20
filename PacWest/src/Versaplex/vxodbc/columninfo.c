@@ -1,15 +1,6 @@
-/*-------
- * Module:			columninfo.c
- *
- * Description:		This module contains routines related to
- *					reading and storing the field information from a query.
- *
- * Classes:			ColumnInfoClass (Functions prefix: "CI_")
- *
- * API functions:	none
- *
- * Comments:		See "notice.txt" for copyright and license information.
- *-------
+/*
+ * Description:	This module contains routines related to
+ *		reading and storing the field information from a query.
  */
 
 #include "pgtypes.h"

@@ -1,20 +1,5 @@
-/*-------
- * Module:			odbcapiw.c
- *
- * Description:		This module contains UNICODE routines
- *
- * Classes:			n/a
- *
- * API functions:	SQLColumnPrivilegesW, SQLColumnsW,
- 			SQLConnectW, SQLDataSourcesW, SQLDescribeColW,
-			SQLDriverConnectW, SQLExecDirectW,
-			SQLForeignKeysW,
-			SQLGetCursorNameW, SQLGetInfoW, SQLNativeSqlW,
-			SQLPrepareW, SQLPrimaryKeysW, SQLProcedureColumnsW,
-			SQLProceduresW, SQLSetCursorNameW,
-			SQLSpecialColumnsW, SQLStatisticsW, SQLTablesW,
-			SQLTablePrivilegesW, SQLGetTypeInfoW
- *-------
+/*
+ * Description:	This module contains UNICODE routines
  */
 
 #include "psqlodbc.h"
