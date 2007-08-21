@@ -1,11 +1,12 @@
 .PHONY: all clean test
 
-DLL = sqlsucker.test.dll
+DLL = versaplex.test.dll
 
 all: $(DLL)
 
 SHELL=/bin/bash
 WVPATH=../../Wv.Net
+DBUSPATH=../../../ThirdParty/dbus-sharp/src
 # cc -E tries to guess by extension what to do with the file.
 # And it does other weird things. cpp seems to Just Work(tm), so use that for
 # our C# (.cs) files
@@ -14,7 +15,7 @@ CPPFLAGS=-I$(WVPATH)
 
 ifeq ($(OS),Windows_NT)
 CSC?=csc
-PKGS=/r:nunit.framework.dll /r:wv.dll
+PKGS=/r:nunit.framework.dll /r:wv.dll /r:NDesk.DBus.dll
 NUNIT=nunit.framework.dll
 NUNITPATH=/cygdrive/c/Program\ Files/NUnit\ 2.4.1/bin
 
@@ -25,12 +26,21 @@ nunit.framework.dll: %.dll: $(NUNITPATH)/%.dll
 wv.dll: %.dll: $(WVPATH)/%.dll
 	rm -f "$@"
 	cp "$<" "$@"
+
+NDesk.DBus.dll: %.dll: $(DBUSPATH)/%.dll
+	rm -f "$@"
+	cp "$<" "$@"
 else
-CSC?=gmcs
+CSC?=/usr/local/mono-svn/bin/gmcs
 NUNIT=
-PKGS=/r:System.Data /r:System.Web /r:wv /pkg:nunit
+PKGS=/r:System.Data /r:System.Web /r:wv /pkg:nunit /r:NDesk.DBus.dll /r:Mono.Posix
 
 wv.dll: %.dll: $(WVPATH)/%.dll
+	rm -f "$@"
+	ln -s "$<" "$@"
+	test -f "$@"
+
+NDesk.DBus.dll: %.dll: $(DBUSPATH)/%.dll
 	rm -f "$@"
 	ln -s "$<" "$@"
 	test -f "$@"
@@ -39,7 +49,7 @@ endif
 CSFLAGS=/warn:4 /debug
 #CSFLAGS += /warnaserror
 
-FILES = sqlsucker.test.cs.E
+FILES = versaplex.test.cs.E
 
 test: $(DLL)
 	nunit-console /nologo /labels $^
@@ -63,7 +73,7 @@ include $(patsubst %.cs.E,%.d,$(filter %.cs.E,$(FILES)))
 		| grep -v '^# [0-9]' \
 		>$@ || (rm -f $@ && exit 1)
 
-$(DLL): $(FILES) wv.dll $(NUNIT)
+$(DLL): $(FILES) wv.dll NDesk.DBus.dll $(NUNIT)
 	$(CSC) $(PKGS) $(CSFLAGS) /target:library /out:$@ $(filter %.cs.E %.cs,$^)
 
 clean:
