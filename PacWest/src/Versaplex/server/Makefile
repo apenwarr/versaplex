@@ -56,7 +56,7 @@ CSFLAGS=/warn:4 /debug
 #CSFLAGS += /warnaserror
 
 FILES = PriorityQueue.cs VxBufferStream.cs VxDbApi.cs VxDbus.cs VxEvent.cs \
-    VxEventLoop.cs VxListenSocket.cs VxNotifySocket.cs VxSocket.cs \
+    VxEventLoop.cs VxNotifySocket.cs VxSocket.cs \
     VxSqlPool.cs Main.cs
 
 #test: $(DLL)
