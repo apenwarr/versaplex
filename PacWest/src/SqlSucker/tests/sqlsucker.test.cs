@@ -9,6 +9,9 @@ using NUnit.Framework;
 using Wv.Test;
 using Wv.Utils;
 
+// Several mono bugs worked around in this test fixture are filed as mono bug
+// #81940
+
 namespace SqlSucker.Test
 {
 
@@ -834,9 +837,8 @@ public class SqlSuckerTest
         // Other notes:
         // - The min/max values of SqlDateTime are supposed to correspond to the
         //   min/max values of the SQL Server datetime type, except Mono doesn't
-        //   quite have the semantics right (at least, not as of 1.2.3.1, but
-        //   new versions may be better), so the min/max values are hard-coded
-        //   in instead.
+        //   quite have the semantics right, so the min/max values are
+        //   hard-coded in instead. Bug filed with Mono.
         // - All smalldatetime values are rounded down to the nearest minute,
         //   since it only has per-minute granularity
         
@@ -856,6 +858,7 @@ public class SqlSuckerTest
 
         // Mono has difficulties converting DateTime to SqlDateTime directly, so
         // take it down to per-second precision, which works reliably
+        // Bug filed with Mono.
         DateTime now = DateTime.Now;
         SqlDateTime sqlNow = new SqlDateTime(now.Year, now.Month, now.Day,
                 now.Hour, now.Minute, now.Second);
@@ -956,6 +959,7 @@ public class SqlSuckerTest
                  * The "zero" data set actually makes Mono's TDS library croak.
                  * But that's not a SqlSucker bug. The other data sets should
                  * give reasonable confidence in SqlSucker anyway.
+                 * Bug filed with Mono.
                 "0",
                 "0.00000000000000000000000000000000000000",
                 "0",
@@ -1037,6 +1041,7 @@ public class SqlSuckerTest
                         // Mono produces ".1" and "-.1"
                         // Microsoft .NET produces "0.1" and "-0.1"
                         // Deal with that here.
+                        // Bug filed with Mono.
                         if (val[0] == '0' && fromdb[0] == '.') {
                             WVPASSEQ(fromdb, val.Substring(1));
                         } else if (val[0] == '-' && val[1] == '0'
@@ -1073,6 +1078,7 @@ public class SqlSuckerTest
                  * rounding issues in Mono somewhere that make it reject the
                  * exact maximum value. These numbers come from the SQL Server
                  * 2005 reference for the float data type
+                 * Bug filed with Mono.
                 SqlDouble.MaxValue,
                 SqlSingle.MaxValue,
                 SqlSingle.MaxValue */
@@ -1082,6 +1088,7 @@ public class SqlSuckerTest
             }, {
                 /* Mono has problems with sending Math.E in a way that is
                  * roundtrip-able
+                 * Bug filed with Mono.
                 (double)Math.E,
                 (float)Math.E,
                 (float)Math.E */
@@ -1207,6 +1214,7 @@ public class SqlSuckerTest
         SqlDataReader reader;
         // Cast the return type because Mono doesn't properly handle negative
         // money amounts
+        // Bug filed with Mono.
         WVASSERT(Reader("SELECT CAST(m as decimal(20,4)),"
                     + "CAST(sm as decimal(20,4)) "
                     + "FROM #suckout ORDER BY roworder", out reader));
