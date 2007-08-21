@@ -83,28 +83,28 @@ SQLColumns(HSTMT StatementHandle,
 	    make_lstring_ifneeded(conn, CatalogName, NameLength1,
 				  ifallupper), NULL != newCt)
 	{
-	    ctName = newCt;
+	    ctName = (UCHAR *)newCt;
 	    reexec = TRUE;
 	}
 	if (newSc =
 	    make_lstring_ifneeded(conn, SchemaName, NameLength2,
 				  ifallupper), NULL != newSc)
 	{
-	    scName = newSc;
+	    scName = (UCHAR *)newSc;
 	    reexec = TRUE;
 	}
 	if (newTb =
 	    make_lstring_ifneeded(conn, TableName, NameLength3,
 				  ifallupper), NULL != newTb)
 	{
-	    tbName = newTb;
+	    tbName = (UCHAR *)newTb;
 	    reexec = TRUE;
 	}
 	if (newCl =
 	    make_lstring_ifneeded(conn, ColumnName, NameLength4,
 				  ifallupper), NULL != newCl)
 	{
-	    clName = newCl;
+	    clName = (UCHAR *)newCl;
 	    reexec = TRUE;
 	}
 	if (reexec)
@@ -315,7 +315,7 @@ RETCODE SQL_API SQLFetch(HSTMT StatementHandle)
 	IRDFields *irdopts = SC_get_IRDF(stmt);
 	ARDFields *ardopts = SC_get_ARDF(stmt);
 	SQLUSMALLINT *rowStatusArray = irdopts->rowStatusArray;
-	SQLLEN *pcRow = irdopts->rowsFetched;
+	SQLUINTEGER *pcRow = irdopts->rowsFetched;
 
 	ret = PGAPI_ExtendedFetch(StatementHandle, SQL_FETCH_NEXT, 0,
 				  pcRow, rowStatusArray, 0,
@@ -606,21 +606,21 @@ SQLSpecialColumns(HSTMT StatementHandle,
 	    make_lstring_ifneeded(conn, CatalogName, NameLength1,
 				  ifallupper), NULL != newCt)
 	{
-	    ctName = newCt;
+	    ctName = (UCHAR *)newCt;
 	    reexec = TRUE;
 	}
 	if (newSc =
 	    make_lstring_ifneeded(conn, SchemaName, NameLength2,
 				  ifallupper), NULL != newSc)
 	{
-	    scName = newSc;
+	    scName = (UCHAR *)newSc;
 	    reexec = TRUE;
 	}
 	if (newTb =
 	    make_lstring_ifneeded(conn, TableName, NameLength3,
 				  ifallupper), NULL != newTb)
 	{
-	    tbName = newTb;
+	    tbName = (UCHAR *)newTb;
 	    reexec = TRUE;
 	}
 	if (reexec)
@@ -679,21 +679,21 @@ SQLStatistics(HSTMT StatementHandle,
 	    make_lstring_ifneeded(conn, CatalogName, NameLength1,
 				  ifallupper), NULL != newCt)
 	{
-	    ctName = newCt;
+	    ctName = (UCHAR *)newCt;
 	    reexec = TRUE;
 	}
 	if (newSc =
 	    make_lstring_ifneeded(conn, SchemaName, NameLength2,
 				  ifallupper), NULL != newSc)
 	{
-	    scName = newSc;
+	    scName = (UCHAR *)newSc;
 	    reexec = TRUE;
 	}
 	if (newTb =
 	    make_lstring_ifneeded(conn, TableName, NameLength3,
 				  ifallupper), NULL != newTb)
 	{
-	    tbName = newTb;
+	    tbName = (UCHAR *)newTb;
 	    reexec = TRUE;
 	}
 	if (reexec)
@@ -753,21 +753,21 @@ SQLTables(HSTMT StatementHandle,
 	    make_lstring_ifneeded(conn, CatalogName, NameLength1,
 				  ifallupper), NULL != newCt)
 	{
-	    ctName = newCt;
+	    ctName = (UCHAR *)newCt;
 	    reexec = TRUE;
 	}
 	if (newSc =
 	    make_lstring_ifneeded(conn, SchemaName, NameLength2,
 				  ifallupper), NULL != newSc)
 	{
-	    scName = newSc;
+	    scName = (UCHAR *)newSc;
 	    reexec = TRUE;
 	}
 	if (newTb =
 	    make_lstring_ifneeded(conn, TableName, NameLength3,
 				  ifallupper), NULL != newTb)
 	{
-	    tbName = newTb;
+	    tbName = (UCHAR *)newTb;
 	    reexec = TRUE;
 	}
 	if (reexec)
@@ -832,28 +832,28 @@ SQLColumnPrivileges(HSTMT hstmt,
 	    make_lstring_ifneeded(conn, szCatalogName, cbCatalogName,
 				  ifallupper), NULL != newCt)
 	{
-	    ctName = newCt;
+	    ctName = (UCHAR *)newCt;
 	    reexec = TRUE;
 	}
 	if (newSc =
 	    make_lstring_ifneeded(conn, szSchemaName, cbSchemaName,
 				  ifallupper), NULL != newSc)
 	{
-	    scName = newSc;
+	    scName = (UCHAR *)newSc;
 	    reexec = TRUE;
 	}
 	if (newTb =
 	    make_lstring_ifneeded(conn, szTableName, cbTableName,
 				  ifallupper), NULL != newTb)
 	{
-	    tbName = newTb;
+	    tbName = (UCHAR *)newTb;
 	    reexec = TRUE;
 	}
 	if (newCl =
 	    make_lstring_ifneeded(conn, szColumnName, cbColumnName,
 				  ifallupper), NULL != newCl)
 	{
-	    clName = newCl;
+	    clName = (UCHAR *)newCl;
 	    reexec = TRUE;
 	}
 	if (reexec)
@@ -987,21 +987,21 @@ SQLForeignKeys(HSTMT hstmt,
 				  cbPkCatalogName, ifallupper),
 	    NULL != newPkct)
 	{
-	    pkctName = newPkct;
+	    pkctName = (UCHAR *)newPkct;
 	    reexec = TRUE;
 	}
 	if (newPksc =
 	    make_lstring_ifneeded(conn, szPkSchemaName, cbPkSchemaName,
 				  ifallupper), NULL != newPksc)
 	{
-	    pkscName = newPksc;
+	    pkscName = (UCHAR *)newPksc;
 	    reexec = TRUE;
 	}
 	if (newPktb =
 	    make_lstring_ifneeded(conn, szPkTableName, cbPkTableName,
 				  ifallupper), NULL != newPktb)
 	{
-	    pktbName = newPktb;
+	    pktbName = (UCHAR *)newPktb;
 	    reexec = TRUE;
 	}
 	if (newFkct =
@@ -1009,21 +1009,21 @@ SQLForeignKeys(HSTMT hstmt,
 				  cbFkCatalogName, ifallupper),
 	    NULL != newFkct)
 	{
-	    fkctName = newFkct;
+	    fkctName = (UCHAR *)newFkct;
 	    reexec = TRUE;
 	}
 	if (newFksc =
 	    make_lstring_ifneeded(conn, szFkSchemaName, cbFkSchemaName,
 				  ifallupper), NULL != newFksc)
 	{
-	    fkscName = newFksc;
+	    fkscName = (UCHAR *)newFksc;
 	    reexec = TRUE;
 	}
 	if (newFktb =
 	    make_lstring_ifneeded(conn, szFkTableName, cbFkTableName,
 				  ifallupper), NULL != newFktb)
 	{
-	    fktbName = newFktb;
+	    fktbName = (UCHAR *)newFktb;
 	    reexec = TRUE;
 	}
 	if (reexec)
@@ -1140,21 +1140,21 @@ SQLPrimaryKeys(HSTMT hstmt,
 	    make_lstring_ifneeded(conn, szCatalogName, cbCatalogName,
 				  ifallupper), NULL != newCt)
 	{
-	    ctName = newCt;
+	    ctName = (UCHAR *)newCt;
 	    reexec = TRUE;
 	}
 	if (newSc =
 	    make_lstring_ifneeded(conn, szSchemaName, cbSchemaName,
 				  ifallupper), NULL != newSc)
 	{
-	    scName = newSc;
+	    scName = (UCHAR *)newSc;
 	    reexec = TRUE;
 	}
 	if (newTb =
 	    make_lstring_ifneeded(conn, szTableName, cbTableName,
 				  ifallupper), NULL != newTb)
 	{
-	    tbName = newTb;
+	    tbName = (UCHAR *)newTb;
 	    reexec = TRUE;
 	}
 	if (reexec)
@@ -1218,28 +1218,28 @@ SQLProcedureColumns(HSTMT hstmt,
 	    make_lstring_ifneeded(conn, szCatalogName, cbCatalogName,
 				  ifallupper), NULL != newCt)
 	{
-	    ctName = newCt;
+	    ctName = (UCHAR *)newCt;
 	    reexec = TRUE;
 	}
 	if (newSc =
 	    make_lstring_ifneeded(conn, szSchemaName, cbSchemaName,
 				  ifallupper), NULL != newSc)
 	{
-	    scName = newSc;
+	    scName = (UCHAR *)newSc;
 	    reexec = TRUE;
 	}
 	if (newPr =
 	    make_lstring_ifneeded(conn, szProcName, cbProcName,
 				  ifallupper), NULL != newPr)
 	{
-	    prName = newPr;
+	    prName = (UCHAR *)newPr;
 	    reexec = TRUE;
 	}
 	if (newCl =
 	    make_lstring_ifneeded(conn, szColumnName, cbColumnName,
 				  ifallupper), NULL != newCl)
 	{
-	    clName = newCl;
+	    clName = (UCHAR *)newCl;
 	    reexec = TRUE;
 	}
 	if (reexec)
@@ -1303,21 +1303,21 @@ SQLProcedures(HSTMT hstmt,
 	    make_lstring_ifneeded(conn, szCatalogName, cbCatalogName,
 				  ifallupper), NULL != newCt)
 	{
-	    ctName = newCt;
+	    ctName = (UCHAR *)newCt;
 	    reexec = TRUE;
 	}
 	if (newSc =
 	    make_lstring_ifneeded(conn, szSchemaName, cbSchemaName,
 				  ifallupper), NULL != newSc)
 	{
-	    scName = newSc;
+	    scName = (UCHAR *)newSc;
 	    reexec = TRUE;
 	}
 	if (newPr =
 	    make_lstring_ifneeded(conn, szProcName, cbProcName,
 				  ifallupper), NULL != newPr)
 	{
-	    prName = newPr;
+	    prName = (UCHAR *)newPr;
 	    reexec = TRUE;
 	}
 	if (reexec)
@@ -1395,21 +1395,21 @@ SQLTablePrivileges(HSTMT hstmt,
 	    make_lstring_ifneeded(conn, szCatalogName, cbCatalogName,
 				  ifallupper), NULL != newCt)
 	{
-	    ctName = newCt;
+	    ctName = (UCHAR *)newCt;
 	    reexec = TRUE;
 	}
 	if (newSc =
 	    make_lstring_ifneeded(conn, szSchemaName, cbSchemaName,
 				  ifallupper), NULL != newSc)
 	{
-	    scName = newSc;
+	    scName = (UCHAR *)newSc;
 	    reexec = TRUE;
 	}
 	if (newTb =
 	    make_lstring_ifneeded(conn, szTableName, cbTableName,
 				  ifallupper), NULL != newTb)
 	{
-	    tbName = newTb;
+	    tbName = (UCHAR *)newTb;
 	    reexec = TRUE;
 	}
 	if (reexec)

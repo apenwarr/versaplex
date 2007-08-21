@@ -59,7 +59,7 @@ PGAPI_BindParameter(HSTMT hstmt,
 
     /* store the given info */
     apdopts->parameters[ipar].buflen = cbValueMax;
-    apdopts->parameters[ipar].buffer = rgbValue;
+    apdopts->parameters[ipar].buffer = (char *)rgbValue;
     apdopts->parameters[ipar].used =
 	apdopts->parameters[ipar].indicator = pcbValue;
     apdopts->parameters[ipar].CType = fCType;
@@ -197,7 +197,7 @@ PGAPI_BindCol(HSTMT hstmt,
 	    }
 
 	    bookmark = ARD_AllocBookmark(opts);
-	    bookmark->buffer = rgbValue;
+	    bookmark->buffer = (char *)rgbValue;
 	    bookmark->used = bookmark->indicator = pcbValue;
 	    bookmark->buflen = cbValueMax;
 	    bookmark->returntype = fCType;
@@ -250,7 +250,7 @@ PGAPI_BindCol(HSTMT hstmt,
     {
 	/* ok, bind that column */
 	opts->bindings[icol].buflen = cbValueMax;
-	opts->bindings[icol].buffer = rgbValue;
+	opts->bindings[icol].buffer = (char *)rgbValue;
 	opts->bindings[icol].used =
 	    opts->bindings[icol].indicator = pcbValue;
 	opts->bindings[icol].returntype = fCType;

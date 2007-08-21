@@ -1199,7 +1199,7 @@ RETCODE SQL_API PGAPI_Cancel(HSTMT hstmt)	/* Statement to cancel. */
 	{
 	    ENTER_STMT_CS(stmt);
 	    entered_cs = TRUE;
-	    SC_clear_error(hstmt);
+	    SC_clear_error(stmt);
 	    ret = PGAPI_FreeStmt(hstmt, SQL_CLOSE);
 
 	    mylog("PGAPI_Cancel:  PGAPI_FreeStmt returned %d\n", ret);
@@ -1254,9 +1254,9 @@ PGAPI_NativeSql(HDBC hdbc,
 
     mylog("%s: entering...cbSqlStrIn=%d\n", func, cbSqlStrIn);
 
-    ptr =
+    ptr = (char *)(
 	(cbSqlStrIn == 0) ? "" : make_string(szSqlStrIn, cbSqlStrIn,
-					     NULL, 0);
+					     NULL, 0));
     if (!ptr)
     {
 	CC_set_error(conn, CONN_NO_MEMORY_ERROR,
@@ -1270,7 +1270,7 @@ PGAPI_NativeSql(HDBC hdbc,
 
     if (szSqlStr)
     {
-	strncpy_null(szSqlStr, ptr, cbSqlStrMax);
+	strncpy_null((char *)szSqlStr, ptr, cbSqlStrMax);
 
 	if (len >= cbSqlStrMax)
 	{
@@ -1527,7 +1527,7 @@ RETCODE SQL_API PGAPI_PutData(HSTMT hstmt, PTR rgbValue, SQLLEN cbValue)
 #endif				/* UNICODE_SUPPORT */
 	if (SQL_C_CHAR == ctype)
 	{
-	    putlen = strlen(rgbValue);
+	    putlen = strlen((const char *)rgbValue);
 	    lenset = TRUE;
 	}
     }
@@ -1546,14 +1546,14 @@ RETCODE SQL_API PGAPI_PutData(HSTMT hstmt, PTR rgbValue, SQLLEN cbValue)
 	else
 	    putlen = ctype_length(ctype);
     }
-    putbuf = rgbValue;
+    putbuf = (char *)rgbValue;
     if (current_iparam->PGType == conn->lobj_type
 	&& SQL_C_CHAR == ctype)
     {
-	allocbuf = malloc(putlen / 2 + 1);
+	allocbuf = (char *)malloc(putlen / 2 + 1);
 	if (allocbuf)
 	{
-	    pg_hex2bin(rgbValue, allocbuf, putlen);
+	    pg_hex2bin((const UCHAR *)rgbValue, (UCHAR *)allocbuf, putlen);
 	    putbuf = allocbuf;
 	    putlen /= 2;
 	}
@@ -1635,7 +1635,7 @@ RETCODE SQL_API PGAPI_PutData(HSTMT hstmt, PTR rgbValue, SQLLEN cbValue)
 		  retval);
 	} else
 	{
-	    current_pdata->EXEC_buffer = malloc(putlen + 1);
+	    current_pdata->EXEC_buffer = (char *)malloc(putlen + 1);
 	    if (!current_pdata->EXEC_buffer)
 	    {
 		SC_set_error(stmt, STMT_NO_MEMORY_ERROR,
@@ -1678,7 +1678,7 @@ RETCODE SQL_API PGAPI_PutData(HSTMT hstmt, PTR rgbValue, SQLLEN cbValue)
 		     putlen, old_pos, used);
 
 		/* dont lose the old pointer in case out of memory */
-		buffer = realloc(current_pdata->EXEC_buffer, allocsize);
+		buffer = (char *)realloc(current_pdata->EXEC_buffer, allocsize);
 		if (!buffer)
 		{
 		    SC_set_error(stmt, STMT_NO_MEMORY_ERROR,

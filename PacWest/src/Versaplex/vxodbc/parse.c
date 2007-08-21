@@ -279,7 +279,7 @@ static void getColInfo(COL_INFO * col_info, FIELD_INFO * fi, int k)
     fi->length =
 	QR_get_value_backend_int(col_info->result, k, COLUMNS_LENGTH,
 				 NULL);
-    if (str =
+    if (str = (char *)
 	QR_get_value_backend_text(col_info->result, k, COLUMNS_SCALE),
 	str)
 	fi->decimal_digits = atoi(str);
@@ -890,9 +890,11 @@ BOOL getCOLIfromTI(const char *func, ConnectionClass * conn,
 	else
 	    result =
 		PGAPI_Columns(hcol_stmt, NULL, 0,
-			      SAFE_NAME(wti->schema_name), SQL_NTS,
-			      SAFE_NAME(wti->table_name), SQL_NTS, NULL,
-			      0, PODBC_NOT_SEARCH_PATTERN, 0, 0);
+			      (const UCHAR *)SAFE_NAME(wti->schema_name),
+			      SQL_NTS,
+			      (const UCHAR *)SAFE_NAME(wti->table_name),
+			      SQL_NTS, NULL, 0,
+			      PODBC_NOT_SEARCH_PATTERN, 0, 0);
 
 	mylog("        Past PG_Columns\n");
 	res = SC_get_Curres(col_stmt);

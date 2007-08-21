@@ -410,26 +410,11 @@ copy_and_convert_field_bindinfo(StatementClass * stmt, OID field_type,
 static double get_double_value(const char *str)
 {
     if (stricmp(str, NAN_STRING) == 0)
-#ifdef	NAN
-	return (double) NAN;
-#else
-    {
-	double a = .0;
-	return .0 / a;
-    }
-#endif				/* NAN */
+	return NAN;
     else if (stricmp(str, INFINITY_STRING) == 0)
-#ifdef	INFINITY
-	return (double) INFINITY;
-#else
-	return (double) (HUGE_VAL * HUGE_VAL);
-#endif				/* INFINITY */
+	return INFINITY;
     else if (stricmp(str, MINFINITY_STRING) == 0)
-#ifdef	INFINITY
-	return (double) -INFINITY;
-#else
-	return (double) -(HUGE_VAL * HUGE_VAL);
-#endif				/* INFINITY */
+	return -INFINITY;
     return atof(str);
 }
 
@@ -441,7 +426,7 @@ copy_and_convert_field(StatementClass * stmt, OID field_type,
 		       SQLLEN * pIndicator)
 {
     CSTR func = "copy_and_convert_field";
-    const char *value = valuei;
+    const char *value = (const char *)valuei;
     ARDFields *opts = SC_get_ARDF(stmt);
     GetDataInfo *gdata = SC_get_GDTI(stmt);
     SQLLEN len = 0, copy_len = 0, needbuflen = 0;
@@ -922,7 +907,7 @@ copy_and_convert_field(StatementClass * stmt, OID field_type,
 #endif				/* UNICODE_SUPPORT */
 		if (PG_TYPE_BYTEA == field_type)
 		{
-		    len = convert_from_pgbinary(neut_str, NULL, 0);
+		    len = convert_from_pgbinary((const UCHAR *)neut_str, NULL, 0);
 		    len *= 2;
 		    changed = TRUE;
 		} else
@@ -978,7 +963,7 @@ copy_and_convert_field(StatementClass * stmt, OID field_type,
 		{
 		    if (needbuflen > (SQLLEN) pgdc->ttlbuflen)
 		    {
-			pgdc->ttlbuf =
+			pgdc->ttlbuf = (char *)
 			    realloc(pgdc->ttlbuf, needbuflen);
 			pgdc->ttlbuflen = needbuflen;
 		    }
@@ -993,10 +978,11 @@ copy_and_convert_field(StatementClass * stmt, OID field_type,
 		    if (PG_TYPE_BYTEA == field_type)
 		    {
 			len =
-			    convert_from_pgbinary(neut_str,
-						  pgdc->ttlbuf,
+			    convert_from_pgbinary((UCHAR *)neut_str,
+						  (UCHAR *)pgdc->ttlbuf,
 						  pgdc->ttlbuflen);
-			pg_bin2hex(pgdc->ttlbuf, pgdc->ttlbuf, len);
+			pg_bin2hex((UCHAR *)pgdc->ttlbuf,
+				   (UCHAR *)pgdc->ttlbuf, len);
 			len *= 2;
 		    } else
 #ifdef	WIN_UNICODE_SUPPORT
@@ -1498,18 +1484,19 @@ copy_and_convert_field(StatementClass * stmt, OID field_type,
 	    {
 		if (cbValueMax <= 0)
 		{
-		    len = convert_from_pgbinary(neut_str, NULL, 0);
+		    len = convert_from_pgbinary((const UCHAR *)neut_str, NULL, 0);
 		    result = COPY_RESULT_TRUNCATED;
 		    break;
 		}
 		if (len =
 		    strlen(neut_str), len >= (int) pgdc->ttlbuflen)
 		{
-		    pgdc->ttlbuf = realloc(pgdc->ttlbuf, len + 1);
+		    pgdc->ttlbuf = (char *)realloc(pgdc->ttlbuf, len + 1);
 		    pgdc->ttlbuflen = len + 1;
 		}
 		len =
-		    convert_from_pgbinary(neut_str, pgdc->ttlbuf,
+		    convert_from_pgbinary((const UCHAR *)neut_str,
+					  (UCHAR *)pgdc->ttlbuf,
 					  pgdc->ttlbuflen);
 		pgdc->ttlbufused = len;
 	    } else
@@ -1733,13 +1720,14 @@ QB_initialize(QueryBuild * qb, size_t size, StatementClass * stmt,
 	if (size > qb->str_size_limit)
 	    return -1;
 	newsize = qb->str_size_limit;
-    } else
+    }
+    else
     {
 	newsize = INIT_MIN_ALLOC;
 	while (newsize <= size)
 	    newsize *= 2;
     }
-    if ((qb->query_statement = malloc(newsize)) == NULL)
+    if ((qb->query_statement = (char *)malloc(newsize)) == NULL)
     {
 	qb->str_alsize = 0;
 	return -1;
@@ -1768,7 +1756,7 @@ QB_initialize_copy(QueryBuild * qb_to, const QueryBuild * qb_from,
 	if (size > qb_to->str_size_limit)
 	    return -1;
     }
-    if ((qb_to->query_statement = malloc(size)) == NULL)
+    if ((qb_to->query_statement = (char *)malloc(size)) == NULL)
     {
 	qb_to->str_alsize = 0;
 	return -1;
@@ -1889,7 +1877,7 @@ static ssize_t enlarge_query_statement(QueryBuild * qb, size_t newsize)
     while (newalsize <= newsize)
 	newalsize *= 2;
     if (!
-	(qb->query_statement = realloc(qb->query_statement, newalsize)))
+	(qb->query_statement = (char *)realloc(qb->query_statement, newalsize)))
     {
 	qb->str_alsize = 0;
 	if (qb->stmt)
@@ -1971,7 +1959,7 @@ do { \
 do { \
 	size_t	newlimit = qb->npos + 5 * used; \
 	ENLARGE_NEWSTATEMENT(qb, newlimit); \
-	qb->npos += convert_to_pgbinary(buf, &qb->query_statement[qb->npos], used, qb); \
+	qb->npos += convert_to_pgbinary((const UCHAR *)buf, &qb->query_statement[qb->npos], used, qb); \
 } while (0)
 
 /*----------
@@ -2247,7 +2235,7 @@ static int Prepare_and_convert(StatementClass * stmt, QueryParse * qp,
 	}
 	CVT_APPEND_CHAR(qb, ';');
 	/* build the execute statement */
-	exe_statement = malloc(30 + 2 * marker_count);
+	exe_statement = (char *)malloc(30 + 2 * marker_count);
 	sprintf(exe_statement, "EXECUTE \"%s\"", plan_name);
 	if (marker_count > 0)
 	{
@@ -2659,7 +2647,7 @@ copy_statement_with_parameters(StatementClass * stmt,
 	    }
 	}
 	npos -= qp->declare_pos;
-	stmt->load_statement = malloc(npos + 1);
+	stmt->load_statement = (char *)malloc(npos + 1);
 	memcpy(stmt->load_statement,
 	       qb->query_statement + qp->declare_pos, npos);
 	stmt->load_statement[npos] = '\0';
@@ -3318,7 +3306,7 @@ static int ResolveOneParam(QueryBuild * qb, QueryParse * qp)
     CSTR func = "ResolveOneParam";
 
     ConnectionClass *conn = qb->conn;
-    ConnInfo *ci = &(conn->connInfo);
+    // ConnInfo *ci = &(conn->connInfo);
     const APDFields *apdopts = qb->apdopts;
     const IPDFields *ipdopts = qb->ipdopts;
     PutDataInfo *pdata = qb->pdata;
@@ -3605,7 +3593,7 @@ static int ResolveOneParam(QueryBuild * qb, QueryParse * qp)
 #ifdef	WIN_UNICODE_SUPPORT
 	if (SQL_NTS == used)
 	    used = strlen(buffer);
-	allocbuf = malloc(WCLEN * (used + 1));
+	allocbuf = (char *)malloc(WCLEN * (used + 1));
 	used = MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, buffer,
 				   (int) used, (LPWSTR) allocbuf,
 				   (int) (used + 1));
@@ -3896,10 +3884,10 @@ static int ResolveOneParam(QueryBuild * qb, QueryParse * qp)
 		used = strlen(buf);
 		break;
 	    }
-	    allocbuf = malloc(used / 2 + 1);
+	    allocbuf = (char *)malloc(used / 2 + 1);
 	    if (allocbuf)
 	    {
-		pg_hex2bin(buf, allocbuf, used);
+		pg_hex2bin((const UCHAR *)buf, (UCHAR *)allocbuf, used);
 		buf = allocbuf;
 		used /= 2;
 	    }
@@ -4230,7 +4218,7 @@ static int convert_escape(QueryParse * qp, QueryBuild * qb)
 	    CVT_APPEND_STR(qb, "SELECT * FROM");
 	else
 	    CVT_APPEND_STR(qb, "SELECT");
-	if (my_strchr(conn, F_OldPtr(qp), '('))
+	if (my_strchr(conn, (const UCHAR *)F_OldPtr(qp), '('))
 	    qp->proc_no_param = FALSE;
 	return SQL_SUCCESS;
     }
@@ -4774,7 +4762,7 @@ size_t
 convert_from_pgbinary(const UCHAR * value, UCHAR * rgbValue,
 		      SQLLEN cbValueMax)
 {
-    size_t i, ilen = strlen(value);
+    size_t i, ilen = strlen((const char *)value);
     size_t o = 0;
 
 
@@ -5025,7 +5013,7 @@ convert_lo(StatementClass * stmt, const void *value, SQLSMALLINT fCType,
 	    }
 	}
 
-	oid = ATOI32U(value);
+	oid = ATOI32U((const char *)value);
 	stmt->lobj_fd = odbc_lo_open(conn, oid, INV_READ);
 	if (stmt->lobj_fd < 0)
 	{
@@ -5090,7 +5078,7 @@ convert_lo(StatementClass * stmt, const void *value, SQLSMALLINT fCType,
     }
 
     if (factor > 1)
-	pg_bin2hex((char *) rgbValue, (char *) rgbValue, retval);
+	pg_bin2hex((UCHAR *) rgbValue, (UCHAR *) rgbValue, retval);
     if (retval < left)
 	result = COPY_RESULT_TRUNCATED;
     else

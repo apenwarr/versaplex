@@ -14,6 +14,12 @@
 
 /* #define	__MS_REPORTS_ANSI_CHAR__ */
 
+#ifdef __cplusplus
+#define EXTERN_C extern "C"
+#else
+#define EXTERN_C
+#endif
+
 #ifndef WIN32
 #include "config.h"
 #else

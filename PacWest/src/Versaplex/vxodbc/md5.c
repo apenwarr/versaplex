@@ -318,7 +318,7 @@ EncryptMD5(const char *passwd, const char *salt, size_t salt_len,
 	   char *buf)
 {
     size_t passwd_len = strlen(passwd);
-    char *crypt_buf = palloc(passwd_len + salt_len);
+    char *crypt_buf = (char *)palloc(passwd_len + salt_len);
     bool ret;
 
     /*

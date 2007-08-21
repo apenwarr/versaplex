@@ -295,7 +295,7 @@ void QR_add_message(QResultClass * self, const char *msg)
 	pos = 0;
 	alsize = strlen(msg) + 1;
     }
-    message = realloc(message, alsize);
+    message = (char *)realloc(message, alsize);
     if (pos > 0)
 	message[pos - 1] = ';';
     strcpy(message + pos, msg);
@@ -327,7 +327,7 @@ void QR_add_notice(QResultClass * self, const char *msg)
 	pos = 0;
 	alsize = strlen(msg) + 1;
     }
-    message = realloc(message, alsize);
+    message = (char *)realloc(message, alsize);
     if (pos > 0)
 	message[pos - 1] = ';';
     strcpy(message + pos, msg);
@@ -357,12 +357,12 @@ TupleField *QR_AddNew(QResultClass * self)
     {
 	self->num_cached_rows = 0;
 	alloc = TUPLE_MALLOC_INC;
-	self->backend_tuples =
+	self->backend_tuples = (TupleField *)
 	    malloc(alloc * sizeof(TupleField) * num_fields);
     } else if (self->num_cached_rows >= self->count_backend_allocated)
     {
 	alloc = self->count_backend_allocated * 2;
-	self->backend_tuples =
+	self->backend_tuples = (TupleField *)
 	    realloc(self->backend_tuples,
 		    alloc * sizeof(TupleField) * num_fields);
     }

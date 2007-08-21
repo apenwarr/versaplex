@@ -27,7 +27,7 @@ void set_tuplefield_string(TupleField * tuple_field, const char *string)
     {
 	tuple_field->len = (Int4) strlen(string);	/* PG restriction */
 	tuple_field->value = malloc(strlen(string) + 1);
-	strcpy(tuple_field->value, string);
+	strcpy((char *)tuple_field->value, string);
     } else
 	set_tuplefield_null(tuple_field);
 }

@@ -45,10 +45,12 @@ RETCODE SQL_API SQLColumnsW(HSTMT StatementHandle,
 	ret = SQL_ERROR;
     else
 	ret =
-	    PGAPI_Columns(StatementHandle, ctName, (SQLSMALLINT) nmlen1,
-			  scName, (SQLSMALLINT) nmlen2, tbName,
-			  (SQLSMALLINT) nmlen3, clName,
-			  (SQLSMALLINT) nmlen4, flag, 0, 0);
+	    PGAPI_Columns(StatementHandle,
+			  (const UCHAR *)ctName, (SQLSMALLINT) nmlen1,
+			  (const UCHAR *)scName, (SQLSMALLINT) nmlen2,
+			  (const UCHAR *)tbName, (SQLSMALLINT) nmlen3,
+			  (const UCHAR *)clName, (SQLSMALLINT) nmlen4,
+			  flag, 0, 0);
     ret = DiscardStatementSvp(stmt, ret, FALSE);
     LEAVE_STMT_CS(stmt);
     if (ctName)
@@ -83,9 +85,10 @@ RETCODE SQL_API SQLConnectW(HDBC ConnectionHandle,
     svName = ucs2_to_utf8(ServerName, NameLength1, &nmlen1, FALSE);
     usName = ucs2_to_utf8(UserName, NameLength2, &nmlen2, FALSE);
     auth = ucs2_to_utf8(Authentication, NameLength3, &nmlen3, FALSE);
-    ret = PGAPI_Connect(ConnectionHandle, svName, (SQLSMALLINT) nmlen1,
-			usName, (SQLSMALLINT) nmlen2, auth,
-			(SQLSMALLINT) nmlen3);
+    ret = PGAPI_Connect(ConnectionHandle, 
+			(const UCHAR *)svName, (SQLSMALLINT) nmlen1,
+			(const UCHAR *)usName, (SQLSMALLINT) nmlen2,
+			(const UCHAR *)auth,   (SQLSMALLINT) nmlen3);
     LEAVE_CONN_CS(conn);
     if (svName)
 	free(svName);
@@ -124,12 +127,14 @@ RETCODE SQL_API SQLDriverConnectW(HDBC hdbc,
     if (maxlen > 0)
     {
 	obuflen = maxlen + 1;
-	szOut = malloc(obuflen);
+	szOut = (char *)malloc(obuflen);
 	pCSO = &olen;
     } else if (pcbConnStrOut)
 	pCSO = &olen;
-    ret = PGAPI_DriverConnect(hdbc, hwnd, szIn, (SQLSMALLINT) inlen,
-			      szOut, maxlen, pCSO, fDriverCompletion);
+    ret = PGAPI_DriverConnect(hdbc, hwnd,
+			      (const UCHAR *)szIn, (SQLSMALLINT) inlen,
+			      (UCHAR *)szOut, maxlen,
+			      pCSO, fDriverCompletion);
     if (ret != SQL_ERROR && NULL != pCSO)
     {
 	SQLLEN outlen = olen;
@@ -181,9 +186,10 @@ RETCODE SQL_API SQLBrowseConnectW(HDBC hdbc,
     CC_set_in_unicode_driver(conn);
     szIn = ucs2_to_utf8(szConnStrIn, cbConnStrIn, &inlen, FALSE);
     obuflen = cbConnStrOutMax + 1;
-    szOut = malloc(obuflen);
-    ret = PGAPI_BrowseConnect(hdbc, szIn, (SQLSMALLINT) inlen,
-			      szOut, cbConnStrOutMax, &olen);
+    szOut = (char *)malloc(obuflen);
+    ret = PGAPI_BrowseConnect(hdbc,
+			      (const UCHAR *)szIn, (SQLSMALLINT)inlen,
+			      (UCHAR *)szOut, cbConnStrOutMax, &olen);
     LEAVE_CONN_CS(conn);
     if (ret != SQL_ERROR)
     {
@@ -239,14 +245,14 @@ RETCODE SQL_API SQLDescribeColW(HSTMT StatementHandle,
     else if (NameLength)
 	buflen = 32;
     if (buflen > 0)
-	clName = malloc(buflen);
+	clName = (char *)malloc(buflen);
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
-    for (;; buflen = nmlen + 1, clName = realloc(clName, buflen))
+    for (;; buflen = nmlen + 1, clName = (char *)realloc(clName, buflen))
     {
 	ret = PGAPI_DescribeCol(StatementHandle, ColumnNumber,
-				clName, buflen, &nmlen, DataType,
+				(UCHAR *)clName, buflen, &nmlen, DataType,
 				ColumnSize, DecimalDigits, Nullable);
 	if (SQL_SUCCESS_WITH_INFO != ret || nmlen < buflen)
 	    break;
@@ -297,7 +303,8 @@ RETCODE SQL_API SQLExecDirectW(HSTMT StatementHandle,
 	ret = SQL_ERROR;
     else
 	ret =
-	    PGAPI_ExecDirect(StatementHandle, stxt, (SQLINTEGER) slen,
+	    PGAPI_ExecDirect(StatementHandle,
+			     (const UCHAR *)stxt, (SQLINTEGER)slen,
 			     flag);
     ret = DiscardStatementSvp(stmt, ret, FALSE);
     LEAVE_STMT_CS(stmt);
@@ -321,14 +328,15 @@ RETCODE SQL_API SQLGetCursorNameW(HSTMT StatementHandle,
 	buflen = BufferLength * 3;
     else
 	buflen = 32;
-    crName = malloc(buflen);
+    crName = (char *)malloc(buflen);
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
-    for (;; buflen = clen + 1, crName = realloc(crName, buflen))
+    for (;; buflen = clen + 1, crName = (char *)realloc(crName, buflen))
     {
 	ret =
-	    PGAPI_GetCursorName(StatementHandle, crName, buflen, &clen);
+	    PGAPI_GetCursorName(StatementHandle,
+				(UCHAR *)crName, buflen, &clen);
 	if (SQL_SUCCESS_WITH_INFO != ret || clen < buflen)
 	    break;
     }
@@ -396,7 +404,8 @@ RETCODE SQL_API SQLPrepareW(HSTMT StatementHandle,
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
-    ret = PGAPI_Prepare(StatementHandle, stxt, (SQLINTEGER) slen);
+    ret = PGAPI_Prepare(StatementHandle,
+			(const UCHAR *)stxt, (SQLINTEGER)slen);
     ret = DiscardStatementSvp(stmt, ret, FALSE);
     LEAVE_STMT_CS(stmt);
     if (stxt)
@@ -419,8 +428,8 @@ RETCODE SQL_API SQLSetCursorNameW(HSTMT StatementHandle,
     SC_clear_error(stmt);
     StartRollbackState(stmt);
     ret =
-	PGAPI_SetCursorName(StatementHandle, crName,
-			    (SQLSMALLINT) nlen);
+	PGAPI_SetCursorName(StatementHandle,
+			    (const UCHAR *)crName, (SQLSMALLINT)nlen);
     ret = DiscardStatementSvp(stmt, ret, FALSE);
     LEAVE_STMT_CS(stmt);
     if (crName)
@@ -461,9 +470,10 @@ RETCODE SQL_API SQLSpecialColumnsW(HSTMT StatementHandle,
     else
 	ret =
 	    PGAPI_SpecialColumns(StatementHandle, IdentifierType,
-				 ctName, (SQLSMALLINT) nmlen1, scName,
-				 (SQLSMALLINT) nmlen2, tbName,
-				 (SQLSMALLINT) nmlen3, Scope, Nullable);
+				 (const UCHAR *)ctName, (SQLSMALLINT)nmlen1,
+				 (const UCHAR *)scName, (SQLSMALLINT)nmlen2,
+				 (const UCHAR *)tbName, (SQLSMALLINT)nmlen3,
+				 Scope, Nullable);
     ret = DiscardStatementSvp(stmt, ret, FALSE);
     LEAVE_STMT_CS(stmt);
     if (ctName)
@@ -507,10 +517,11 @@ RETCODE SQL_API SQLStatisticsW(HSTMT StatementHandle,
 	ret = SQL_ERROR;
     else
 	ret =
-	    PGAPI_Statistics(StatementHandle, ctName,
-			     (SQLSMALLINT) nmlen1, scName,
-			     (SQLSMALLINT) nmlen2, tbName,
-			     (SQLSMALLINT) nmlen3, Unique, Reserved);
+	    PGAPI_Statistics(StatementHandle, 
+			     (const UCHAR *)ctName, (SQLSMALLINT)nmlen1,
+			     (const UCHAR *)scName, (SQLSMALLINT)nmlen2,
+			     (const UCHAR *)tbName, (SQLSMALLINT)nmlen3,
+			     Unique, Reserved);
     ret = DiscardStatementSvp(stmt, ret, FALSE);
     LEAVE_STMT_CS(stmt);
     if (ctName)
@@ -557,10 +568,11 @@ RETCODE SQL_API SQLTablesW(HSTMT StatementHandle,
 	ret = SQL_ERROR;
     else
 	ret =
-	    PGAPI_Tables(StatementHandle, ctName, (SQLSMALLINT) nmlen1,
-			 scName, (SQLSMALLINT) nmlen2, tbName,
-			 (SQLSMALLINT) nmlen3, tbType,
-			 (SQLSMALLINT) nmlen4, flag);
+	    PGAPI_Tables(StatementHandle, 
+			 (const UCHAR *)ctName, (SQLSMALLINT)nmlen1,
+			 (const UCHAR *)scName, (SQLSMALLINT)nmlen2,
+			 (const UCHAR *)tbName, (SQLSMALLINT)nmlen3, 
+			 (const UCHAR *)tbType, (SQLSMALLINT) nmlen4, flag);
     ret = DiscardStatementSvp(stmt, ret, FALSE);
     LEAVE_STMT_CS(stmt);
     if (ctName)
@@ -612,10 +624,11 @@ RETCODE SQL_API SQLColumnPrivilegesW(HSTMT hstmt,
 	ret = SQL_ERROR;
     else
 	ret =
-	    PGAPI_ColumnPrivileges(hstmt, ctName, (SQLSMALLINT) nmlen1,
-				   scName, (SQLSMALLINT) nmlen2, tbName,
-				   (SQLSMALLINT) nmlen3, clName,
-				   (SQLSMALLINT) nmlen4, flag);
+	    PGAPI_ColumnPrivileges(hstmt, 
+				   (const UCHAR *)ctName, (SQLSMALLINT)nmlen1,
+				   (const UCHAR *)scName, (SQLSMALLINT)nmlen2,
+				   (const UCHAR *)tbName, (SQLSMALLINT)nmlen3,
+				   (const UCHAR *)clName, (SQLSMALLINT)nmlen4, flag);
     ret = DiscardStatementSvp(stmt, ret, FALSE);
     LEAVE_STMT_CS(stmt);
     if (ctName)
@@ -674,12 +687,13 @@ RETCODE SQL_API SQLForeignKeysW(HSTMT hstmt,
     if (SC_opencheck(stmt, func))
 	ret = SQL_ERROR;
     else
-	ret = PGAPI_ForeignKeys(hstmt, ctName, (SQLSMALLINT) nmlen1,
-				scName, (SQLSMALLINT) nmlen2, tbName,
-				(SQLSMALLINT) nmlen3, fkctName,
-				(SQLSMALLINT) nmlen4, fkscName,
-				(SQLSMALLINT) nmlen5, fktbName,
-				(SQLSMALLINT) nmlen6);
+	ret = PGAPI_ForeignKeys(hstmt, 
+				(const UCHAR *)ctName, (SQLSMALLINT)nmlen1,
+				(const UCHAR *)scName, (SQLSMALLINT)nmlen2,
+				(const UCHAR *)tbName, (SQLSMALLINT)nmlen3,
+				(const UCHAR *)fkctName, (SQLSMALLINT)nmlen4,
+				(const UCHAR *)fkscName, (SQLSMALLINT)nmlen5,
+				(const UCHAR *)fktbName, (SQLSMALLINT)nmlen6);
     ret = DiscardStatementSvp(stmt, ret, FALSE);
     LEAVE_STMT_CS(stmt);
     if (ctName)
@@ -718,11 +732,11 @@ RETCODE SQL_API SQLNativeSqlW(HDBC hdbc,
     szIn = ucs2_to_utf8(szSqlStrIn, cbSqlStrIn, &slen, FALSE);
     buflen = 3 * cbSqlStrMax;
     if (buflen > 0)
-	szOut = malloc(buflen);
-    for (;; buflen = olen + 1, szOut = realloc(szOut, buflen))
+	szOut = (char *)malloc(buflen);
+    for (;; buflen = olen + 1, szOut = (char *)realloc(szOut, buflen))
     {
-	ret = PGAPI_NativeSql(hdbc, szIn, (SQLINTEGER) slen,
-			      szOut, buflen, &olen);
+	ret = PGAPI_NativeSql(hdbc, (const UCHAR *)szIn, (SQLINTEGER)slen,
+			      (UCHAR *)szOut, buflen, &olen);
 	if (SQL_SUCCESS_WITH_INFO != ret || olen < buflen)
 	    break;
     }
@@ -780,9 +794,10 @@ RETCODE SQL_API SQLPrimaryKeysW(HSTMT hstmt,
     if (SC_opencheck(stmt, func))
 	ret = SQL_ERROR;
     else
-	ret = PGAPI_PrimaryKeys(hstmt, ctName, (SQLSMALLINT) nmlen1,
-				scName, (SQLSMALLINT) nmlen2, tbName,
-				(SQLSMALLINT) nmlen3);
+	ret = PGAPI_PrimaryKeys(hstmt, 
+				(const UCHAR *)ctName, (SQLSMALLINT)nmlen1,
+				(const UCHAR *)scName, (SQLSMALLINT)nmlen2,
+				(const UCHAR *)tbName, (SQLSMALLINT)nmlen3);
     ret = DiscardStatementSvp(stmt, ret, FALSE);
     LEAVE_STMT_CS(stmt);
     if (ctName)
@@ -832,10 +847,12 @@ RETCODE SQL_API SQLProcedureColumnsW(HSTMT hstmt,
 	ret = SQL_ERROR;
     else
 	ret =
-	    PGAPI_ProcedureColumns(hstmt, ctName, (SQLSMALLINT) nmlen1,
-				   scName, (SQLSMALLINT) nmlen2, prName,
-				   (SQLSMALLINT) nmlen3, clName,
-				   (SQLSMALLINT) nmlen4, flag);
+	    PGAPI_ProcedureColumns(hstmt, 
+				   (const UCHAR *)ctName, (SQLSMALLINT)nmlen1,
+				   (const UCHAR *)scName, (SQLSMALLINT)nmlen2,
+				   (const UCHAR *)prName, (SQLSMALLINT)nmlen3,
+				   (const UCHAR *)clName, (SQLSMALLINT)nmlen4,
+				   flag);
     ret = DiscardStatementSvp(stmt, ret, FALSE);
     LEAVE_STMT_CS(stmt);
     if (ctName)
@@ -882,9 +899,11 @@ RETCODE SQL_API SQLProceduresW(HSTMT hstmt,
     if (SC_opencheck(stmt, func))
 	ret = SQL_ERROR;
     else
-	ret = PGAPI_Procedures(hstmt, ctName, (SQLSMALLINT) nmlen1,
-			       scName, (SQLSMALLINT) nmlen2, prName,
-			       (SQLSMALLINT) nmlen3, flag);
+	ret = PGAPI_Procedures(hstmt,
+			       (const UCHAR *)ctName, (SQLSMALLINT)nmlen1,
+			       (const UCHAR *)scName, (SQLSMALLINT)nmlen2,
+			       (const UCHAR *)prName, (SQLSMALLINT)nmlen3,
+			       flag);
     ret = DiscardStatementSvp(stmt, ret, FALSE);
     LEAVE_STMT_CS(stmt);
     if (ctName)
@@ -929,9 +948,11 @@ RETCODE SQL_API SQLTablePrivilegesW(HSTMT hstmt,
     if (SC_opencheck(stmt, func))
 	ret = SQL_ERROR;
     else
-	ret = PGAPI_TablePrivileges(hstmt, ctName, (SQLSMALLINT) nmlen1,
-				    scName, (SQLSMALLINT) nmlen2,
-				    tbName, (SQLSMALLINT) nmlen3, flag);
+	ret = PGAPI_TablePrivileges(hstmt,
+				    (const UCHAR *)ctName, (SQLSMALLINT)nmlen1,
+				    (const UCHAR *)scName, (SQLSMALLINT)nmlen2,
+				    (const UCHAR *)tbName, (SQLSMALLINT)nmlen3,
+				    flag);
     ret = DiscardStatementSvp(stmt, ret, FALSE);
     LEAVE_STMT_CS((StatementClass *) hstmt);
     if (ctName)

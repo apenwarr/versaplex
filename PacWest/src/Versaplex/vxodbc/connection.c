@@ -680,7 +680,7 @@ static int md5_auth_send(ConnectionClass * self, const char *salt)
     inolog("md5 pwd=%s user=%s salt=%02x%02x%02x%02x%02x\n",
 	   ci->password, ci->username, (UCHAR) salt[0], (UCHAR) salt[1],
 	   (UCHAR) salt[2], (UCHAR) salt[3], (UCHAR) salt[4]);
-    if (!(pwd1 = malloc(MD5_PASSWD_LEN + 1)))
+    if (!(pwd1 = (char *)malloc(MD5_PASSWD_LEN + 1)))
 	return 1;
     if (!EncryptMD5
 	(ci->password, ci->username, strlen(ci->username), pwd1))
@@ -688,7 +688,7 @@ static int md5_auth_send(ConnectionClass * self, const char *salt)
 	free(pwd1);
 	return 1;
     }
-    if (!(pwd2 = malloc(MD5_PASSWD_LEN + 1)))
+    if (!(pwd2 = (char *)malloc(MD5_PASSWD_LEN + 1)))
     {
 	free(pwd1);
 	return 1;
@@ -1114,7 +1114,7 @@ static int protocol3_packet_build(ConnectionClass * self)
     }
     slen++;
 
-    if (packet = malloc(slen), !packet)
+    if (packet = (char *)malloc(slen), !packet)
     {
 	CC_set_error(self, CONNECTION_SERVER_NOT_REACHED,
 		     "Could not allocate a startup packet", func);
@@ -1179,7 +1179,7 @@ static char CC_initial_log(ConnectionClass * self, const char *func)
     mylog(vermsg);
 
     if (self->original_client_encoding)
-	self->ccsc = pg_CS_code(self->original_client_encoding);
+	self->ccsc = pg_CS_code((const UCHAR *)self->original_client_encoding);
     if (self->status != CONN_NOT_CONNECTED)
     {
 	CC_set_error(self, CONN_OPENDB_ERROR, "Already connected.",
@@ -1706,8 +1706,8 @@ CC_connect(ConnectionClass * self, char password_req, char *salt_para)
 		    QR_command_maybe_successful(res))
 		{
 		    self->original_client_encoding = strdup("UNICODE");
-		    self->ccsc =
-			pg_CS_code(self->original_client_encoding);
+		    self->ccsc = 
+			pg_CS_code((const UCHAR *)self->original_client_encoding);
 		}
 		QR_Destructor(res);
 	    }
@@ -2064,7 +2064,7 @@ static BOOL is_setting_search_path(const UCHAR * query)
     {
 	if (!isspace(*query))
 	{
-	    if (strnicmp(query, "search_path", 11) == 0)
+	    if (strnicmp((const char *)query, "search_path", 11) == 0)
 		return TRUE;
 	    query++;
 	    while (*query && !isspace(*query))
@@ -2334,7 +2334,7 @@ QResultClass *CC_send_query(ConnectionClass * self, char *query,
 			if (NULL != self->current_schema &&
 			    strnicmp(cmdbuffer, "SET", 3) == 0)
 			{
-			    if (is_setting_search_path(query))
+			    if (is_setting_search_path((const UCHAR *)query))
 				reset_current_schema(self);
 			}
 		    } else
@@ -2885,7 +2885,8 @@ static char CC_setenv(ConnectionClass * self)
 
     /* Set the Datestyle to the format the driver expects it to be in */
     result =
-	PGAPI_ExecDirect(hstmt, "set DateStyle to 'ISO'", SQL_NTS, 0);
+	PGAPI_ExecDirect(hstmt, (const UCHAR *)"set DateStyle to 'ISO'",
+			 SQL_NTS, 0);
     if (!SQL_SUCCEEDED(result))
 	status = FALSE;
 
@@ -2896,7 +2897,8 @@ static char CC_setenv(ConnectionClass * self)
     if (PG_VERSION_GT(self, 7.3))
     {
 	result =
-	    PGAPI_ExecDirect(hstmt, "set extra_float_digits to 2",
+	    PGAPI_ExecDirect(hstmt,
+			     (const UCHAR *)"set extra_float_digits to 2",
 			     SQL_NTS, 0);
 	if (!SQL_SUCCEEDED(result))
 	    status = FALSE;
@@ -3046,7 +3048,7 @@ static void CC_lookup_pg_version(ConnectionClass * self)
     stmt = (StatementClass *) hstmt;
 
     /* get the server's version if possible  */
-    result = PGAPI_ExecDirect(hstmt, "select version()", SQL_NTS, 0);
+    result = PGAPI_ExecDirect(hstmt, (const UCHAR *)"select version()", SQL_NTS, 0);
     if (!SQL_SUCCEEDED(result))
     {
 	PGAPI_FreeStmt(hstmt, SQL_DROP);
@@ -3173,7 +3175,7 @@ const char *CC_get_current_schema(ConnectionClass * conn)
 	{
 	    if (QR_get_num_total_tuples(res) == 1)
 		conn->current_schema =
-		    strdup(QR_get_value_backend_text(res, 0, 0));
+		    strdup((const char *)QR_get_value_backend_text(res, 0, 0));
 	}
 	QR_Destructor(res);
     }
@@ -3184,7 +3186,7 @@ static int LIBPQ_send_cancel_request(const ConnectionClass * conn);
 int CC_send_cancel_request(const ConnectionClass * conn)
 {
     int save_errno = SOCK_ERRNO;
-    SOCKETFD tmpsock = -1;
+    SOCKETFD tmpsock = (unsigned)-1;
     struct {
 	uint32 packetlen;
 	CancelRequestPacket cp;

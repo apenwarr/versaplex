@@ -41,7 +41,7 @@ do { \
 		free((the_name).name); \
 	if (str) \
 	{ \
-		(the_name).name = malloc(n + 1); \
+		(the_name).name = (char *)malloc(n + 1); \
 		memcpy((the_name).name, str, n); \
 		(the_name).name[n] = '\0'; \
 	} \

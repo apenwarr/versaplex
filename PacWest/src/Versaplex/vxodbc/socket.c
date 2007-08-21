@@ -268,7 +268,7 @@ SOCK_connect_to(SocketClass * self, unsigned short port, char *hostname,
 	long ioctlsocket_ret = 1;
 
 	/* Returns non-0 on failure, while fcntl() returns -1 on failure */
-	ioctlsocket(self->socket, FIONBIO, &ioctlsocket_ret);
+	ioctlsocket(self->socket, FIONBIO, (u_long*)&ioctlsocket_ret);
     }
 #else
     fcntl(self->socket, F_SETFL, O_NONBLOCK);

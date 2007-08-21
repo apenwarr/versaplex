@@ -12,6 +12,7 @@
 #include "psqlodbc.h"
 #include "dlg_specific.h"
 #include "environ.h"
+#include "wvlogger.h"
 
 #ifdef WIN32
 #ifdef _WSASTARTUP_IN_DLLMAIN_
@@ -23,7 +24,7 @@ int platformId = 0;
 int exepgm = 0;
 GLOBAL_VALUES globals;
 
-RETCODE SQL_API SQLDummyOrdinal(void);
+EXTERN_C RETCODE SQL_API SQLDummyOrdinal(void);
 
 #if defined(WIN_MULTITHREAD_SUPPORT)
 extern CRITICAL_SECTION conns_cs, common_cs;
@@ -98,7 +99,7 @@ static void finalize_global_cs(void)
 #ifdef WIN32
 HINSTANCE NEAR s_hModule;	/* Saved module handle. */
 /*	This is where the Driver Manager attaches to this Driver */
-BOOL WINAPI
+EXTERN_C BOOL WINAPI
 DllMain(HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
 {
 #ifdef _WSASTARTUP_IN_DLLMAIN_
@@ -109,7 +110,7 @@ DllMain(HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH:
-	s_hModule = hInst;	/* Save for dialog boxes */
+	s_hModule = (HINSTANCE)hInst;	/* Save for dialog boxes */
 
 #ifdef	_WSASTARTUP_IN_DLLMAIN_
 	/* Load the WinSock Library */

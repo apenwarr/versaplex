@@ -119,7 +119,7 @@ enum
 
 #define CC_MALLOC_return_with_error(t, tp, s, x, m, ret) \
 do { \
-	if (t = malloc(s), NULL == t) \
+	if (t = (char *)malloc(s), NULL == t) \
 	{ \
 		CC_set_error(x, CONN_NO_MEMORY_ERROR, m, ""); \
 		return ret; \
@@ -391,7 +391,7 @@ typedef BOOL (FAR WINAPI * DriverToDataSourceProc) (UDWORD, SWORD, PTR,
 /*******	The Connection handle	************/
 struct ConnectionClass_
 {
-	HENV		henv;		/* environment this connection was
+	EnvironmentClass *henv;		/* environment this connection was
 					 * created on */
 	SQLUINTEGER	login_timeout;
 	StatementOptions stmtOptions;

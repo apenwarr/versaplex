@@ -1250,12 +1250,12 @@ RETCODE SQL_API
     return SQL_SUCCESS;
 }
 
-static char *simpleCatalogEscape(const char *src, int srclen,
+static char *simpleCatalogEscape(const void *_src, int srclen,
 				 int *result_len,
 				 const ConnectionClass * conn)
 {
     int i, outlen;
-    const char *in;
+    const char *src = (const char *)_src, *in;
     char *dest = NULL, escape_ch = CC_get_escape(conn);
     encoded_str encstr;
 
@@ -1269,7 +1269,7 @@ static char *simpleCatalogEscape(const char *src, int srclen,
 	return dest;
     mylog("simple in=%s(%d)\n", src, srclen);
     encoded_str_constr(&encstr, conn->ccsc, src);
-    dest = malloc(2 * srclen + 1);
+    dest = (char *)malloc(2 * srclen + 1);
     for (i = 0, in = src, outlen = 0; i < srclen; i++, in++)
     {
 	encoded_nextchar(&encstr);
@@ -1292,12 +1292,12 @@ static char *simpleCatalogEscape(const char *src, int srclen,
 /*
  *	PostgreSQL needs 2 '\\' to escape '_' and '%'.
  */
-static char *adjustLikePattern(const char *src, int srclen,
+static char *adjustLikePattern(const void *_src, int srclen,
 			       char escape_ch, int *result_len,
 			       const ConnectionClass * conn)
 {
     int i, outlen;
-    const char *in;
+    const char *src = (const char *)_src, *in;
     char *dest = NULL, escape_in_literal = CC_get_escape(conn);
     BOOL escape_in = FALSE;
     encoded_str encstr;
@@ -1313,7 +1313,7 @@ static char *adjustLikePattern(const char *src, int srclen,
 	return dest;
     mylog("adjust in=%s(%d)\n", src, srclen);
     encoded_str_constr(&encstr, conn->ccsc, src);
-    dest = malloc(2 * srclen + 1);
+    dest = (char *)malloc(2 * srclen + 1);
     for (i = 0, in = src, outlen = 0; i < srclen; i++, in++)
     {
 	encoded_nextchar(&encstr);
@@ -1421,7 +1421,7 @@ RETCODE SQL_API PGAPI_Tables(HSTMT hstmt, const SQLCHAR FAR * szTableQualifier,	
 	return SQL_ERROR;
     }
     tbl_stmt = (StatementClass *) htbl_stmt;
-    szSchemaName = szTableOwner;
+    szSchemaName = (const char *)szTableOwner;
     cbSchemaName = cbTableOwner;
 
 #define	return	DONT_CALL_RETURN_FROM_HERE???
@@ -1454,7 +1454,8 @@ RETCODE SQL_API PGAPI_Tables(HSTMT hstmt, const SQLCHAR FAR * szTableQualifier,	
 			  SEARCH_PATTERN_ESCAPE, NULL, conn);
     else
 	escSchemaName =
-	simpleCatalogEscape(szSchemaName, cbSchemaName, NULL, conn);
+	simpleCatalogEscape(szSchemaName,
+			    cbSchemaName, NULL, conn);
     /*
      * Create the query to find out the tables
      */
@@ -1523,7 +1524,7 @@ RETCODE SQL_API PGAPI_Tables(HSTMT hstmt, const SQLCHAR FAR * szTableQualifier,	
 	{
 	    schema_strcat1(tables_query, " and nspname %s '%.*s'",
 			   like_or_eq, escSchemaName, SQL_NTS,
-			   szTableName, cbTableName, conn);
+			   (const char *)szTableName, cbTableName, conn);
 	    /* strcat(tables_query, " and pg_catalog.pg_table_is_visible(c.oid)"); */
 	}
 	else
@@ -1647,10 +1648,11 @@ RETCODE SQL_API PGAPI_Tables(HSTMT hstmt, const SQLCHAR FAR * szTableQualifier,	
 	       " and usesysid = relowner order by relname");
     }
 
-    result = PGAPI_ExecDirect(htbl_stmt, tables_query, SQL_NTS, 0);
+    result = PGAPI_ExecDirect(tbl_stmt, (const UCHAR *)tables_query, 
+			      SQL_NTS, 0);
     if (!SQL_SUCCEEDED(result))
     {
-	SC_full_error_copy(stmt, htbl_stmt, FALSE);
+	SC_full_error_copy(stmt, tbl_stmt, FALSE);
 	goto cleanup;
     }
 
@@ -1848,7 +1850,7 @@ RETCODE SQL_API PGAPI_Tables(HSTMT hstmt, const SQLCHAR FAR * szTableQualifier,	
     }
     if (result != SQL_NO_DATA_FOUND)
     {
-	SC_full_error_copy(stmt, htbl_stmt, FALSE);
+	SC_full_error_copy(stmt, tbl_stmt, FALSE);
 	goto cleanup;
     }
     ret = SQL_SUCCESS;
@@ -1940,7 +1942,7 @@ RETCODE SQL_API PGAPI_Columns(HSTMT hstmt, const SQLCHAR FAR * szTableQualifier,
     }
     else
     {
-	szSchemaName = szTableOwner;
+	szSchemaName = (const char *)szTableOwner;
 	cbSchemaName = cbTableOwner;
 	reloid = 0;
 	attnum = 0;
@@ -1976,11 +1978,11 @@ RETCODE SQL_API PGAPI_Columns(HSTMT hstmt, const SQLCHAR FAR * szTableQualifier,
 	    free(escSchemaName);
 	if (search_pattern)
 	    escSchemaName =
-	    adjustLikePattern(szSchemaName, cbSchemaName,
+	    adjustLikePattern((const UCHAR *)szSchemaName, cbSchemaName,
 			      SEARCH_PATTERN_ESCAPE, NULL, conn);
 	else
 	    escSchemaName =
-	    simpleCatalogEscape(szSchemaName, cbSchemaName, NULL,
+	    simpleCatalogEscape((const UCHAR *)szSchemaName, cbSchemaName, NULL,
 				conn);
     }
     /*
@@ -2006,7 +2008,7 @@ RETCODE SQL_API PGAPI_Columns(HSTMT hstmt, const SQLCHAR FAR * szTableQualifier,
 			     escTableName);
 	    schema_strcat1(columns_query, " and n.nspname %s '%.*s'",
 			   like_or_eq, escSchemaName, SQL_NTS,
-			   szTableName, cbTableName, conn);
+			   (const char *)szTableName, cbTableName, conn);
 	}
 	strcat(columns_query, ") inner join pg_catalog.pg_attribute a"
 	       " on (not a.attisdropped)");
@@ -2066,7 +2068,7 @@ RETCODE SQL_API PGAPI_Columns(HSTMT hstmt, const SQLCHAR FAR * szTableQualifier,
     mylog("%s: hcol_stmt = %p, col_stmt = %p\n", func, hcol_stmt,
 	  col_stmt);
 
-    result = PGAPI_ExecDirect(hcol_stmt, columns_query, SQL_NTS, 0);
+    result = PGAPI_ExecDirect(hcol_stmt, (const UCHAR *)columns_query, SQL_NTS, 0);
     if (!SQL_SUCCEEDED(result))
     {
 	SC_full_error_copy(stmt, col_stmt, FALSE);
@@ -2352,7 +2354,7 @@ RETCODE SQL_API PGAPI_Columns(HSTMT hstmt, const SQLCHAR FAR * szTableQualifier,
 	if (len_needed > 0)
 	{
 	    mylog("len_needed=%d\n", len_needed);
-	    attdef = malloc(len_needed + 1);
+	    attdef = (char *)malloc(len_needed + 1);
 	    PGAPI_GetData(hcol_stmt, 13, internal_asis_type, attdef,
 			  len_needed + 1, &len_needed);
 	    mylog(" and the data=%s\n", attdef);
@@ -2696,7 +2698,7 @@ RETCODE SQL_API PGAPI_SpecialColumns(HSTMT hstmt, SQLUSMALLINT fColType, const S
 	internal_asis_type = INTERNAL_ASIS_TYPE;
 #endif				/* UNICODE_SUPPORT */
 
-    szSchemaName = szTableOwner;
+    szSchemaName = (const char *)szTableOwner;
     cbSchemaName = cbTableOwner;
 
     escTableName =
@@ -2713,7 +2715,7 @@ RETCODE SQL_API PGAPI_SpecialColumns(HSTMT hstmt, SQLUSMALLINT fColType, const S
     if (escSchemaName)
 	free(escSchemaName);
     escSchemaName =
-	simpleCatalogEscape(szSchemaName, cbSchemaName, NULL, conn);
+	simpleCatalogEscape((const UCHAR *)szSchemaName, cbSchemaName, NULL, conn);
     /*
      * Create the query to find out if this is a view or not...
      */
@@ -2736,8 +2738,8 @@ RETCODE SQL_API PGAPI_SpecialColumns(HSTMT hstmt, SQLUSMALLINT fColType, const S
     /* SchemaName cannot contain a string search pattern */
     if (conn->schema_support)
 	schema_strcat(columns_query, " and u.nspname = '%.*s'",
-		      escSchemaName, SQL_NTS, szTableName, cbTableName,
-		      conn);
+		      escSchemaName, SQL_NTS, (const char *)szTableName,
+		      cbTableName, conn);
     else
 	my_strcat(columns_query, " and u.usename = '%.*s'",
 		  escSchemaName, SQL_NTS);
@@ -2756,7 +2758,7 @@ RETCODE SQL_API PGAPI_SpecialColumns(HSTMT hstmt, SQLUSMALLINT fColType, const S
     mylog("%s: hcol_stmt = %p, col_stmt = %p\n", func, hcol_stmt,
 	  col_stmt);
 
-    result = PGAPI_ExecDirect(hcol_stmt, columns_query, SQL_NTS, 0);
+    result = PGAPI_ExecDirect(hcol_stmt, (const UCHAR *)columns_query, SQL_NTS, 0);
     if (!SQL_SUCCEEDED(result))
     {
 	SC_full_error_copy(stmt, col_stmt, FALSE);
@@ -3072,13 +3074,14 @@ RETCODE SQL_API PGAPI_Statistics(HSTMT hstmt, const SQLCHAR FAR * szTableQualifi
 			PG_TYPE_VARCHAR, MAX_INFO_STRING);
 
 #define	return	DONT_CALL_RETURN_FROM_HERE???
-    szSchemaName = szTableOwner;
+    szSchemaName = (const char *)szTableOwner;
     cbSchemaName = cbTableOwner;
 
     table_schemaname[0] = '\0';
     if (conn->schema_support)
 	schema_strcat(table_schemaname, "%.*s", szSchemaName,
-		      cbSchemaName, szTableName, cbTableName, conn);
+		      cbSchemaName, (const char *)szTableName,
+		      cbTableName, conn);
 
     /*
      * we need to get a list of the field names first, so we can return
@@ -3104,8 +3107,9 @@ RETCODE SQL_API PGAPI_Statistics(HSTMT hstmt, const SQLCHAR FAR * szTableQualifi
      * table_name parameter cannot contain a string search pattern.
      */
     result =
-	PGAPI_Columns(hcol_stmt, NULL, 0, table_schemaname, SQL_NTS,
-		      table_name, SQL_NTS, NULL, 0,
+	PGAPI_Columns(hcol_stmt, NULL, 0, 
+		      (const UCHAR *)table_schemaname, SQL_NTS,
+		      (const UCHAR *)table_name, SQL_NTS, NULL, 0,
 		      PODBC_NOT_SEARCH_PATTERN |
 		      PODBC_SEARCH_PUBLIC_SCHEMA, 0, 0);
     col_stmt->internal = FALSE;
@@ -3225,7 +3229,7 @@ RETCODE SQL_API PGAPI_Statistics(HSTMT hstmt, const SQLCHAR FAR * szTableQualifi
     else
 	strcat(index_query, " i.indisunique, c.relname");
 
-    result = PGAPI_ExecDirect(hindx_stmt, index_query, SQL_NTS, 0);
+    result = PGAPI_ExecDirect(hindx_stmt, (const UCHAR *)index_query, SQL_NTS, 0);
     if (!SQL_SUCCEEDED(result))
     {
 	/*
@@ -3709,7 +3713,7 @@ RETCODE SQL_API PGAPI_PrimaryKeys(HSTMT hstmt, const SQLCHAR FAR * szTableQualif
 	ret = SQL_ERROR;
 	goto cleanup;
     }
-    szSchemaName = szTableOwner;
+    szSchemaName = (const char *)szTableOwner;
     cbSchemaName = cbTableOwner;
 
 #define	return	DONT_CALL_RETURN_FROM_HERE???
@@ -3724,7 +3728,7 @@ RETCODE SQL_API PGAPI_PrimaryKeys(HSTMT hstmt, const SQLCHAR FAR * szTableQualif
     pkscm[0] = '\0';
     if (conn->schema_support)
 	schema_strcat(pkscm, "%.*s", escSchemaName, SQL_NTS,
-		      szTableName, cbTableName, conn);
+		      (const char *)szTableName, cbTableName, conn);
 
     result = PGAPI_BindCol(htbl_stmt, 1, internal_asis_type,
 			   attname, MAX_INFO_STRING, &attname_len);
@@ -3826,7 +3830,7 @@ RETCODE SQL_API PGAPI_PrimaryKeys(HSTMT hstmt, const SQLCHAR FAR * szTableQualif
 	}
 	mylog("%s: tables_query='%s'\n", func, tables_query);
 
-	result = PGAPI_ExecDirect(htbl_stmt, tables_query, SQL_NTS, 0);
+	result = PGAPI_ExecDirect(htbl_stmt, (const UCHAR *)tables_query, SQL_NTS, 0);
 	if (!SQL_SUCCEEDED(result))
 	{
 	    SC_full_error_copy(stmt, tbl_stmt, FALSE);
@@ -3889,7 +3893,7 @@ RETCODE SQL_API PGAPI_PrimaryKeys(HSTMT hstmt, const SQLCHAR FAR * szTableQualif
 
     if (result != SQL_NO_DATA_FOUND)
     {
-	SC_full_error_copy(stmt, htbl_stmt, FALSE);
+	SC_full_error_copy(stmt, tbl_stmt, FALSE);
 	ret = SQL_ERROR;
 	goto cleanup;
     }
@@ -3948,7 +3952,7 @@ static char *getClientColumnName(ConnectionClass * conn, UInt4 relid,
 
     *nameAlloced = FALSE;
     if (!conn->original_client_encoding
-	|| !isMultibyte(serverColumnName))
+	|| !isMultibyte((const UCHAR *)serverColumnName))
 	return ret;
     if (!conn->server_encoding)
     {
@@ -4168,9 +4172,9 @@ RETCODE SQL_API PGAPI_ForeignKeys(HSTMT hstmt, const SQLCHAR FAR * szPkTableQual
 	{
 	    char *escSchemaName;
 
-	    schema_strcat(schema_needed, "%.*s", szFkTableOwner,
-			  cbFkTableOwner, szFkTableName, cbFkTableName,
-			  conn);
+	    schema_strcat(schema_needed, "%.*s", (const char *)szFkTableOwner,
+			  cbFkTableOwner, (const char *)szFkTableName,
+			  cbFkTableName, conn);
 	    escSchemaName =
 		simpleCatalogEscape(schema_needed, SQL_NTS, NULL, conn);
 	    snprintf(tables_query, sizeof(tables_query),
@@ -4254,7 +4258,8 @@ RETCODE SQL_API PGAPI_ForeignKeys(HSTMT hstmt, const SQLCHAR FAR * szPkTableQual
 		     "AND (pt.tgconstrrelid=pc1.oid)) "
 		     "order by pt.tgconstrname", escFkTableName);
 
-	result = PGAPI_ExecDirect(htbl_stmt, tables_query, SQL_NTS, 0);
+	result = PGAPI_ExecDirect(htbl_stmt,
+				  (const UCHAR *)tables_query, SQL_NTS, 0);
 
 	if (!SQL_SUCCEEDED(result))
 	{
@@ -4408,8 +4413,10 @@ RETCODE SQL_API PGAPI_ForeignKeys(HSTMT hstmt, const SQLCHAR FAR * szPkTableQual
 
 	    got_pkname = FALSE;
 	    keyresult =
-		PGAPI_PrimaryKeys(hpkey_stmt, NULL, 0, schema_fetched,
-				  SQL_NTS, pk_table_fetched, SQL_NTS);
+		PGAPI_PrimaryKeys(hpkey_stmt, NULL, 0,
+				  (const UCHAR *)schema_fetched,
+				  SQL_NTS, (const UCHAR *)pk_table_fetched,
+				  SQL_NTS);
 	    if (keyresult != SQL_SUCCESS)
 	    {
 		SC_set_error(stmt, STMT_NO_MEMORY_ERROR,
@@ -4577,9 +4584,10 @@ RETCODE SQL_API PGAPI_ForeignKeys(HSTMT hstmt, const SQLCHAR FAR * szPkTableQual
 	{
 	    char *escSchemaName;
 
-	    schema_strcat(schema_needed, "%.*s", szPkTableOwner,
-			  cbPkTableOwner, szPkTableName, cbPkTableName,
-			  conn);
+	    schema_strcat(schema_needed, "%.*s", 
+			  (const char *)szPkTableOwner,
+			  cbPkTableOwner, (const char *)szPkTableName,
+			  cbPkTableName, conn);
 	    escSchemaName =
 		simpleCatalogEscape(schema_needed, SQL_NTS, NULL, conn);
 	    snprintf(tables_query, sizeof(tables_query),
@@ -4659,7 +4667,8 @@ RETCODE SQL_API PGAPI_ForeignKeys(HSTMT hstmt, const SQLCHAR FAR * szPkTableQual
 		     "	AND pp2.proname Like '%%del'"
 		     " order by pt.tgconstrname", escPkTableName);
 
-	result = PGAPI_ExecDirect(htbl_stmt, tables_query, SQL_NTS, 0);
+	result = PGAPI_ExecDirect(htbl_stmt, (const UCHAR *)tables_query,
+				  SQL_NTS, 0);
 	if (!SQL_SUCCEEDED(result))
 	{
 	    SC_error_copy(stmt, tbl_stmt, TRUE);
@@ -4792,8 +4801,10 @@ RETCODE SQL_API PGAPI_ForeignKeys(HSTMT hstmt, const SQLCHAR FAR * szPkTableQual
 	    goto cleanup;
 	}
 	keyresult =
-	    PGAPI_PrimaryKeys(hpkey_stmt, NULL, 0, schema_needed,
-			      SQL_NTS, pk_table_needed, SQL_NTS);
+	    PGAPI_PrimaryKeys(hpkey_stmt, NULL, 0,
+			      (const UCHAR *)schema_needed,
+			      SQL_NTS, (const UCHAR *)pk_table_needed,
+			      SQL_NTS);
 	if (keyresult != SQL_SUCCESS)
 	{
 	    SC_set_error(stmt, STMT_NO_MEMORY_ERROR,
@@ -4985,10 +4996,11 @@ RETCODE SQL_API PGAPI_ProcedureColumns(HSTMT hstmt, const SQLCHAR FAR * szProcQu
     char proc_query[INFO_INQUIRY_LEN];
     Int2 result_cols;
     TupleField *tuple;
-    char *schema_name, *procname;
+    const char *schema_name, *procname;
     char *escSchemaName = NULL, *escProcName = NULL;
-    char *params, *proargnames, *proargmodes, *delim = NULL;
-    char *atttypid, *attname, *column_name;
+    char *params, *delim = NULL;
+    char *atttypid, *proargnames, *proargmodes;
+    char *attname, *column_name;
     QResultClass *res, *tres;
     SQLLEN tcount;
     OID pgtype;
@@ -5171,7 +5183,7 @@ RETCODE SQL_API PGAPI_ProcedureColumns(HSTMT hstmt, const SQLCHAR FAR * szProcQu
 	atttypid = NULL;
 	if (attid_pos >= 0)
 	{
-	    atttypid = QR_get_value_backend_text(tres, i, attid_pos);
+	    atttypid = (char *)QR_get_value_backend_text(tres, i, attid_pos);
 	    mylog("atttypid=%s\n", atttypid ? atttypid : "(null)");
 	}
 	if (poid == 0 || newpoid != poid)
@@ -5182,10 +5194,10 @@ RETCODE SQL_API PGAPI_ProcedureColumns(HSTMT hstmt, const SQLCHAR FAR * szProcQu
 	    if (ext_pos >= 0)
 	    {
 		if (PG_VERSION_GE(conn, 8.0))
-		    proargnames =
+		    proargnames = (char *)
 		    QR_get_value_backend_text(tres, i, ext_pos);
 		if (PG_VERSION_GE(conn, 8.1))
-		    proargmodes =
+		    proargmodes = (char *)
 		    QR_get_value_backend_text(tres, i, ext_pos + 1);
 	    }
 	    /* RETURN_VALUE info */
@@ -5253,7 +5265,7 @@ RETCODE SQL_API PGAPI_ProcedureColumns(HSTMT hstmt, const SQLCHAR FAR * szProcQu
 			paramcount++;
 		}
 		paramcount++;
-		params =
+		params = (char *)
 		    QR_get_value_backend_text(tres, i, ext_pos + 2);
 		if ('{' == *proargmodes)
 		    proargmodes++;
@@ -5263,7 +5275,7 @@ RETCODE SQL_API PGAPI_ProcedureColumns(HSTMT hstmt, const SQLCHAR FAR * szProcQu
 	    else
 	    {
 		paramcount = QR_get_value_backend_int(tres, i, 3, NULL);
-		params = QR_get_value_backend_text(tres, i, 4);
+		params = (char *)QR_get_value_backend_text(tres, i, 4);
 	    }
 	    if (proargnames)
 	    {
@@ -5414,7 +5426,7 @@ RETCODE SQL_API PGAPI_ProcedureColumns(HSTMT hstmt, const SQLCHAR FAR * szProcQu
 	    else
 	    {
 		typid = atoi(atttypid);
-		attname =
+		attname = (char *)
 		    QR_get_value_backend_text(tres, i, attname_pos);
 	    }
 	    tuple = QR_AddNew(res);
@@ -5543,8 +5555,8 @@ RETCODE SQL_API PGAPI_Procedures(HSTMT hstmt, const SQLCHAR FAR * szProcQualifie
 	       " pg_catalog.pg_proc"
 	       " where pg_proc.pronamespace = pg_namespace.oid");
 	schema_strcat1(proc_query, " and nspname %s '%.*s'", like_or_eq,
-		       escSchemaName, SQL_NTS, szProcName, cbProcName,
-		       conn);
+		       escSchemaName, SQL_NTS,
+		       (const char *)szProcName, cbProcName, conn);
 	my_strcat1(proc_query, " and proname %s '%.*s'", like_or_eq,
 		   escProcName, SQL_NTS);
     }
@@ -5704,7 +5716,7 @@ RETCODE SQL_API PGAPI_TablePrivileges(HSTMT hstmt, const SQLCHAR FAR * szTableQu
     stmt->currTuple = -1;
     SC_set_rowset_start(stmt, -1, FALSE);
     SC_set_current_col(stmt, -1);
-    szSchemaName = szTableOwner;
+    szSchemaName = (const char *)szTableOwner;
     cbSchemaName = cbTableOwner;
 
 #define	return	DONT_CALL_RETURN_FROM_HERE???
@@ -5747,7 +5759,7 @@ RETCODE SQL_API PGAPI_TablePrivileges(HSTMT hstmt, const SQLCHAR FAR * szTableQu
 	if (escSchemaName)
 	    schema_strcat1(proc_query, " nspname %s '%.*s' and",
 			   like_or_eq, escSchemaName, SQL_NTS,
-			   szTableName, cbTableName, conn);
+			   (const char *)szTableName, cbTableName, conn);
     }
     if (escTableName)
 	snprintf_add(proc_query, sizeof(proc_query),
@@ -5857,7 +5869,7 @@ RETCODE SQL_API PGAPI_TablePrivileges(HSTMT hstmt, const SQLCHAR FAR * szTableQu
 				  IGNORE_ABORT_ON_CONN, stmt),
 		    !QR_command_maybe_successful(gres))
 		{
-		    grolist = QR_get_value_backend_text(gres, 0, 0);
+		    grolist = (char *)QR_get_value_backend_text(gres, 0, 0);
 		    if (grolist && grolist[0] == '{')
 		    {
 			for (uid = grolist + 1; *uid;)
@@ -5896,7 +5908,7 @@ RETCODE SQL_API PGAPI_TablePrivileges(HSTMT hstmt, const SQLCHAR FAR * szTableQu
 	useracl_upd(useracl, allures, owner, ALL_PRIVILIGES);
 	for (j = 0; j < usercount; j++)
 	{
-	    user = QR_get_value_backend_text(allures, j, 0);
+	    user = (char *)QR_get_value_backend_text(allures, j, 0);
 	    su = (strcmp(QR_get_value_backend_text(allures, j, 2), "t")
 		  == 0);
 	    sys = (strcmp(user, owner) == 0);

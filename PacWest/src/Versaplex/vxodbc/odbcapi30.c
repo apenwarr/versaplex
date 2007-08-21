@@ -122,7 +122,7 @@ SQLColAttribute(SQLHSTMT StatementHandle,
     ret = PGAPI_ColAttributes(StatementHandle, ColumnNumber,
 			      FieldIdentifier, CharacterAttribute,
 			      BufferLength, StringLength,
-			      NumericAttribute);
+			      (SQLINTEGER *)NumericAttribute);
     ret = DiscardStatementSvp(stmt, ret, FALSE);
     LEAVE_STMT_CS(stmt);
     return ret;
@@ -177,7 +177,7 @@ SQLFetchScroll(HSTMT StatementHandle,
     RETCODE ret = SQL_SUCCESS;
     IRDFields *irdopts = SC_get_IRDF(stmt);
     SQLUSMALLINT *rowStatusArray = irdopts->rowStatusArray;
-    SQLLEN *pcRow = irdopts->rowsFetched, bkmarkoff = 0;
+    SQLUINTEGER *pcRow = irdopts->rowsFetched, bkmarkoff = 0;
     mylog("Start\n");
 
     mylog("%d,%d\n", FetchOrientation, FetchOffset);

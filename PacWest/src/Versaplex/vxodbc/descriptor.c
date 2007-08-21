@@ -354,7 +354,7 @@ static void ARDFields_copy(const ARDFields * src, ARDFields * target)
     {
 	int i;
 
-	target->bindings =
+	target->bindings = (BindInfoClass *)
 	    malloc(target->allocated * sizeof(BindInfoClass));
 	for (i = 0; i < target->allocated; i++)
 	    BindInfoClass_copy(&src->bindings[i], &target->bindings[i]);
@@ -371,7 +371,8 @@ static void APDFields_copy(const APDFields * src, APDFields * target)
     memcpy(target, src, sizeof(APDFields));
     if (src->bookmark)
     {
-	target->bookmark = malloc(sizeof(BindInfoClass));
+	target->bookmark = (ParameterInfoClass *)
+	    malloc(sizeof(ParameterInfoClass));
 	ParameterInfoClass_copy(src->bookmark, target->bookmark);
     }
     if (src->allocated <= 0)
@@ -382,7 +383,7 @@ static void APDFields_copy(const APDFields * src, APDFields * target)
     {
 	int i;
 
-	target->parameters =
+	target->parameters = (ParameterInfoClass *)
 	    malloc(target->allocated * sizeof(ParameterInfoClass));
 	for (i = 0; i < target->allocated; i++)
 	    ParameterInfoClass_copy(&src->parameters[i],

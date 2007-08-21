@@ -2,7 +2,6 @@
  * Description:	This module contains miscellaneous routines
  *		such as for debugging/logging and string functions.
  */
-
 #include "psqlodbc.h"
 
 #include <stdio.h>
@@ -16,8 +15,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #else
-#include <process.h>		/* Byron: is this where Windows keeps def.
-				 * of getpid ? */
+#include <process.h>
 #endif
 #include "connection.h"
 #include "multibyte.h"
@@ -96,9 +94,10 @@ char *strncpy_null(char *dst, const char *src, ssize_t len)
  *		2. If buf is not supplied, malloc space and return this string
  *------
  */
-char *make_string(const char *s, ssize_t len, char *buf, size_t bufsize)
+char *make_string(const unsigned char *_s, ssize_t len, char *buf, size_t bufsize)
 {
     size_t length;
+    const char *s = (const char *)_s;
     char *str;
 
     if (!s || SQL_NULL_DATA == len)
@@ -119,7 +118,7 @@ char *make_string(const char *s, ssize_t len, char *buf, size_t bufsize)
     }
 
     inolog("malloc size=%d\n", length);
-    str = malloc(length + 1);
+    str = (char *)malloc(length + 1);
     inolog("str=%p\n", str);
     if (!str)
 	return NULL;
@@ -134,9 +133,10 @@ char *make_string(const char *s, ssize_t len, char *buf, size_t bufsize)
  *	The SQL_NTS length is considered.
  *------
  */
-char *make_lstring_ifneeded(ConnectionClass * conn, const char *s,
+char *make_lstring_ifneeded(ConnectionClass * conn, const void *_s,
 			    ssize_t len, BOOL ifallupper)
 {
+    const char *s = (const char *)_s;
     ssize_t length = len;
     char *str = NULL;
 
@@ -165,7 +165,7 @@ char *make_lstring_ifneeded(ConnectionClass * conn, const char *s,
 	    {
 		if (!str)
 		{
-		    str = malloc(length + 1);
+		    str = (char *)malloc(length + 1);
 		    memcpy(str, s, length);
 		    str[length] = '\0';
 		}

@@ -142,6 +142,10 @@ void CI_free_memory(ColumnInfoClass * self)
 }
 
 
+#ifdef __cplusplus
+typedef ColumnInfoClass_::srvr_info  srvr_info;
+#endif
+
 void
 CI_set_num_fields(ColumnInfoClass * self, int new_num_fields,
 		  BOOL allocrelatt)
@@ -150,9 +154,8 @@ CI_set_num_fields(ColumnInfoClass * self, int new_num_fields,
 
     self->num_fields = new_num_fields;
 
-    self->coli_array =
-	(struct srvr_info *) calloc(sizeof(struct srvr_info),
-				    self->num_fields);
+    self->coli_array = (srvr_info *)
+	calloc(sizeof(srvr_info), self->num_fields);
 }
 
 

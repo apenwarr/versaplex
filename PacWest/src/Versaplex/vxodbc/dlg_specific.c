@@ -251,7 +251,7 @@ void getDSNinfo(ConnInfo * ci, char overwrite)
 
     if (get_qlog())
     {
-	UCHAR *enc = check_client_encoding(ci->conn_settings);
+	UCHAR *enc = check_client_encoding((const UCHAR *)ci->conn_settings);
 
 	qlog("          conn_settings='%s',conn_encoding='%s'\n",
 	     ci->conn_settings, enc ? enc : (UCHAR*)"(null)");

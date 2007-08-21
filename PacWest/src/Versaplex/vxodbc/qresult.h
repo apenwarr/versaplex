@@ -1,11 +1,3 @@
-/* File:			qresult.h
- *
- * Description:		See "qresult.c"
- *
- * Comments:		See "notice.txt" for copyright and license information.
- *
- */
-
 #ifndef __QRESULT_H__
 #define __QRESULT_H__
 
@@ -127,8 +119,8 @@ enum {
 /*	These functions are for retrieving data from the qresult */
 #define QR_get_value_backend(self, fieldno)	(self->tupleField[fieldno].value)
 #define QR_get_value_backend_row(self, tupleno, fieldno) ((self->backend_tuples + (tupleno * self->num_fields))[fieldno].value)
-#define QR_get_value_backend_text(self, tupleno, fieldno) QR_get_value_backend_row(self, tupleno, fieldno)
-#define QR_get_value_backend_int(self, tupleno, fieldno, isNull) atoi(QR_get_value_backend_row(self, tupleno, fieldno))
+#define QR_get_value_backend_text(self, tupleno, fieldno) ((const char *)QR_get_value_backend_row(self, tupleno, fieldno))
+#define QR_get_value_backend_int(self, tupleno, fieldno, isNull) atoi((const char *)QR_get_value_backend_row(self, tupleno, fieldno))
 
 /*	These functions are used by both manual and backend results */
 #define QR_NumResultCols(self)		(CI_get_num_fields(self->fields))

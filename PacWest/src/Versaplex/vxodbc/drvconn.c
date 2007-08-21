@@ -56,9 +56,15 @@ static void dconn_get_common_attributes(const SQLCHAR FAR *
 					connect_string, ConnInfo * ci);
 
 #ifdef WIN32
-BOOL CALLBACK dconn_FDriverConnectProc(HWND hdlg, UINT wMsg,
-					  WPARAM wParam, LPARAM lParam);
-RETCODE dconn_DoDialog(HWND hwnd, ConnInfo * ci);
+#ifdef __cplusplus
+extern "C" {
+#endif
+    BOOL CALLBACK dconn_FDriverConnectProc(HWND hdlg, UINT wMsg,
+					   WPARAM wParam, LPARAM lParam);
+    RETCODE dconn_DoDialog(HWND hwnd, ConnInfo* ci);
+#ifdef __cplusplus
+}
+#endif
 
 extern HINSTANCE NEAR s_hModule;	/* Saved module handle. */
 #endif
@@ -124,7 +130,7 @@ PGAPI_DriverConnect(HDBC hdbc,
     ci = &(conn->connInfo);
 
     /* Parse the connect string and fill in conninfo for this hdbc. */
-    dconn_get_connect_attributes(connStrIn, ci);
+    dconn_get_connect_attributes((const UCHAR *)connStrIn, ci);
 
     /*
      * If the ConnInfo in the hdbc is missing anything, this function will
@@ -132,7 +138,7 @@ PGAPI_DriverConnect(HDBC hdbc,
      * given -- if not, it does nothing!)
      */
     getDSNinfo(ci, CONN_DONT_OVERWRITE);
-    dconn_get_common_attributes(connStrIn, ci);
+    dconn_get_common_attributes((const UCHAR *)connStrIn, ci);
     logs_on_off(1, TRUE, TRUE);
     if (connStrIn)
     {
@@ -268,7 +274,7 @@ PGAPI_DriverConnect(HDBC hdbc,
 	 * anyway.
 	 */
 	/*strncpy_null(szConnStrOut, connStrOut, cbConnStrOutMax); */
-	strncpy(szConnStrOut, connStrOut, cbConnStrOutMax);
+	strncpy((char *)szConnStrOut, connStrOut, cbConnStrOutMax);
 
 	if (len >= cbConnStrOutMax)
 	{
@@ -301,7 +307,7 @@ PGAPI_DriverConnect(HDBC hdbc,
 	char *hide_str = NULL;
 
 	if (cbConnStrOutMax > 0)
-	    hide_str = hide_password(szConnStrOut);
+	    hide_str = hide_password((const char *)szConnStrOut);
 	mylog("szConnStrOut = '%s' len=%d,%d\n", NULL_IF_NULL(hide_str),
 	      len, cbConnStrOutMax);
 	qlog("conn=%p, PGAPI_DriverConnect(out)='%s'\n", conn,
@@ -411,7 +417,7 @@ static void dconn_get_attributes(copyfunc func,
     char *last;
 #endif				/* HAVE_STRTOK_R */
 
-    our_connect_string = strdup(connect_string);
+    our_connect_string = strdup((const char *)connect_string);
     strtok_arg = our_connect_string;
 
 #ifdef	FORCE_PASSWORD_DISPLAY

@@ -1664,7 +1664,7 @@ RETCODE SC_fetch(StatementClass * self)
 	    mylog("type = %d\n", type);
 
 	    if (SC_is_fetchcursor(self))
-		value = QR_get_value_backend(res, lf);
+		value = QR_get_value_backend((char *)res, lf);
 	    else
 	    {
 		SQLLEN curt = GIdx2CacheIdx(self->currTuple, self, res);
@@ -1672,7 +1672,7 @@ RETCODE SC_fetch(StatementClass * self)
 		       QR_get_rowstart_in_cache(res), self->currTuple,
 		       SC_get_rowset_start(self));
 		inolog("curt=%d\n", curt);
-		value = QR_get_value_backend_row(res, curt, lf);
+		value = (char *)QR_get_value_backend_row(res, curt, lf);
 	    }
 
 	    mylog("value = '%s'\n", (value == NULL) ? "<NULL>" : value);
@@ -1948,7 +1948,7 @@ RETCODE SC_execute(StatementClass * self)
     SC_forget_unnamed(self);
 
     if (CONN_DOWN != conn->status)
-	conn->status = oldstatus;
+	conn->status = (CONN_Status)oldstatus;
     self->status = STMT_FINISHED;
     LEAVE_INNER_CONN_CS(func_cs_count, conn);
 
@@ -2095,7 +2095,7 @@ RETCODE SC_execute(StatementClass * self)
 	HSTMT hstmt = (HSTMT) self;
 
 	self->bind_row = 0;
-	ret = SC_fetch(hstmt);
+	ret = SC_fetch((StatementClass*)hstmt);
 	inolog("!!SC_fetch return =%d\n", ret);
 	if (SQL_SUCCEEDED(ret))
 	{
@@ -2150,7 +2150,7 @@ RETCODE SC_execute(StatementClass * self)
     SC_SetExecuting(self, FALSE);
     CLEANUP_FUNC_CONN_CS(func_cs_count, conn);
     if (CONN_DOWN != conn->status)
-	conn->status = oldstatus;
+	conn->status = (CONN_Status)oldstatus;
     /* self->status = STMT_FINISHED; */
     if (SC_get_errornumber(self) == STMT_OK)
 	return SQL_SUCCESS;

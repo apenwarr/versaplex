@@ -377,7 +377,7 @@ PGAPI_DescribeCol(HSTMT hstmt,
 
     if (szColName && cbColNameMax > 0)
     {
-	strncpy_null(szColName, col_name, cbColNameMax);
+	strncpy_null((char *)szColName, col_name, cbColNameMax);
 
 	if (len >= cbColNameMax)
 	{
@@ -1278,7 +1278,7 @@ SQLLEN getNthValid(const QResultClass * res, SQLLEN sta,
     count = 0;
     if (QR_get_cursor(res))
     {
-	SQLLEN *deleted = res->deleted;
+	SQLLEN *deleted = (SQLLEN *)res->deleted;
 
 	*nearest = sta - 1 + nth;
 	if (SQL_FETCH_PRIOR == orientation)
@@ -2035,10 +2035,10 @@ static void getTid(const QResultClass * res, SQLLEN index,
 static void KeySetSet(const TupleField * tuple, int num_fields,
 		      int num_key_fields, KeySet * keyset)
 {
-    sscanf(tuple[num_fields - num_key_fields].value, "(%u,%hu)",
+    sscanf((const char *)tuple[num_fields - num_key_fields].value, "(%u,%hu)",
 	   &keyset->blocknum, &keyset->offset);
     if (num_key_fields > 1)
-	sscanf(tuple[num_fields - 1].value, "%u", &keyset->oid);
+	sscanf((const char *)tuple[num_fields - 1].value, "%u", &keyset->oid);
     else
 	keyset->oid = 0;
 }
@@ -2063,14 +2063,14 @@ static void AddRollback(StatementClass * stmt, QResultClass * res,
     {
 	res->rb_count = 0;
 	res->rb_alloc = 10;
-	rollback = res->rollback =
+	rollback = res->rollback = (Rollback *)
 	    malloc(sizeof(Rollback) * res->rb_alloc);
     } else
     {
 	if (res->rb_count >= res->rb_alloc)
 	{
 	    res->rb_alloc *= 2;
-	    if (rollback =
+	    if (rollback = (Rollback *)
 		realloc(res->rollback,
 			sizeof(Rollback) * res->rb_alloc), !rollback)
 	    {
@@ -2130,7 +2130,7 @@ SQLLEN ReplaceCachedRows(TupleField * otuple, const TupleField * ituple,
 	}
 	if (ituple->value)
 	{
-	    otuple->value = strdup(ituple->value);
+	    otuple->value = strdup((const char *)ituple->value);
 	    inolog("[%d,%d] %s copied\n", i / num_fields,
 		   i % num_fields, otuple->value);
 	}
@@ -2211,7 +2211,7 @@ static BOOL enlargeAdded(QResultClass * res, UInt4 number,
 
     if (alloc <= res->ad_alloc)
 	return TRUE;
-    if (added_keyset =
+    if (added_keyset = (KeySet *)
 	realloc(res->added_keyset, sizeof(KeySet) * alloc),
 	!added_keyset)
     {
@@ -2220,7 +2220,7 @@ static BOOL enlargeAdded(QResultClass * res, UInt4 number,
     }
     added_tuples = res->added_tuples;
     if (SQL_CURSOR_KEYSET_DRIVEN != stmt->options.cursor_type)
-	if (added_tuples =
+	if (added_tuples = (TupleField *)
 	    realloc(res->added_tuples,
 		    sizeof(TupleField) * num_fields * alloc),
 	    !added_tuples)
@@ -2544,7 +2544,7 @@ static BOOL enlargeUpdated(QResultClass * res, Int4 number,
     if (alloc <= res->up_alloc)
 	return TRUE;
 
-    if (updated =
+    if (updated = (SQLUINTEGER *)
 	realloc(res->updated, sizeof(UInt4) * alloc), !updated)
     {
 	if (res->updated_keyset)
@@ -2555,7 +2555,7 @@ static BOOL enlargeUpdated(QResultClass * res, Int4 number,
 	res->up_alloc = 0;
 	return FALSE;
     }
-    if (updated_keyset =
+    if (updated_keyset = (KeySet *)
 	realloc(res->updated_keyset, sizeof(KeySet) * alloc),
 	!updated_keyset)
     {
@@ -2565,7 +2565,7 @@ static BOOL enlargeUpdated(QResultClass * res, Int4 number,
 	return FALSE;
     }
     if (SQL_CURSOR_KEYSET_DRIVEN != stmt->options.cursor_type)
-	if (updated_tuples =
+	if (updated_tuples = (TupleField *)
 	    realloc(res->updated_tuples,
 		    sizeof(TupleField) * res->num_fields * alloc),
 	    !updated_tuples)
@@ -3096,7 +3096,7 @@ static QResultClass *positioned_load(StatementClass * stmt, UInt4 flag,
 	len += 50;
     else
 	len += 20;
-    selstr = malloc(len);
+    selstr = (char *)malloc(len);
     if (tidval)
     {
 	if (latest)
@@ -3243,7 +3243,7 @@ SC_pos_reload_with_tid(StatementClass * stmt, SQLULEN global_ridx,
 		if (SQL_CURSOR_KEYSET_DRIVEN ==
 		    stmt->options.cursor_type
 		    &&
-		    strcmp(tuple_new
+		    strcmp((const char *)tuple_new
 			   [qres->num_fields -
 			    res->num_key_fields].value, tidval))
 		    res->keyset[kres_ridx].status |= SQL_ROW_UPDATED;
@@ -3540,7 +3540,7 @@ SC_pos_reload_needed(StatementClass * stmt, SQLULEN req_size,
 	brows = GIdx2RowIdx(limitrow, stmt);
 	if (brows > res->count_backend_allocated)
 	{
-	    res->backend_tuples =
+	    res->backend_tuples = (TupleField *)
 		realloc(res->backend_tuples,
 			sizeof(TupleField) * res->num_fields * brows);
 	    res->count_backend_allocated = brows;
@@ -4017,7 +4017,7 @@ SC_pos_update(StatementClass * stmt,
 	}
 	s.qstmt->exec_start_row = s.qstmt->exec_end_row = s.irow;
 	s.updyes = TRUE;
-	ret = PGAPI_ExecDirect(hstmt, updstr, SQL_NTS, 0);
+	ret = PGAPI_ExecDirect(hstmt, (const UCHAR *)updstr, SQL_NTS, 0);
 	if (ret == SQL_NEED_DATA)
 	{
 	    pup_cdata *cbdata = (pup_cdata *) malloc(sizeof(pup_cdata));
@@ -4443,7 +4443,7 @@ RETCODE SC_pos_add(StatementClass * stmt, SQLSETPOSIROW irow)
 	mylog("addstr=%s\n", addstr);
 	s.qstmt->exec_start_row = s.qstmt->exec_end_row = s.irow;
 	s.updyes = TRUE;
-	ret = PGAPI_ExecDirect(hstmt, addstr, SQL_NTS, 0);
+	ret = PGAPI_ExecDirect(hstmt, (const UCHAR *)addstr, SQL_NTS, 0);
 	if (ret == SQL_NEED_DATA)
 	{
 	    padd_cdata *cbdata =
@@ -4841,7 +4841,7 @@ PGAPI_GetCursorName(HSTMT hstmt,
 
     if (szCursor)
     {
-	strncpy_null(szCursor, SC_cursor_name(stmt), cbCursorMax);
+	strncpy_null((char *)szCursor, SC_cursor_name(stmt), cbCursorMax);
 
 	if (len >= cbCursorMax)
 	{

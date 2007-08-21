@@ -77,7 +77,7 @@ int pg_CS_code(const UCHAR * characterset_string)
 
     for (i = 0; CS_Table[i].code != OTHER; i++)
     {
-	if (0 == stricmp(characterset_string, CS_Table[i].name))
+	if (0 == stricmp((const char *)characterset_string, CS_Table[i].name))
 	{
 	    c = CS_Table[i].code;
 	    break;
@@ -87,7 +87,7 @@ int pg_CS_code(const UCHAR * characterset_string)
     {
 	for (i = 0; CS_Alias[i].code != OTHER; i++)
 	{
-	    if (0 == stricmp(characterset_string, CS_Alias[i].name))
+	    if (0 == stricmp((const char *)characterset_string, CS_Alias[i].name))
 	    {
 		c = CS_Alias[i].code;
 		break;
@@ -128,7 +128,7 @@ UCHAR *check_client_encoding(const UCHAR * conn_settings)
 	switch (step)
 	{
 	case 0:
-	    if (0 != strnicmp(cptr, "set", 3))
+	    if (0 != strnicmp((const char *)cptr, "set", 3))
 	    {
 		allowed_cmd = FALSE;
 		continue;
@@ -137,7 +137,7 @@ UCHAR *check_client_encoding(const UCHAR * conn_settings)
 	    cptr += 3;
 	    break;
 	case 1:
-	    if (0 != strnicmp(cptr, "client_encoding", 15))
+	    if (0 != strnicmp((const char *)cptr, "client_encoding", 15))
 	    {
 		allowed_cmd = FALSE;
 		continue;
@@ -146,7 +146,7 @@ UCHAR *check_client_encoding(const UCHAR * conn_settings)
 	    cptr += 15;
 	    break;
 	case 2:
-	    if (0 != strnicmp(cptr, "to", 2))
+	    if (0 != strnicmp((const char *)cptr, "to", 2))
 	    {
 		allowed_cmd = FALSE;
 		continue;
@@ -171,7 +171,7 @@ UCHAR *check_client_encoding(const UCHAR * conn_settings)
     }
     if (!sptr)
 	return NULL;
-    rptr = malloc(len + 1);
+    rptr = (UCHAR *)malloc(len + 1);
     memcpy(rptr, sptr, len);
     rptr[len] = '\0';
     mylog("extracted a client_encoding '%s' from conn_settings\n",
@@ -185,12 +185,12 @@ const UCHAR *pg_CS_name(int characterset_code)
     for (i = 0; CS_Table[i].code != OTHER; i++)
     {
 	if (CS_Table[i].code == characterset_code)
-	    return CS_Table[i].name;
+	    return (const UCHAR *)CS_Table[i].name;
     }
-    return (OTHER_STRING);
+    return (const UCHAR *)(OTHER_STRING);
 }
 
-static int pg_mb_maxlen(characterset_code)
+static int pg_mb_maxlen(int characterset_code)
 {
     switch (characterset_code)
     {
@@ -433,13 +433,15 @@ static char *CC_lookup_cs_old(ConnectionClass * self)
 	return encstr;
 
     result =
-	PGAPI_ExecDirect(hstmt, "Show Client_Encoding", SQL_NTS, 0);
+	PGAPI_ExecDirect(hstmt, (const UCHAR *)"Show Client_Encoding",
+			 SQL_NTS, 0);
     if (result == SQL_SUCCESS_WITH_INFO)
     {
 	char sqlState[8], errormsg[128], enc[32];
 
-	if (PGAPI_Error(NULL, NULL, hstmt, sqlState, NULL, errormsg,
-			sizeof(errormsg), NULL) == SQL_SUCCESS &&
+	if (PGAPI_Error(NULL, NULL, hstmt, (UCHAR *)sqlState,
+			NULL, (UCHAR *)errormsg, sizeof(errormsg), NULL)
+	    == SQL_SUCCESS &&
 	    sscanf(errormsg, "%*s %*s %*s %*s %*s %s", enc) > 0)
 	    encstr = strdup(enc);
     }
@@ -596,7 +598,7 @@ void CC_lookup_characterset(ConnectionClass * self)
 	self->original_client_encoding = tencstr;
 	if (encspec && currenc)
 	    free(currenc);
-	self->ccsc = pg_CS_code(tencstr);
+	self->ccsc = pg_CS_code((const UCHAR *)tencstr);
 	qlog("    [ Client encoding = '%s' (code = %d) ]\n",
 	     self->original_client_encoding, self->ccsc);
 	if (self->ccsc < 0)
@@ -619,7 +621,7 @@ void CC_lookup_characterset(ConnectionClass * self)
 void encoded_str_constr(encoded_str * encstr, int ccsc, const char *str)
 {
     encstr->ccsc = ccsc;
-    encstr->encstr = str;
+    encstr->encstr = (const UCHAR *)str;
     encstr->pos = -1;
     encstr->ccst = 0;
 }

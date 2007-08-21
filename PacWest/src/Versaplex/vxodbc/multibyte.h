@@ -75,7 +75,7 @@ extern const UCHAR *pg_CS_name(int code);
 
 typedef struct pg_CS
 {
-	UCHAR *name;
+	const char *name;
 	int code;
 }pg_CS;
 extern size_t	pg_mbslen(int ccsc, const UCHAR *string);
