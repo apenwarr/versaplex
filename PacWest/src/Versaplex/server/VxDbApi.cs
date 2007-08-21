@@ -365,6 +365,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             coltypes_str[i] = coltypes[i].ToString();
         }
 
+        // FIXME: Add com.versabanq.versaplex.toomuchdata error
         MessageWriter writer =
                 new MessageWriter(Connection.NativeEndianness);
         writer.Write(typeof(string[]), colnames);
@@ -377,6 +378,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 
         reply = VxDbus.CreateReply(call, "asasvaay", writer);
 
+        // For debugging
         reply.WriteHeader();
         VxDbus.MessageDump(reply);
     }
