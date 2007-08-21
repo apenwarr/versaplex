@@ -41,10 +41,7 @@ public static class VxDbus {
         reply.Header.MessageType = MessageType.MethodReturn;
         reply.Header.Flags =
             HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
-        reply.Header.Fields[FieldCode.ReplySerial] = call.Header.Serial;
-
-        object sender;
-        if (call.Header.Fields.TryGetValue(FieldCode.Sender, out sender))
+        reply.Header.Fields[FieldCode.ReplySerial] = call.Header.Serial; object sender; if (call.Header.Fields.TryGetValue(FieldCode.Sender, out sender))
             reply.Header.Fields[FieldCode.Destination] = sender;
 
         if (signature != null && signature != "") {
@@ -53,6 +50,99 @@ public static class VxDbus {
         }
 
         return reply;
+    }
+
+    public static void MessageDump(Message msg)
+    {
+        Header hdr = msg.Header;
+
+        Console.WriteLine("Message dump:");
+        Console.WriteLine(" endianness {0}", hdr.Endianness);
+        Console.WriteLine(" type {0}", hdr.MessageType);
+        Console.WriteLine(" flags {0}", hdr.Flags);
+        Console.WriteLine(" version {0}", hdr.MajorVersion);
+        Console.WriteLine(" body length {0}", hdr.Length);
+        Console.WriteLine(" serial {0}", hdr.Serial);
+        Console.WriteLine(" Fields");
+
+        foreach (KeyValuePair<FieldCode,object> kvp in hdr.Fields) {
+            Console.WriteLine("  - {0}: {1}", kvp.Key, kvp.Value);
+        }
+
+        int hdrlen = 0;
+        if (msg.HeaderData != null) {
+            Console.WriteLine("Header data:");
+            HexDump(msg.HeaderData);
+            hdrlen = msg.HeaderData.Length;
+        } else {
+            Console.WriteLine("No header data encoded");
+        }
+
+        if (msg.Body != null) {
+            Console.WriteLine("Body data:");
+            HexDump(msg.Body, hdrlen);
+        } else {
+            Console.WriteLine("No header data encoded");
+        }
+    }
+
+    public static void HexDump(byte[] data)
+    {
+        HexDump(data, 0);
+    }
+
+    public static void HexDump(byte[] data, int startoffset)
+    {
+        // This is overly complicated so that the body and header can be printed
+        // separately yet still show the proper alignment
+ 
+        int rowoffset = startoffset & (~0xf);
+        int coloffset = startoffset & 0xf;
+
+        int cnt = rowoffset;
+        for (int i=0; i < data.Length; cnt += 16) {
+            Console.Write("{0} ", cnt.ToString("x4"));
+
+            int co=0;
+            if (coloffset > 0 && i == 0) {
+                for (int j=0; j < coloffset; j++)
+                    Console.Write("   ");
+
+                co=coloffset;
+            }
+
+            // Print out the hex digits
+            for (int j=0; j < 8-co && i+j < data.Length; j++)
+                Console.Write("{0} ", data[i+j].ToString("x2"));
+
+            Console.Write(" ");
+
+            for (int j=8-co; j < 16-co && i+j < data.Length; j++)
+                Console.Write("{0} ", data[i+j].ToString("x2"));
+
+            // extra space if incomplete line
+            if (i + 16-co > data.Length) {
+                for (int j = data.Length - i; j < 16-co; j++)
+                    Console.Write("   ");
+            }
+
+            if (co > 0) {
+                for (int j=0; j < co; j++)
+                    Console.Write(" ");
+            }
+
+            for (int j=0; j < 16-co && i+j < data.Length; j++) {
+                if (31 < data[i+j] && data[i+j] < 127) {
+                    Console.Write((char)data[i+j]);
+                } else {
+                    Console.Write('.');
+                }
+            }
+
+            Console.WriteLine("");
+
+            i += 16-co;
+        }
     }
 }
 
@@ -184,21 +274,6 @@ public struct VxDbusDateTime {
 
     private static readonly DateTime Epoch = new DateTime(1970, 1, 1);
     private static readonly TimeSpan EpochOffset = DateTime.MinValue - Epoch;
-}
-
-public struct VxDbusDbResult {
-    private bool nullity;
-    private object data;
-
-    public bool Nullity {
-        get { return nullity; }
-        set { nullity = value; }
-    }
-
-    public object Data {
-        get { return data; }
-        set { data = value; }
-    }
 }
 
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using System.Data;
 using System.Data.SqlClient;
 using System.Runtime.Serialization;
@@ -51,8 +52,8 @@ public static class VxDb {
     }
 
     public static void ExecRecordset(string query,
-            out string[] colnames, out string[] coltypes_str,
-            out VxDbusDbResult[][] data)
+            out string[] colnames, out VxColumnType[] coltypes,
+            out object[][] data, out byte[][] nullity)
     {
         Console.WriteLine("ExecRecordset " + query);
 
@@ -63,84 +64,92 @@ public static class VxDb {
             using (SqlCommand cmd = new SqlCommand(query, conn))
             using (SqlDataReader reader = cmd.ExecuteReader()) {
                 if (reader.FieldCount <= 0) {
-                    colnames = null;
-                    coltypes_str = null;
-                    data = null;
-                    return;
+                    throw new VxBadSchema("No columns in record set");
                 }
 
-                VxColumnType[] coltypes;
                 ProcessSchema(reader, out colnames, out coltypes);
 
-                coltypes_str = new string[coltypes.Length];
-                for (int i=0; i < coltypes.Length; i++) {
-                    coltypes_str[i] = coltypes[i].ToString();
-                }
-
-                List<VxDbusDbResult[]> rows = new List<VxDbusDbResult[]>();
+                List<object[]> rows = new List<object[]>();
+                List<byte[]> rownulls = new List<byte[]>();
 
                 while (reader.Read()) {
-                    VxDbusDbResult[] row
-                        = new VxDbusDbResult[reader.FieldCount];
+                    object[] row = new object[reader.FieldCount];
+                    byte[] rownull = new byte[reader.FieldCount];
 
                     for (int i = 0; i < reader.FieldCount; i++) {
-                        if (reader.IsDBNull(i)) {
-                            row[i].Nullity = true;
-                            row[i].Data = (byte)0;
-                            continue;
-                        }
+                        bool isnull = reader.IsDBNull(i);
 
-                        row[i].Nullity = false;
+                        row[i] = null;
+
+                        rownull[i] = isnull ? (byte)1 : (byte)0;
 
                         switch (coltypes[i]) {
                             case VxColumnType.Int64:
-                                row[i].Data = reader.GetInt64(i);
+                                row[i] = !isnull ?
+                                    reader.GetInt64(i) : new Int64();
                                 break;
                             case VxColumnType.Int32:
-                                row[i].Data = reader.GetInt32(i);
+                                row[i] = !isnull ?
+                                    reader.GetInt32(i) : new Int32();
                                 break;
                             case VxColumnType.Int16:
-                                row[i].Data = reader.GetInt16(i);
+                                row[i] = !isnull ?
+                                    reader.GetInt16(i) : new Int16();
                                 break;
                             case VxColumnType.UInt8:
-                                row[i].Data = reader.GetByte(i);
+                                row[i] = !isnull ?
+                                    reader.GetByte(i) : new Byte();
                                 break;
                             case VxColumnType.Bool:
-                                row[i].Data = reader.GetBoolean(i);
+                                row[i] = !isnull ?
+                                    reader.GetBoolean(i) : new Boolean();
                                 break;
                             case VxColumnType.Double:
                                 // Might return a Single or Double
-                                row[i].Data = (double)reader.GetValue(i);
+                                // FIXME: Check if getting a single causes this
+                                // to croak
+                                row[i] = !isnull ?
+                                    (double)reader.GetDouble(i) : (double)0.0;
                                 break;
                             case VxColumnType.Uuid:
-                                row[i].Data = reader.GetGuid(i).ToString();
+                                row[i] = !isnull ?
+                                    reader.GetGuid(i).ToString() : "";
                                 break;
                             case VxColumnType.Binary:
                             {
+                                if (isnull) {
+                                    row[i] = new byte[0];
+                                    break;
+                                }
+
                                 byte[] cell = new byte[reader.GetBytes(i, 0,
                                         null, 0, 0)];
                                 reader.GetBytes(i, 0, cell, 0, cell.Length);
 
-                                row[i].Data = cell;
+                                row[i] = cell;
                                 break;
                             }
                             case VxColumnType.String:
-                                row[i].Data = reader.GetString(i);
+                                row[i] = !isnull ? reader.GetString(i) : "";
                                 break;
                             case VxColumnType.DateTime:
-                                row[i].Data = new VxDbusDateTime(
-                                        reader.GetDateTime(i));
+                                row[i] = !isnull ?
+                                    new VxDbusDateTime(reader.GetDateTime(i)) :
+                                    new VxDbusDateTime();
                                 break;
                             case VxColumnType.Decimal:
-                                row[i].Data = reader.GetDecimal(i).ToString();
+                                row[i] = !isnull ?
+                                    reader.GetDecimal(i).ToString() : "";
                                 break;
                         }
                     }
 
                     rows.Add(row);
+                    rownulls.Add(rownull);
                 }
 
                 data = rows.ToArray();
+                nullity = rownulls.ToArray();
             }
         } catch (SqlException e) {
             throw new VxSqlError("Error in query", e);
@@ -344,22 +353,148 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         object query;
         reader.GetValue(typeof(string), out query);
 
-        string[] colnames, coltypes_str;
-        VxDbusDbResult[][] data;
-        VxDb.ExecRecordset((string)query, out colnames, out coltypes_str,
-                out data);
+        string[] colnames;
+        VxColumnType[] coltypes;
+        object[][] data;
+        byte[][] nullity;
+        VxDb.ExecRecordset((string)query, out colnames, out coltypes,
+                out data, out nullity);
+
+        string[] coltypes_str = new string[coltypes.Length];
+        for (int i=0; i < coltypes.Length; i++) {
+            coltypes_str[i] = coltypes[i].ToString();
+        }
 
         MessageWriter writer =
                 new MessageWriter(Connection.NativeEndianness);
         writer.Write(typeof(string[]), colnames);
         writer.Write(typeof(string[]), coltypes_str);
-        writer.Write(typeof(VxDbusDbResult[][]), data);
+        writer.Write(typeof(Signature), VxColumnTypeToArraySignature(coltypes));
+        writer.WriteDelegatePrependSize(delegate(MessageWriter w) {
+                    WriteStructArray(w, VxColumnTypeToType(coltypes), data);
+                }, 8);
+        writer.Write(typeof(byte[][]), nullity);
 
-        reply = VxDbus.CreateReply(call, "asasaa(bv)", writer);
+        reply = VxDbus.CreateReply(call, "asasvaay", writer);
+
+        reply.WriteHeader();
+        VxDbus.MessageDump(reply);
+    }
+
+    private static Signature VxColumnTypeToArraySignature(VxColumnType[] vxct)
+    {
+        StringBuilder sig = new StringBuilder("a(");
+
+        foreach (VxColumnType ct in vxct) {
+            switch (ct) {
+            case VxColumnType.Int64:
+                sig.Append("x");
+                break;
+            case VxColumnType.Int32:
+                sig.Append("i");
+                break;
+            case VxColumnType.Int16:
+                sig.Append("n");
+                break;
+            case VxColumnType.UInt8:
+                sig.Append("y");
+                break;
+            case VxColumnType.Bool:
+                sig.Append("b");
+                break;
+            case VxColumnType.Double:
+                sig.Append("d");
+                break;
+            case VxColumnType.Uuid:
+                sig.Append("s");
+                break;
+            case VxColumnType.Binary:
+                sig.Append("ay");
+                break;
+            case VxColumnType.String:
+                sig.Append("s");
+                break;
+            case VxColumnType.DateTime:
+                sig.Append("(xi)");
+                break;
+            case VxColumnType.Decimal:
+                sig.Append("s");
+                break;
+            default:
+                throw new ArgumentException("Unknown VxColumnType");
+            }
+        }
+
+        sig.Append(")");
+
+        return new Signature(sig.ToString());
+    }
+
+    private static Type[] VxColumnTypeToType(VxColumnType[] vxct)
+    {
+        Type[] ret = new Type[vxct.Length];
+
+        for (int i=0; i < vxct.Length; i++) {
+            switch (vxct[i]) {
+            case VxColumnType.Int64:
+                ret[i] = typeof(Int64);
+                break;
+            case VxColumnType.Int32:
+                ret[i] = typeof(Int32);
+                break;
+            case VxColumnType.Int16:
+                ret[i] = typeof(Int16);
+                break;
+            case VxColumnType.UInt8:
+                ret[i] = typeof(Byte);
+                break;
+            case VxColumnType.Bool:
+                ret[i] = typeof(Boolean);
+                break;
+            case VxColumnType.Double:
+                ret[i] = typeof(Double);
+                break;
+            case VxColumnType.Uuid:
+                ret[i] = typeof(string);
+                break;
+            case VxColumnType.Binary:
+                ret[i] = typeof(byte[]);
+                break;
+            case VxColumnType.String:
+                ret[i] = typeof(string);
+                break;
+            case VxColumnType.DateTime:
+                ret[i] = typeof(VxDbusDateTime);
+                break;
+            case VxColumnType.Decimal:
+                ret[i] = typeof(string);
+                break;
+            default:
+                throw new ArgumentException("Unknown VxColumnType");
+            }
+        }
+
+        return ret;
+    }
+
+    private static void WriteStructArray(MessageWriter writer,
+            Type[] types, object[][] data)
+    {
+        foreach (object[] row in data) {
+            writer.WritePad(8);
+
+            for (int i=0; i < row.Length; i++) {
+                if (!types[i].IsInstanceOfType(row[i]))
+                    throw new ArgumentException("Data does not match type for "
+                            +"column " + i);
+
+                writer.Write(types[i], row[i]);
+            }
+        }
     }
 }
 
-enum VxColumnType {
+public enum VxColumnType {
     Int64,
     Int32,
     Int16,

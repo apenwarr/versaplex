@@ -14,6 +14,9 @@ public static class Versaplex
 
     private static void DataReady(object sender, object cookie)
     {
+        // FIXME: This may require special handling for padding between
+        // messages: it hasn't been a problem so far, but should be addressed
+
         VxBufferStream vxbs = (VxBufferStream)sender;
 
         Connection conn = (Connection)cookie;
@@ -31,7 +34,10 @@ public static class Versaplex
 
     private static void NoMoreData(object sender, object cookie)
     {
-        Console.WriteLine("D-bus connection closed by server");
+        Console.WriteLine(
+                "***********************************************************\n"+
+                "************ D-bus connection closed by server ************\n"+
+                "***********************************************************");
 
         VxBufferStream vxbs = (VxBufferStream)sender;
         vxbs.Close();
@@ -45,6 +51,8 @@ public static class Versaplex
         // pool and then the response would be sent back through the action
         // queue
         Console.WriteLine("MessageReady");
+
+        VxDbus.MessageDump(msg);
 
         switch (msg.Header.MessageType) {
             case MessageType.MethodCall:
