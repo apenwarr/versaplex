@@ -19,7 +19,7 @@ WV_LINK_TO(WvSSLStream);
 void wvlog_open()
 {
     rcv1 = new WvLogConsole(dup(2), WvLog::Debug4);
-    rcv2 = new WvLogFile("c:\\temp\\vxodbc.log");
+    rcv2 = new WvLogFile("c:\\temp\\vxodbc.log", WvLog::Debug4);
     IWvStream *s = wvcreate<IWvStream>("tcp:averyp-server:4444");
     assert(s);
     WvIStreamList::globallist.append(s, false, "tcp logger");

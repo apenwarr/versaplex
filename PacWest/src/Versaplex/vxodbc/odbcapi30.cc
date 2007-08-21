@@ -267,6 +267,7 @@ SQLGetDescRec(SQLHDESC DescriptorHandle,
 	      SQLLEN * Length, SQLSMALLINT * Precision,
 	      SQLSMALLINT * Scale, SQLSMALLINT * Nullable)
 {
+    mylog("Start\n");
     mylog("Not implemented!\n");
     return SQL_ERROR;
 }
@@ -387,6 +388,7 @@ SQLSetConnectAttr(HDBC ConnectionHandle,
 		  SQLINTEGER Attribute, PTR Value,
 		  SQLINTEGER StringLength)
 {
+    mylog("Start\n");
     RETCODE ret;
     ConnectionClass *conn = (ConnectionClass *) ConnectionHandle;
 
@@ -423,6 +425,7 @@ SQLSetDescRec(SQLHDESC DescriptorHandle,
 	      SQLSMALLINT Precision, SQLSMALLINT Scale,
 	      PTR Data, SQLLEN * StringLength, SQLLEN * Indicator)
 {
+    mylog("Start\n");
     mylog("Not implemented!\n");
     return SQL_ERROR;
 }

@@ -323,6 +323,7 @@ RETCODE SQL_API SQLGetCursorNameW(HSTMT StatementHandle,
     StatementClass *stmt = (StatementClass *) StatementHandle;
     char *crName;
     SQLSMALLINT clen, buflen;
+    mylog("Start\n");
 
     if (BufferLength > 0)
 	buflen = BufferLength * 3;
@@ -967,6 +968,7 @@ RETCODE SQL_API SQLTablePrivilegesW(HSTMT hstmt,
 RETCODE SQL_API SQLGetTypeInfoW(SQLHSTMT StatementHandle,
 				SQLSMALLINT DataType)
 {
+    mylog("Start\n");
     CSTR func = "SQLGetTypeInfoW";
     RETCODE ret;
     StatementClass *stmt = (StatementClass *) StatementHandle;

@@ -199,6 +199,7 @@ SQLDataSources(HENV EnvironmentHandle,
 	       SQLCHAR * Description, SQLSMALLINT BufferLength2,
 	       SQLSMALLINT * NameLength2)
 {
+    mylog("Start\n");
     mylog("Not implemented!\n");
 
     /*
