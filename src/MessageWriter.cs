@@ -450,5 +450,28 @@ namespace NDesk.DBus
 			for (int i = 0 ; i != needed ; i++)
 				stream.WriteByte (0);
 		}
+
+		public delegate void WriterDelegate(MessageWriter w);
+		public void WriteDelegatePrependSize (WriterDelegate wd, int alignment)
+		{
+			WritePad(4);
+
+			long sizepos = stream.Position;
+
+			Write((int)0);
+
+			WritePad(alignment);
+
+			long counter = stream.Position;
+
+			wd(this);
+
+			long endpos = stream.Position;
+
+			stream.Position = sizepos;
+			Write((int)(endpos-counter));
+
+			stream.Position = endpos;
+		}
 	}
 }
