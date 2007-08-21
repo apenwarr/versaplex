@@ -34,14 +34,20 @@ text being the complaint by the SQL server) in case of error
 There is a com.versabanq.versaplex.toomuchdata error for this
 
 ExecRecordset(string query IN, string[] colnames OUT, string[]
-coltypes OUT, {byte, variant}[][] data OUT)
+coltypes OUT, variant data OUT, byte[][] nullity OUT)
 - Will throw a com.versabanq.versaplex.sqlerror error (with the error
 text being the complaint by the SQL server) in case of error
+- will throw a com.versabanq.versaplex.badschema error if unable to
+represent the results
 - Null values are specified by the byte being 1; non-null values are
 specified by the byte being 0. The data itself is in the variant.
 * Note: Using a byte so that less space is wasted -- booleans are
 32-bit and require 4-byte alignmen
 - Data is in row-major order
+- The variant that holds the data is an array of a struct that varies
+based on the query: each field in the struct is a column in the result
+set. In D-Bus terms, the signature of the variant is "a(...)" where
+"..." varies. The array may have length zero.
 - The maximum amount of data that can be received this way is 16MB.
 There is a com.versabanq.versaplex.toomuchdata error for this.
 
@@ -63,7 +69,7 @@ Column types (names are case-insensitive):
 "uuid" (sent as a dbus string, format "s"; sent in canonical form [hex
 with dashes in particular spots]): MSSQL uniqueidentifier
 
-"binary" (sent as dbus array of bytes, format "ax"): MSSQL binary,
+"binary" (sent as dbus array of bytes, format "ay"): MSSQL binary,
 varbinary, image, timestamp
 
 "string" (sent as a dbus string, format "s"; UTF-8 encoding): MSSQL
@@ -84,8 +90,8 @@ money, smallmoney
 * "-0" == "+0" == "0"
 * That regex matches "". I declare that "" is zero.
 * Although this allows for an arbitrary (but finite due to string
-length limits) number of leading or trailing zeros, they shouldn't be
-there. They're allowed though.
+length limits) number of leading or trailing zeros, they should be
+avoided for efficiency reasons.
 * What's recommended to be actually sent:
  - Zero is "0"
  - Within (0,1), it's "0.xy" where x is [0-9]*, y is [1-9]

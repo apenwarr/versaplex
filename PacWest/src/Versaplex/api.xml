@@ -1,7 +1,6 @@
 <!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN" "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
 <node name="/com/versabanq/versaplex/db">
     <interface name="com.versabanq.versaplex.db">
-        <annotation name="org.freedesktop.DBus.GLib.CSymbol" value="versaplex_db"/>
         <method name="ExecNoResult">
             <arg name="query" type="s" direction="in"/>
         </method>
@@ -15,11 +14,11 @@
             <arg name="query" type="s" direction="in"/>
             <arg name="colnames" type="as" direction="out"/>
             <arg name="coltypes" type="as" direction="out"/>
-            <arg name="data" type="av" direction="out"/>
-            <!-- column-major order; each of the variants is an array of all of
-                 the row data for that particular column -->
-            <arg name="flags" type="aay" direction="out"/>
-            <!-- VERSAPLEX_FLAG_ISNULL = 0x1 -->
+            <arg name="data" type="v" direction="out"/>
+            <!-- row-major order; the variant's signature is an array type
+                 of the form a(...) where ... are the columns -->
+            <arg name="nullity" type="aay" direction="out"/>
+            <!-- 0 for not null, 1 for null -->
         </method>
 
         <!-- Any of these can throw:
