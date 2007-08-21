@@ -24,6 +24,8 @@
 #include "multibyte.h"
 #include "catfunc.h"
 
+#include <wvdbusconn.h>
+
 /*	Trigger related stuff for SQLForeign Keys */
 #define TRIGGER_SHIFT 3
 #define TRIGGER_MASK   0x03
@@ -1359,16 +1361,22 @@ static char *adjustLikePattern(const void *_src, int srclen,
     return dest;
 }
 
+#if OLD_PSQL_TABLES
+
 #define	CSTR_SYS_TABLE	"SYSTEM TABLE"
 #define	CSTR_TABLE	"TABLE"
 #define	CSTR_VIEW	"VIEW"
 
-RETCODE SQL_API PGAPI_Tables(HSTMT hstmt, const SQLCHAR FAR * szTableQualifier,	/* PV X */
-			     SQLSMALLINT cbTableQualifier, const SQLCHAR FAR * szTableOwner,	/* PV E */
-			     SQLSMALLINT cbTableOwner, const SQLCHAR FAR * szTableName,	/* PV E */
-			     SQLSMALLINT cbTableName,
-			     const SQLCHAR FAR * szTableType,
-			     SQLSMALLINT cbTableType, UWORD flag)
+RETCODE SQL_API PGAPI_Tables
+    (HSTMT hstmt, 
+     const SQLCHAR FAR * szTableQualifier,	/* PV X */
+     SQLSMALLINT cbTableQualifier, 
+     const SQLCHAR FAR *szTableOwner,	/* PV E */
+     SQLSMALLINT cbTableOwner,
+     const SQLCHAR FAR *szTableName,	/* PV E */
+     SQLSMALLINT cbTableName,
+     const SQLCHAR FAR *szTableType,
+     SQLSMALLINT cbTableType, UWORD flag)
 {
     CSTR func = "PGAPI_Tables";
     StatementClass *stmt = (StatementClass *) hstmt;
@@ -1679,10 +1687,8 @@ RETCODE SQL_API PGAPI_Tables(HSTMT hstmt, const SQLCHAR FAR * szTableQualifier,	
 	    goto retry_public_schema;
 	}
     }
-#ifdef	UNICODE_SUPPORT
     if (CC_is_in_unicode_driver(conn))
 	internal_asis_type = INTERNAL_ASIS_TYPE;
-#endif				/* UNICODE_SUPPORT */
     result = PGAPI_BindCol(htbl_stmt, 1, internal_asis_type,
 			   table_name, MAX_INFO_STRING, &cbRelname);
     if (!SQL_SUCCEEDED(result))
@@ -1884,6 +1890,173 @@ RETCODE SQL_API PGAPI_Tables(HSTMT hstmt, const SQLCHAR FAR * szTableQualifier,	
     mylog("%s: EXIT, stmt=%p, ret=%d\n", func, stmt, ret);
     return ret;
 }
+
+
+#else // !OLD_PSQL_TABLES
+
+WvDBusMsg *reply = NULL; // FIXME don't make this global!!
+
+bool got_reply(WvDBusConn &conn, WvDBusMsg &msg)
+{
+    mylog("got reply!\n");
+    if (reply)
+	delete reply;
+    reply = new WvDBusMsg(msg);
+    return true;
+}
+
+
+RETCODE SQL_API PGAPI_Tables
+    (HSTMT hstmt, 
+     const SQLCHAR FAR * szTableQualifier,	/* PV X */
+     SQLSMALLINT cbTableQualifier, 
+     const SQLCHAR FAR *szTableOwner,	/* PV E */
+     SQLSMALLINT cbTableOwner,
+     const SQLCHAR FAR *szTableName,	/* PV E */
+     SQLSMALLINT cbTableName,
+     const SQLCHAR FAR *szTableType,
+     SQLSMALLINT cbTableType, UWORD flag)
+{
+    StatementClass *stmt = (StatementClass *)hstmt;
+    StatementClass *tbl_stmt;
+    QResultClass *res;
+    TupleField *tuple;
+    RETCODE ret = SQL_ERROR, result;
+    int result_cols;
+    ConnectionClass *conn;
+    ConnInfo *ci;
+    char *prefix[32], prefixes[MEDIUM_REGISTRY_LEN];
+    char *table_type[32], table_types[MAX_INFO_STRING];
+    char show_system_tables, show_regular_tables, show_views;
+    char regular_table, view, systable;
+    int i;
+    SQLSMALLINT internal_asis_type = SQL_C_CHAR, cbSchemaName;
+    const char *like_or_eq;
+    const char *szSchemaName;
+    BOOL search_pattern;
+    BOOL list_cat = FALSE, list_schemas = FALSE, list_table_types =
+	FALSE, list_some = FALSE;
+    SQLLEN cbRelname, cbRelkind, cbSchName;
+
+    mylog("entering...stmt=%p scnm=%p len=%d\n", stmt,
+	  NULL_IF_NULL(szTableOwner), cbTableOwner);
+
+    if (result = SC_initialize_and_recycle(stmt), SQL_SUCCESS != result)
+	return result;
+
+    conn = SC_get_conn(stmt);
+    ci = &(conn->connInfo);
+
+    if (res = QR_Constructor(), !res)
+    {
+	SC_set_error(stmt, STMT_NO_MEMORY_ERROR,
+		     "Couldn't allocate memory for PGAPI_Tables result.",
+		     "function-name");
+	goto cleanup;
+    }
+    SC_set_Result(stmt, res);
+
+    /* the binding structure for a statement is not set up until
+     * a statement is actually executed, so we'll have to do this
+     * ourselves.
+     */
+    result_cols = NUM_OF_TABLES_FIELDS;
+    extend_column_bindings(SC_get_ARDF(stmt), result_cols);
+
+    stmt->catalog_result = TRUE;
+    /* set the field names */
+    QR_set_num_fields(res, result_cols);
+    QR_set_field_info_v(res, TABLES_CATALOG_NAME, "TABLE_QUALIFIER",
+			PG_TYPE_VARCHAR, MAX_INFO_STRING);
+    QR_set_field_info_v(res, TABLES_SCHEMA_NAME, "TABLE_OWNER",
+			PG_TYPE_VARCHAR, MAX_INFO_STRING);
+    QR_set_field_info_v(res, TABLES_TABLE_NAME, "TABLE_NAME",
+			PG_TYPE_VARCHAR, MAX_INFO_STRING);
+    QR_set_field_info_v(res, TABLES_TABLE_TYPE, "TABLE_TYPE",
+			PG_TYPE_VARCHAR, MAX_INFO_STRING);
+    QR_set_field_info_v(res, TABLES_REMARKS, "REMARKS", PG_TYPE_VARCHAR,
+			INFO_VARCHAR_SIZE);
+
+    /* add the tuples */
+    if (conn->dbus)
+    {
+	WvDBusMsg msg("com.versabanq.versaplex",
+		      "/com/versabanq/versaplex/db",
+		      "com.versabanq.versaplex.db",
+		      "ExecRecordset");
+	msg.append("LIST TABLES");
+	conn->dbus->send(msg, got_reply, 5000);
+	while (!conn->dbus->isidle())
+	{
+	    mylog("waiting for dbus...\n");
+	    conn->dbus->runonce(1000);
+	}
+	
+	if (reply)
+	{
+	    if (!reply->iserror())
+	    {
+		WvDBusMsg::Iter top(*reply);
+		WvDBusMsg::Iter colnames(top.getnext().open());
+		WvDBusMsg::Iter coltypes(top.getnext().open());
+		WvDBusMsg::Iter data(top.getnext().open());
+		WvDBusMsg::Iter flags(top.getnext().open());
+		
+		for (data.rewind(); data.next(); )
+		{
+		    tuple = QR_AddNew(res);
+		    
+		    WvDBusMsg::Iter cols(data.open());
+		    set_tuplefield_string(&tuple[TABLES_CATALOG_NAME],
+					  *cols.getnext());
+		    set_tuplefield_string(&tuple[TABLES_SCHEMA_NAME],
+					  *cols.getnext());
+		    set_tuplefield_string(&tuple[TABLES_TABLE_NAME],
+					  *cols.getnext());
+		    set_tuplefield_string(&tuple[TABLES_TABLE_TYPE],
+					  *cols.getnext());
+		    set_tuplefield_string(&tuple[TABLES_REMARKS],
+					  *cols.getnext());
+		}
+	    }
+	    
+	    delete reply;
+	    reply = NULL;
+	}
+    }
+	
+    ret = SQL_SUCCESS;
+    
+    do {
+	tuple = QR_AddNew(res);
+	set_tuplefield_string(&tuple[TABLES_CATALOG_NAME], "catalog");
+	set_tuplefield_string(&tuple[TABLES_SCHEMA_NAME], "dbo");
+	set_tuplefield_string(&tuple[TABLES_TABLE_NAME], "SILLY_DONE");
+	set_tuplefield_string(&tuple[TABLES_TABLE_TYPE], "TABLE");
+	set_tuplefield_string(&tuple[TABLES_REMARKS], NULL_STRING);
+    } while (0);
+
+cleanup:
+    /*
+     * also, things need to think that this statement is finished so the
+     * results can be retrieved.
+     */
+    stmt->status = STMT_FINISHED;
+
+    /* set up the current tuple pointer for SQLFetch */
+    stmt->currTuple = -1;
+    SC_set_rowset_start(stmt, -1, FALSE);
+    SC_set_current_col(stmt, -1);
+
+    if (stmt->internal)
+	ret = DiscardStatementSvp(stmt, ret, FALSE);
+    mylog("EXIT, stmt=%p, ret=%d\n", stmt, ret);
+    return ret;
+}
+
+
+#endif
+
 
 RETCODE SQL_API PGAPI_Columns(HSTMT hstmt, const SQLCHAR FAR * szTableQualifier,	/* OA X */
 			      SQLSMALLINT cbTableQualifier, const SQLCHAR FAR * szTableOwner,	/* PV E */

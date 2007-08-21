@@ -177,7 +177,8 @@ PGAPI_BindCol(HSTMT hstmt,
 		bookmark->buffer = NULL;
 		bookmark->used = bookmark->indicator = NULL;
 	    }
-	} else
+	}
+	else
 	{
 	    /* Make sure it is the bookmark data type */
 	    switch (fCType)
@@ -246,7 +247,8 @@ PGAPI_BindCol(HSTMT hstmt,
 	gdata_info->gdata[icol].ttlbuf = NULL;
 	gdata_info->gdata[icol].ttlbuflen = 0;
 	gdata_info->gdata[icol].ttlbufused = 0;
-    } else
+    }
+    else
     {
 	/* ok, bind that column */
 	opts->bindings[icol].buflen = cbValueMax;

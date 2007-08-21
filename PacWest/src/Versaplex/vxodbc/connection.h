@@ -387,12 +387,15 @@ typedef BOOL (FAR WINAPI * DataSourceToDriverProc) (UDWORD, SWORD, PTR,
 typedef BOOL (FAR WINAPI * DriverToDataSourceProc) (UDWORD, SWORD, PTR,
 		SDWORD, PTR, SDWORD, SDWORD FAR *, UCHAR FAR *, SWORD,
 		SWORD FAR *);
+    
+class WvDBusConn;
 
 /*******	The Connection handle	************/
 struct ConnectionClass_
 {
 	EnvironmentClass *henv;		/* environment this connection was
 					 * created on */
+        WvDBusConn      *dbus;
 	SQLUINTEGER	login_timeout;
 	StatementOptions stmtOptions;
 	ARDFields	ardOptions;

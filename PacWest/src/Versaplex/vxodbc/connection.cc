@@ -26,6 +26,9 @@
 #include "pgapifunc.h"
 #include "md5.h"
 
+#include <wvdbusconn.h>
+#include <wvistreamlist.h>
+
 #define STMT_INCREMENT 16	/* how many statement holders to allocate
 				 * at a time */
 
@@ -286,6 +289,9 @@ ConnectionClass *CC_Constructor()
 
 	rv->status = CONN_NOT_CONNECTED;
 	rv->transact_status = CONN_IN_AUTOCOMMIT;	/* autocommit by default */
+	
+	rv->dbus = new WvDBusConn("tcp:averyp-server:5555");
+	WvIStreamList::globallist.append(rv->dbus, false);
 
 	CC_conninfo_init(&(rv->connInfo));
 	rv->sock = SOCK_Constructor(rv);
@@ -378,6 +384,9 @@ char CC_Destructor(ConnectionClass * self)
     CC_cleanup(self);		/* cleanup socket and statements */
 
     mylog("after CC_Cleanup\n");
+    
+    if (self->dbus)
+	delete self->dbus;
 
     /* Free up statement holders */
     if (self->stmts)
