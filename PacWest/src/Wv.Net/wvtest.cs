@@ -59,6 +59,15 @@ namespace Wv.Test
 			      cond1, cond2, s1, s2));
 	}
 	
+	public static bool test_eq(decimal cond1, decimal cond2,
+				   string file, int line,
+				   string s1, string s2)
+	{
+	    return test(cond1 == cond2, file, line,
+		String.Format("[{0}] == [{1}] ({{{2}}} == {{{3}}})",
+			      cond1, cond2, s1, s2));
+	}
+	
 	public static bool test_eq(string cond1, string cond2,
 				   string file, int line,
 				   string s1, string s2)
@@ -97,6 +106,15 @@ namespace Wv.Test
 	}
 	
 	public static bool test_ne(double cond1, double cond2,
+				   string file, int line,
+				   string s1, string s2)
+	{
+	    return test(cond1 != cond2, file, line,
+		String.Format("[{0}] != [{1}] ({{{2}}} != {{{3}}})",
+			      cond1, cond2, s1, s2));
+	}
+	
+	public static bool test_ne(decimal cond1, decimal cond2,
 				   string file, int line,
 				   string s1, string s2)
 	{
