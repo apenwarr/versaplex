@@ -728,7 +728,7 @@ public class SqlSuckerTest
         
         // This must be sorted
         int [] sizes = { 1, 10, 50, 255, 4000, 8000, 8040, 8192, 16080, 16384,
-            24120, 32160, 32768, 50157 };
+            24120, 32160, 32767, 50157 };
 
         string [] types = { "char", "varchar", "nchar", "nvarchar", "text",
             "ntext", "varchar(max)", "nvarchar(max)" };
