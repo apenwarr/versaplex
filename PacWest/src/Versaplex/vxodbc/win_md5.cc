@@ -12,4 +12,4 @@
  *		stuff directly.		
  *	
  */
-#include "md5.c"
+#include "md5.cc"
