@@ -125,7 +125,7 @@ namespace NDesk.DBus
 			return (uint)Interlocked.Increment (ref serial);
 		}
 
-		internal Message SendWithReplyAndBlock (Message msg)
+		public Message SendWithReplyAndBlock (Message msg)
 		{
 			uint id = SendWithReply (msg);
 
