@@ -96,11 +96,18 @@ struct addrinfo
 #define	EINPROGRESS	WSAEINPROGRESS
 #endif /* EINPROGRESS */
 #endif /* WIN32 */
+
 typedef void (WSAAPI *freeaddrinfo_func) (struct addrinfo *); 
 typedef int (WSAAPI *getaddrinfo_func) (const char *, const char *,
 	const struct addrinfo *, struct addrinfo **); 
+	
+#ifdef _MSC_VER
 typedef int (WSAAPI *getnameinfo_func) (const struct sockaddr *,
 	socklen_t, char *, DWORD, char *, DWORD, int);
+#else
+typedef int (WSAAPI *getnameinfo_func) (const struct sockaddr *,
+	socklen_t, char *, socklen_t, char *, socklen_t, unsigned int);
+#endif
 
 #define SOCKET_ALREADY_CONNECTED		1
 #define SOCKET_HOST_NOT_FOUND			2

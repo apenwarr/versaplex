@@ -1,0 +1,27 @@
+include Makefile-common
+
+WVPORTS=$(HOME)/src/wv.dbus.lin/wvports
+XPLC=$(WVPORTS)/xplc/build/xplc
+OPENSSL=$(WVPORTS)/openssl/build/openssl
+DBUS=$(WVPORTS)/dbus/build/dbus/dbus/.libs
+WVSTREAMS=$(HOME)/src/wv.dbus.lin/wvstreams
+CFLAGS=-g -w \
+	-DUNICODE_SUPPORT -DODBCVER=0x0351 \
+	-I$(WVSTREAMS)/include -I$(XPLC)/include \
+	-I/usr/include/postgresql
+CXXFLAGS=$(CFLAGS)
+LIBS=\
+	-L$(WVSTREAMS) -lwvdbus \
+	-L$(XPLC) -lxplc-cxx -lxplc -lodbc -lpthread
+LDFLAGS=-g
+
+all: vxodbc.so
+
+vxodbc.so: $(OBJS)
+	@echo Linking $@...
+	@$(CXX) -shared -o $@ \
+		$(LDFLAGS) \
+		$^ \
+		-Wl,--soname,$@ \
+		$(LIBS)
+

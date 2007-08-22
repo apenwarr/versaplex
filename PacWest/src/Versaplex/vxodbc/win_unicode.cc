@@ -13,6 +13,8 @@
 #include <crtdbg.h>
 #endif				/* _MEMORY_DEBUG_ */
 #endif				/* _DEBUG */
+#else
+#include <stdlib.h>
 #endif				/* WIN32 */
 #include <string.h>
 

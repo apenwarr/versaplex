@@ -210,6 +210,8 @@ typedef double SDOUBLE;
 
 #ifdef WIN32
 #define DRIVER_FILE_NAME			"VXODBC.DLL"
+#else
+#define DRIVER_FILE_NAME			"vxodbc.so"
 #endif   /* WIN32 */
 
 #define	NULL_CATALOG_NAME				""

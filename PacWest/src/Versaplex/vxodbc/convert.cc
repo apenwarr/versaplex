@@ -1059,7 +1059,7 @@ copy_and_convert_field(StatementClass * stmt, OID field_type,
 			char *new_string;
 			int i, j;
 
-			new_string = malloc(cbValueMax);
+			new_string = (char *)malloc(cbValueMax);
 			lc = localeconv();
 			for (i = 0, j = 0; ptr[i]; i++)
 			    if (ptr[i] == '.')

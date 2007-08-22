@@ -6,9 +6,9 @@
 /* #include	<stdlib.h> */
 #define	_CRTDBG_MAP_ALLOC
 #include <crtdbg.h>
+#endif				/* _DEBUG */
 #else
 #include	<malloc.h>
-#endif				/* _DEBUG */
 #endif				/* WIN32 */
 #include	<string.h>
 

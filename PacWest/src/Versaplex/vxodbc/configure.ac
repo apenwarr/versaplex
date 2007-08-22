@@ -2,7 +2,7 @@
 AC_INIT(psqlodbc, 08.02.0400, [pgsql-odbc@postgresql.org])
 AC_PREREQ(2.57)
 AM_INIT_AUTOMAKE
-AC_CONFIG_SRCDIR([bind.c])
+AC_CONFIG_SRCDIR([bind.cc])
 AM_CONFIG_HEADER([config.h])
 AM_MAINTAINER_MODE
 
@@ -274,5 +274,5 @@ CPPFLAGS="$CPPFLAGS -I$pg_includedir"
 LIBS="-L$pg_libdir $LIBS"
 
 
-AC_CONFIG_FILES([Makefile])
+#xAC_CONFIG_FILES([Makefile])
 AC_OUTPUT
