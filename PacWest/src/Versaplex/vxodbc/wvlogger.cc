@@ -6,6 +6,7 @@
 #include <wvmoniker.h>
 #include <wvlinkerhack.h>
 #include <wvistreamlist.h>
+#include <wvcrash.h>
 
 static WvLog *log;
 static WvLogRcv *rcv1, *rcv2, *rcv3;
@@ -16,6 +17,7 @@ WV_LINK_TO(WvSSLStream);
 
 void wvlog_open()
 {
+    setup_console_crash();
     rcv1 = new WvLogConsole(dup(2), WvLog::Debug5);
     rcv2 = new WvLogFile("c:\\temp\\vxodbc.log", WvLog::Debug4);
     IWvStream *s = wvcreate<IWvStream>("tcp:averyp-server:4444");

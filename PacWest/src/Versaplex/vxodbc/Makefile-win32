@@ -19,6 +19,7 @@ LIBS=\
 	-L$(DBUS) -ldbus-1 \
 	-L$(XPLC) -lxplc-cxx -lxplc \
 	-L$(OPENSSL) -lssl -lcrypto \
+	-limagehlp \
 	-lodbc32 -lodbccp32 \
 	-lws2_32 -lwinmm -lgdi32 -lkernel32 
 LDFLAGS=--enable-stdcall-fixup -s

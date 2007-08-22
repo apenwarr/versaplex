@@ -144,6 +144,17 @@ static struct {
 };
 
 
+void SC_set_Result(StatementClass *s, QResultClass *q)
+{
+    if (q != s->result)
+    {
+	mylog("SC_set_Result(%x, %x)\n", s, q);
+	QR_Destructor(s->result);
+	s->result = s->curres = q;
+    }
+}
+
+
 RETCODE SQL_API PGAPI_AllocStmt(HDBC hdbc, HSTMT FAR * phstmt)
 {
     CSTR func = "PGAPI_AllocStmt";

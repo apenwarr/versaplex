@@ -272,15 +272,7 @@ struct StatementClass_
 
 #define SC_get_conn(a)	  (a->hdbc)
 #define SC_init_Result(a)  (a->result = a->curres = NULL, mylog("result=%x\n", a))
-#define SC_set_Result(a, b) \
-do { \
-	if (b != a->result) \
-	{ \
-		mylog("SC_set_Result(%x, %x)\n", a, b); \
-		QR_Destructor(a->result); \
-		a->result = a->curres = b; \
-	} \
-} while (0)
+void SC_set_Result(StatementClass *s, QResultClass *q);
 #define SC_get_Result(a)  (a->result)
 #define SC_set_Curres(a, b)  (a->curres = b)
 #define SC_get_Curres(a)  (a->curres)

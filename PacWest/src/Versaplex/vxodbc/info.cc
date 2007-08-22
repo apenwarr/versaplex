@@ -23,8 +23,8 @@
 #include "pgapifunc.h"
 #include "multibyte.h"
 #include "catfunc.h"
+#include "vxhelpers.h"
 
-#include <wvdbusconn.h>
 
 /*	Trigger related stuff for SQLForeign Keys */
 #define TRIGGER_SHIFT 3
@@ -1379,98 +1379,15 @@ RETCODE SQL_API PGAPI_Tables
      SQLSMALLINT cbTableType, UWORD flag)
 {
     StatementClass *stmt = (StatementClass *)hstmt;
-    RETCODE ret = SQL_ERROR;
 
-    RETCODE r;
-    if ((r = SC_initialize_and_recycle(stmt)) != SQL_SUCCESS)
-	return r;
-
-    ConnectionClass *conn = SC_get_conn(stmt);
-    QResultClass *res;
-    if (res = QR_Constructor(), !res)
-    {
-	SC_set_error(stmt, STMT_NO_MEMORY_ERROR,
-		     "Couldn't allocate memory for PGAPI_Tables result.",
-		     "function-name");
-	goto cleanup;
-    }
-    SC_set_Result(stmt, res);
-
-    /* the binding structure for a statement is not set up until
-     * a statement is actually executed, so we'll have to do this
-     * ourselves.
-     */
-    extend_column_bindings(SC_get_ARDF(stmt), 5);
-
+    VxStatement st(stmt);
+    VxResultSet rs;
+    rs.runquery(st.dbus(), "ExecRecordset", "LIST TABLES");
+    st.set_result(rs);
     stmt->catalog_result = TRUE;
-    /* set the field names */
-    QR_set_num_fields(res, 5);
-    QR_set_field_info_v(res, TABLES_CATALOG_NAME, "TABLE_QUALIFIER",
-			PG_TYPE_VARCHAR, MAX_INFO_STRING);
-    QR_set_field_info_v(res, TABLES_SCHEMA_NAME, "TABLE_OWNER",
-			PG_TYPE_VARCHAR, MAX_INFO_STRING);
-    QR_set_field_info_v(res, TABLES_TABLE_NAME, "TABLE_NAME",
-			PG_TYPE_VARCHAR, MAX_INFO_STRING);
-    QR_set_field_info_v(res, TABLES_TABLE_TYPE, "TABLE_TYPE",
-			PG_TYPE_VARCHAR, MAX_INFO_STRING);
-    QR_set_field_info_v(res, TABLES_REMARKS, "REMARKS", PG_TYPE_VARCHAR,
-			INFO_VARCHAR_SIZE);
-
-    /* add the tuples */
-    if (conn->dbus)
-    {
-	WvDBusMsg msg("com.versabanq.versaplex",
-		      "/com/versabanq/versaplex/db",
-		      "com.versabanq.versaplex.db",
-		      "ExecRecordset");
-	msg.append("LIST TABLES");
-	WvDBusMsg reply = conn->dbus->send_and_wait(msg, 5000);
-	
-	if (!reply.iserror())
-	{
-	    WvDBusMsg::Iter top(reply);
-	    WvDBusMsg::Iter colnames(top.getnext().open());
-	    WvDBusMsg::Iter coltypes(top.getnext().open());
-	    WvDBusMsg::Iter data(top.getnext().open().getnext().open());
-	    WvDBusMsg::Iter flags(top.getnext().open());
-	    
-	    for (data.rewind(); data.next(); )
-	    {
-		TupleField *tuple = QR_AddNew(res);
-		
-		WvDBusMsg::Iter cols(data.open());
-		set_tuplefield_string(&tuple[TABLES_CATALOG_NAME],
-				      *cols.getnext());
-		set_tuplefield_string(&tuple[TABLES_SCHEMA_NAME],
-				      *cols.getnext());
-		set_tuplefield_string(&tuple[TABLES_TABLE_NAME],
-				      *cols.getnext());
-		set_tuplefield_string(&tuple[TABLES_TABLE_TYPE],
-				      *cols.getnext());
-		set_tuplefield_string(&tuple[TABLES_REMARKS],
-				      *cols.getnext());
-	    }
-	}
-    }
-	
-    ret = SQL_SUCCESS;
 
 cleanup:
-    /*
-     * also, things need to think that this statement is finished so the
-     * results can be retrieved.
-     */
-    stmt->status = STMT_FINISHED;
-
-    /* set up the current tuple pointer for SQLFetch */
-    stmt->currTuple = -1;
-    SC_set_rowset_start(stmt, -1, FALSE);
-    SC_set_current_col(stmt, -1);
-
-    if (stmt->internal)
-	ret = DiscardStatementSvp(stmt, ret, FALSE);
-    mylog("EXIT, stmt=%p, ret=%d\n", stmt, ret);
-    return ret;
+    return st.retcode();
 }
 
 
