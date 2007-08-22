@@ -11,11 +11,15 @@ CFLAGS=-g -w \
 	-I/usr/include/postgresql
 CXXFLAGS=$(CFLAGS)
 LIBS=\
-	-L$(WVSTREAMS) -lwvdbus \
-	-L$(XPLC) -lxplc-cxx -lxplc -lodbc -lpthread
+	$(WVSTREAMS)/libwvdbus.a $(WVSTREAMS)/libwvstreams.a \
+	$(WVSTREAMS)/libwvutils.a $(WVSTREAMS)/libwvbase.a \
+	$(DBUS)/libdbus-1.a \
+	$(OPENSSL)/libssl.a $(OPENSSL)/libcrypto.a \
+	$(XPLC)/libxplc-cxx.a $(XPLC)/libxplc.a -ldl \
+	/usr/lib/libodbc.a -lpthread
 LDFLAGS=-g
 
-all: vxodbc.so
+all: vxodbc.so test-linker
 
 vxodbc.so: $(OBJS)
 	@echo Linking $@...
@@ -25,3 +29,9 @@ vxodbc.so: $(OBJS)
 		-Wl,--soname,$@ \
 		$(LIBS)
 
+linker-test: linker-test.o vxodbc.so
+	@echo Linking $@...
+	$(CXX) -o $@ $(LDFLAGS) $^
+
+test-linker: linker-test
+	LD_LIBRARY_PATH=. ./linker-test
