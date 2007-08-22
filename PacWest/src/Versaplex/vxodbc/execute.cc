@@ -211,9 +211,10 @@ PGAPI_ExecDirect_Vx(HSTMT hstmt,
 
     VxStatement st(stmt);
     VxResultSet rs;
+    st.reinit();
     rs.runquery(st.dbus(), "ExecRecordset", (const char *)szSqlStr);
     st.set_result(rs);
-    stmt->statement = (char *)szSqlStr;
+    stmt->statement = strdup((const char *)szSqlStr);
     stmt->catalog_result = FALSE;
     stmt->statement_type = STMT_TYPE_SELECT;
 //    SC_set_parse_forced(stmt);
@@ -222,6 +223,20 @@ cleanup:
     return st.retcode();
 }
 
+
+/*	Execute a prepared SQL statement */
+RETCODE SQL_API PGAPI_Execute_Vx(HSTMT hstmt, UWORD flag)
+{
+    StatementClass *stmt = (StatementClass *)hstmt;
+
+    VxStatement st(stmt);
+    VxResultSet rs;
+    rs.runquery(st.dbus(), "ExecRecordset", stmt->statement);
+    st.set_result(rs);
+
+cleanup:
+    return st.retcode();
+}
 
 
 static int inquireHowToPrepare(const StatementClass * stmt)

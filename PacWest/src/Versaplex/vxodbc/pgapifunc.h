@@ -89,6 +89,7 @@ RETCODE SQL_API PGAPI_ExecDirect(HSTMT StatementHandle,
 RETCODE SQL_API PGAPI_ExecDirect_Vx(HSTMT StatementHandle,
 		const SQLCHAR *StatementText, SQLINTEGER TextLength, UWORD flag);
 RETCODE SQL_API PGAPI_Execute(HSTMT StatementHandle, UWORD flag);
+RETCODE SQL_API PGAPI_Execute_Vx(HSTMT StatementHandle, UWORD flag);
 RETCODE SQL_API PGAPI_Fetch(HSTMT StatementHandle);
 RETCODE SQL_API PGAPI_FreeConnect(HDBC ConnectionHandle);
 RETCODE SQL_API PGAPI_FreeEnv(HENV EnvironmentHandle);

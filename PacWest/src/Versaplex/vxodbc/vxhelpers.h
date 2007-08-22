@@ -86,7 +86,7 @@ public:
     VxStatement(StatementClass *_stmt)
     {
 	stmt = _stmt;
-	ret = SC_initialize_and_recycle(stmt);
+	ret = SQL_SUCCESS;
     }
     
     ~VxStatement()
@@ -104,6 +104,11 @@ public:
 	
 	if (stmt->internal)
 	    ret = DiscardStatementSvp(stmt, ret, FALSE);
+    }
+    
+    void reinit()
+    {
+	ret = SC_initialize_and_recycle(stmt);
     }
     
     void set_result(VxResultSet &rs)

@@ -1382,6 +1382,7 @@ RETCODE SQL_API PGAPI_Tables
 
     VxStatement st(stmt);
     VxResultSet rs;
+    st.reinit();
     rs.runquery(st.dbus(), "ExecRecordset", "LIST TABLES");
     st.set_result(rs);
     stmt->catalog_result = TRUE;

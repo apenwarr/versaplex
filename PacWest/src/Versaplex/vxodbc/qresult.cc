@@ -95,6 +95,7 @@ void QR_set_num_cached_rows(QResultClass * self, SQLLEN num_rows)
 
 void QR_set_rowstart_in_cache(QResultClass * self, SQLLEN start)
 {
+    mylog("qrflags:%x\n", (int)self->flags);
     if (QR_synchronize_keys(self))
 	self->key_base = start;
     self->base = start;
@@ -146,6 +147,7 @@ QResultClass *QR_Constructor()
 	rv->num_cached_rows = 0;
 	rv->num_cached_keys = 0;
 	rv->fetch_number = 0;
+	rv->flags = 0;
 	QR_set_rowstart_in_cache(rv, -1);
 	rv->key_base = -1;
 	rv->recent_processed_row_count = -1;
@@ -159,7 +161,6 @@ QResultClass *QR_Constructor()
 
 	rv->cache_size = 0;
 	rv->rowset_size_include_ommitted = 1;
-	rv->flags = 0;
 	rv->move_direction = 0;
 	rv->keyset = NULL;
 	rv->reload_count = 0;

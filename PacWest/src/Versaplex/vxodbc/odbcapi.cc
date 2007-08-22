@@ -295,7 +295,7 @@ RETCODE SQL_API SQLExecute(HSTMT StatementHandle)
     else
     {
 	StartRollbackState(stmt);
-	ret = PGAPI_Execute(StatementHandle, flag);
+	ret = PGAPI_Execute_Vx(StatementHandle, flag);
 	ret = DiscardStatementSvp(stmt, ret, FALSE);
     }
     LEAVE_STMT_CS(stmt);
