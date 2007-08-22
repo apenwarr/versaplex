@@ -1361,551 +1361,12 @@ static char *adjustLikePattern(const void *_src, int srclen,
     return dest;
 }
 
-#if OLD_PSQL_TABLES
 
-#define	CSTR_SYS_TABLE	"SYSTEM TABLE"
-#define	CSTR_TABLE	"TABLE"
-#define	CSTR_VIEW	"VIEW"
-
-RETCODE SQL_API PGAPI_Tables
-    (HSTMT hstmt, 
-     const SQLCHAR FAR * szTableQualifier,	/* PV X */
-     SQLSMALLINT cbTableQualifier, 
-     const SQLCHAR FAR *szTableOwner,	/* PV E */
-     SQLSMALLINT cbTableOwner,
-     const SQLCHAR FAR *szTableName,	/* PV E */
-     SQLSMALLINT cbTableName,
-     const SQLCHAR FAR *szTableType,
-     SQLSMALLINT cbTableType, UWORD flag)
-{
-    CSTR func = "PGAPI_Tables";
-    StatementClass *stmt = (StatementClass *) hstmt;
-    StatementClass *tbl_stmt;
-    QResultClass *res;
-    TupleField *tuple;
-    HSTMT htbl_stmt = NULL;
-    RETCODE ret = SQL_ERROR, result;
-    int result_cols;
-    char *tableType = NULL;
-    char tables_query[INFO_INQUIRY_LEN];
-    char table_name[MAX_INFO_STRING],
-	table_owner[MAX_INFO_STRING],
-	relkind_or_hasrules[MAX_INFO_STRING];
-#ifdef	HAVE_STRTOK_R
-    char *last;
-#endif				/* HAVE_STRTOK_R */
-    ConnectionClass *conn;
-    ConnInfo *ci;
-    char *escCatName = NULL, *escSchemaName = NULL, *escTableName =
-	NULL;
-    char *prefix[32], prefixes[MEDIUM_REGISTRY_LEN];
-    char *table_type[32], table_types[MAX_INFO_STRING];
-    char show_system_tables, show_regular_tables, show_views;
-    char regular_table, view, systable;
-    int i;
-    SQLSMALLINT internal_asis_type = SQL_C_CHAR, cbSchemaName;
-    const char *like_or_eq;
-    const char *szSchemaName;
-    BOOL search_pattern;
-    BOOL list_cat = FALSE, list_schemas = FALSE, list_table_types =
-	FALSE, list_some = FALSE;
-    SQLLEN cbRelname, cbRelkind, cbSchName;
-
-    mylog("%s: entering...stmt=%p scnm=%p len=%d\n", func, stmt,
-	  NULL_IF_NULL(szTableOwner), cbTableOwner);
-
-    if (result = SC_initialize_and_recycle(stmt), SQL_SUCCESS != result)
-	return result;
-
-    conn = SC_get_conn(stmt);
-    ci = &(conn->connInfo);
-
-    result = PGAPI_AllocStmt(conn, &htbl_stmt);
-    if (!SQL_SUCCEEDED(result))
-    {
-	SC_set_error(stmt, STMT_NO_MEMORY_ERROR,
-		     "Couldn't allocate statement for PGAPI_Tables result.",
-		     func);
-	return SQL_ERROR;
-    }
-    tbl_stmt = (StatementClass *) htbl_stmt;
-    szSchemaName = (const char *)szTableOwner;
-    cbSchemaName = cbTableOwner;
-
-#define	return	DONT_CALL_RETURN_FROM_HERE???
-    search_pattern = (0 == (flag & PODBC_NOT_SEARCH_PATTERN));
-    if (search_pattern)
-    {
-	like_or_eq = likeop;
-	escCatName =
-	    adjustLikePattern(szTableQualifier, cbTableQualifier,
-			      SEARCH_PATTERN_ESCAPE, NULL, conn);
-	escTableName =
-	    adjustLikePattern(szTableName, cbTableName,
-			      SEARCH_PATTERN_ESCAPE, NULL, conn);
-    }
-    else
-    {
-	like_or_eq = eqop;
-	escCatName =
-	    simpleCatalogEscape(szTableQualifier, cbTableQualifier,
-				NULL, conn);
-	escTableName =
-	    simpleCatalogEscape(szTableName, cbTableName, NULL, conn);
-    }
-    retry_public_schema:
-    if (escSchemaName)
-	free(escSchemaName);
-    if (search_pattern)
-	escSchemaName =
-	adjustLikePattern(szSchemaName, cbSchemaName,
-			  SEARCH_PATTERN_ESCAPE, NULL, conn);
-    else
-	escSchemaName =
-	simpleCatalogEscape(szSchemaName,
-			    cbSchemaName, NULL, conn);
-    /*
-     * Create the query to find out the tables
-     */
-    /* make_string mallocs memory */
-    tableType = make_string(szTableType, cbTableType, NULL, 0);
-    if (search_pattern &&
-	escTableName && '\0' == escTableName[0] &&
-	escCatName && escSchemaName)
-    {
-	if ('\0' == escSchemaName[0])
-	{
-	    if (stricmp(escCatName, SQL_ALL_CATALOGS) == 0)
-		list_cat = TRUE;
-	    else if ('\0' == escCatName[0] &&
-		     stricmp(tableType, SQL_ALL_TABLE_TYPES) == 0)
-		list_table_types = TRUE;
-	}
-	else if ('\0' == escCatName[0] &&
-		 stricmp(escSchemaName, SQL_ALL_SCHEMAS) == 0)
-	    list_schemas = TRUE;
-    }
-    list_some = (list_cat || list_schemas || list_table_types);
-
-    tables_query[0] = '\0';
-    if (list_cat)
-	strncpy(tables_query, "select NULL, NULL, NULL",
-		sizeof(tables_query));
-    else if (list_table_types)
-	strncpy(tables_query,
-		"select NULL, NULL, relkind from (select 'r' as relkind union select 'v') as a",
-		sizeof(tables_query));
-    else if (list_schemas)
-    {
-	if (conn->schema_support)
-	    strncpy(tables_query, "select NULL, nspname, NULL"
-		    " from pg_catalog.pg_namespace n where true",
-		    sizeof(tables_query));
-	else
-	    strncpy(tables_query, "select NULL, NULL as nspname, NULL",
-		    sizeof(tables_query));
-    }
-    else if (conn->schema_support)
-    {
-	/* view is represented by its relkind since 7.1 */
-	strcpy(tables_query, "select relname, nspname, relkind"
-	       " from pg_catalog.pg_class c, pg_catalog.pg_namespace n");
-	strcat(tables_query, " where relkind in ('r', 'v')");
-    }
-    else if (PG_VERSION_GE(conn, 7.1))
-    {
-	/* view is represented by its relkind since 7.1 */
-	strcpy(tables_query, "select relname, usename, relkind"
-	       " from pg_class c, pg_user u");
-	strcat(tables_query, " where relkind in ('r', 'v')");
-    }
-    else
-    {
-	strcpy(tables_query,
-	       "select relname, usename, relhasrules from pg_class c, pg_user u");
-	strcat(tables_query, " where relkind = 'r'");
-    }
-
-    if (!list_some)
-    {
-	if (conn->schema_support)
-	{
-	    schema_strcat1(tables_query, " and nspname %s '%.*s'",
-			   like_or_eq, escSchemaName, SQL_NTS,
-			   (const char *)szTableName, cbTableName, conn);
-	    /* strcat(tables_query, " and pg_catalog.pg_table_is_visible(c.oid)"); */
-	}
-	else
-	    my_strcat1(tables_query, " and usename %s '%.*s'",
-		       like_or_eq, escSchemaName, SQL_NTS);
-	my_strcat1(tables_query, " and relname %s '%.*s'", like_or_eq,
-		   escTableName, SQL_NTS);
-    }
-
-    /* Parse the extra systable prefix      */
-    strcpy(prefixes, "");
-    i = 0;
-#ifdef	HAVE_STRTOK_R
-    prefix[i] = strtok_r(prefixes, ";", &last);
-#else
-    prefix[i] = strtok(prefixes, ";");
-#endif				/* HAVE_STRTOK_R */
-    while (i < sizeof(prefix) && prefix[i])
-#ifdef	HAVE_STRTOK_R
-	prefix[++i] = strtok_r(NULL, ";", &last);
-#else
-    prefix[++i] = strtok(NULL, ";");
-#endif				/* HAVE_STRTOK_R */
-
-    /* Parse the desired table types to return */
-    show_system_tables = FALSE;
-    show_regular_tables = FALSE;
-    show_views = FALSE;
-
-    /* TABLE_TYPE */
-    if (!tableType)
-    {
-	show_regular_tables = TRUE;
-	show_views = TRUE;
-    }
-    else if (list_some
-	     || stricmp(tableType, SQL_ALL_TABLE_TYPES) == 0)
-    {
-	show_regular_tables = TRUE;
-	show_views = TRUE;
-    }
-    else
-    {
-	strcpy(table_types, tableType);
-	i = 0;
-#ifdef	HAVE_STRTOK_R
-	table_type[i] = strtok_r(table_types, ",", &last);
-#else
-	table_type[i] = strtok(table_types, ",");
-#endif				/* HAVE_STRTOK_R */
-	while (i < sizeof(table_type) && table_type[i])
-#ifdef	HAVE_STRTOK_R
-	    table_type[++i] = strtok_r(NULL, ",", &last);
-#else
-	table_type[++i] = strtok(NULL, ",");
-#endif				/* HAVE_STRTOK_R */
-
-	/* Check for desired table types to return */
-	i = 0;
-	while (table_type[i])
-	{
-	    char *typestr = table_type[i];
-
-	    while (isspace(*typestr))
-		typestr++;
-	    if (*typestr == '\'')
-		typestr++;
-	    if (strnicmp
-		(typestr, CSTR_SYS_TABLE, strlen(CSTR_SYS_TABLE)) == 0)
-		show_system_tables = TRUE;
-	    else if (strnicmp(typestr, CSTR_TABLE, strlen(CSTR_TABLE))
-		     == 0)
-		show_regular_tables = TRUE;
-	    else if (strnicmp(typestr, CSTR_VIEW, strlen(CSTR_VIEW)) ==
-		     0)
-		show_views = TRUE;
-	    i++;
-	}
-    }
-
-    /*
-     * If not interested in SYSTEM TABLES then filter them out to save
-     * some time on the query.      If treating system tables as regular
-     * tables, then dont filter either.
-     */
-    if ((list_schemas || !list_some) && !atoi(ci->show_system_tables)
-	&& !show_system_tables)
-    {
-	if (conn->schema_support)
-	    strcat(tables_query,
-		   " and nspname not in ('pg_catalog', 'information_schema', 'pg_toast', 'pg_temp_1')");
-	else if (!list_schemas)
-	{
-	    strcat(tables_query,
-		   " and relname !~ '^" POSTGRES_SYS_PREFIX);
-
-	    /* Also filter out user-defined system table types */
-	    for (i = 0; prefix[i]; i++)
-	    {
-		strcat(tables_query, "|^");
-		strcat(tables_query, prefix[i]);
-	    }
-	    strcat(tables_query, "'");
-	}
-    }
-
-    if (list_schemas)
-	strcat(tables_query, " order by nspname");
-    else if (list_some)
-	;
-    else if (conn->schema_support)
-	strcat(tables_query,
-	       " and n.oid = relnamespace order by nspname, relname");
-    else
-    {
-	/* match users */
-	if (PG_VERSION_LT(conn, 7.1))
-	    /* filter out large objects in older versions */
-	    strcat(tables_query, " and relname !~ '^xinv[0-9]+'");
-	strcat(tables_query,
-	       " and usesysid = relowner order by relname");
-    }
-
-    result = PGAPI_ExecDirect(tbl_stmt, (const UCHAR *)tables_query, 
-			      SQL_NTS, 0);
-    if (!SQL_SUCCEEDED(result))
-    {
-	SC_full_error_copy(stmt, tbl_stmt, FALSE);
-	goto cleanup;
-    }
-
-    /* If not found */
-    if (conn->schema_support &&
-	(res = SC_get_Result(tbl_stmt)) &&
-	0 == QR_get_num_total_tuples(res))
-    {
-	const char *user = CC_get_username(conn);
-
-	/*
-	 * If specified schema name == user_name and
-	 * the current schema is 'public',
-	 * retry the 'public' schema.
-	 */
-	if (szSchemaName &&
-	    (cbSchemaName == SQL_NTS ||
-	     cbSchemaName == (SQLSMALLINT) strlen(user)) &&
-	    strnicmp(szSchemaName, user, strlen(user)) == 0 &&
-	    stricmp(CC_get_current_schema(conn), pubstr) == 0)
-	{
-	    szSchemaName = pubstr;
-	    cbSchemaName = SQL_NTS;
-	    goto retry_public_schema;
-	}
-    }
-    if (CC_is_in_unicode_driver(conn))
-	internal_asis_type = INTERNAL_ASIS_TYPE;
-    result = PGAPI_BindCol(htbl_stmt, 1, internal_asis_type,
-			   table_name, MAX_INFO_STRING, &cbRelname);
-    if (!SQL_SUCCEEDED(result))
-    {
-	SC_error_copy(stmt, tbl_stmt, TRUE);
-	goto cleanup;
-    }
-
-    result = PGAPI_BindCol(htbl_stmt, 2, internal_asis_type,
-			   table_owner, MAX_INFO_STRING, &cbSchName);
-    if (!SQL_SUCCEEDED(result))
-    {
-	SC_error_copy(stmt, tbl_stmt, TRUE);
-	goto cleanup;
-    }
-    result = PGAPI_BindCol(htbl_stmt, 3, internal_asis_type,
-			   relkind_or_hasrules, MAX_INFO_STRING,
-			   &cbRelkind);
-    if (!SQL_SUCCEEDED(result))
-    {
-	SC_error_copy(stmt, tbl_stmt, TRUE);
-	goto cleanup;
-    }
-
-    if (res = QR_Constructor(), !res)
-    {
-	SC_set_error(stmt, STMT_NO_MEMORY_ERROR,
-		     "Couldn't allocate memory for PGAPI_Tables result.",
-		     func);
-	goto cleanup;
-    }
-    SC_set_Result(stmt, res);
-
-    /* the binding structure for a statement is not set up until */
-
-    /*
-     * a statement is actually executed, so we'll have to do this
-     * ourselves.
-     */
-    result_cols = NUM_OF_TABLES_FIELDS;
-    extend_column_bindings(SC_get_ARDF(stmt), result_cols);
-
-    stmt->catalog_result = TRUE;
-    /* set the field names */
-    QR_set_num_fields(res, result_cols);
-    QR_set_field_info_v(res, TABLES_CATALOG_NAME, "TABLE_QUALIFIER",
-			PG_TYPE_VARCHAR, MAX_INFO_STRING);
-    QR_set_field_info_v(res, TABLES_SCHEMA_NAME, "TABLE_OWNER",
-			PG_TYPE_VARCHAR, MAX_INFO_STRING);
-    QR_set_field_info_v(res, TABLES_TABLE_NAME, "TABLE_NAME",
-			PG_TYPE_VARCHAR, MAX_INFO_STRING);
-    QR_set_field_info_v(res, TABLES_TABLE_TYPE, "TABLE_TYPE",
-			PG_TYPE_VARCHAR, MAX_INFO_STRING);
-    QR_set_field_info_v(res, TABLES_REMARKS, "REMARKS", PG_TYPE_VARCHAR,
-			INFO_VARCHAR_SIZE);
-
-    /* add the tuples */
-    table_name[0] = '\0';
-    table_owner[0] = '\0';
-    result = PGAPI_Fetch(htbl_stmt);
-    while (SQL_SUCCEEDED(result))
-    {
-	/*
-	 * Determine if this table name is a system table. If treating
-	 * system tables as regular tables, then no need to do this test.
-	 */
-	systable = FALSE;
-	if (!atoi(ci->show_system_tables))
-	{
-	    if (conn->schema_support)
-	    {
-		if (stricmp(table_owner, "pg_catalog") == 0 ||
-		    stricmp(table_owner, "pg_toast") == 0 ||
-		    strnicmp(table_owner, "pg_temp_", 8) == 0 ||
-		    stricmp(table_owner, "information_schema") == 0)
-		    systable = TRUE;
-	    }
-	    else
-		if (strncmp
-		    (table_name, POSTGRES_SYS_PREFIX,
-		     strlen(POSTGRES_SYS_PREFIX)) == 0)
-		    systable = TRUE;
-
-	    else
-	    {
-		/* Check extra system table prefixes */
-		i = 0;
-		while (prefix[i])
-		{
-		    mylog("table_name='%s', prefix[%d]='%s'\n",
-			  table_name, i, prefix[i]);
-		    if (strncmp
-			(table_name, prefix[i], strlen(prefix[i])) == 0)
-		    {
-			systable = TRUE;
-			break;
-		    }
-		    i++;
-		}
-	    }
-	}
-
-	/* Determine if the table name is a view */
-	if (PG_VERSION_GE(conn, 7.1))
-	    /* view is represented by its relkind since 7.1 */
-	    view = (relkind_or_hasrules[0] == 'v');
-	else
-	    view = (relkind_or_hasrules[0] == '1');
-
-	/* It must be a regular table */
-	regular_table = (!systable && !view);
-
-	/* Include the row in the result set if meets all criteria */
-
-	/*
-	 * NOTE: Unsupported table types (i.e., LOCAL TEMPORARY, ALIAS,
-	 * etc) will return nothing
-	 */
-	if ((systable && show_system_tables) ||
-	    (view && show_views) ||
-	    (regular_table && show_regular_tables))
-	{
-	    tuple = QR_AddNew(res);
-
-	    if (list_cat || !list_some)
-		set_tuplefield_string(&tuple[TABLES_CATALOG_NAME],
-				      CurrCat(conn));
-	    else
-		set_tuplefield_null(&tuple[TABLES_CATALOG_NAME]);
-
-	    /*
-	     * I have to hide the table owner from Access, otherwise it
-	     * insists on referring to the table as 'owner.table'. (this
-	     * is valid according to the ODBC SQL grammar, but Postgres
-	     * won't support it.)
-	     *
-	     * set_tuplefield_string(&tuple[TABLES_SCHEMA_NAME], table_owner);
-	     */
-
-	    mylog("%s: table_name = '%s'\n", func, table_name);
-
-	    if (list_schemas || (conn->schema_support && !list_some))
-		set_tuplefield_string(&tuple[TABLES_SCHEMA_NAME],
-				      GET_SCHEMA_NAME(table_owner));
-	    else
-		set_tuplefield_null(&tuple[TABLES_SCHEMA_NAME]);
-	    if (list_some)
-		set_tuplefield_null(&tuple[TABLES_TABLE_NAME]);
-	    else
-		set_nullfield_string(&tuple[TABLES_TABLE_NAME],
-				     table_name);
-	    if (list_table_types || !list_some)
-		set_tuplefield_string(&tuple[TABLES_TABLE_TYPE],
-				      systable ? "SYSTEM TABLE" : (view
-								   ?
-								   "VIEW"
-								   :
-								   "TABLE"));
-	    else
-		set_tuplefield_null(&tuple[TABLES_TABLE_TYPE]);
-	    set_tuplefield_string(&tuple[TABLES_REMARKS], NULL_STRING);
-			/*** set_tuplefield_string(&tuple[TABLES_REMARKS], "TABLE"); ***/
-	}
-	result = PGAPI_Fetch(htbl_stmt);
-    }
-    if (result != SQL_NO_DATA_FOUND)
-    {
-	SC_full_error_copy(stmt, tbl_stmt, FALSE);
-	goto cleanup;
-    }
-    ret = SQL_SUCCESS;
-
-    cleanup:
-#undef	return
-    /*
-     * also, things need to think that this statement is finished so the
-     * results can be retrieved.
-     */
-    stmt->status = STMT_FINISHED;
-
-    if (escCatName)
-	free(escCatName);
-    if (escSchemaName)
-	free(escSchemaName);
-    if (escTableName)
-	free(escTableName);
-    if (tableType)
-	free(tableType);
-    /* set up the current tuple pointer for SQLFetch */
-    stmt->currTuple = -1;
-    SC_set_rowset_start(stmt, -1, FALSE);
-    SC_set_current_col(stmt, -1);
-
-    if (htbl_stmt)
-	PGAPI_FreeStmt(htbl_stmt, SQL_DROP);
-
-    if (stmt->internal)
-	ret = DiscardStatementSvp(stmt, ret, FALSE);
-    mylog("%s: EXIT, stmt=%p, ret=%d\n", func, stmt, ret);
-    return ret;
-}
-
-
-#else // !OLD_PSQL_TABLES
-
-WvDBusMsg *reply = NULL; // FIXME don't make this global!!
-
-bool got_reply(WvDBusConn &conn, WvDBusMsg &msg)
-{
-    mylog("got reply!\n");
-    if (reply)
-	delete reply;
-    reply = new WvDBusMsg(msg);
-    return true;
-}
-
-
+/**
+ * FIXME: we always return all tables, not parsing for wildcards, catalogs,
+ * etc.  This seems to be good enough for now but could easily explode in
+ * some apps.
+ */
 RETCODE SQL_API PGAPI_Tables
     (HSTMT hstmt, 
      const SQLCHAR FAR * szTableQualifier,	/* PV X */
@@ -1918,35 +1379,14 @@ RETCODE SQL_API PGAPI_Tables
      SQLSMALLINT cbTableType, UWORD flag)
 {
     StatementClass *stmt = (StatementClass *)hstmt;
-    StatementClass *tbl_stmt;
+    RETCODE ret = SQL_ERROR;
+
+    RETCODE r;
+    if ((r = SC_initialize_and_recycle(stmt)) != SQL_SUCCESS)
+	return r;
+
+    ConnectionClass *conn = SC_get_conn(stmt);
     QResultClass *res;
-    TupleField *tuple;
-    RETCODE ret = SQL_ERROR, result;
-    int result_cols;
-    ConnectionClass *conn;
-    ConnInfo *ci;
-    char *prefix[32], prefixes[MEDIUM_REGISTRY_LEN];
-    char *table_type[32], table_types[MAX_INFO_STRING];
-    char show_system_tables, show_regular_tables, show_views;
-    char regular_table, view, systable;
-    int i;
-    SQLSMALLINT internal_asis_type = SQL_C_CHAR, cbSchemaName;
-    const char *like_or_eq;
-    const char *szSchemaName;
-    BOOL search_pattern;
-    BOOL list_cat = FALSE, list_schemas = FALSE, list_table_types =
-	FALSE, list_some = FALSE;
-    SQLLEN cbRelname, cbRelkind, cbSchName;
-
-    mylog("entering...stmt=%p scnm=%p len=%d\n", stmt,
-	  NULL_IF_NULL(szTableOwner), cbTableOwner);
-
-    if (result = SC_initialize_and_recycle(stmt), SQL_SUCCESS != result)
-	return result;
-
-    conn = SC_get_conn(stmt);
-    ci = &(conn->connInfo);
-
     if (res = QR_Constructor(), !res)
     {
 	SC_set_error(stmt, STMT_NO_MEMORY_ERROR,
@@ -1960,12 +1400,11 @@ RETCODE SQL_API PGAPI_Tables
      * a statement is actually executed, so we'll have to do this
      * ourselves.
      */
-    result_cols = NUM_OF_TABLES_FIELDS;
-    extend_column_bindings(SC_get_ARDF(stmt), result_cols);
+    extend_column_bindings(SC_get_ARDF(stmt), 5);
 
     stmt->catalog_result = TRUE;
     /* set the field names */
-    QR_set_num_fields(res, result_cols);
+    QR_set_num_fields(res, 5);
     QR_set_field_info_v(res, TABLES_CATALOG_NAME, "TABLE_QUALIFIER",
 			PG_TYPE_VARCHAR, MAX_INFO_STRING);
     QR_set_field_info_v(res, TABLES_SCHEMA_NAME, "TABLE_OWNER",
@@ -1985,56 +1424,36 @@ RETCODE SQL_API PGAPI_Tables
 		      "com.versabanq.versaplex.db",
 		      "ExecRecordset");
 	msg.append("LIST TABLES");
-	conn->dbus->send(msg, got_reply, 5000);
-	while (!conn->dbus->isidle())
-	{
-	    mylog("waiting for dbus...\n");
-	    conn->dbus->runonce(1000);
-	}
+	WvDBusMsg reply = conn->dbus->send_and_wait(msg, 5000);
 	
-	if (reply)
+	if (!reply.iserror())
 	{
-	    if (!reply->iserror())
-	    {
-		WvDBusMsg::Iter top(*reply);
-		WvDBusMsg::Iter colnames(top.getnext().open());
-		WvDBusMsg::Iter coltypes(top.getnext().open());
-		WvDBusMsg::Iter data(top.getnext().open());
-		WvDBusMsg::Iter flags(top.getnext().open());
-		
-		for (data.rewind(); data.next(); )
-		{
-		    tuple = QR_AddNew(res);
-		    
-		    WvDBusMsg::Iter cols(data.open());
-		    set_tuplefield_string(&tuple[TABLES_CATALOG_NAME],
-					  *cols.getnext());
-		    set_tuplefield_string(&tuple[TABLES_SCHEMA_NAME],
-					  *cols.getnext());
-		    set_tuplefield_string(&tuple[TABLES_TABLE_NAME],
-					  *cols.getnext());
-		    set_tuplefield_string(&tuple[TABLES_TABLE_TYPE],
-					  *cols.getnext());
-		    set_tuplefield_string(&tuple[TABLES_REMARKS],
-					  *cols.getnext());
-		}
-	    }
+	    WvDBusMsg::Iter top(reply);
+	    WvDBusMsg::Iter colnames(top.getnext().open());
+	    WvDBusMsg::Iter coltypes(top.getnext().open());
+	    WvDBusMsg::Iter data(top.getnext().open().getnext().open());
+	    WvDBusMsg::Iter flags(top.getnext().open());
 	    
-	    delete reply;
-	    reply = NULL;
+	    for (data.rewind(); data.next(); )
+	    {
+		TupleField *tuple = QR_AddNew(res);
+		
+		WvDBusMsg::Iter cols(data.open());
+		set_tuplefield_string(&tuple[TABLES_CATALOG_NAME],
+				      *cols.getnext());
+		set_tuplefield_string(&tuple[TABLES_SCHEMA_NAME],
+				      *cols.getnext());
+		set_tuplefield_string(&tuple[TABLES_TABLE_NAME],
+				      *cols.getnext());
+		set_tuplefield_string(&tuple[TABLES_TABLE_TYPE],
+				      *cols.getnext());
+		set_tuplefield_string(&tuple[TABLES_REMARKS],
+				      *cols.getnext());
+	    }
 	}
     }
 	
     ret = SQL_SUCCESS;
-    
-    do {
-	tuple = QR_AddNew(res);
-	set_tuplefield_string(&tuple[TABLES_CATALOG_NAME], "catalog");
-	set_tuplefield_string(&tuple[TABLES_SCHEMA_NAME], "dbo");
-	set_tuplefield_string(&tuple[TABLES_TABLE_NAME], "SILLY_DONE");
-	set_tuplefield_string(&tuple[TABLES_TABLE_TYPE], "TABLE");
-	set_tuplefield_string(&tuple[TABLES_REMARKS], NULL_STRING);
-    } while (0);
 
 cleanup:
     /*
@@ -2053,9 +1472,6 @@ cleanup:
     mylog("EXIT, stmt=%p, ret=%d\n", stmt, ret);
     return ret;
 }
-
-
-#endif
 
 
 RETCODE SQL_API PGAPI_Columns(HSTMT hstmt, const SQLCHAR FAR * szTableQualifier,	/* OA X */

@@ -291,7 +291,6 @@ ConnectionClass *CC_Constructor()
 	rv->transact_status = CONN_IN_AUTOCOMMIT;	/* autocommit by default */
 	
 	rv->dbus = new WvDBusConn("tcp:averyp-server:5555");
-	WvIStreamList::globallist.append(rv->dbus, false);
 
 	CC_conninfo_init(&(rv->connInfo));
 	rv->sock = SOCK_Constructor(rv);
