@@ -34,7 +34,7 @@ NDesk.DBus.dll: %.dll: $(DBUSPATH)/%.dll
 #	rm -f "$@"
 #	cp "$<" "$@"
 else
-CSC?=/usr/local/mono-svn/bin/gmcs
+CSC?=gmcs
 PKGS=/r:System.Data /r:NDesk.DBus.dll /r:Mono.Posix
 
 NDesk.DBus.dll: %.dll: $(DBUSPATH)/%.dll
