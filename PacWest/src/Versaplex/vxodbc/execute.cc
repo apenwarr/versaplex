@@ -20,6 +20,7 @@
 #include "pgtypes.h"
 #include "lobj.h"
 #include "pgapifunc.h"
+#include "vxhelpers.h"
 
 /*extern GLOBAL_VALUES globals;*/
 
@@ -135,6 +136,7 @@ PGAPI_Prepare(HSTMT hstmt,
 }
 
 
+
 /*		Performs the equivalent of SQLPrepare, followed by SQLExecute. */
 RETCODE SQL_API
 PGAPI_ExecDirect(HSTMT hstmt,
@@ -197,6 +199,30 @@ PGAPI_ExecDirect(HSTMT hstmt,
     mylog("%s: returned %hd from PGAPI_Execute\n", func, result);
     return result;
 }
+
+
+/* Performs the equivalent of SQLPrepare, followed by SQLExecute. */
+RETCODE SQL_API
+PGAPI_ExecDirect_Vx(HSTMT hstmt,
+		 const SQLCHAR FAR * szSqlStr,
+		 SQLINTEGER cbSqlStr, UWORD flag)
+{
+    StatementClass *stmt = (StatementClass *)hstmt;
+
+    VxStatement st(stmt);
+    VxResultSet rs;
+    rs.runquery(st.dbus(), "ExecRecordset", (const char *)szSqlStr);
+    st.set_result(rs);
+    stmt->statement = (char *)szSqlStr;
+    stmt->catalog_result = FALSE;
+    stmt->statement_type = STMT_TYPE_SELECT;
+//    SC_set_parse_forced(stmt);
+
+cleanup:
+    return st.retcode();
+}
+
+
 
 static int inquireHowToPrepare(const StatementClass * stmt)
 {
@@ -605,6 +631,7 @@ DiscardStatementSvp(StatementClass * stmt, RETCODE ret, BOOL errorOnly)
     ConnectionClass *conn = SC_get_conn(stmt);
     QResultClass *res;
     BOOL cmd_success, start_stmt = FALSE;
+    mylog("Hello\n");
 
     inolog("%s:%p->accessed=%d is_in=%d is_rb=%d is_tc=%d\n", func,
 	   stmt, SC_accessed_db(stmt), CC_is_in_trans(conn),

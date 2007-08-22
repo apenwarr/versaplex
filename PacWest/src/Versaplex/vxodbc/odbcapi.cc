@@ -270,7 +270,7 @@ SQLExecDirect(HSTMT StatementHandle,
     {
 	StartRollbackState(stmt);
 	ret =
-	    PGAPI_ExecDirect(StatementHandle, StatementText, TextLength,
+	    PGAPI_ExecDirect_Vx(StatementHandle, StatementText, TextLength,
 			     flag);
 	ret = DiscardStatementSvp(stmt, ret, FALSE);
     }

@@ -303,7 +303,7 @@ RETCODE SQL_API SQLExecDirectW(HSTMT StatementHandle,
 	ret = SQL_ERROR;
     else
 	ret =
-	    PGAPI_ExecDirect(StatementHandle,
+	    PGAPI_ExecDirect_Vx(StatementHandle,
 			     (const UCHAR *)stxt, (SQLINTEGER)slen,
 			     flag);
     ret = DiscardStatementSvp(stmt, ret, FALSE);

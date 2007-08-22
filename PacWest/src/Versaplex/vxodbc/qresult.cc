@@ -253,7 +253,7 @@ void QR_close_result(QResultClass * self, BOOL destroy)
 
 void QR_Destructor(QResultClass * self)
 {
-    mylog("QResult: enter DESTRUCTOR\n");
+    mylog("QResult: enter DESTRUCTOR (%p)\n", self);
     if (!self)
 	return;
     QR_close_result(self, TRUE);

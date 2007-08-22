@@ -86,6 +86,8 @@ RETCODE SQL_API PGAPI_StmtError(HSTMT StatementHandle, SQLSMALLINT RecNumber,
 
 RETCODE SQL_API PGAPI_ExecDirect(HSTMT StatementHandle,
 		const SQLCHAR *StatementText, SQLINTEGER TextLength, UWORD flag);
+RETCODE SQL_API PGAPI_ExecDirect_Vx(HSTMT StatementHandle,
+		const SQLCHAR *StatementText, SQLINTEGER TextLength, UWORD flag);
 RETCODE SQL_API PGAPI_Execute(HSTMT StatementHandle, UWORD flag);
 RETCODE SQL_API PGAPI_Fetch(HSTMT StatementHandle);
 RETCODE SQL_API PGAPI_FreeConnect(HDBC ConnectionHandle);

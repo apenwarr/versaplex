@@ -17,6 +17,7 @@
 
 #include <stdio.h>
 #include <limits.h>
+#include <assert.h>
 
 #include "pgapifunc.h"
 
@@ -196,6 +197,8 @@ PGAPI_NumResultCols(HSTMT hstmt, SQLSMALLINT FAR * pccol)
 }
 
 
+#if USE_OLD_DESCRIBECOL
+
 /*
  *	Return information about the database column the user wants
  *	information about.
@@ -279,6 +282,7 @@ PGAPI_DescribeCol(HSTMT hstmt,
 	&& SC_is_parse_forced(stmt)
 	&& STMT_TYPE_SELECT == stmt->statement_type)
     {
+	mylog("XXX1\n");
 	if (SC_parsed_status(stmt) == STMT_PARSE_NONE)
 	{
 	    mylog("%s: calling parse_statement on stmt=%p\n", func,
@@ -306,8 +310,10 @@ PGAPI_DescribeCol(HSTMT hstmt,
 	}
     }
 
+    mylog("XXX2\n");
     if (!FI_is_applicable(fi))
     {
+	mylog("XXX3\n");
 	/*
 	 * If couldn't parse it OR the field being described was not parsed
 	 * (i.e., because it was a function or expression, etc, then do it the
@@ -337,8 +343,11 @@ PGAPI_DescribeCol(HSTMT hstmt,
 	if (icol < irdflds->nfields && irdflds->fi)
 	    fi = irdflds->fi[icol];
     }
+    
+    mylog("XXX4\n");
     if (FI_is_applicable(fi))
     {
+	mylog("XXX5\n");
 	fieldtype =
 	    (conn->lobj_type ==
 	     fi->columntype) ? fi->columntype : FI_type(fi);
@@ -351,8 +360,10 @@ PGAPI_DescribeCol(HSTMT hstmt,
 
 	mylog("PARSE: fieldtype=%d, col_name='%s', column_size=%d\n",
 	      fieldtype, col_name, column_size);
-    } else
+    }
+    else
     {
+	mylog("XXX6\n");
 	col_name = QR_get_fieldname(res, icol);
 	fieldtype = QR_get_field_type(res, icol);
 
@@ -446,6 +457,56 @@ PGAPI_DescribeCol(HSTMT hstmt,
 	result = DiscardStatementSvp(stmt, result, FALSE);
     return result;
 }
+
+#else // !USE_OLD_DESCRIBECOL
+
+/*
+ *	Return information about the database column the user wants
+ *	information about.
+ */
+RETCODE SQL_API
+PGAPI_DescribeCol(HSTMT hstmt,
+		  SQLUSMALLINT icol,
+		  SQLCHAR FAR * szColName,
+		  SQLSMALLINT cbColNameMax,
+		  SQLSMALLINT FAR * pcbColName,
+		  SQLSMALLINT FAR * pfSqlType,
+		  SQLULEN FAR * pcbColDef,
+		  SQLSMALLINT FAR * pibScale,
+		  SQLSMALLINT FAR * pfNullable)
+{
+    icol--; // our own indexes are zero-based
+    StatementClass *stmt = (StatementClass *)hstmt;
+    mylog("entering (%p,%d)\n", stmt->result, icol);
+    QResultClass *res = stmt->result;
+    if (!res)
+    {
+	mylog("no result exists!\n");
+	return SQL_ERROR;
+    }
+    if (QR_NumResultCols(res) <= icol)
+    {
+	mylog("not enough columns in result!\n");
+	return SQL_ERROR;
+    }
+    mylog("working: %p %d\n", pcbColName, (int)cbColNameMax);
+    mylog("hiya! %p\n", QR_get_fieldname(res, icol));
+    // strncpy((char *)pcbColName, QR_get_fieldname(res, icol), cbColNameMax);
+    strncpy((char *)szColName, "foo", cbColNameMax);
+    mylog("still ok!\n");
+    *pcbColName = strlen((char *)pcbColName);
+    assert(*szColName > 0);
+    *pfSqlType = SQL_VARCHAR;
+    mylog("still ok! 2\n");
+    *pcbColDef = 20;
+    *pibScale = 1;
+    mylog("still ok! 3\n");
+    *pfNullable = 1;
+    mylog("done\n");
+    return SQL_SUCCESS;
+}
+
+#endif
 
 
 /*		Returns result column descriptor information for a result set. */

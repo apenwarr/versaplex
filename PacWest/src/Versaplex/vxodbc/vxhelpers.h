@@ -20,12 +20,14 @@ public:
     
     void set_field_info(int col, const char *colname, OID type, int typesize)
     {
+	mylog("Col#%d is '%s'\n", col, colname);
 	if (maxcol < col)
 	{
 	    maxcol = col;
 	    QR_set_num_fields(res, maxcol+1);
 	}
 	QR_set_field_info_v(res, col, colname, type, typesize);
+	assert(!strcmp(QR_get_fieldname(res, col), colname));
     }
     
     operator QResultClass* () const
@@ -66,16 +68,10 @@ public:
 		TupleField *tuple = QR_AddNew(res);
 		
 		WvDBusMsg::Iter cols(data.open());
-		set_tuplefield_string(&tuple[TABLES_CATALOG_NAME],
-				      *cols.getnext());
-		set_tuplefield_string(&tuple[TABLES_SCHEMA_NAME],
-				      *cols.getnext());
-		set_tuplefield_string(&tuple[TABLES_TABLE_NAME],
-				      *cols.getnext());
-		set_tuplefield_string(&tuple[TABLES_TABLE_TYPE],
-				      *cols.getnext());
-		set_tuplefield_string(&tuple[TABLES_REMARKS],
-				      *cols.getnext());
+		for (int colnum = 0;
+		       cols.next() && colnum < numcols();
+		       colnum++)
+		    set_tuplefield_string(&tuple[colnum], *cols);
 	    }
 	}
     }
