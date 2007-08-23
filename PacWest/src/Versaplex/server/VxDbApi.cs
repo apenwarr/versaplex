@@ -10,8 +10,8 @@ using versabanq.Versaplex.Dbus;
 
 namespace versabanq.Versaplex.Dbus.Db {
 
-public static class VxDb {
-    public static void ExecNoResult(string query)
+internal static class VxDb {
+    internal static void ExecNoResult(string query)
     {
         Console.WriteLine("ExecNoResult " + query);
 
@@ -31,7 +31,7 @@ public static class VxDb {
         }
     }
 
-    public static void ExecScalar(string query, out object result)
+    internal static void ExecScalar(string query, out object result)
     {
         Console.WriteLine("ExecScalar " + query);
 
@@ -51,9 +51,9 @@ public static class VxDb {
         }
     }
 
-    public static void ExecRecordset(string query,
-            out string[] colnames, out VxColumnType[] coltypes,
-            out object[][] data, out byte[][] nullity)
+    internal static void ExecRecordset(string query,
+            out VxColumnInfo[] colinfo, out object[][] data,
+            out byte[][] nullity)
     {
         Console.WriteLine("ExecRecordset " + query);
 
@@ -67,7 +67,7 @@ public static class VxDb {
                     throw new VxBadSchema("No columns in record set");
                 }
 
-                ProcessSchema(reader, out colnames, out coltypes);
+                ProcessSchema(reader, out colinfo);
 
                 List<object[]> rows = new List<object[]>();
                 List<byte[]> rownulls = new List<byte[]>();
@@ -83,7 +83,7 @@ public static class VxDb {
 
                         rownull[i] = isnull ? (byte)1 : (byte)0;
 
-                        switch (coltypes[i]) {
+                        switch (colinfo[i].VxColumnType) {
                             case VxColumnType.Int64:
                                 row[i] = !isnull ?
                                     reader.GetInt64(i) : new Int64();
@@ -160,10 +160,9 @@ public static class VxDb {
     }
 
     private static void ProcessSchema(SqlDataReader reader,
-            out string[] colnames, out VxColumnType[] coltypes)
+            out VxColumnInfo[] colinfo)
     {
-        colnames = new string[reader.FieldCount];
-        coltypes = new VxColumnType[reader.FieldCount];
+        colinfo = new VxColumnInfo[reader.FieldCount];
 
         int i = 0;
 
@@ -219,8 +218,13 @@ public static class VxDb {
                             "(column " + col["ColumnName"].ToString() + ")");
                 }
 
-                colnames[i] = col["ColumnName"].ToString();
-                coltypes[i] = coltype;
+                bool isnull = (bool)col["AllowDBNull"];
+                int size = (int)col["ColumnSize"];
+                short precision = (short)col["NumericPrecision"];
+                short scale = (short)col["NumericScale"];
+
+                colinfo[i] = new VxColumnInfo(col["ColumnName"].ToString(),
+                        coltype, isnull, size, precision, scale);
 
                 i++;
             }
@@ -353,42 +357,34 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         object query;
         reader.GetValue(typeof(string), out query);
 
-        string[] colnames;
-        VxColumnType[] coltypes;
+        VxColumnInfo[] colinfo;
         object[][] data;
         byte[][] nullity;
-        VxDb.ExecRecordset((string)query, out colnames, out coltypes,
-                out data, out nullity);
-
-        string[] coltypes_str = new string[coltypes.Length];
-        for (int i=0; i < coltypes.Length; i++) {
-            coltypes_str[i] = coltypes[i].ToString();
-        }
+        VxDb.ExecRecordset((string)query, out colinfo, out data, out nullity);
 
         // FIXME: Add com.versabanq.versaplex.toomuchdata error
         MessageWriter writer =
                 new MessageWriter(Connection.NativeEndianness);
-        writer.Write(typeof(string[]), colnames);
-        writer.Write(typeof(string[]), coltypes_str);
-        writer.Write(typeof(Signature), VxColumnTypeToArraySignature(coltypes));
+        writer.Write(typeof(VxColumnInfo[]), colinfo);
+        writer.Write(typeof(Signature), VxColumnInfoToArraySignature(colinfo));
         writer.WriteDelegatePrependSize(delegate(MessageWriter w) {
-                    WriteStructArray(w, VxColumnTypeToType(coltypes), data);
+                    WriteStructArray(w, VxColumnInfoToType(colinfo), data);
                 }, 8);
         writer.Write(typeof(byte[][]), nullity);
 
-        reply = VxDbus.CreateReply(call, "asasvaay", writer);
+        reply = VxDbus.CreateReply(call, "a(issnny)vaay", writer);
 
         // For debugging
         reply.WriteHeader();
         VxDbus.MessageDump(reply);
     }
 
-    private static Signature VxColumnTypeToArraySignature(VxColumnType[] vxct)
+    private static Signature VxColumnInfoToArraySignature(VxColumnInfo[] vxci)
     {
         StringBuilder sig = new StringBuilder("a(");
 
-        foreach (VxColumnType ct in vxct) {
-            switch (ct) {
+        foreach (VxColumnInfo ci in vxci) {
+            switch (ci.VxColumnType) {
             case VxColumnType.Int64:
                 sig.Append("x");
                 break;
@@ -432,12 +428,12 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         return new Signature(sig.ToString());
     }
 
-    private static Type[] VxColumnTypeToType(VxColumnType[] vxct)
+    private static Type[] VxColumnInfoToType(VxColumnInfo[] vxci)
     {
-        Type[] ret = new Type[vxct.Length];
+        Type[] ret = new Type[vxci.Length];
 
-        for (int i=0; i < vxct.Length; i++) {
-            switch (vxct[i]) {
+        for (int i=0; i < vxci.Length; i++) {
+            switch (vxci[i].VxColumnType) {
             case VxColumnType.Int64:
                 ret[i] = typeof(Int64);
                 break;
@@ -496,21 +492,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
     }
 }
 
-public enum VxColumnType {
-    Int64,
-    Int32,
-    Int16,
-    UInt8,
-    Bool,
-    Double,
-    Uuid,
-    Binary,
-    String,
-    DateTime,
-    Decimal
-}
-
-public class VxSqlError : Exception {
+class VxSqlError : Exception {
     public VxSqlError()
         : base()
     {
@@ -532,7 +514,7 @@ public class VxSqlError : Exception {
     }
 }
 
-public class VxTooMuchData : Exception {
+class VxTooMuchData : Exception {
     public VxTooMuchData()
         : base()
     {
@@ -554,7 +536,7 @@ public class VxTooMuchData : Exception {
     }
 }
 
-public class VxBadSchema : Exception {
+class VxBadSchema : Exception {
     public VxBadSchema()
         : base()
     {
@@ -574,6 +556,125 @@ public class VxBadSchema : Exception {
         : base(msg, inner)
     {
     }
+}
+
+struct VxDbusDateTime {
+    private long seconds;
+    private int microseconds;
+
+    public long Seconds {
+        get { return seconds; }
+        set { seconds = value; }
+    }
+
+    public int Microseconds {
+        get { return microseconds; }
+        set { microseconds = value; }
+    }
+
+    public DateTime DateTime {
+        get {
+            return new DateTime(seconds*10000000 + microseconds*10);
+        }
+    }
+
+    public VxDbusDateTime(DateTime dt)
+    {
+        seconds = (dt.Ticks + EpochOffset.Ticks) / 10000000;
+        microseconds = (int)(((dt.Ticks + EpochOffset.Ticks) / 10) % 1000000);
+    }
+
+    private static readonly DateTime Epoch = new DateTime(1970, 1, 1);
+    private static readonly TimeSpan EpochOffset = DateTime.MinValue - Epoch;
+}
+
+struct VxColumnInfo {
+    private int size;
+    private string colname;
+    private string coltype;
+    private short precision;
+    private short scale;
+    private byte nullable;
+
+    public string ColumnName {
+        get { return colname; }
+        set { colname = value; }
+    }
+
+    // XXX: Eww. But keeping this as a string makes the dbus-sharp magic do the
+    // right thing when this struct is sent through the MessageWriter
+    public VxColumnType VxColumnType {
+        get { return (VxColumnType)Enum.Parse(
+                typeof(VxColumnType), coltype, true); }
+        set { coltype = value.ToString(); }
+    }
+
+    public string ColumnType {
+        get { return coltype; }
+    }
+
+    public bool Nullable {
+        get { return (nullable != 0); }
+        set { nullable = value ? (byte)1 : (byte)0; }
+    }
+
+    public int Size {
+        get { return size; }
+        set {
+            if (value < 0)
+                throw new ArgumentOutOfRangeException(
+                        "Size must be nonnegative");
+
+            size = value;
+        }
+    }
+
+    public short Precision {
+        get { return precision; }
+        set {
+            if (value < 0)
+                throw new ArgumentOutOfRangeException(
+                        "Precision must be nonnegative");
+
+            precision = value;
+        }
+    }
+
+    public short Scale {
+        get { return scale; }
+        set {
+            if (value < 0)
+                throw new ArgumentOutOfRangeException(
+                        "Scale must be nonnegative");
+
+            scale = value;
+        }
+    }
+
+    public VxColumnInfo(string colname, VxColumnType vxcoltype, bool nullable,
+            int size, short precision, short scale)
+    {
+        ColumnName = colname;
+        VxColumnType = vxcoltype;
+        Nullable = nullable;
+        Size = size;
+        Precision = precision;
+        Scale = scale;
+    }
+}
+
+enum VxColumnType {
+    Int64,
+    Int32,
+    Int16,
+    UInt8,
+    Bool,
+    Double,
+    Uuid,
+    Binary,
+    String,
+    DateTime,
+    Decimal
 }
 
 }

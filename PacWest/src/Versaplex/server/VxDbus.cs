@@ -41,7 +41,10 @@ public static class VxDbus {
         reply.Header.MessageType = MessageType.MethodReturn;
         reply.Header.Flags =
             HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
-        reply.Header.Fields[FieldCode.ReplySerial] = call.Header.Serial; object sender; if (call.Header.Fields.TryGetValue(FieldCode.Sender, out sender))
+        reply.Header.Fields[FieldCode.ReplySerial] = call.Header.Serial;
+        
+        object sender;
+        if (call.Header.Fields.TryGetValue(FieldCode.Sender, out sender))
             reply.Header.Fields[FieldCode.Destination] = sender;
 
         if (signature != null && signature != "") {
@@ -244,36 +247,6 @@ public abstract class VxInterfaceRouter {
                     e.ToString(), call);
         }
     }
-}
-
-public struct VxDbusDateTime {
-    private long seconds;
-    private int microseconds;
-
-    public long Seconds {
-        get { return seconds; }
-        set { seconds = value; }
-    }
-
-    public int Microseconds {
-        get { return microseconds; }
-        set { microseconds = value; }
-    }
-
-    public DateTime DateTime {
-        get {
-            return new DateTime(seconds*10000000 + microseconds*10);
-        }
-    }
-
-    public VxDbusDateTime(DateTime dt)
-    {
-        seconds = (dt.Ticks + EpochOffset.Ticks) / 10000000;
-        microseconds = (int)(((dt.Ticks + EpochOffset.Ticks) / 10) % 1000000);
-    }
-
-    private static readonly DateTime Epoch = new DateTime(1970, 1, 1);
-    private static readonly TimeSpan EpochOffset = DateTime.MinValue - Epoch;
 }
 
 }
