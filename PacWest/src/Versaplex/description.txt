@@ -33,8 +33,8 @@ text being the complaint by the SQL server) in case of error
 - The maximum amount of data that can be received this way is 16MB.
 There is a com.versabanq.versaplex.toomuchdata error for this
 
-ExecRecordset(string query IN, string[] colnames OUT, string[]
-coltypes OUT, variant data OUT, byte[][] nullity OUT)
+ExecRecordset(string query IN, VxColumnInfo[] colinfo OUT,
+        variant data OUT, byte[][] nullity OUT)
 - Will throw a com.versabanq.versaplex.sqlerror error (with the error
 text being the complaint by the SQL server) in case of error
 - will throw a com.versabanq.versaplex.badschema error if unable to
@@ -50,6 +50,15 @@ set. In D-Bus terms, the signature of the variant is "a(...)" where
 "..." varies. The array may have length zero.
 - The maximum amount of data that can be received this way is 16MB.
 There is a com.versabanq.versaplex.toomuchdata error for this.
+- VxColumnInfo is a struct in the form "a(issnny)"
+  int32 Column size
+  string Column name
+  string Column type
+  int16 Numeric precision
+  int16 Numeric scale
+  uint8 Nullability
+    - This is a bitfield with only one bit defined:
+      0x1 = is nullable
 
 For this API, there are no guarantees that a series of queries will
 run through the same connection (so no transactions, temporary tables,

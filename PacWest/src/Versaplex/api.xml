@@ -12,8 +12,17 @@
 
         <method name="ExecRecordset">
             <arg name="query" type="s" direction="in"/>
-            <arg name="colnames" type="as" direction="out"/>
-            <arg name="coltypes" type="as" direction="out"/>
+            <arg name="colinfo" type="a(issnny)" direction="out"/>
+            <!-- Returned data is:
+                int32 column size
+                string column name
+                string column type
+                int16 numeric precision
+                int16 numeric scale
+                uint8 nullability
+                    - a bitfield, with only one bit currently defined,
+                      0x1 = is nullable
+            -->
             <arg name="data" type="v" direction="out"/>
             <!-- row-major order; the variant's signature is an array type
                  of the form a(...) where ... are the columns -->
