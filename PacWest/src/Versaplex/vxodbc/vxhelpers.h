@@ -47,21 +47,23 @@ public:
 		      "com.versabanq.versaplex.db",
 		      func);
 	msg.append(query);
-	WvDBusMsg reply = conn.send_and_wait(msg, 5000);
+	WvDBusMsg reply = conn.send_and_wait(msg, 50000);
 	
 	if (reply.iserror())
 	    mylog("DBus error: '%s'\n", ((WvString)reply).cstr());
 	else
 	{
 	    WvDBusMsg::Iter top(reply);
-	    WvDBusMsg::Iter colnames(top.getnext().open());
-	    WvDBusMsg::Iter coltypes(top.getnext().open());
+	    WvDBusMsg::Iter colinfo(top.getnext().open());
 	    WvDBusMsg::Iter data(top.getnext().open().getnext().open());
 	    WvDBusMsg::Iter flags(top.getnext().open());
 	    
-	    for (int colnum = 0; colnames.next(); colnum++)
-		set_field_info(colnum, *colnames,
-			       PG_TYPE_VARCHAR, MAX_INFO_STRING);
+	    for (int colnum = 0; colinfo.next(); colnum++)
+	    {
+		WvDBusMsg::Iter i(colinfo.open());
+		i.next();
+		set_field_info(colnum, *i, PG_TYPE_VARCHAR, 20);
+	    }
 	    
 	    for (data.rewind(); data.next(); )
 	    {

@@ -290,7 +290,7 @@ ConnectionClass *CC_Constructor()
 	rv->status = CONN_NOT_CONNECTED;
 	rv->transact_status = CONN_IN_AUTOCOMMIT;	/* autocommit by default */
 	
-	rv->dbus = new WvDBusConn("tcp:averyp-server:5555");
+	rv->dbus = new WvDBusConn("dbus:session");
 
 	CC_conninfo_init(&(rv->connInfo));
 	rv->sock = SOCK_Constructor(rv);

@@ -96,7 +96,7 @@ static void _vmylog(const char *file, int line,
 
 #ifdef MY_LOG
 
-void _mylog(const char *file, int line, const char *fmt, ...)
+int _mylog(const char *file, int line, const char *fmt, ...)
 {
     va_list args;
 
@@ -105,14 +105,16 @@ void _mylog(const char *file, int line, const char *fmt, ...)
     va_start(args, fmt);
     _vmylog(file, line, fmt, args);
     va_end(args);
+    return 0;
 }
 
-void _forcelog(const char *file, int line, const char *fmt, ...)
+int _forcelog(const char *file, int line, const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
     _vmylog(file, line, fmt, args);
     va_end(args);
+    return 0;
 }
 static void mylog_initialize()
 {
@@ -138,12 +140,13 @@ static void mylog_finalize()
 
 
 #ifdef Q_LOG
-void _qlog(const char *file, int line, const char *fmt, ...)
+int _qlog(const char *file, int line, const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
     _vmylog(file, line, fmt, args);
     va_end(args);
+    return 0;
 }
 static void qlog_initialize()
 {

@@ -73,8 +73,8 @@ extern "C" {
 #ifdef MY_LOG
 # define mylog(fmt, args...)       _mylog(__func__, __LINE__, fmt, ## args)
 # define forcelog(fmt, args...) _forcelog(__func__, __LINE__, fmt, ## args)
-  extern void _mylog(const char *file, int line, const char *fmt, ...);
-  extern void _forcelog(const char *file, int line, const char *fmt, ...);
+  extern int _mylog(const char *file, int line, const char *fmt, ...);
+  extern int _forcelog(const char *file, int line, const char *fmt, ...);
 #else /* !MY_LOG */
 # define mylog(fmt, args...)
 #endif /* MY_LOG */
@@ -83,7 +83,7 @@ extern "C" {
 
 #ifdef Q_LOG
 # define qlog(fmt, args...)  _qlog(__func__, __LINE__, fmt, ## args)
-  extern void _qlog(const char *file, int line, const char *fmt, ...);
+  extern int _qlog(const char *file, int line, const char *fmt, ...);
 #else /* !Q_LOG */
 # define qlog(fmt, args...)
 #endif

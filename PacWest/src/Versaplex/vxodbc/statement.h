@@ -271,7 +271,7 @@ struct StatementClass_
 };
 
 #define SC_get_conn(a)	  (a->hdbc)
-#define SC_init_Result(a)  (a->result = a->curres = NULL, mylog("result=%x\n", a))
+#define SC_init_Result(a)  (a->result = a->curres = NULL, mylog("result=%x\n", a)+1)
 void SC_set_Result(StatementClass *s, QResultClass *q);
 #define SC_get_Result(a)  (a->result)
 #define SC_set_Curres(a, b)  (a->curres = b)
