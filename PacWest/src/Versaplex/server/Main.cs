@@ -118,15 +118,6 @@ public static class Versaplex
         oldhandler = conn.OnMessage;
         conn.OnMessage = MessageReady;
 
-#if false
-        // XXX: Shutdown after 5 minutes
-        // You probably don't want to keep this
-        VxEventLoop.AddEvent(new TimeSpan(0, 5, 0),
-                delegate() {
-                    VxEventLoop.Shutdown();
-                });
-#endif
-
         VxEventLoop.Run();
 
         Console.WriteLine("Done!");
