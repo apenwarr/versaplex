@@ -4,10 +4,11 @@ using System;
 using System.Data;
 using System.Data.SqlClient;
 using System.Data.SqlTypes;
+using System.Collections.Generic;
 using System.IO;
-using NUnit.Framework;
 using Wv.Test;
 using Wv.Utils;
+using NDesk.DBus;
 
 // Several mono bugs worked around in this test fixture are filed as mono bug
 // #81940
@@ -23,6 +24,14 @@ public class VersaplexTest
     private const string Password = "m!ddle-tear";
     private const string Database = "adrian_test";
 
+    private const string DbusConnName = "com.versabanq.versaplex";
+    private const string DbusInterface = "com.versabanq.versaplex.db";
+    private static readonly ObjectPath DbusObjPath;
+    
+    static VersaplexTest() {
+        DbusObjPath = new ObjectPath("/com/versabanq/versaplex/db");
+    }
+
     // A file full of "lorem ipsum dolor" text
     private const string lipsum_file = "lipsum.txt";
     // A UTF-8 test file
@@ -34,6 +43,7 @@ public class VersaplexTest
 
     SqlConnection con;
     SqlCommand cmd;
+    Bus bus;
 
     bool Connect(SqlConnection connection)
     {
@@ -73,6 +83,331 @@ public class VersaplexTest
 	}
 
 	return true;
+    }
+
+    Message CreateMethodCall(string destination, ObjectPath path,
+            string iface, string member, string signature)
+    {
+        Message msg = new Message();
+        msg.Connection = bus;
+        msg.Header.MessageType = MessageType.MethodCall;
+        msg.Header.Flags = HeaderFlag.None;
+        msg.Header.Fields[FieldCode.Path] = path;
+        msg.Header.Fields[FieldCode.Member] = member;
+
+        if (destination != null && destination != "")
+            msg.Header.Fields[FieldCode.Destination] = destination;
+        
+        if (iface != null && iface != "")
+            msg.Header.Fields[FieldCode.Interface] = iface;
+
+        if (signature != null && signature != "")
+            msg.Header.Fields[FieldCode.Signature] = new Signature(signature);
+
+        return msg;
+    }
+
+    bool VxExec(string query)
+    {
+	Console.WriteLine(" + VxExec SQL Query: {0}", query);
+
+        Message call = CreateMethodCall(DbusConnName, DbusObjPath,
+                DbusInterface, "ExecNoResult", "s");
+
+        MessageWriter mw = new MessageWriter(Connection.NativeEndianness);
+        mw.Write(typeof(string), query);
+
+        call.Body = mw.ToArray();
+
+        Message reply = bus.SendWithReplyAndBlock(call);
+
+        switch (reply.Header.MessageType) {
+        case MessageType.MethodReturn:
+            return true;
+        case MessageType.Error:
+        {
+            object errname;
+            if (!reply.Header.Fields.TryGetValue(FieldCode.ErrorName,
+                        out errname))
+                throw new Exception("D-Bus error received but no error name "
+                        +"given");
+
+            object errsig;
+            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
+                        out errsig) || errsig.ToString() != "s")
+                throw new DbusError(errname.ToString());
+
+            MessageReader mr = new MessageReader(reply);
+
+            object errmsg;
+            mr.GetValue(typeof(string), out errmsg);
+
+            throw new DbusError(errname.ToString() + ": " + errmsg.ToString());
+        }
+        default:
+            throw new Exception("D-Bus response was not a method return or "
+                    +"error");
+        }
+    }
+
+    bool VxScalar(string query, out object result)
+    {
+	Console.WriteLine(" + VxScalar SQL Query: {0}", query);
+
+        Message call = CreateMethodCall(DbusConnName, DbusObjPath,
+                DbusInterface, "ExecScalar", "s");
+
+        MessageWriter mw = new MessageWriter(Connection.NativeEndianness);
+        mw.Write(typeof(string), query);
+
+        call.Body = mw.ToArray();
+
+        Message reply = bus.SendWithReplyAndBlock(call);
+
+        switch (reply.Header.MessageType) {
+        case MessageType.MethodReturn:
+        {
+            object replysig;
+            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
+                        out replysig))
+                throw new Exception("D-Bus reply had no signature");
+
+            if (replysig == null || replysig.ToString() != "v")
+                throw new Exception("D-Bus reply had invalid signature");
+
+            MessageReader reader = new MessageReader(reply);
+            reader.GetValue(out result); // This overload processes a variant
+
+            return true;
+        }
+        case MessageType.Error:
+        {
+            object errname;
+            if (!reply.Header.Fields.TryGetValue(FieldCode.ErrorName,
+                        out errname))
+                throw new Exception("D-Bus error received but no error name "
+                        +"given");
+
+            object errsig;
+            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
+                        out errsig) || errsig.ToString() != "s")
+                throw new DbusError(errname.ToString());
+
+            MessageReader mr = new MessageReader(reply);
+
+            object errmsg;
+            mr.GetValue(typeof(string), out errmsg);
+
+            throw new DbusError(errname.ToString() + ": " + errmsg.ToString());
+        }
+        default:
+            throw new Exception("D-Bus response was not a method return or "
+                    +"error");
+        }
+    }
+
+    bool VxRecordset(string query, out VxColumnInfo[] colinfo,
+            out object[][] data, out bool[][] nullity)
+    {
+	Console.WriteLine(" + VxReader SQL Query: {0}", query);
+
+        Message call = CreateMethodCall(DbusConnName, DbusObjPath,
+                DbusInterface, "ExecRecordset", "s");
+
+        MessageWriter mw = new MessageWriter(Connection.NativeEndianness);
+        mw.Write(typeof(string), query);
+
+        call.Body = mw.ToArray();
+
+        Message reply = bus.SendWithReplyAndBlock(call);
+
+        switch (reply.Header.MessageType) {
+        case MessageType.MethodReturn:
+        {
+            object replysig;
+            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
+                        out replysig))
+                throw new Exception("D-Bus reply had no signature");
+
+            if (replysig == null || replysig.ToString() != "a(issnny)vaay")
+                throw new Exception("D-Bus reply had invalid signature");
+
+            MessageReader reader = new MessageReader(reply);
+            Array ci;
+            reader.GetValue(typeof(VxColumnInfo[]), out ci);
+            colinfo = (VxColumnInfo[])ci;
+
+            Signature sig;
+            reader.GetValue(out sig);
+
+            // TODO: Check that sig matches colinfo
+            // Sig should be of the form a(...)
+
+            int arraysz;
+            reader.GetValue(out arraysz);
+
+            reader.ReadPad(8);
+
+            int endpos = reader.Position + arraysz;;
+
+            List<object[]> results = new List<object[]>();
+            while (reader.Position < endpos) {
+                object[] row = new object[colinfo.Length];
+
+                for (int i=0; i < row.Length; i++) {
+                    switch (colinfo[i].VxColumnType) {
+                    case VxColumnType.Int64:
+                    {
+                        long cell;
+                        reader.GetValue(out cell);
+                        row[i] = cell;
+                        break;
+                    }
+                    case VxColumnType.Int32:
+                    {
+                        int cell;
+                        reader.GetValue(out cell);
+                        row[i] = cell;
+                        break;
+                    }
+                    case VxColumnType.Int16:
+                    {
+                        short cell;
+                        reader.GetValue(out cell);
+                        row[i] = cell;
+                        break;
+                    }
+                    case VxColumnType.UInt8:
+                    {
+                        byte cell;
+                        reader.GetValue(out cell);
+                        row[i] = cell;
+                        break;
+                    }
+                    case VxColumnType.Bool:
+                    {
+                        bool cell;
+                        reader.GetValue(out cell);
+                        row[i] = cell;
+                        break;
+                    }
+                    case VxColumnType.Double:
+                    {
+                        double cell;
+                        reader.GetValue(out cell);
+                        row[i] = cell;
+                        break;
+                    }
+                    case VxColumnType.Uuid:
+                    {
+                        string cell;
+                        reader.GetValue(out cell);
+
+                        if (cell == "") {
+                            row[i] = new Guid();
+                        } else {
+                            row[i] = new Guid(cell);
+                        }
+                        break;
+                    }
+                    case VxColumnType.Binary:
+                    {
+                        object cell;
+                        reader.GetValue(typeof(byte[]), out cell);
+                        row[i] = cell;
+                        break;
+                    }
+                    case VxColumnType.String:
+                    {
+                        Console.WriteLine("Reading string from pos {0}",
+                                reader.Position);
+                        string cell;
+                        reader.GetValue(out cell);
+                        row[i] = cell;
+                        break;
+                    }
+                    case VxColumnType.DateTime:
+                    {
+                        long seconds;
+                        int microseconds;
+                        
+                        reader.ReadPad(8);
+                        reader.GetValue(out seconds);
+                        reader.GetValue(out microseconds);
+
+                        VxDbusDateTime dt = new VxDbusDateTime();
+                        dt.Seconds = seconds;
+                        dt.Microseconds = microseconds;
+
+                        row[i] = dt;
+                        break;
+                    }
+                    case VxColumnType.Decimal:
+                    {
+                        string cell;
+                        reader.GetValue(out cell);
+
+                        if (cell == "") {
+                            row[i] = new Decimal();
+                        } else {
+                            row[i] = Decimal.Parse(cell);
+                        }
+                        break;
+                    }
+                    default:
+                        throw new Exception("Invalid column type received");
+                    }
+                }
+
+                results.Add(row);
+            }
+
+            if (reader.Position != endpos)
+                throw new Exception("Position mismatch after reading data");
+ 
+            data = results.ToArray();
+
+            object rawnulls;
+            reader.GetValue(typeof(byte[][]), out rawnulls);
+
+            byte[][] rawnulls_typed = (byte[][])rawnulls;
+
+            nullity = new bool[rawnulls_typed.Length][];
+
+            for (int i=0; i < rawnulls_typed.Length; i++) {
+                nullity[i] = new bool[rawnulls_typed[i].Length];
+
+                for (int j=0; j < rawnulls_typed[i].Length; j++) {
+                    nullity[i][j] = (rawnulls_typed[i][j] == 0) ? false : true;
+                }
+            }
+
+            return true;
+        }
+        case MessageType.Error:
+        {
+            object errname;
+            if (!reply.Header.Fields.TryGetValue(FieldCode.ErrorName,
+                        out errname))
+                throw new Exception("D-Bus error received but no error name "
+                        +"given");
+
+            object errsig;
+            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
+                        out errsig) || errsig.ToString() != "s")
+                throw new DbusError(errname.ToString());
+
+            MessageReader mr = new MessageReader(reply);
+
+            object errmsg;
+            mr.GetValue(typeof(string), out errmsg);
+
+            throw new DbusError(errname.ToString() + ": " + errmsg.ToString());
+        }
+        default:
+            throw new Exception("D-Bus response was not a method return or "
+                    +"error");
+        }
     }
 
     bool Insert(string table, params object [] param)
@@ -176,11 +511,15 @@ public class VersaplexTest
 	WVASSERT(Connect(con));
 
 	cmd = con.CreateCommand();
+
+        bus = Bus.Session;
     }
 
     [TearDown]
     public void cleanup()
     {
+        bus = null;
+
 	if (cmd != null)
 	    cmd.Dispose();
 	cmd = null;
@@ -194,27 +533,30 @@ public class VersaplexTest
     public void EmptyTable()
     {
 	// Check that an empty table is read ok
+        try { VxExec("DROP TABLE test1"); } catch {}
 
-	WVASSERT(Exec("CREATE TABLE #test1 (testcol int not null)"));
+        try {
+            WVASSERT(VxExec("CREATE TABLE test1 (testcol int not null)"));
 
-	object result;
-	WVASSERT(Scalar("SELECT COUNT(*) FROM #test1", out result));
-	WVPASSEQ((int)result, 0);
+            object result;
+            WVASSERT(VxScalar("SELECT COUNT(*) FROM test1", out result));
+            WVPASSEQ((int)result, 0);
 
-	SqlDataReader reader;
-	WVASSERT(Reader("SELECT * FROM #test1", out reader));
-	using (reader)
-	using (DataTable schema = reader.GetSchemaTable()) {
-	    WVPASSEQ(reader.FieldCount, 1);
-	    WVPASSEQ(schema.Rows.Count, 1);
+            VxColumnInfo[] colinfo;
+            object[][] data;
+            bool[][] nullity;
+            WVASSERT(VxRecordset("SELECT * FROM test1", out colinfo, out data,
+                        out nullity));
 
-	    DataRow schemaRow = schema.Rows[0];
-	    WVPASSEQ((string)schemaRow["ColumnName"], "testcol");
-	    WVPASSEQ(schemaRow["DataType"], typeof(System.Int32));
+            WVPASSEQ(colinfo.Length, 1);
+            WVPASSEQ(colinfo[0].ColumnName, "testcol");
+            WVPASSEQ(colinfo[0].ColumnType.ToLowerInvariant(), "int32");
 
-            WVFAIL(reader.Read());
-            WVFAIL(reader.NextResult());
-	}
+            WVPASSEQ(data.Length, 0);
+            WVPASSEQ(nullity.Length, 0);
+        } finally {
+            try { VxExec("DROP TABLE test1"); } catch {}
+        }
     }
 
     [Test, Category("Running"), Category("Errors")]
@@ -222,12 +564,17 @@ public class VersaplexTest
     {
 	// Check that a nonexistant table throws an error
 	try {
-            SqlDataReader reader;
-	    WVEXCEPT(Reader("SELECT * FROM #nonexistant", out reader));
-	} catch (NUnit.Framework.AssertionException e) {
+            VxColumnInfo[] colinfo;
+            object[][] data;
+            bool[][] nullity;
+	    WVEXCEPT(VxRecordset("SELECT * FROM #nonexistant", out colinfo,
+                        out data, out nullity));
+	} catch (Wv.Test.WvAssertionFailure e) {
 	    throw e;
 	} catch (System.Exception e) {
-	    WVPASS(e is SqlException);
+            // FIXME: This should check for a com.versabanq.versaplex.sqlerror
+            // rather than any dbus error
+	    WVPASS(e is DbusError);
 	}
 	
 	// The only way to get here is for the test to pass (otherwise an
@@ -239,6 +586,7 @@ public class VersaplexTest
     public void ColumnTypes()
     {
 	// Check that column types are copied correctly to the output table
+        try { VxExec("DROP TABLE test1"); } catch {}
 
 	string[] colTypes = {
 	    // Pulled from the SQL Server management gui app's dropdown list in
@@ -261,56 +609,77 @@ public class VersaplexTest
 	};
 
 	foreach (String colType in colTypes) {
-	    WVASSERT(Exec(string.Format("CREATE TABLE #test1 (testcol {0})",
+	    WVASSERT(VxExec(string.Format("CREATE TABLE test1 (testcol {0})",
 			    colType)));
 	    // This makes sure it runs the prepare statement
-	    WVASSERT(Insert("#test1", DBNull.Value));
+	    WVASSERT(Insert("test1", DBNull.Value));
 
 	    SqlDataReader reader;
-	    DataTable[] schemas = new DataTable[2];
+	    DataTable schema;
 
-	    WVASSERT(Reader("SELECT * FROM #test1", out reader));
+	    WVASSERT(Reader("SELECT * FROM test1", out reader));
 	    using (reader)
-		schemas[0] = reader.GetSchemaTable();
+		schema = reader.GetSchemaTable();
 
-	    WVASSERT(Reader("SELECT * FROM #test1", out reader));
-	    using (reader)
-		schemas[1] = reader.GetSchemaTable();
+            VxColumnInfo[] vxcolinfo;
+            object[][] data;
+            bool[][] nullity;
+	    WVASSERT(VxRecordset("SELECT * FROM test1", out vxcolinfo, out data,
+                        out nullity));
 
-	    WVPASSEQ(schemas[0].Rows.Count, schemas[1].Rows.Count);
+	    WVPASSEQ(schema.Rows.Count, vxcolinfo.Length);
 
-	    for (int colNum = 0; colNum < schemas[0].Rows.Count; colNum++) {
-		DataRow[] colInfo = {
-		    schemas[0].Rows[colNum],
-		    schemas[1].Rows[colNum]
-		};
+            try {
+	    for (int colNum = 0; colNum < schema.Rows.Count; colNum++) {
+		DataRow colInfo = schema.Rows[colNum];
 
-		WVPASSEQ((IComparable)colInfo[0]["ColumnName"],
-			(IComparable)colInfo[1]["ColumnName"]);
-		WVPASSEQ((IComparable)colInfo[0]["ColumnOrdinal"],
-			(IComparable)colInfo[1]["ColumnOrdinal"]);
-		WVPASSEQ((IComparable)colInfo[0]["ColumnSize"],
-			(IComparable)colInfo[1]["ColumnSize"]);
-		WVPASSEQ((IComparable)colInfo[0]["NumericPrecision"],
-			(IComparable)colInfo[1]["NumericPrecision"]);
-		WVPASSEQ((IComparable)colInfo[0]["NumericScale"],
-			(IComparable)colInfo[1]["NumericScale"]);
-		// This one shouldn't be casted to IComparable or it doesn't
-		// work
-		WVPASSEQ(colInfo[0]["DataType"], colInfo[1]["DataType"]);
-                // Timestamp gets converted into a varbinary(8), so there's
-                // some discrepancy here. Ignore it (other tests make sure
-                // that timestamp is handled properly).
-                if (colType != "timestamp") {
-                    WVPASSEQ((IComparable)colInfo[0]["ProviderType"],
-                            (IComparable)colInfo[1]["ProviderType"]);
+		WVPASSEQ((string)colInfo["ColumnName"],
+                        vxcolinfo[colNum].ColumnName);
+		WVPASSEQ((int)colInfo["ColumnOrdinal"], colNum);
+                // FIXME: There must be *some* way to turn this into a
+                // switch...
+                Type type = (Type)colInfo["DataType"];
+                string vxtype = vxcolinfo[colNum].ColumnType.ToLowerInvariant();
+                if (type == typeof(Int64)) {
+                    WVPASSEQ(vxtype, "int64");
+                } else if (type == typeof(Int32)) {
+                    WVPASSEQ(vxtype, "int32");
+                } else if (type == typeof(Int16)) {
+                    WVPASSEQ(vxtype, "int16");
+                } else if (type == typeof(Byte)) {
+                    WVPASSEQ(vxtype, "uint8");
+                } else if (type == typeof(Boolean)) {
+                    WVPASSEQ(vxtype, "bool");
+                } else if (type == typeof(Single) || type == typeof(Double)) {
+                    WVPASSEQ(vxtype, "double");
+                } else if (type == typeof(Guid)) {
+                    WVPASSEQ(vxtype, "uuid");
+                } else if (type == typeof(Byte[])) {
+                    WVPASSEQ(vxtype, "binary");
+                } else if (type == typeof(string)) {
+                    WVPASSEQ(vxtype, "string");
+                } else if (type == typeof(DateTime)) {
+                    WVPASSEQ(vxtype, "datetime");
+                } else if (type == typeof(Decimal)) {
+                    WVPASSEQ(vxtype, "decimal");
+                } else {
+                    bool return_column_type_is_known = false;
+                    WVASSERT(return_column_type_is_known);
                 }
-		WVPASSEQ((IComparable)colInfo[0]["IsLong"],
-			(IComparable)colInfo[1]["IsLong"]);
-	    }
 
-	    WVASSERT(Exec("DROP TABLE #test1"));
-	}
+                WVPASSEQ((int)colInfo["ColumnSize"],
+                        vxcolinfo[colNum].Size);
+                // These next two may have problems with mono vs microsoft
+                // differences
+                WVPASSEQ((short)colInfo["NumericPrecision"],
+                        vxcolinfo[colNum].Precision);
+                WVPASSEQ((short)colInfo["NumericScale"],
+                        vxcolinfo[colNum].Scale);
+            }
+            } finally {
+                try { VxExec("DROP TABLE test1"); } catch {}
+            }
+        }
     }
 
     [Test, Category("Schema"), Category("Errors")]
@@ -604,6 +973,7 @@ public class VersaplexTest
     [Test, Category("Data")]
     public void VerifyChar()
     {
+        try { VxExec("DROP TABLE test1"); } catch {}
         // char, nchar, varchar (in-row or max), nvarchar (in-row or max),
         // text, ntext
         // This doesn't try to use any non-ascii characters. There is a separate
@@ -630,65 +1000,62 @@ public class VersaplexTest
         for (int i=0; i < types.Length; i++) {
             for (int j=0; j < sizes.Length && sizes[j] <= typemax[i]; j++) {
                 if (sizeparam[i]) {
-                    WVASSERT(Exec(string.Format("CREATE TABLE #test1 "
+                    WVASSERT(VxExec(string.Format("CREATE TABLE test1 "
                                     + "(data {0}({1}), roworder int not null)",
                                     types[i], sizes[j])));
                 } else {
-                    WVASSERT(Exec(string.Format("CREATE TABLE #test1 "
+                    WVASSERT(VxExec(string.Format("CREATE TABLE test1 "
                                     + "(data {0}, roworder int not null)",
                                     types[i])));
                     j = sizes.Length-1;
                 }
 
                 for (int k=0; k <= j; k++) {
-                    WVASSERT(Exec(string.Format(
-                                    "INSERT INTO #test1 VALUES ('{0}', {1})",
+                    WVASSERT(VxExec(string.Format(
+                                    "INSERT INTO test1 VALUES ('{0}', {1})",
                                     lipsum_text.Substring(0,
                                         sizes[k]).Replace("'", "''"), k)));
                     /* This doesn't work because it truncates to 4000 chars
                      * regardless of if it's a nchar/nvarchar or plain
                      * char/varchar.
-                    WVASSERT(Insert("#test1",
+                    WVASSERT(Insert("test1",
                                 new SqlString(
                                     lipsum_text.Substring(0, sizes[k])), k));
                                     */
                 }
 
-                WVASSERT(Insert("#test1", DBNull.Value, j+1));
+                WVASSERT(Insert("test1", DBNull.Value, j+1));
 
-                SqlDataReader reader;
+                VxColumnInfo[] colinfo;
+                object[][] data;
+                bool[][] nullity;
 
                 if (lenok[i]) {
-                    WVASSERT(Reader("SELECT LEN(data), DATALENGTH(data), data "
-                                + "FROM #test1 ORDER BY roworder",
-                                out reader));
+                    WVASSERT(VxRecordset("SELECT LEN(data), DATALENGTH(data), "
+                                +" data FROM test1 ORDER BY roworder",
+                                out colinfo, out data, out nullity));
                 } else {
-                    WVASSERT(Reader("SELECT -1, "
-                                + "DATALENGTH(data), data FROM #test1 "
+                    WVASSERT(VxRecordset("SELECT -1, "
+                                + "DATALENGTH(data), data FROM test1 "
                                 + "ORDER BY roworder",
-                                out reader));
+                                out colinfo, out data, out nullity));
                 }
 
-                using (reader) {
-                    for (int k=0; k <= j; k++) {
-                        WVASSERT(reader.Read());
+                WVPASSEQ(data.Length, j+2);
 
-                        if (lenok[i])
-                            WVPASSEQ(GetInt64(reader, 0), sizes[k]);
+                for (int k=0; k <= j; k++) {
+                    if (lenok[i])
+                        WVPASSEQ((int)data[k][0], sizes[k]);
 
-                        WVPASSEQ(GetInt64(reader, 1),
-                                sizes[varsize[i] ? k : j]*charsize[i]);
-                        WVPASSEQ(reader.GetString(2).Substring(0, sizes[k]),
-                                lipsum_text.Substring(0, sizes[k]));
-                    }
-
-                    WVASSERT(reader.Read());
-                    WVPASS(reader.IsDBNull(2));
-
-                    WVFAIL(reader.Read());
+                    WVPASSEQ((int)data[k][1],
+                            sizes[varsize[i] ? k : j]*charsize[i]);
+                    WVPASSEQ(((string)data[k][2]).Substring(0, sizes[k]),
+                            lipsum_text.Substring(0, sizes[k]));
                 }
 
-                WVASSERT(Exec("DROP TABLE #test1"));
+                WVPASS(nullity[j+1][2]);
+
+                WVASSERT(Exec("DROP TABLE test1"));
             }
         }
     }
@@ -1375,6 +1742,45 @@ public class VersaplexTest
                 WVASSERT(Exec("DROP TABLE #test1"));
             }
         }
+    }
+
+    public static void Main()
+    {
+        VersaplexTest tests = new VersaplexTest();
+        WvTest tester = new WvTest();
+
+        tester.RegisterTest("EmptyTable", tests.EmptyTable);
+        tester.RegisterTest("NonexistantTable", tests.NonexistantTable);
+        tester.RegisterTest("ColumnTypes", tests.ColumnTypes);
+
+        /*
+        tester.RegisterTest("EmptyColumnName", tests.EmptyColumnName);
+        tester.RegisterTest("RowOrdering", tests.RowOrdering);
+        tester.RegisterTest("ColumnOrdering", tests.ColumnOrdering);
+        tester.RegisterTest("VerifyIntegers", tests.VerifyIntegers);
+        tester.RegisterTest("VerifyBinary", tests.VerifyBinary);
+        tester.RegisterTest("VerifyBit", tests.VerifyBit);
+        */
+        tester.RegisterTest("VerifyChar", tests.VerifyChar);
+        /*
+        tester.RegisterTest("VerifyDateTime", tests.VerifyDateTime);
+        tester.RegisterTest("VerifyDecimal", tests.VerifyDecimal);
+        tester.RegisterTest("VerifyFloat", tests.VerifyFloat);
+        tester.RegisterTest("VerifyMoney", tests.VerifyMoney);
+        tester.RegisterTest("VerifyTimestamp", tests.VerifyTimestamp);
+        tester.RegisterTest("VerifyUniqueIdentifier",
+                tests.VerifyUniqueIdentifier);
+        tester.RegisterTest("VerifyVarBinaryMax", tests.VerifyVarBinaryMax);
+        tester.RegisterTest("VerifyXML", tests.VerifyXML);
+        tester.RegisterTest("Unicode", tests.Unicode);
+        */
+
+        tester.RegisterInit(tests.init);
+        tester.RegisterCleanup(tests.cleanup);
+
+        tester.Run();
+
+        Environment.Exit(tester.Failures > 0 ? 1 : 0);
     }
 }
 
