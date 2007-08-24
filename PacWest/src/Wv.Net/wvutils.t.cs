@@ -2,7 +2,6 @@
 
 using System;
 using System.Collections;
-using NUnit.Framework;
 using Wv.Test;
 using Wv.Utils;
 
@@ -32,5 +31,17 @@ public class WvTests
 	WVPASSEQ(ini["subsEction"].Count, 3);
 	WVPASSEQ(ini["subseCtion"]["2"], "3");
 	WVPASSEQ(ini["nonexistent"].Count, 0);
+    }
+
+    public static void Main()
+    {
+            WvTests tests = new WvTests();
+            WvTest tester = new WvTest();
+            tester.RegisterTest("shift_test", tests.shift_test);
+            tester.RegisterTest("ini_test", tests.ini_test);
+
+            tester.Run();
+
+            System.Environment.Exit(tester.Failures);
     }
 }

@@ -13,17 +13,10 @@ CPPFLAGS=
 
 ifeq ($(OS),Windows_NT)
 CSC?=csc
-PKGS=/r:nunit.framework.dll
-NUNIT=nunit.framework.dll
-NUNITPATH=/cygdrive/c/Program\ Files/NUnit\ 2.4.1/bin
-
-nunit.framework.dll: %.dll: $(NUNITPATH)/%.dll
-	rm -f "$@"
-	cp "$<" "$@"
+PKGS=
 else
 CSC?=gmcs
-NUNIT=
-PKGS=/r:System.Data /r:System.Web /pkg:nunit
+PKGS=/r:System.Data /r:System.Web
 endif
 
 CSFLAGS=/warn:4 /debug
@@ -35,10 +28,18 @@ LIBFILES = \
 LIBTESTFILES = \
 	wvtest.t.cs.E wvutils.t.cs.E \
 
+TESTS = $(patsubst %.cs,%.exe,$(patsubst %.E,%,$(LIBTESTFILES)))
+
 FILES = $(LIBFILES) $(LIBTESTFILES)
 
-test: $(DLL)
-	nunit-console /nologo /labels $^
+test: $(DLL) $(TESTS) $(addsuffix .pass,$(TESTS))
+
+$(addsuffix .pass,$(TESTS)): %.pass: %
+	./$<
+	touch $@
+
+$(TESTS): %.exe: %.cs.E $(DLL)
+	$(CSC) $(PKGS) $(CSFLAGS) /r:wv.dll /target:exe /out:$@ $(filter %.cs.E %.cs,$^)
 
 $(patsubst %.cs.E,%.d,$(filter %.cs.E,$(FILES))): %.d: %.cs
 	@echo Generating dependency file $@ for $<
@@ -59,8 +60,8 @@ include $(patsubst %.cs.E,%.d,$(filter %.cs.E,$(FILES)))
 		| grep -v '^# [0-9]' \
 		>$@ || (rm -f $@ && exit 1)
 
-$(DLL): $(FILES) $(NUNIT)
+$(DLL): $(LIBFILES)
 	$(CSC) $(PKGS) $(CSFLAGS) /target:library /out:$@ $(filter %.cs.E %.cs,$^)
 
 clean:
-	rm -f *~ *.E *.d *.exe *.dll TestResult.xml *.mdb *.pdb
+	rm -f *~ *.E *.d *.exe *.dll TestResult.xml *.mdb *.pdb *.pass
