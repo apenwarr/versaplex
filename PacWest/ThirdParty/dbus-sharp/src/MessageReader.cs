@@ -18,6 +18,10 @@ namespace NDesk.DBus
 		protected int pos = 0;
 		protected Message message;
 
+                public int Position {
+                    get { return pos; }
+                }
+
 		public MessageReader (EndianFlag endianness, byte[] data)
 		{
 			if (data == null)
