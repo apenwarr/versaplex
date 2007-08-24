@@ -5,7 +5,6 @@ using System.Data;
 using System.Data.SqlClient;
 using System.Data.SqlTypes;
 using System.IO;
-using NUnit.Framework;
 using Wv.Test;
 using Wv.Utils;
 
@@ -258,7 +257,7 @@ public class SqlSuckerTest
 
 	try {
 	    WVEXCEPT(RunSucker("#nonexistant", "SELECT * FROM #test1"));
-	} catch (NUnit.Framework.AssertionException e) {
+	} catch (Wv.Test.WvAssertionFailure e) {
 	    throw e;
 	} catch (System.Exception e) {
 	    WVPASS(e is SqlException);
@@ -287,7 +286,7 @@ public class SqlSuckerTest
 
 	    try {
 		WVEXCEPT(RunSucker("#badschema", "SELECT * FROM #test1"));
-	    } catch (NUnit.Framework.AssertionException e) {
+	    } catch (Wv.Test.WvAssertionFailure e) {
 		throw e;
 	    } catch (System.Exception e) {
 		WVPASS(e is SqlException);
@@ -409,7 +408,7 @@ public class SqlSuckerTest
 	
         try {
             WVEXCEPT(RunSucker("#suckout", "SELECT 1"));
-        } catch (NUnit.Framework.AssertionException e) {
+        } catch (Wv.Test.WvAssertionFailure e) {
             throw e;
         } catch (System.Exception e) {
             WVPASS(e is SqlException);
@@ -1594,6 +1593,43 @@ public class SqlSuckerTest
 
             WVFAIL(reader.Read());
         }
+    }
+
+    public static void Main()
+    {
+        SqlSuckerTest tests = new SqlSuckerTest();
+        WvTest tester = new WvTest();
+
+        tester.RegisterTest("EmptyTable", tests.EmptyTable);
+        tester.RegisterTest("NonexistantTable", tests.NonexistantTable);
+        tester.RegisterTest("BadSchemaTable", tests.BadSchemaTable);
+        tester.RegisterTest("OutputNotEmpty", tests.OutputNotEmpty);
+        tester.RegisterTest("ColumnTypes", tests.ColumnTypes);
+        tester.RegisterTest("EmptyColumnName", tests.EmptyColumnName);
+        tester.RegisterTest("RowOrdering", tests.RowOrdering);
+        tester.RegisterTest("ColumnOrdering", tests.ColumnOrdering);
+        tester.RegisterTest("VerifyIntegers", tests.VerifyIntegers);
+        tester.RegisterTest("VerifyBinary", tests.VerifyBinary);
+        tester.RegisterTest("VerifyBit", tests.VerifyBit);
+        tester.RegisterTest("VerifyChar", tests.VerifyChar);
+        tester.RegisterTest("VerifyDateTime", tests.VerifyDateTime);
+        tester.RegisterTest("VerifyDecimal", tests.VerifyDecimal);
+        tester.RegisterTest("VerifyFloat", tests.VerifyFloat);
+        tester.RegisterTest("VerifyMoney", tests.VerifyMoney);
+        tester.RegisterTest("VerifyTimestamp", tests.VerifyTimestamp);
+        tester.RegisterTest("VerifyUniqueIdentifier",
+                tests.VerifyUniqueIdentifier);
+        tester.RegisterTest("VerifyVarBinaryMax", tests.VerifyVarBinaryMax);
+        tester.RegisterTest("VerifyXML", tests.VerifyXML);
+        tester.RegisterTest("Unicode", tests.Unicode);
+        tester.RegisterTest("Recursion", tests.Recursion);
+
+        tester.RegisterInit(tests.init);
+        tester.RegisterCleanup(tests.cleanup);
+
+        tester.Run();
+
+        Environment.Exit(tester.Failures);
     }
 }
 
