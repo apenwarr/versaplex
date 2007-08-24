@@ -1,3 +1,5 @@
+include Makefile-common
+
 CC=i586-mingw32msvc-g++
 CXX=i586-mingw32msvc-g++
 WINDRES=i586-mingw32msvc-windres
@@ -32,13 +34,10 @@ OBJS+=\
 
 all: vxodbc.dll	
 
-vxodbc.dll: $(OBJS)
-
 %.res.o: %.rc
 	$(WINDRES) $< $@
 
-	
-%.dll: %.def
+vxodbc.dll: $(OBJS)
 	@echo Linking $@...
 	@$(CXX) -shared -o $@ \
 		$(LDFLAGS) \
@@ -47,4 +46,3 @@ vxodbc.dll: $(OBJS)
 		$(LIBS) \
 		2>&1 | grep -v '^Warning: resolving .* by linking to' >&2
 
-include Makefile-common

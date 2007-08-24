@@ -1,6 +1,8 @@
 #undef	_MEMORY_DEBUG_
 #include	"psqlodbc.h"
 
+#include	<malloc.h>
+
 #ifdef	WIN32
 #ifdef	_DEBUG
 /* #include	<stdlib.h> */
@@ -8,7 +10,6 @@
 #include <crtdbg.h>
 #endif				/* _DEBUG */
 #else
-#include	<malloc.h>
 #endif				/* WIN32 */
 #include	<string.h>
 

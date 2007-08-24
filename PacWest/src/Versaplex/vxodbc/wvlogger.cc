@@ -12,14 +12,9 @@ static WvLog *log;
 static WvLogRcv *rcv1, *rcv2, *rcv3;
 
 WV_LINK_TO(WvTCPConn);
-WV_LINK_TO(WvUnixConn);
 WV_LINK_TO(WvSSLStream);
-
-#ifdef _MSC_VER
-static int getpid()
-{
-    return GetCurrentProcessId();
-}
+#ifndef _MSC_VER
+WV_LINK_TO(WvUnixConn);
 #endif
 
 void wvlog_open()
