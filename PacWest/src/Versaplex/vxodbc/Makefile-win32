@@ -42,7 +42,7 @@ vxodbc.dll: $(OBJS)
 	@$(CXX) -shared -o $@ \
 		$(LDFLAGS) \
 		$^ \
-		-Wl,--out-implib,$*.a \
+		-Wl,--out-implib,vxodbc.a \
 		$(LIBS) \
 		2>&1 | grep -v '^Warning: resolving .* by linking to' >&2
 

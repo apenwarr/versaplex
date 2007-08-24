@@ -55,8 +55,15 @@ internal static class VxDb {
             out VxColumnInfo[] colinfo, out object[][] data,
             out byte[][] nullity)
     {
-        Console.WriteLine("ExecRecordset " + query);
+	// XXX this is fishy
+	if (query == "LIST TABLES")
+	    query = "exec sp_tables";
+	else if (query.Substring(0, 13) == "LIST COLUMNS ")
+	    query = String.Format("exec sp_columns @table_name='{0}'",
+				  query.Substring(13));
 
+        Console.WriteLine("ExecRecordset " + query);
+	
         SqlConnection conn = null;
         try {
             conn = VxSqlPool.TakeConnection();
