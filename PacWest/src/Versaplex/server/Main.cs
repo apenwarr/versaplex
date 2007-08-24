@@ -1,4 +1,5 @@
 using System;
+using System.Net;
 using System.Net.Sockets;
 using Mono.Unix;
 using NDesk.DBus;
@@ -83,7 +84,9 @@ public static class Versaplex
     {
         msgrouter.AddInterface(VxDbInterfaceRouter.Instance);
 
-        Console.WriteLine("Connecting to " + Address.Session);
+        Console.WriteLine("Connecting to '{0}'", Address.Session);
+	if (Address.Session == null)
+	    throw new Exception("DBUS_SESSION_BUS_ADDRESS not set");
         AddressEntry aent = AddressEntry.Parse(Address.Session);
 
         DodgyTransport trans = new DodgyTransport();
@@ -91,7 +94,7 @@ public static class Versaplex
 
         Bus conn = new Bus(trans);
 
-        string myNameReq = "com.versabanq.versaplex.db";
+        string myNameReq = "com.versabanq.versaplex";
         RequestNameReply rnr = conn.RequestName(myNameReq,
                 NameFlag.DoNotQueue);
 
@@ -115,12 +118,14 @@ public static class Versaplex
         oldhandler = conn.OnMessage;
         conn.OnMessage = MessageReady;
 
+#if false
         // XXX: Shutdown after 5 minutes
         // You probably don't want to keep this
         VxEventLoop.AddEvent(new TimeSpan(0, 5, 0),
                 delegate() {
                     VxEventLoop.Shutdown();
                 });
+#endif
 
         VxEventLoop.Run();
 
@@ -130,59 +135,79 @@ public static class Versaplex
 
 class DodgyTransport : NDesk.DBus.Transports.Transport
 {
-    public override void Open (AddressEntry entry)
+    public override string AuthString()
     {
-        string path;
-        bool abstr;
-
-        if (entry.Properties.TryGetValue ("path", out path))
-            abstr = false;
-        else if (entry.Properties.TryGetValue ("abstract", out path))
-            abstr = true;
-        else
-            throw new Exception ("No path specified for UNIX transport");
-
-        Open(path, abstr);
+        long uid = UnixUserInfo.GetRealUserId();
+        return uid.ToString();
     }
 
-    public override string AuthString ()
+    public override void WriteCred()
     {
-        long uid = UnixUserInfo.GetRealUserId ();
-        return uid.ToString ();
+        Stream.WriteByte(0);
     }
 
-    public override void WriteCred ()
+    public override void Open(AddressEntry entry)
     {
-        Stream.WriteByte (0);
-    }
+	if (entry.Method == "unix")
+	{
+	    string path;
+	    bool abstr;
 
-    public void Open (string path, bool @abstract)
-    {
-        if (@abstract)
-            socket = OpenAbstractUnix (path);
-        else
-            socket = OpenUnix (path);
+	    if (entry.Properties.TryGetValue("path", out path))
+		abstr = false;
+	    else if (entry.Properties.TryGetValue("abstract", out path))
+		abstr = true;
+	    else
+		throw new Exception("No path specified for UNIX transport");
 
+	    if (abstr)
+		socket = OpenAbstractUnix(path);
+	    else
+		socket = OpenPathUnix(path);
+	}
+	else if (entry.Method == "tcp")
+	{
+	    string host = "127.0.0.1";
+	    string port = "5555";
+	    entry.Properties.TryGetValue("host", out host);
+	    entry.Properties.TryGetValue("port", out port);
+	    socket = OpenTcp(host, Int32.Parse(port));
+	}
+	else
+	    throw new Exception(String.Format("Unknown connection method {0}",
+					      entry.Method));
+	
         socket.Blocking = true;
         SocketHandle = (long)socket.Handle;
-        Stream = new NetworkStream (socket);
+        Stream = new NetworkStream(socket);
     }
 
-    protected VxNotifySocket OpenAbstractUnix (string path)
+    protected VxNotifySocket OpenAbstractUnix(string path)
     {
-        AbstractUnixEndPoint ep = new AbstractUnixEndPoint (path);
+        AbstractUnixEndPoint ep = new AbstractUnixEndPoint(path);
         VxNotifySocket client = new VxNotifySocket(AddressFamily.Unix,
                 SocketType.Stream, 0);
-        client.Connect (ep);
+        client.Connect(ep);
         return client;
     }
 
-    public VxNotifySocket OpenUnix (string path) 
+    public VxNotifySocket OpenPathUnix(string path) 
     {
-        UnixEndPoint ep = new UnixEndPoint (path);
+        UnixEndPoint ep = new UnixEndPoint(path);
         VxNotifySocket client = new VxNotifySocket(AddressFamily.Unix,
                 SocketType.Stream, 0);
-        client.Connect (ep);
+        client.Connect(ep);
+        return client;
+    }
+    
+    public VxNotifySocket OpenTcp(string host, int port)
+    {
+	IPHostEntry hent = Dns.GetHostEntry(host);
+	IPAddress ip = hent.AddressList[0];
+        IPEndPoint ep = new IPEndPoint(ip, port);
+        VxNotifySocket client = new VxNotifySocket(AddressFamily.InterNetwork,
+						   SocketType.Stream, 0);
+        client.Connect(ep);
         return client;
     }
 

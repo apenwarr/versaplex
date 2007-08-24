@@ -99,11 +99,12 @@ public static class VxDbus {
         // This is overly complicated so that the body and header can be printed
         // separately yet still show the proper alignment
  
+	int length = data.Length > 4096 ? 4096 : data.Length;
         int rowoffset = startoffset & (~0xf);
         int coloffset = startoffset & 0xf;
 
         int cnt = rowoffset;
-        for (int i=0; i < data.Length; cnt += 16) {
+        for (int i=0; i < length; cnt += 16) {
             Console.Write("{0} ", cnt.ToString("x4"));
 
             int co=0;
@@ -115,17 +116,17 @@ public static class VxDbus {
             }
 
             // Print out the hex digits
-            for (int j=0; j < 8-co && i+j < data.Length; j++)
+            for (int j=0; j < 8-co && i+j < length; j++)
                 Console.Write("{0} ", data[i+j].ToString("x2"));
 
             Console.Write(" ");
 
-            for (int j=8-co; j < 16-co && i+j < data.Length; j++)
+            for (int j=8-co; j < 16-co && i+j < length; j++)
                 Console.Write("{0} ", data[i+j].ToString("x2"));
 
             // extra space if incomplete line
-            if (i + 16-co > data.Length) {
-                for (int j = data.Length - i; j < 16-co; j++)
+            if (i + 16-co > length) {
+                for (int j = length - i; j < 16-co; j++)
                     Console.Write("   ");
             }
 
@@ -134,7 +135,7 @@ public static class VxDbus {
                     Console.Write(" ");
             }
 
-            for (int j=0; j < 16-co && i+j < data.Length; j++) {
+            for (int j=0; j < 16-co && i+j < length; j++) {
                 if (31 < data[i+j] && data[i+j] < 127) {
                     Console.Write((char)data[i+j]);
                 } else {

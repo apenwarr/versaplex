@@ -212,12 +212,14 @@ public static class VxEventLoop {
                 }
 
                 // Check for race conditions
+#if false // 2007/08/23: avery's version of mono has RemoteEndPoint==null!?
                 if (!socks[0].LocalEndPoint.Equals(socks[1].RemoteEndPoint)
                         || !socks[0].RemoteEndPoint.Equals(
                             socks[1].LocalEndPoint)) {
                     throw new Exception("Notification socket connected to "
                             +"incorrect endpoint");
                 }
+#endif
 
                 // Make the connection simplex
                 socks[0].Shutdown(SocketShutdown.Receive);
