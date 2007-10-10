@@ -46,7 +46,7 @@ TESTS=versaplex.test.exe
 
 FILES=$(patsubst %.exe,%.cs.E,$(TESTS)) $(EXTRAFILES)
 
-test: $(TESTS) $(addsuffix .pass,$(TESTS))
+test: wv.dll NDesk.DBus.dll $(TESTS) $(addsuffix .pass,$(TESTS))
 
 $(addsuffix .pass,$(TESTS)): %.pass: %
 	./$<
