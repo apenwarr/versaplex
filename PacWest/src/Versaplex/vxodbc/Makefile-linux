@@ -1,10 +1,10 @@
 include Makefile-common
 
-WVPORTS=../../../ThirdParty/wvports
+WVPORTS=../../../ThirdParty/wv/wvports
 XPLC=$(WVPORTS)/xplc/build/xplc
 OPENSSL=$(WVPORTS)/openssl/build/openssl
 DBUS=$(WVPORTS)/dbus/build/dbus/dbus/.libs
-WVSTREAMS=../../../ThirdParty/wvstreams
+WVSTREAMS=../../../ThirdParty/wv/wvstreams
 CFLAGS=-g -w \
 	-DUNICODE_SUPPORT -DODBCVER=0x0351 \
 	-I$(WVSTREAMS)/include -I$(XPLC)/include \
