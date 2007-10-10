@@ -37,7 +37,7 @@ OBJS=\
 	wvlogger.o
 
 clean:
-	rm -f *.o *.so *~ *.res *.dll *.a .*.d *.d
+	rm -f *.o *.so *~ *.res *.dll *.a .*.d *.d .stamp-config
 
 %.E: %.c
 	$(CC) -o $@ -E $< $(CFLAGS)
