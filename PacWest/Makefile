@@ -15,6 +15,7 @@ build:
 clean:
 	$(MAKE) -C src $@
 	$(MAKE) -C ThirdParty $@
+	rm config.mk
 
 test:
 	$(MAKE) -C src $@
