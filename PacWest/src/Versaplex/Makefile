@@ -1,6 +1,8 @@
 .PHONY: server vxodbc clean test
 
-ifeq ($(OS),Windows_NT)
+include ../../config.mk
+
+ifeq ($(BUILD_TARGET),win32)
 VXODBC_MAKEFILE=Makefile-win32
 else
 VXODBC_MAKEFILE=Makefile-linux
