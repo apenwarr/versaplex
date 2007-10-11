@@ -13,3 +13,7 @@ test: Wv.Net
 	$(MAKE) -C Versaplex $@
 	$(MAKE) -C SqlSucker/tests $@
 
+clean:
+	$(MAKE) -C Wv.Net $@
+	$(MAKE) -C Versaplex $@
+	$(MAKE) -C SqlSucker/tests $@

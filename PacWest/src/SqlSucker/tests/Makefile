@@ -32,7 +32,7 @@ CSFLAGS=/warn:4 /debug
 
 TESTS=sqlsucker.test.exe
 
-test: $(TESTS) $(addsuffix .pass,$(TESTS))
+test: wv.dll $(TESTS) $(addsuffix .pass,$(TESTS))
 
 $(addsuffix .pass,$(TESTS)): %.pass: %
 	./$<

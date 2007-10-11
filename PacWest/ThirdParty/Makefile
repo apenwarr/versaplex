@@ -3,3 +3,6 @@ all:
 	$(MAKE) -C dbus-sharp
 	cd wv && make wvstreams
 	#$(MAKE) -C nunit
+
+clean:
+	$(MAKE) -C wv wvstreams/clean wvports/clean
