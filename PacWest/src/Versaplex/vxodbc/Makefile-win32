@@ -3,11 +3,11 @@ include Makefile-common
 CC=i586-mingw32msvc-g++
 CXX=i586-mingw32msvc-g++
 WINDRES=i586-mingw32msvc-windres
-WVPORTS=$(HOME)/src/wvports
+WVPORTS=../../../ThirdParty/wv/wvports
 XPLC=$(WVPORTS)/xplc/build/xplc
 OPENSSL=$(WVPORTS)/openssl/build/openssl
 DBUS=$(WVPORTS)/dbus/build/dbus/dbus/.libs
-WVSTREAMS=$(HOME)/src/wvstreams-win32
+WVSTREAMS=../../../ThirdParty/wv/wvstreams
 CFLAGS=-w \
 	-D_MSC_VER=1300 \
 	-DUNICODE_SUPPORT -DODBCVER=0x0351 -D_WIN32_WINNT=0x0501 \
