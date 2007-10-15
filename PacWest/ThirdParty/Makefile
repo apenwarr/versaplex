@@ -8,7 +8,7 @@ endif
 # Note: $(MAKE) -C wv doesn't work, as wv's Makefile needs an accurate $(PWD)
 all: 
 	$(MAKE) -C dbus-sharp
-	cd wv && make wvstreams
+	cd wv && $(MAKE) wvstreams
 	#$(MAKE) -C nunit
 
 clean:
