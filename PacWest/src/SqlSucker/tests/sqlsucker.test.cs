@@ -4,9 +4,12 @@ using System;
 using System.Data;
 using System.Data.SqlClient;
 using System.Data.SqlTypes;
-using NUnit.Framework;
+using System.IO;
 using Wv.Test;
 using Wv.Utils;
+
+// Several mono bugs worked around in this test fixture are filed as mono bug
+// #81940
 
 namespace SqlSucker.Test
 {
@@ -18,6 +21,15 @@ public class SqlSuckerTest
     private const string User = "asta";
     private const string Password = "m!ddle-tear";
     private const string Database = "adrian_test";
+
+    // A file full of "lorem ipsum dolor" text
+    private const string lipsum_file = "lipsum.txt";
+    // A UTF-8 test file
+    private const string unicode_file = "UTF-8-demo.txt";
+    // A random file of binary goop
+    private const string goop_file = "random.bin";
+    // THTBACS image
+    private const string image_file = "thtbacs.tiff";
 
     SqlConnection con;
     SqlCommand cmd;
@@ -119,6 +131,63 @@ public class SqlSuckerTest
         return true;
     }
 
+    string read_lipsum()
+    {
+        WVASSERT(File.Exists(lipsum_file));
+
+        using (StreamReader sr = new StreamReader(lipsum_file)) {
+            return sr.ReadToEnd();
+        }
+    }
+
+    string read_unicode()
+    {
+        WVASSERT(File.Exists(unicode_file));
+
+        using (StreamReader sr = new StreamReader(unicode_file)) {
+            return sr.ReadToEnd();
+        }
+    }
+
+    Byte [] read_goop()
+    {
+        WVASSERT(File.Exists(goop_file));
+
+        using (FileStream f = new FileStream(goop_file, FileMode.Open,
+                    FileAccess.Read))
+        using (BinaryReader sr = new BinaryReader(f)) {
+            return sr.ReadBytes((int)Math.Min(f.Length, Int32.MaxValue));
+        }
+    }
+
+    Byte [] read_image()
+    {
+        WVASSERT(File.Exists(image_file));
+
+        using (FileStream f = new FileStream(image_file, FileMode.Open,
+                    FileAccess.Read))
+        using (BinaryReader sr = new BinaryReader(f)) {
+            return sr.ReadBytes((int)Math.Min(f.Length, Int32.MaxValue));
+        }
+    }
+
+    long GetInt64(SqlDataReader reader, int colnum) {
+        // For some reason, it won't just up-convert int32 to int64
+        if (reader.GetFieldType(colnum) == typeof(System.Int32)) {
+            return reader.GetInt32(colnum);
+        } else if (reader.GetFieldType(colnum) == typeof(System.Int64)) {
+            return reader.GetInt64(colnum);
+        } else if (reader.GetFieldType(colnum) == typeof(System.Decimal)) {
+            return (long)reader.GetDecimal(colnum);
+        } else {
+            // Unknown type
+            bool unknown_type_in_result = true;
+            WVFAIL(unknown_type_in_result);
+
+            return -1;
+        }
+    }
+
     [SetUp]
     public void init()
     {
@@ -150,7 +219,7 @@ public class SqlSuckerTest
 	con = null;
     }
 
-    [Test, Category("Sanity")]
+    [Test, Category("Data"), Category("Sanity")]
     public void EmptyTable()
     {
 	// Check that an empty table stays empty
@@ -179,7 +248,7 @@ public class SqlSuckerTest
 	}
     }
 
-    [Test, Category("Errors")]
+    [Test, Category("Running"), Category("Errors")]
     public void NonexistantTable()
     {
 	// Check that a nonexistant output table throws an error
@@ -188,7 +257,7 @@ public class SqlSuckerTest
 
 	try {
 	    WVEXCEPT(RunSucker("#nonexistant", "SELECT * FROM #test1"));
-	} catch (NUnit.Framework.AssertionException e) {
+	} catch (Wv.Test.WvAssertionFailure e) {
 	    throw e;
 	} catch (System.Exception e) {
 	    WVPASS(e is SqlException);
@@ -199,7 +268,7 @@ public class SqlSuckerTest
 	// something.
     }
 
-    [Test, Category("Errors")]
+    [Test, Category("Running"), Category("Errors")]
     public void BadSchemaTable()
     {
 	// Check that an output table with bad schema throws an error
@@ -217,7 +286,7 @@ public class SqlSuckerTest
 
 	    try {
 		WVEXCEPT(RunSucker("#badschema", "SELECT * FROM #test1"));
-	    } catch (NUnit.Framework.AssertionException e) {
+	    } catch (Wv.Test.WvAssertionFailure e) {
 		throw e;
 	    } catch (System.Exception e) {
 		WVPASS(e is SqlException);
@@ -227,7 +296,7 @@ public class SqlSuckerTest
 	}
     }
 
-    [Test, Category("Pedantic")]
+    [Test, Category("Running"), Category("Pedantic")]
     public void OutputNotEmpty()
     {
 	// Check that if an output table is non-empty that its contents are
@@ -249,7 +318,7 @@ public class SqlSuckerTest
 	WVPASSEQ((int)result, 0);
     }
 
-    [Test, Category("Sanity")]
+    [Test, Category("Schema"), Category("Sanity")]
     public void ColumnTypes()
     {
 	// Check that column types are copied correctly to the output table
@@ -332,14 +401,14 @@ public class SqlSuckerTest
 	}
     }
 
-    [Test, Category("Errors")]
+    [Test, Category("Schema"), Category("Errors")]
     public void EmptyColumnName()
     {
 	// Check that a query with a missing column name throws an error
 	
         try {
             WVEXCEPT(RunSucker("#suckout", "SELECT 1"));
-        } catch (NUnit.Framework.AssertionException e) {
+        } catch (Wv.Test.WvAssertionFailure e) {
             throw e;
         } catch (System.Exception e) {
             WVPASS(e is SqlException);
@@ -541,9 +610,74 @@ public class SqlSuckerTest
     }
 
     [Test, Category("Data")]
-    [Ignore("Not done")]
     public void VerifyBinary()
     {
+        // binary, varbinary (not max)
+        
+        // This must be sorted
+        int [] sizes = { 1, 10, 50, 255, 4000, 8000 };
+
+        string [] types = { "binary", "varbinary" };
+        int [] typemax = { 8000, 8000 };
+        int [] charsize = { 1, 1 };
+        bool [] varsize = { false, true };
+
+        Byte [] binary_goop = read_goop();
+
+        WVASSERT(binary_goop.Length >= sizes[sizes.Length-1]);
+
+        for (int i=0; i < types.Length; i++) {
+            for (int j=0; j < sizes.Length && sizes[j] <= typemax[i]; j++) {
+                WVASSERT(Exec(string.Format("CREATE TABLE #test1 "
+                                + "(data {0}({1}), roworder int not null)",
+                                types[i], sizes[j])));
+
+                for (int k=0; k <= j; k++) {
+                    Byte [] data = new byte[sizes[k]];
+                    Array.Copy(binary_goop, data, sizes[k]);
+
+                    WVASSERT(Insert("#test1", new SqlBinary(data), k));
+                }
+
+                WVASSERT(Insert("#test1", DBNull.Value, j+1));
+
+                WVASSERT(SetupOutputTable("#test1out"));
+
+                WVASSERT(RunSucker("#test1out",
+                            "SELECT * FROM #test1 ORDER BY roworder", true));
+
+                WVASSERT(Exec("DROP TABLE #test1"));
+
+                SqlDataReader reader;
+                WVASSERT(Reader("SELECT LEN(data), DATALENGTH(data), data FROM "
+                            + "#test1out ORDER BY _",
+                            out reader));
+
+                using (reader) {
+                    for (int k=0; k <= j; k++) {
+                        Byte [] data = new byte[sizes[k]];
+                        Array.Copy(binary_goop, data, sizes[k]);
+
+                        WVASSERT(reader.Read());
+
+                        int len = sizes[varsize[i] ? k : j];
+                        WVPASSEQ(GetInt64(reader, 0), len);
+
+                        int datalen = sizes[varsize[i] ? k : j]*charsize[i];
+                        WVPASSEQ(GetInt64(reader, 1), datalen);
+
+                        WVPASSEQ(reader.GetSqlBinary(2), new SqlBinary(data));
+                    }
+
+                    WVASSERT(reader.Read());
+                    WVPASS(reader.IsDBNull(2));
+
+                    WVFAIL(reader.Read());
+                }
+
+                WVASSERT(Exec("DROP TABLE #test1out"));
+            }
+        }
     }
 
     [Test, Category("Data")]
@@ -584,9 +718,102 @@ public class SqlSuckerTest
     }
 
     [Test, Category("Data")]
-    [Ignore("Not done")]
     public void VerifyChar()
     {
+        // char, nchar, varchar (in-row or max), nvarchar (in-row or max),
+        // text, ntext
+        // This doesn't try to use any non-ascii characters. There is a separate
+        // test for that.
+        
+        // This must be sorted
+        int [] sizes = { 1, 10, 50, 255, 4000, 8000, 8040, 8192, 16080, 16384,
+            24120, 32160, 32767, 50157 };
+
+        string [] types = { "char", "varchar", "nchar", "nvarchar", "text",
+            "ntext", "varchar(max)", "nvarchar(max)" };
+        int [] typemax = { 8000, 8000, 4000, 4000, Int32.MaxValue,
+            Int32.MaxValue/2, Int32.MaxValue, Int32.MaxValue/2 };
+        int [] charsize = { 1, 1, 2, 2, 1, 2, 1, 2 };
+        bool [] varsize = { false, true, false, true, true, true, true, true };
+        bool [] sizeparam = { true, true, true, true, false, false, false,
+            false };
+        bool [] lenok = { true, true, true, true, false, false, true, true };
+
+        string lipsum_text = read_lipsum();
+
+        WVASSERT(lipsum_text.Length >= sizes[sizes.Length-1]);
+
+        for (int i=0; i < types.Length; i++) {
+            for (int j=0; j < sizes.Length && sizes[j] <= typemax[i]; j++) {
+                if (sizeparam[i]) {
+                    WVASSERT(Exec(string.Format("CREATE TABLE #test1 "
+                                    + "(data {0}({1}), roworder int not null)",
+                                    types[i], sizes[j])));
+                } else {
+                    WVASSERT(Exec(string.Format("CREATE TABLE #test1 "
+                                    + "(data {0}, roworder int not null)",
+                                    types[i])));
+                    j = sizes.Length-1;
+                }
+
+                for (int k=0; k <= j; k++) {
+                    WVASSERT(Exec(string.Format(
+                                    "INSERT INTO #test1 VALUES ('{0}', {1})",
+                                    lipsum_text.Substring(0,
+                                        sizes[k]).Replace("'", "''"), k)));
+                    /* This doesn't work because it truncates to 4000 chars
+                     * regardless of if it's a nchar/nvarchar or plain
+                     * char/varchar.
+                    WVASSERT(Insert("#test1",
+                                new SqlString(
+                                    lipsum_text.Substring(0, sizes[k])), k));
+                                    */
+                }
+
+                WVASSERT(Insert("#test1", DBNull.Value, j+1));
+
+                WVASSERT(SetupOutputTable("#test1out"));
+
+                WVASSERT(RunSucker("#test1out",
+                            "SELECT * FROM #test1 ORDER BY roworder", true));
+
+                WVASSERT(Exec("DROP TABLE #test1"));
+
+                SqlDataReader reader;
+
+                if (lenok[i]) {
+                    WVASSERT(Reader("SELECT LEN(data), DATALENGTH(data), data "
+                                + "FROM #test1out ORDER BY _",
+                                out reader));
+                } else {
+                    WVASSERT(Reader("SELECT -1, "
+                                + "DATALENGTH(data), data FROM #test1out "
+                                + "ORDER BY _",
+                                out reader));
+                }
+
+                using (reader) {
+                    for (int k=0; k <= j; k++) {
+                        WVASSERT(reader.Read());
+
+                        if (lenok[i])
+                            WVPASSEQ(GetInt64(reader, 0), sizes[k]);
+
+                        WVPASSEQ(GetInt64(reader, 1),
+                                sizes[varsize[i] ? k : j]*charsize[i]);
+                        WVPASSEQ(reader.GetString(2).Substring(0, sizes[k]),
+                                lipsum_text.Substring(0, sizes[k]));
+                    }
+
+                    WVASSERT(reader.Read());
+                    WVPASS(reader.IsDBNull(2));
+
+                    WVFAIL(reader.Read());
+                }
+
+                WVASSERT(Exec("DROP TABLE #test1out"));
+            }
+        }
     }
 
     [Test, Category("Data")]
@@ -609,9 +836,8 @@ public class SqlSuckerTest
         // Other notes:
         // - The min/max values of SqlDateTime are supposed to correspond to the
         //   min/max values of the SQL Server datetime type, except Mono doesn't
-        //   quite have the semantics right (at least, not as of 1.2.3.1, but
-        //   new versions may be better), so the min/max values are hard-coded
-        //   in instead.
+        //   quite have the semantics right, so the min/max values are
+        //   hard-coded in instead. Bug filed with Mono.
         // - All smalldatetime values are rounded down to the nearest minute,
         //   since it only has per-minute granularity
         
@@ -631,6 +857,7 @@ public class SqlSuckerTest
 
         // Mono has difficulties converting DateTime to SqlDateTime directly, so
         // take it down to per-second precision, which works reliably
+        // Bug filed with Mono.
         DateTime now = DateTime.Now;
         SqlDateTime sqlNow = new SqlDateTime(now.Year, now.Month, now.Day,
                 now.Hour, now.Minute, now.Second);
@@ -716,39 +943,40 @@ public class SqlSuckerTest
         object [,] values = {
             {
                 "99999999999999999999999999999999999999",
-                ".99999999999999999999999999999999999999",
+                "0.99999999999999999999999999999999999999",
                 "999999999999999999",
                 "9",
-                ".9"
+                "0.9"
             }, {
                 "123456",
-                ".12345600000000000000000000000000000000",
+                "0.12345600000000000000000000000000000000",
                 "123456",
                 "1",
-                ".1"
+                "0.1"
             }, {
                 /*
                  * The "zero" data set actually makes Mono's TDS library croak.
                  * But that's not a SqlSucker bug. The other data sets should
                  * give reasonable confidence in SqlSucker anyway.
+                 * Bug filed with Mono.
+                "0",
+                "0.00000000000000000000000000000000000000",
                 "0",
                 "0",
-                "0",
-                "0",
-                "0"
+                "0.0"
             }, {
                 */
                 "-654321",
-                "-.65432100000000000000000000000000000000",
+                "-0.65432100000000000000000000000000000000",
                 "-654321",
                 "-1",
-                "-.1"
+                "-0.1"
             }, {
                 "-99999999999999999999999999999999999999",
-                "-.99999999999999999999999999999999999999",
+                "-0.99999999999999999999999999999999999999",
                 "-999999999999999999",
                 "-9",
-                "-.9"
+                "-0.9"
             }, {
                 DBNull.Value,
                 DBNull.Value,
@@ -807,7 +1035,20 @@ public class SqlSuckerTest
                         // The preprocessor doesn't like the comma in the array
                         // subscripts
                         string val = (string)values[i,j/2];
-                        WVPASSEQ(reader.GetSqlDecimal(j).ToString(), val);
+                        string fromdb = reader.GetSqlDecimal(j).ToString();
+
+                        // Mono produces ".1" and "-.1"
+                        // Microsoft .NET produces "0.1" and "-0.1"
+                        // Deal with that here.
+                        // Bug filed with Mono.
+                        if (val[0] == '0' && fromdb[0] == '.') {
+                            WVPASSEQ(fromdb, val.Substring(1));
+                        } else if (val[0] == '-' && val[1] == '0'
+                                && fromdb[0] == '-' && fromdb[1] == '.') {
+                            WVPASSEQ(fromdb, "-" + val.Substring(2));
+                        } else {
+                            WVPASSEQ(fromdb, val);
+                        }
                     }
                 }
             }
@@ -817,105 +1058,578 @@ public class SqlSuckerTest
     }
 
     [Test, Category("Data")]
-    [Ignore("Not done")]
     public void VerifyFloat()
     {
+        // float(53), float(24), real
+        // Insert 8 rows: max, something positive, smallest positive, 0,
+        // smallest negative, something negative, min, nulls
+        // Then check that they were copied correctly
+        // Assume that the schema of the output table is correct (tested
+        // elsewhere)
+        //
+        // Specifically, infinity, -infinity and NaN are not tested here because
+        // SQL Server appears to reject them as values for float columns
+
+        // Construct all of the things we will insert
+        object [,] values = {
+            {
+                /* Can't use SqlDouble.MaxValue et al. because there are
+                 * rounding issues in Mono somewhere that make it reject the
+                 * exact maximum value. These numbers come from the SQL Server
+                 * 2005 reference for the float data type
+                 * Bug filed with Mono.
+                SqlDouble.MaxValue,
+                SqlSingle.MaxValue,
+                SqlSingle.MaxValue */
+                1.79E+308d,
+                3.40E+38f,
+                3.40E+38f
+            }, {
+                /* Mono has problems with sending Math.E in a way that is
+                 * roundtrip-able
+                 * Bug filed with Mono.
+                (double)Math.E,
+                (float)Math.E,
+                (float)Math.E */
+                2.71828182845905d,
+                2.718282f,
+                2.718282f
+            }, {
+                /* Can't use Double.Epsilon or Single.Epsilon because SQL server
+                 * complains, even on the Microsoft .NET implementation
+                 * These numbers come from the SQL Server 2005 reference for the
+                 * float data type
+                Double.Epsilon,
+                Single.Epsilon,
+                Single.Epsilon */
+                2.23E-308d,
+                1.18E-38f,
+                1.18E-38f
+            }, {
+                0.0d,
+                0.0f,
+                0.0f
+            }, {
+                /*
+                -Double.Epsilon,
+                -Single.Epsilon,
+                -Single.Epsilon */
+                -2.23E-308d,
+                -1.18E-38f,
+                -1.18E-38f
+            }, {
+                -127.001d,
+                -1270.01f,
+                -12700.1f
+            }, {
+                /*
+                SqlDouble.MinValue,
+                SqlSingle.MinValue,
+                SqlSingle.MinValue */
+                -1.79E+308d,
+                -3.40E+38f,
+                -3.40E+38f
+            }, {
+                DBNull.Value,
+                DBNull.Value,
+                DBNull.Value
+            }
+        };
+
+        WVASSERT(Exec("CREATE TABLE #test1 (f53 float(53), f24 float(24), "
+                    + "r real, roworder int not null)"));
+
+        // Now insert them
+        object [] insertParams = new object[values.GetLength(1)+1];
+
+        for (int i=0; i < values.GetLength(0); i++) {
+            insertParams[insertParams.Length-1] = i;
+            for (int j=0; j < insertParams.Length-1; j++) {
+                insertParams[j] = values[i,j];
+            }
+            WVASSERT(Insert("#test1", insertParams));
+        }
+
+        WVASSERT(RunSucker("#suckout", "SELECT * FROM #test1"));
+
+        WVASSERT(Exec("DROP TABLE #test1"));
+
+        SqlDataReader reader;
+        WVASSERT(Reader("SELECT * FROM #suckout ORDER BY roworder",
+                    out reader));
+
+        using (reader) {
+            for (int i=0; i < values.GetLength(0); i++) {
+                WVASSERT(reader.Read());
+
+                for (int j=0; j < insertParams.Length-1; j++) {
+                    // The preprocessor doesn't like the comma in the array
+                    // subscripts
+                    object val = values[i,j];
+
+                    if (val is DBNull) {
+                        WVPASS(reader.IsDBNull(j));
+                    } else if (val is double) {
+                        WVPASSEQ(reader.GetDouble(j), (double)val);
+                    } else if (val is float) {
+                        WVPASSEQ(reader.GetFloat(j), (float)val);
+                    } else {
+                        // If we get here, a data type was used in the values
+                        // array that's not handled by one of the above cases
+                        bool test_is_broken = true;
+                        WVFAIL(test_is_broken);
+                    }
+                }
+            }
+
+            WVFAIL(reader.Read());
+        }
     }
 
     [Test, Category("Data")]
-    [Ignore("Not done")]
-    public void VerifyImage()
-    {
-    }
-
-    [Test, Category("Data")]
-    [Ignore("Not done")]
     public void VerifyMoney()
     {
+        // money, smallmoney
+        // Insert 6 rows: max, a positive amount, 0, a negative amount, min,
+        // null
+        // Then check that they were copied correctly
+        // Assume that the schema of the output table is correct (tested
+        // elsewhere)
+
+        WVASSERT(Exec("CREATE TABLE #test1 (m money, sm smallmoney, "
+                    + "roworder int not null)"));
+
+        WVASSERT(Insert("#test1", SqlMoney.MaxValue, 214748.3647m, 1));
+        WVASSERT(Insert("#test1", 1337.42m, 1337.42m, 2));
+        WVASSERT(Insert("#test1", 0.0m, 0.0m, 3));
+        WVASSERT(Insert("#test1", -3.141m, -3.141m, 5));
+        WVASSERT(Insert("#test1", SqlMoney.MinValue, -214748.3648m, 6));
+        WVASSERT(Insert("#test1", DBNull.Value, DBNull.Value, 7));
+
+        WVASSERT(RunSucker("#suckout", "SELECT * FROM #test1"));
+
+        WVASSERT(Exec("DROP TABLE #test1"));
+
+        SqlDataReader reader;
+        // Cast the return type because Mono doesn't properly handle negative
+        // money amounts
+        // Bug filed with Mono.
+        WVASSERT(Reader("SELECT CAST(m as decimal(20,4)),"
+                    + "CAST(sm as decimal(20,4)) "
+                    + "FROM #suckout ORDER BY roworder", out reader));
+
+        using (reader) {
+            WVASSERT(reader.Read());
+            WVPASSEQ(reader.GetDecimal(0), SqlMoney.MaxValue.ToDecimal());
+            WVPASSEQ(reader.GetDecimal(1), 214748.3647m);
+
+            WVASSERT(reader.Read());
+            WVPASSEQ(reader.GetDecimal(0), 1337.42m);
+            WVPASSEQ(reader.GetDecimal(1), 1337.42m);
+
+            WVASSERT(reader.Read());
+            WVPASSEQ(reader.GetDecimal(0), 0m);
+            WVPASSEQ(reader.GetDecimal(1), 0m);
+
+            WVASSERT(reader.Read());
+            WVPASSEQ(reader.GetDecimal(0), -3.141m);
+            WVPASSEQ(reader.GetDecimal(1), -3.141m);
+
+            WVASSERT(reader.Read());
+            WVPASSEQ(reader.GetDecimal(0), SqlMoney.MinValue.ToDecimal());
+            WVPASSEQ(reader.GetDecimal(1), -214748.3648m);
+
+            WVASSERT(reader.Read());
+            WVPASS(reader.IsDBNull(0));
+            WVPASS(reader.IsDBNull(1));
+
+            WVFAIL(reader.Read());
+        }
     }
 
     [Test, Category("Data")]
-    [Ignore("Not done")]
-    public void VerifyNChar()
-    {
-    }
-
-    [Test, Category("Data")]
-    [Ignore("Not done")]
-    public void VerifyNText()
-    {
-    }
-
-    [Test, Category("Data")]
-    [Ignore("Not done")]
-    public void VerifyNVarCharMax()
-    {
-    }
-
-    [Test, Category("Data")]
-    [Ignore("Not done")]
-    public void VerifyNVarChar()
-    {
-    }
-
-    [Test, Category("Data")]
-    [Ignore("Not done")]
-    public void VerifyReal()
-    {
-    }
-
-    [Test, Category("Data")]
-    [Ignore("Not done")]
-    public void VerifySmallMoney()
-    {
-    }
-
-    [Test, Category("Data")]
-    [Ignore("Not done")]
-    public void VerifyText()
-    {
-    }
-
-    [Test, Category("Data")]
-    [Ignore("Not done")]
     public void VerifyTimestamp()
     {
+        // Create a table with a timestamp column, create a bunch of rows in a
+        // particular order, then check that they match up after copying
+
+        // This permutation strategy is discussed in the RowOrdering test
+        const int numElems = 101;
+        const int prime1 = 47;
+
+        WVASSERT(Exec("CREATE TABLE #test1 (ts timestamp, "
+                    + "roworder int not null)"));
+
+        for (int i=0, j=0; i < numElems; i++, j = (i*prime1) % numElems) {
+            Insert("#test1", DBNull.Value, j);
+        }
+
+        SqlDataReader reader;
+        WVASSERT(Reader("SELECT ts,roworder FROM #test1 ORDER BY roworder",
+                    out reader));
+        
+        SqlBinary [] tsdata = new SqlBinary[numElems];
+
+        using (reader) {
+            for (int i=0; i < numElems; i++) {
+                WVASSERT(reader.Read());
+                WVPASSEQ(reader.GetInt32(1), i);
+                tsdata[i] = reader.GetSqlBinary(0);
+            }
+
+            WVFAIL(reader.Read());
+        }
+
+        WVASSERT(RunSucker("#suckout",
+                    "SELECT ts,roworder from #test1 ORDER BY ts", true));
+
+        WVASSERT(Exec("DROP TABLE #test1"));
+
+        WVASSERT(Reader("SELECT ts,roworder FROM #suckout ORDER BY _",
+                    out reader));
+
+        using (reader) {
+            for (int i=0, j=0; i < numElems; i++, j = (i*prime1) % numElems) {
+                WVASSERT(reader.Read());
+                WVPASSEQ(reader.GetInt32(1), j);
+                WVPASSEQ(reader.GetSqlBinary(0), tsdata[j]);
+            }
+
+            WVFAIL(reader.Read());
+        }
     }
 
     [Test, Category("Data")]
-    [Ignore("Not done")]
     public void VerifyUniqueIdentifier()
     {
+        // uniqueidentifier
+        // Insert 2 rows: a valid number, null
+        // Then check that they were copied correctly
+        // Assume that the schema of the output table is correct (tested
+        // elsewhere)
+
+        SqlGuid guid = new SqlGuid("6F9619FF-8B86-D011-B42D-00C04FC964FF");
+
+        WVASSERT(Exec("CREATE TABLE #test1 (u uniqueidentifier, "
+                    + "roworder int not null)"));
+
+        WVASSERT(Insert("#test1", guid, 1));
+        WVASSERT(Insert("#test1", DBNull.Value, 2));
+
+        WVASSERT(RunSucker("#suckout",
+                    "SELECT u from #test1 ORDER BY roworder", true));
+
+        WVASSERT(Exec("DROP TABLE #test1"));
+
+        SqlDataReader reader;
+        WVASSERT(Reader("SELECT u FROM #suckout ORDER BY _",
+                    out reader));
+
+        using (reader) {
+            WVASSERT(reader.Read());
+            WVPASSEQ(reader.GetSqlGuid(0), guid);
+
+            WVASSERT(reader.Read());
+            WVPASS(reader.IsDBNull(0));
+
+            WVFAIL(reader.Read());
+        }
     }
 
     [Test, Category("Data")]
-    [Ignore("Not done")]
-    public void VerifyVarBinary()
-    {
-    }
-
-    [Test, Category("Data")]
-    [Ignore("Not done")]
     public void VerifyVarBinaryMax()
     {
+        // varbinary(max), image
+
+        // This must be sorted
+        long [] sizes = { 1, 10, 50, 255, 4000, 8000, 8040, 8192, 16080, 16384,
+            24120, 32160, 32768, 40200, 65536, 131072, 262144, 524288, 1048576,
+            2097152, 3076506 };
+
+        string [] types = { "varbinary(max)", "image" };
+
+        Byte [] image_data = read_image();
+
+        WVASSERT(image_data.Length >= sizes[sizes.Length-1]);
+
+        foreach (string type in types) {
+            WVASSERT(Exec(string.Format("CREATE TABLE #test1 "
+                            + "(data {0}, roworder int not null)", type)));
+
+            for (int k=0; k < sizes.Length; k++) {
+                Byte [] data = new byte[sizes[k]];
+                Array.Copy(image_data, data, sizes[k]);
+
+                WVASSERT(Insert("#test1", new SqlBinary(data), k));
+            }
+
+            WVASSERT(Insert("#test1", DBNull.Value, sizes.Length));
+
+            WVASSERT(SetupOutputTable("#test1out"));
+
+            WVASSERT(RunSucker("#test1out",
+                        "SELECT * FROM #test1 ORDER BY roworder", true));
+
+            WVASSERT(Exec("DROP TABLE #test1"));
+
+            SqlDataReader reader;
+            WVASSERT(Reader("SELECT DATALENGTH(data), data FROM "
+                        + "#test1out ORDER BY _",
+                        out reader));
+
+            using (reader) {
+                for (int k=0; k < sizes.Length; k++) {
+                    Byte [] data = new byte[sizes[k]];
+                    Array.Copy(image_data, data, sizes[k]);
+
+                    WVASSERT(reader.Read());
+
+                    WVPASSEQ(GetInt64(reader, 0), sizes[k]);
+                    WVPASSEQ(reader.GetSqlBinary(1), new SqlBinary(data));
+                }
+
+                WVASSERT(reader.Read());
+                WVPASS(reader.IsDBNull(1));
+
+                WVFAIL(reader.Read());
+            }
+
+            WVASSERT(Exec("DROP TABLE #test1out"));
+        }
     }
 
     [Test, Category("Data")]
-    [Ignore("Not done")]
-    public void VerifyVarChar()
-    {
-    }
-
-    [Test, Category("Data")]
-    [Ignore("Not done")]
-    public void VerifyVarCharMax()
-    {
-    }
-
-    [Test, Category("Data")]
-    [Ignore("Not done")]
     public void VerifyXML()
     {
+        // xml
+        // Insert 2 rows: some sample XML, null
+        // Then check that they were copied correctly
+        // Assume that the schema of the output table is correct (tested
+        // elsewhere)
+        // This isn't very exhaustive, so improvements are welcome.
+        // This was going to use SqlXml instead of using a string, but Mono
+        // doesn't support that very well.
+
+        // This MUST not have any extra whitespace, as it will be stripped by
+        // some SQL parser and won't be reproduced when it comes back out.
+        // This is the style that Microsoft's .NET returns
+        string xml =
+            "<outside><!--hi--><element1 />Text<element2 type=\"pretty\" />"
+            + "</outside>";
+        // This is the style that Mono returns
+        string altxml =
+            "<outside><!--hi--><element1/>Text<element2 type=\"pretty\"/>"
+            + "</outside>";
+
+        WVASSERT(Exec("CREATE TABLE #test1 (x xml, "
+                    + "roworder int not null)"));
+
+        WVASSERT(Insert("#test1", xml, 1));
+        WVASSERT(Insert("#test1", DBNull.Value, 2));
+
+        WVASSERT(RunSucker("#suckout",
+                    "SELECT x from #test1 ORDER BY roworder", true));
+
+        WVASSERT(Exec("DROP TABLE #test1"));
+
+        SqlDataReader reader;
+        WVASSERT(Reader("SELECT x FROM #suckout ORDER BY _",
+                    out reader));
+
+        using (reader) {
+            WVASSERT(reader.Read());
+            // Sigh. 
+            if (reader.GetString(0) == altxml) {
+                WVPASSEQ(reader.GetString(0), altxml);
+            } else {
+                WVPASSEQ(reader.GetString(0), xml);
+            }
+
+            WVASSERT(reader.Read());
+            WVPASS(reader.IsDBNull(0));
+
+            WVFAIL(reader.Read());
+        }
+    }
+
+    [Test, Category("Data")]
+    public void Unicode()
+    {
+        // nchar, nvarchar (in-row or max), ntext
+        // Using lots of non-ascii characters
+        
+        string unicode_text = read_unicode();
+
+        int [] sizes = { 4000, unicode_text.Length };
+        WVASSERT(unicode_text.Length >= sizes[0]);
+
+        string [] types = { "nchar", "nvarchar", "ntext", "nvarchar(max)" };
+        int [] typemax = { 4000, 4000, Int32.MaxValue/2, Int32.MaxValue/2 };
+        int [] charsize = { 2, 2, 2, 2 };
+        bool [] varsize = { false, true, true, true };
+        bool [] sizeparam = { true, true, false, false };
+        bool [] lenok = { true, true, false, true };
+
+        for (int i=0; i < types.Length; i++) {
+            for (int j=0; j < sizes.Length && sizes[j] <= typemax[i]; j++) {
+                if (sizeparam[i]) {
+                    WVASSERT(Exec(string.Format("CREATE TABLE #test1 "
+                                    + "(data {0}({1}), roworder int not null)",
+                                    types[i], sizes[j])));
+                } else {
+                    WVASSERT(Exec(string.Format("CREATE TABLE #test1 "
+                                    + "(data {0}, roworder int not null)",
+                                    types[i])));
+                    j = sizes.Length-1;
+                }
+
+                for (int k=0; k <= j; k++) {
+                    WVASSERT(Exec(string.Format(
+                                    "INSERT INTO #test1 VALUES (N'{0}', {1})",
+                                    unicode_text.Substring(0,
+                                        sizes[k]).Replace("'", "''"), k)));
+                }
+
+                WVASSERT(SetupOutputTable("#test1out"));
+
+                WVASSERT(RunSucker("#test1out",
+                            "SELECT * FROM #test1 ORDER BY roworder", true));
+
+                WVASSERT(Exec("DROP TABLE #test1"));
+
+                SqlDataReader reader;
+
+                if (lenok[i]) {
+                    WVASSERT(Reader("SELECT LEN(data), DATALENGTH(data), data "
+                                + "FROM #test1out ORDER BY _",
+                                out reader));
+                } else {
+                    WVASSERT(Reader("SELECT -1, "
+                                + "DATALENGTH(data), data FROM #test1out "
+                                + "ORDER BY _",
+                                out reader));
+                }
+
+                using (reader) {
+                    for (int k=0; k <= j; k++) {
+                        WVASSERT(reader.Read());
+
+                        if (lenok[i])
+                            WVPASSEQ(GetInt64(reader, 0), sizes[k]);
+
+                        WVPASSEQ(GetInt64(reader, 1),
+                                sizes[varsize[i] ? k : j]*charsize[i]);
+                        WVPASSEQ(reader.GetString(2).Substring(0, sizes[k]),
+                                unicode_text.Substring(0, sizes[k]));
+                    }
+
+                    WVFAIL(reader.Read());
+                }
+
+                WVASSERT(Exec("DROP TABLE #test1out"));
+            }
+        }
+    }
+
+    [Test, Category("Running")]
+    public void Recursion()
+    {
+        // Check that SqlSucker can be called recursively
+
+        // This will need redesigning to recurse past 25 levels because we run
+        // out of alphabet (primes list will need to be extended too)
+        // No, there is no particular reason that this has to use primes.
+        // Also, the default recursion depth of 32 limits recurse_lvl to 9
+        const int recurse_lvl = 9;
+        char colname_base = 'A';
+        int [] primes = { 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43,
+            47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101 };
+
+        WVASSERT(Exec(string.Format("CREATE PROCEDURE #sucker_test0\n"
+            + "AS BEGIN\n"
+            + "SELECT {0} as {1}\n"
+            + "END", primes[0], colname_base)));
+
+        System.Text.StringBuilder colnames = new System.Text.StringBuilder();
+
+        for (int i=1; i <= recurse_lvl; i++) {
+            if (i > 1) {
+                colnames.Append(", ");
+            }
+            colnames.AppendFormat("{0}", (char)(colname_base + i - 1));
+
+            WVASSERT(Exec(string.Format("CREATE PROCEDURE #sucker_test{0}\n"
+                    + "AS BEGIN\n"
+                    + "CREATE TABLE #out{1} (_ int)\n"
+                    + "EXEC SqlSucker '#out{1}','EXEC #sucker_test{1}',false\n"
+                    + "SELECT {2}, {3} as {4} FROM #out{1}\n"
+                    + "DROP TABLE #out{1}\n"
+                    + "END", i, i-1, colnames, primes[i],
+                    (char)(colname_base + i))));
+
+        }
+
+        WVASSERT(RunSucker("#suckout",
+                    string.Format("EXEC #sucker_test{0}", recurse_lvl)));
+
+        for (int i=recurse_lvl; i >= 0; i--) {
+            WVASSERT(Exec(string.Format("DROP PROCEDURE #sucker_test{0}", i)));
+        }
+
+        SqlDataReader reader;
+        WVASSERT(Reader("SELECT * FROM #suckout", out reader));
+        using (reader) {
+            WVPASSEQ(reader.FieldCount, recurse_lvl+1);
+
+            for (int i=0; i <= recurse_lvl; i++) {
+                WVPASSEQ(reader.GetName(i),
+                        string.Format("{0}", (char)(colname_base + i)));
+            }
+
+            WVASSERT(reader.Read());
+            for (int i=0; i <= recurse_lvl; i++) {
+                WVPASSEQ(reader.GetInt32(i), primes[i]);
+            }
+
+            WVFAIL(reader.Read());
+        }
+    }
+
+    public static void Main()
+    {
+        SqlSuckerTest tests = new SqlSuckerTest();
+        WvTest tester = new WvTest();
+
+        tester.RegisterTest("EmptyTable", tests.EmptyTable);
+        tester.RegisterTest("NonexistantTable", tests.NonexistantTable);
+        tester.RegisterTest("BadSchemaTable", tests.BadSchemaTable);
+        tester.RegisterTest("OutputNotEmpty", tests.OutputNotEmpty);
+        tester.RegisterTest("ColumnTypes", tests.ColumnTypes);
+        tester.RegisterTest("EmptyColumnName", tests.EmptyColumnName);
+        tester.RegisterTest("RowOrdering", tests.RowOrdering);
+        tester.RegisterTest("ColumnOrdering", tests.ColumnOrdering);
+        tester.RegisterTest("VerifyIntegers", tests.VerifyIntegers);
+        tester.RegisterTest("VerifyBinary", tests.VerifyBinary);
+        tester.RegisterTest("VerifyBit", tests.VerifyBit);
+        tester.RegisterTest("VerifyChar", tests.VerifyChar);
+        tester.RegisterTest("VerifyDateTime", tests.VerifyDateTime);
+        tester.RegisterTest("VerifyDecimal", tests.VerifyDecimal);
+        tester.RegisterTest("VerifyFloat", tests.VerifyFloat);
+        tester.RegisterTest("VerifyMoney", tests.VerifyMoney);
+        tester.RegisterTest("VerifyTimestamp", tests.VerifyTimestamp);
+        tester.RegisterTest("VerifyUniqueIdentifier",
+                tests.VerifyUniqueIdentifier);
+        tester.RegisterTest("VerifyVarBinaryMax", tests.VerifyVarBinaryMax);
+        tester.RegisterTest("VerifyXML", tests.VerifyXML);
+        tester.RegisterTest("Unicode", tests.Unicode);
+        tester.RegisterTest("Recursion", tests.Recursion);
+
+        tester.RegisterInit(tests.init);
+        tester.RegisterCleanup(tests.cleanup);
+
+        tester.Run();
+
+        Environment.Exit(tester.Failures);
     }
 }
 

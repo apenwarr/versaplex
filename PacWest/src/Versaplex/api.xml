@@ -1,0 +1,56 @@
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN" "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node name="/com/versabanq/versaplex/db">
+    <interface name="com.versabanq.versaplex.db">
+        <method name="ExecNoResult">
+            <arg name="query" type="s" direction="in"/>
+        </method>
+
+        <method name="ExecScalar">
+            <arg name="query" type="s" direction="in"/>
+            <arg name="result" type="v" direction="out"/>
+        </method>
+
+        <method name="ExecRecordset">
+            <arg name="query" type="s" direction="in"/>
+            <arg name="colinfo" type="a(issnny)" direction="out"/>
+            <!-- Returned data is:
+                int32 column size
+                string column name
+                string column type
+                int16 numeric precision
+                int16 numeric scale
+                uint8 nullability
+                    - a bitfield, with only one bit currently defined,
+                      0x1 = is nullable
+            -->
+            <arg name="data" type="v" direction="out"/>
+            <!-- row-major order; the variant's signature is an array type
+                 of the form a(...) where ... are the columns -->
+            <arg name="nullity" type="aay" direction="out"/>
+            <!-- 0 for not null, 1 for null -->
+        </method>
+
+        <!-- Any of these can throw:
+             com.versabanq.versaplex.sqlerror - SQL statement error (text
+                     parameter will include actual error)
+             com.versabanq.versaplex.toomuchdata - Scalar or Recordset result
+                     is too large to transmit in a single d-bus message. Will
+                     need to use a different API (not yet defined). text
+                     parameter will indicate what the problem is
+             com.versabanq.versaplex.badschema - Schema returned by the query
+                     contains features not supported (such as sql_variant).
+                     text parameter will indicate what the problem is
+             com.versabanq.versaplex.exception - Method threw an exception
+                     other than those listed above. Text parameter will contain
+                     the normal .NET exception description and backtrace
+        -->
+
+        <!-- Future:
+             - Transaction support
+             - Execute particular procedures, not just SQL
+             - Ability to stream results as signals rather than in a single
+               message (allows interleaving results and larger sized result
+               sets)
+        -->
+    </interface>
+</node>

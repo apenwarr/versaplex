@@ -1,0 +1,7 @@
+#!/bin/sh
+rm -f config.mk
+cat >config.mk <<EOF
+	BUILD_TARGET=`uname`
+EOF
+
+(cd ThirdParty/wv && ./configure)

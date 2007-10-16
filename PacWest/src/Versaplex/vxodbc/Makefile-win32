@@ -1,0 +1,48 @@
+include Makefile-common
+
+CC=i586-mingw32msvc-g++
+CXX=i586-mingw32msvc-g++
+WINDRES=i586-mingw32msvc-windres
+WVPORTS=../../../ThirdParty/wv/wvports
+XPLC=$(WVPORTS)/xplc/build/xplc
+OPENSSL=$(WVPORTS)/openssl/build/openssl
+DBUS=$(WVPORTS)/dbus/build/dbus/dbus/.libs
+WVSTREAMS=../../../ThirdParty/wv/wvstreams
+CFLAGS=-w \
+	-D_MSC_VER=1300 \
+	-DUNICODE_SUPPORT -DODBCVER=0x0351 -D_WIN32_WINNT=0x0501 \
+	-DWIN_MULTITHREAD_SUPPORT \
+	-I$(WVSTREAMS)/include -I$(XPLC)/include \
+	-I/usr/include/postgresql
+CXXFLAGS=$(CFLAGS)
+RSCFLAGS=-DUNICODE_SUPPORT
+LIBS=\
+	-L$(WVSTREAMS) -lwvwin32 \
+	-L$(DBUS) -ldbus-1 \
+	-L$(XPLC) -lxplc-cxx -lxplc \
+	-L$(OPENSSL) -lssl -lcrypto \
+	-limagehlp \
+	-lodbc32 -lodbccp32 \
+	-lws2_32 -lwinmm -lgdi32 -lkernel32 
+LDFLAGS=--enable-stdcall-fixup -s
+
+OBJS+=\
+	setup.o \
+	vxodbc.res.o \
+	vxodbc.def
+
+
+all: vxodbc.dll	
+
+%.res.o: %.rc
+	$(WINDRES) $< $@
+
+vxodbc.dll: $(OBJS)
+	@echo Linking $@...
+	@$(CXX) -shared -o $@ \
+		$(LDFLAGS) \
+		$^ \
+		-Wl,--out-implib,vxodbc.a \
+		$(LIBS) \
+		2>&1 | grep -v '^Warning: resolving .* by linking to' >&2
+

@@ -1,8 +1,6 @@
 .PHONY: all clean test
 
-DLL = sqlsucker.test.dll
-
-all: $(DLL)
+all: test
 
 SHELL=/bin/bash
 WVPATH=../../Wv.Net
@@ -14,21 +12,14 @@ CPPFLAGS=-I$(WVPATH)
 
 ifeq ($(OS),Windows_NT)
 CSC?=csc
-PKGS=/r:nunit.framework.dll /r:wv.dll
-NUNIT=nunit.framework.dll
-NUNITPATH=/cygdrive/c/Program\ Files/NUnit\ 2.4.1/bin
-
-nunit.framework.dll: %.dll: $(NUNITPATH)/%.dll
-	rm -f "$@"
-	cp "$<" "$@"
+PKGS=/r:wv.dll
 
 wv.dll: %.dll: $(WVPATH)/%.dll
 	rm -f "$@"
 	cp "$<" "$@"
 else
 CSC?=gmcs
-NUNIT=
-PKGS=/r:System.Data /r:System.Web /r:wv /pkg:nunit
+PKGS=/r:System.Data /r:System.Web /r:wv
 
 wv.dll: %.dll: $(WVPATH)/%.dll
 	rm -f "$@"
@@ -39,10 +30,16 @@ endif
 CSFLAGS=/warn:4 /debug
 #CSFLAGS += /warnaserror
 
-FILES = sqlsucker.test.cs.E
+TESTS=sqlsucker.test.exe
 
-test: $(DLL)
-	nunit-console /nologo /labels $^
+test: wv.dll $(TESTS) $(addsuffix .pass,$(TESTS))
+
+$(addsuffix .pass,$(TESTS)): %.pass: %
+	./$<
+	touch $@
+
+$(TESTS): %.exe: %.cs.E $(DLL)
+	$(CSC) $(PKGS) $(CSFLAGS) /r:wv.dll /target:exe /out:$@ $(filter %.cs.E %.cs,$^)
 
 $(patsubst %.cs.E,%.d,$(filter %.cs.E,$(FILES))): %.d: %.cs
 	@echo Generating dependency file $@ for $<
@@ -62,9 +59,6 @@ include $(patsubst %.cs.E,%.d,$(filter %.cs.E,$(FILES)))
 		| sed -e 's,^#include,//#include,' \
 		| grep -v '^# [0-9]' \
 		>$@ || (rm -f $@ && exit 1)
-
-$(DLL): $(FILES) wv.dll $(NUNIT)
-	$(CSC) $(PKGS) $(CSFLAGS) /target:library /out:$@ $(filter %.cs.E %.cs,$^)
 
 clean:
 	rm -f *~ *.E *.d *.exe *.dll TestResult.xml *.mdb *.pdb

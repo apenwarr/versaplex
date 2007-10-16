@@ -1,10 +1,8 @@
 #include "wvtest.cs.h"
 
 using System;
-using NUnit.Framework;
 using Wv.Test;
 
-[TestFixture]
 public class WvTestTest
 {
  	[Test] public void test_wvtest()
@@ -70,7 +68,7 @@ public class WvTestTest
 
 	    try {
 		WVEXCEPT(throw_exception());
-	    } catch (NUnit.Framework.AssertionException e) {
+	    } catch (Wv.Test.WvAssertionFailure e) {
 		throw e;
 	    } catch (System.Exception e) {
 		caught = true;
@@ -83,10 +81,23 @@ public class WvTestTest
 	    System.Console.WriteLine("Ignore next failure: it is expected");
 	    try {
 		WVEXCEPT(no_throw_exception());
-	    } catch (NUnit.Framework.AssertionException e) {
+	    } catch (Wv.Test.WvAssertionFailure e) {
 		caught = true;
 	    }
 
 	    WVPASS(caught);
 	}
+
+        public static void Main()
+        {
+            WvTestTest tests = new WvTestTest();
+            WvTest tester = new WvTest();
+            tester.RegisterTest("test_wvtest", tests.test_wvtest);
+            tester.RegisterTest("test_dates_and_spans", tests.test_dates_and_spans);
+            tester.RegisterTest("test_exceptions", tests.test_dates_and_spans);
+
+            tester.Run();
+
+            System.Environment.Exit(tester.Failures);
+        }
 }

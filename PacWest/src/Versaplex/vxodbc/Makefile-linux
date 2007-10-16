@@ -1,0 +1,37 @@
+include Makefile-common
+
+WVPORTS=../../../ThirdParty/wv/wvports
+XPLC=$(WVPORTS)/xplc/build/xplc
+OPENSSL=$(WVPORTS)/openssl/build/openssl
+DBUS=$(WVPORTS)/dbus/build/dbus/dbus/.libs
+WVSTREAMS=../../../ThirdParty/wv/wvstreams
+CFLAGS=-g -w \
+	-DUNICODE_SUPPORT -DODBCVER=0x0351 \
+	-I$(WVSTREAMS)/include -I$(XPLC)/include \
+	-I/usr/include/postgresql
+CXXFLAGS=$(CFLAGS)
+LIBS=\
+	$(WVSTREAMS)/libwvdbus.a $(WVSTREAMS)/libwvstreams.a \
+	$(WVSTREAMS)/libwvutils.a $(WVSTREAMS)/libwvbase.a \
+	$(DBUS)/libdbus-1.a \
+	$(OPENSSL)/libssl.a $(OPENSSL)/libcrypto.a \
+	$(XPLC)/libxplc-cxx.a $(XPLC)/libxplc.a -ldl \
+	/usr/lib/libodbc.a -lpthread
+LDFLAGS=-g
+
+all: vxodbc.so test-linker
+
+vxodbc.so: $(OBJS)
+	@echo Linking $@...
+	@$(CXX) -shared -o $@ \
+		$(LDFLAGS) \
+		$^ \
+		-Wl,--soname,$@ \
+		$(LIBS)
+
+linker-test: linker-test.o vxodbc.so
+	@echo Linking $@...
+	$(CXX) -o $@ $(LDFLAGS) $^
+
+test-linker: linker-test
+	LD_LIBRARY_PATH=. ./linker-test

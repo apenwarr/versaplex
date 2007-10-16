@@ -1,0 +1,56 @@
+default: all
+
+OBJS=\
+	bind.o \
+	columninfo.o \
+	connection.o \
+	convert.o \
+	dlg_specific.o \
+	dlg_wingui.o \
+	drvconn.o \
+	environ.o \
+	execute.o \
+	info.o \
+	info30.o \
+	lobj.o \
+	win_md5.o \
+	misc.o \
+	mylog.o \
+	pgapi30.o \
+	multibyte.o \
+	options.o \
+	parse.o \
+	pgtypes.o \
+	psqlodbc.o \
+	qresult.o \
+	results.o \
+	socket.o \
+	statement.o \
+	tuple.o \
+	odbcapi.o \
+	odbcapi30.o \
+	descriptor.o \
+	odbcapiw.o \
+	odbcapi30w.o \
+	inouealc.o \
+	win_unicode.o \
+	wvlogger.o
+
+clean:
+	rm -f *.o *.so *~ *.res *.dll *.a .*.d *.d .stamp-config
+
+%.E: %.c
+	$(CC) -o $@ -E $< $(CFLAGS)
+	
+%.E: %.cc
+	$(CC) -o $@ -E $< $(CXXFLAGS)
+	
+%.o: %.c
+	@echo Compiling $@...
+	@$(CC) -o $@ -c -MMD -MP -MF .$*.d $< $(CFLAGS)
+
+%.o: %.cc
+	@echo Compiling $@...
+	@$(CXX) -o $@ -c -MMD -MP -MF .$*.d $< $(CXXFLAGS)
+
+include $(wildcard .*.d)

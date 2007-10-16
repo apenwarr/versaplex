@@ -35,19 +35,63 @@ using System.Data.SqlTypes;
 
 public class SqlSuckerProc
 {
-    private const string tempServer = "localhost";
-    private const string tempUser = "asta";
-    private const string tempPassword = "m!ddle-tear";
-    // Make sure tempTable has square bracket quoting if it contains spaces
-    private const string tempTable = "#SuckerTemp";
-    // Set tempDatabase to null to use database name of context connection
-    private const string tempDatabase = null;
+    // A required parameter to SqlSucker_GetConInfo to deter users from trying
+    // to call it directly. Although if they call it anyway, it won't hurt
+    // anything.
+    private const int conInfoMagic = 83926752;
+
+    private static object conInitLock = new object();
+    private static object conInfoLock = new object();
+    private static bool conInfoOk = false;
+    private static string tempServer;
+    private static string tempUser;
+    private static string tempPassword;
+    private static string tempTable;
+    private static string tempDatabase;
+
     // Name to use for output table's ordering column
     private const string orderingColumn = "_";
     // Name to use for input table's dummy column
     private const string dummyColumn = "_";
 
     private const bool sendDebugInfo = false;
+
+    [Microsoft.SqlServer.Server.SqlProcedure]
+    public static void SqlSucker_GetConInfo(SqlInt32 magic)
+    {
+        if (conInfoMagic != magic.Value) {
+            throw new System.Exception(
+                "This procedure is internal to SqlSucker. "
+                + "Do not call it directly.");
+        }
+
+        lock (conInfoLock) {
+            conInfoOk = false;
+
+            using (SqlConnection ctxCon = new SqlConnection(
+                "context connection=true"))
+            using (SqlCommand ctxConCmd = new SqlCommand(
+                "SELECT server, username, password, tablename, dbname "
+                + "FROM SqlSuckerConfig", ctxCon)) {
+
+                ctxCon.Open();
+
+                using (SqlDataReader reader = ctxConCmd.ExecuteReader()) {
+                    if (!reader.Read()) {
+                        throw new System.Exception(
+                            "No rows in SqlSuckerConfig");
+                    }
+
+                    tempServer = reader.GetString(0);
+                    tempUser = reader.GetString(1);
+                    tempPassword = reader.GetString(2);
+                    tempTable = reader.GetString(3);
+                    tempDatabase = reader.GetString(4);
+                    conInfoOk = true;
+                }
+            }
+        }
+    }
 
     [Microsoft.SqlServer.Server.SqlProcedure]
     public static void SqlSucker(SqlString TableName, SqlString SQL, bool ordered)
@@ -73,14 +117,35 @@ public class SqlSuckerProc
         using (SqlConnection tmpCon = new SqlConnection()) {
             ctxCon.Open();
 
-            tmpCon.ConnectionString = string.Format(
-                "Server={0};UID={1};Password={2};Database={3};enlist=false",
-                tempServer, tempUser, tempPassword,
-                tempDatabase == null ? ctxCon.Database : tempDatabase);
-
             SqlCommand ctxConCmd = ctxCon.CreateCommand();
             SqlCommand tmpConCmd = tmpCon.CreateCommand();
 
+            SqlConnectionStringBuilder tmpConStr =
+                new SqlConnectionStringBuilder();
+            tmpConStr.Enlist = false;
+
+            lock (conInitLock) {
+                ctxConCmd.CommandText = string.Format(
+                    "EXEC SqlSucker_GetConInfo {0}", conInfoMagic);
+                ctxConCmd.ExecuteNonQuery();
+
+                lock (conInfoLock) {
+                    if (!conInfoOk) {
+                        throw new System.Exception(
+                            "Can't load temporary connection info");
+                    }
+
+                    tmpConStr.DataSource = tempServer;
+                    tmpConStr.UserID = tempUser;
+                    tmpConStr.Password = tempPassword;
+                    tmpConStr.InitialCatalog = tempDatabase;
+                }
+            }
+
+            tmpCon.ConnectionString = tmpConStr.ConnectionString;
+
+            // Check the output table before doing much so that we bail out
+            // early with minimal side-effects
             ValidateOutputTable(ctxCon, outTable);
 
             string colDefs;
@@ -103,12 +168,21 @@ public class SqlSuckerProc
                 anyRows = reader.Read();
 
                 if (anyRows) {
-                    tmpCon.Open();
+                    try {
+                        tmpCon.Open();
+                    } catch (System.Exception e) {
+                        throw new System.Exception(
+                            "Could not open temporary output connection", e);
+                    }
 
                     SetupTempTable(tmpCon, colDefs, ordered);
                     CopyReader(reader, tmpCon, tempTable, paramList);
                 }
             }
+
+            // The executed SQL statement may have side-effects, so check the
+            // output table again
+            ValidateOutputTable(ctxCon, outTable);
 
             SetupOutTable(outTable, ctxCon, colDefs, ordered);
 

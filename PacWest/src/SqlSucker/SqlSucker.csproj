@@ -11,7 +11,7 @@
     <NoStandardLibraries>false</NoStandardLibraries>
     <AssemblyName>SqlSucker</AssemblyName>
     <RootNamespace>SqlSucker</RootNamespace>
-    <PermissionLevel>2</PermissionLevel>
+    <PermissionLevel>3</PermissionLevel>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
