@@ -9,7 +9,6 @@ endif
 all: 
 	$(MAKE) -C dbus-sharp
 	cd wv && $(MAKE) wvstreams
-	#$(MAKE) -C nunit
 
 clean:
 	$(MAKE) -C wv/wvstreams clean $(WVSTREAMS_MAKEFILE)
