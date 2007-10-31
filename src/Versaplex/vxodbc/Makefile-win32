@@ -7,12 +7,13 @@ WVPORTS=../../../ThirdParty/wv/wvports
 XPLC=$(WVPORTS)/xplc/build/xplc
 OPENSSL=$(WVPORTS)/openssl/build/openssl
 DBUS=$(WVPORTS)/dbus/build/dbus/dbus/.libs
+BOOST=$(WVPORTS)/boost/build/boost
 WVSTREAMS=../../../ThirdParty/wv/wvstreams
 CFLAGS=-w \
 	-D_MSC_VER=1300 \
 	-DUNICODE_SUPPORT -DODBCVER=0x0351 -D_WIN32_WINNT=0x0501 \
 	-DWIN_MULTITHREAD_SUPPORT \
-	-I$(WVSTREAMS)/include -I$(XPLC)/include \
+	-I$(WVSTREAMS)/include -I$(XPLC)/include -I$(BOOST) \
 	-I/usr/include/postgresql
 CXXFLAGS=$(CFLAGS)
 RSCFLAGS=-DUNICODE_SUPPORT
