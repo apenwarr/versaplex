@@ -8,7 +8,7 @@
 #include <wvcrash.h>
 #include "psqlodbc.h"
 
-static WvLog *log;
+static WvLog *wvlog;
 static WvLogRcv *rcv1, *rcv2, *rcv3;
 
 WV_LINK_TO(WvTCPConn);
@@ -28,27 +28,27 @@ void wvlog_open()
     assert(s);
     WvIStreamList::globallist.append(s, false, "tcp logger");
     rcv3 = new WvLogStream(s, WvLog::Debug4);
-    log = new WvLog(getpid(), WvLog::Debug);
+    wvlog = new WvLog(getpid(), WvLog::Debug);
 }
 
 
 void wvlog_print(const char *file, int line, const char *s)
 {
-    if (!log)
+    if (!wvlog)
 	wvlog_open();
     while (WvIStreamList::globallist.select(0))
 	WvIStreamList::globallist.callback();
     WvString ss("%s:%s: %s", file, line, s);
-    log->print(ss);
+    wvlog->print(ss);
 }
 
 
 void wvlog_close()
 {
-    if (log) delete log;
+    if (wvlog) delete wvlog;
     if (rcv1) delete rcv1;
     if (rcv2) delete rcv2;
     if (rcv3) delete rcv3;
-    log = NULL;
+    wvlog = NULL;
     rcv1 = rcv2 = rcv3 = NULL;
 }
