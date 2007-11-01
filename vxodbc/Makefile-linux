@@ -27,6 +27,7 @@ vxodbc.so: $(OBJS)
 		$(LDFLAGS) \
 		$^ \
 		-Wl,--soname,$@ \
+		-Wl,-z,defs,--version-script=vxodbc.link \
 		$(LIBS)
 
 linker-test: linker-test.o vxodbc.so
