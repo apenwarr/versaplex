@@ -3,8 +3,8 @@
 all: test
 
 SHELL=/bin/bash
-WVPATH=../../Wv.Net
-DBUSPATH=../../../ThirdParty/dbus-sharp/src
+WVPATH=../../wvdotnet
+DBUSPATH=../../dbus-sharp/src
 # cc -E tries to guess by extension what to do with the file.
 # And it does other weird things. cpp seems to Just Work(tm), so use that for
 # our C# (.cs) files

@@ -6,7 +6,6 @@ ifndef BUILD_TARGET
 $(error Please run the "configure" or "configure-mingw32" script)
 endif
 
-WVSTREAMS_MAKEFILE=
 ifeq ($(BUILD_TARGET),win32)
 WVSTREAMS_MAKEFILE=Makefile-win32
 VXODBC_MAKEFILE=Makefile-win32
@@ -15,11 +14,11 @@ WVSTREAMS_MAKEFILE=Makefile
 VXODBC_MAKEFILE=Makefile-linux
 endif
 
-.PHONY: dbus-sharp wvstreams wvdotnet sqlsucker versaplexd vxodbc
+.PHONY: dbus-sharp wvstreams wvdotnet versaplexd vxodbc
 
-all: dbus-sharp wvstreams wvdotnet sqlsucker versaplexd vxodbc
+all: dbus-sharp wvstreams wvdotnet versaplexd vxodbc
 
-dbus-sharp wvdotnet sqlsucker versaplexd:
+dbus-sharp wvdotnet versaplexd:
 	$(MAKE) -C $@ all
 
 # Note: $(MAKE) -C wv doesn't work, as wv's Makefile needs an accurate $(PWD)
@@ -36,18 +35,17 @@ vxodbc/.stamp-config: vxodbc/configure
 vxodbc/configure:
 	cd vxodbc && autoconf
 
-test:
+test: all
 	$(MAKE) -C wvdotnet $@
-	$(MAKE) -C sqlsucker $@
 	$(MAKE) -C versaplexd $@
 	$(MAKE) -C vxodbc $@
 	
 clean:
-	$(MAKE) -C src $@
+	$(MAKE) -C vxodbc -fMakefile-common $@
+	$(MAKE) -C versaplexd $@
+	$(MAKE) -C wvdotnet $@
 	$(MAKE) -C wv/wvstreams -f$(WVSTREAMS_MAKEFILE) $@
 	$(MAKE) -C wv/wvports $@
-	$(MAKE) -C wvdotnet $@
-	$(MAKE) -C sqlsucker $@
-	$(MAKE) -C versaplexd $@
-	$(MAKE) -C vxodbc -fMakefile-common $@
+	
+distclean: clean
 	rm config.mk

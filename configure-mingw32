@@ -4,4 +4,4 @@ cat >config.mk <<EOF
 	BUILD_TARGET=win32
 EOF
 
-(cd ThirdParty/wv && ./configure-mingw32)
+(cd wv && ./configure-mingw32)

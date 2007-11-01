@@ -1,10 +1,10 @@
 include Makefile-common
 
-WVPORTS=../../../ThirdParty/wv/wvports
+WVPORTS=../wv/wvports
 XPLC=$(WVPORTS)/xplc/build/xplc
 OPENSSL=$(WVPORTS)/openssl/build/openssl
 DBUS=$(WVPORTS)/dbus/build/dbus/dbus/.libs
-WVSTREAMS=../../../ThirdParty/wv/wvstreams
+WVSTREAMS=../wv/wvstreams
 CFLAGS=-g -w \
 	-DUNICODE_SUPPORT -DODBCVER=0x0351 \
 	-I$(WVSTREAMS)/include -I$(XPLC)/include \
@@ -35,3 +35,6 @@ linker-test: linker-test.o vxodbc.so
 
 test-linker: linker-test
 	LD_LIBRARY_PATH=. ./linker-test
+
+test:
+	$(MAKE) -C t @

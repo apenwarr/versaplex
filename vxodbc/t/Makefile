@@ -22,8 +22,11 @@ t0001: t0001.o common.o
 
 t0003: t0003.o common.o
 	$(CXX) -o $@ $^ $(LIBS) 
+	
+test:
+	# nothing yet
 
-%.o:%.cc
+%.o: %.cc
 	$(CXX) $(CFLAGS) -c -o $@ $^
 
 clean: 

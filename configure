@@ -4,4 +4,4 @@ cat >config.mk <<EOF
 	BUILD_TARGET=`uname`
 EOF
 
-(cd ThirdParty/wv && ./configure)
+(cd wv && ./configure)
