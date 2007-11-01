@@ -8,23 +8,46 @@ endif
 
 WVSTREAMS_MAKEFILE=
 ifeq ($(BUILD_TARGET),win32)
-WVSTREAMS_MAKEFILE=-f Makefile-win32
+WVSTREAMS_MAKEFILE=Makefile-win32
+VXODBC_MAKEFILE=Makefile-win32
+else
+WVSTREAMS_MAKEFILE=Makefile
+VXODBC_MAKEFILE=Makefile-linux
 endif
 
-all: build
+.PHONY: dbus-sharp wvstreams wvdotnet sqlsucker versaplexd vxodbc
+
+all: dbus-sharp wvstreams wvdotnet sqlsucker versaplexd vxodbc
+
+dbus-sharp wvdotnet sqlsucker versaplexd:
+	$(MAKE) -C $@ all
 
 # Note: $(MAKE) -C wv doesn't work, as wv's Makefile needs an accurate $(PWD)
-build:
-	$(MAKE) -C dbus-sharp
+wvstreams:
 	cd wv && $(MAKE) wvstreams
-	$(MAKE) -C src
 
-clean:
-	$(MAKE) -C src $@
-	$(MAKE) -C wv/wvstreams $(WVSTREAMS_MAKEFILE) $@
-	$(MAKE) -C wv/wvports $@
-	rm config.mk
+vxodbc: vxodbc/.stamp-config
+	$(MAKE) -C vxodbc -f$(VXODBC_MAKEFILE)
+
+vxodbc/.stamp-config: vxodbc/configure
+	cd vxodbc && ./configure
+	touch $@
+
+vxodbc/configure:
+	cd vxodbc && autoconf
 
 test:
+	$(MAKE) -C wvdotnet $@
+	$(MAKE) -C sqlsucker $@
+	$(MAKE) -C versaplexd $@
+	$(MAKE) -C vxodbc $@
+	
+clean:
 	$(MAKE) -C src $@
-
+	$(MAKE) -C wv/wvstreams -f$(WVSTREAMS_MAKEFILE) $@
+	$(MAKE) -C wv/wvports $@
+	$(MAKE) -C wvdotnet $@
+	$(MAKE) -C sqlsucker $@
+	$(MAKE) -C versaplexd $@
+	$(MAKE) -C vxodbc -fMakefile-common $@
+	rm config.mk
