@@ -6,7 +6,7 @@ CFLAGS=-DHAVE_CONFIG_H -I. -I. -I../../../include -I../../../include
 CFLAGS+=-D_FREETDS_LIBRARY_SOURCE -DUNIXODBC -D_REENTRANT -D_THREAD_SAFE 
 CFLAGS+=-DDEBUG=1 
 
-WVDIR=../../../../ThirdParty/wv
+WVDIR=../../wv
 XPLC=$(WVDIR)/wvports/xplc/build/xplc
 WVSTREAMS=$(WVDIR)/wvstreams
 
