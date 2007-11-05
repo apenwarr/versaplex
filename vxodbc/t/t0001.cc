@@ -158,54 +158,61 @@ public:
     }
 
     // FIXME: Warn if not of the right type
-    void append(WvStringParm str)
+    Column& append(WvStringParm str)
     {
         char *newstr = (char *)malloc(str.len() + 1);
         strcpy(newstr, str.cstr());
         data.push_back(newstr);
+        return *this;
     }
 
     // FIXME: It might be nice to template this.
-    void append(long long element)
+    Column& append(long long element)
     {
         long long *newelem = (long long *)malloc(sizeof(element));
         *newelem = element;
         data.push_back(newelem);
+        return *this;
     }
 
-    void append(int element)
+    Column& append(int element)
     {
         int *newelem = (int *)malloc(sizeof(element));
         *newelem = element;
         data.push_back(newelem);
+        return *this;
     }
 
-    void append(short element)
+    Column& append(short element)
     {
         short *newelem = (short *)malloc(sizeof(element));
         *newelem = element;
         data.push_back(newelem);
+        return *this;
     }
 
-    void append(unsigned char element)
+    Column& append(unsigned char element)
     {
         unsigned char *newelem = (unsigned char *)malloc(sizeof(element));
         *newelem = element;
         data.push_back(newelem);
+        return *this;
     }
 
-    void append(signed char element)
+    Column& append(signed char element)
     {
         signed char *newelem = (signed char *)malloc(sizeof(element));
         *newelem = element;
         data.push_back(newelem);
+        return *this;
     }
 
-    void append(double element)
+    Column& append(double element)
     {
         double *newelem = (double *)malloc(sizeof(element));
         *newelem = element;
         data.push_back(newelem);
+        return *this;
     }
 
     void addDataTo(WvDBusMsg &reply)
@@ -500,8 +507,8 @@ int main(int argc, char *argv[])
     (++it)->append(123456);
     (++it)->append(1234.56);
     (++it)->append("123456.78");
-    (++it)->append(123456);
-    it->append(0);
+    // Note: this doesn't match the value inserted, but nobody actually checks.
+    (++it)->append(123456).append(0);
     (++it)->append("just to check returned length...");
 
     WVPASS(it == t.cols.end());
