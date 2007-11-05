@@ -17,9 +17,11 @@ LIBS=\
 	$(OPENSSL)/libssl.a $(OPENSSL)/libcrypto.a \
 	$(XPLC)/libxplc-cxx.a $(XPLC)/libxplc.a -ldl \
 	/usr/lib/libodbc.a -lpthread
+DYNLIBS=\
+	-L$(WVSTREAMS) -lwvstreams -lwvdbus -lodbc
 LDFLAGS=-g
 
-all: vxodbc.so test-linker
+all: vxodbc.so vxodbc-test.so test-linker
 
 vxodbc.so: $(OBJS)
 	@echo Linking $@...
@@ -27,8 +29,17 @@ vxodbc.so: $(OBJS)
 		$(LDFLAGS) \
 		$^ \
 		-Wl,--soname,$@ \
-		-Wl,-z,defs,--version-script=vxodbc.link \
+ 		-Wl,-z,defs,--version-script=vxodbc.link \
 		$(LIBS)
+
+# Build a dynamically linked version suitable for use by unit tests
+vxodbc-test.so: $(OBJS)
+	@echo Linking $@...
+	@$(CXX) -shared -o $@ \
+		$(LDFLAGS) \
+		$^ \
+		-Wl,--soname,$@ \
+		$(DYNLIBS)
 
 linker-test: linker-test.o vxodbc.so
 	@echo Linking $@...

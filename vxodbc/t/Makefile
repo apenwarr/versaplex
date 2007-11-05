@@ -13,7 +13,8 @@ WVSTREAMS=$(WVDIR)/wvstreams
 CFLAGS+=-Wall -Wno-long-long  
 CFLAGS+=-g -O2 
 CFLAGS+=-I$(WVSTREAMS)/include -I$(XPLC)/include
-LIBS=../vxodbc.so /usr/lib/libltdl.so -ldl -lpthread $(WVSTREAMS)/libwvdbus.a $(WVSTREAMS)/libwvstreams.a $(WVSTREAMS)/libwvtest.a
+LIBS=../vxodbc-test.so /usr/lib/libltdl.so -ldl -lpthread /usr/lib/libodbc.a
+LIBS+=-L$(WVSTREAMS) -lwvdbus $(WVSTREAMS)/libwvtest.a 
 CC=gcc
 CXX=g++
 
