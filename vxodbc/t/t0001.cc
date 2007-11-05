@@ -27,6 +27,7 @@ enum ColumnType {
     ColumnTypeMax
 };
 
+// FIXME: This probably shouldn't be global
 WvString gColTypeNames[ColumnTypeMax + 1] = {
     "Int64",
     "Int32",
@@ -42,6 +43,22 @@ WvString gColTypeNames[ColumnTypeMax + 1] = {
     WvString::null
 };
 
+WvString gColTypeDBusType[ColumnTypeMax + 1] = {
+    "x",
+    "i",
+    "s",
+    "y",
+    "b",
+    "d",
+    "s",
+    // FIXME: Binary data will need additional type information to be sent 
+    // across DBus.  Maybe use an array of bytes?
+    "v",
+    "s",
+    "(ii)",
+    "s"
+};
+
 class ColumnInfo
 {
 public:
@@ -51,6 +68,11 @@ public:
     short precision;
     short scale;
     unsigned char nullable;
+
+    static WvString getDBusSignature()
+    {
+        return "issnny";
+    }
 
     ColumnInfo(WvString _colname, ColumnType _coltype, bool _nullable,
             int _size, short _precision, short _scale) :
@@ -65,10 +87,10 @@ public:
 
     void writeHeader(WvDBusMsg &msg)
     {
-        msg.struct_start("issnny");
+        msg.struct_start(getDBusSignature());
         msg.append(size);
         msg.append(colname);
-        msg.append(coltype);
+        msg.append(gColTypeNames[coltype]);
         msg.append(precision);
         msg.append(scale);
         msg.append(nullable);
@@ -80,7 +102,8 @@ public:
     // convert them to more DBussy types later, IOW flip this around.
     WvString getSqlColtype()
     {
-        switch(coltype) {
+        switch(coltype) 
+        {
         case Int64:
             return "bigint";
         case Int32:
@@ -133,6 +156,105 @@ public:
             free(*it);
         }
     }
+
+    // FIXME: Warn if not of the right type
+    void append(WvStringParm str)
+    {
+        char *newstr = (char *)malloc(str.len() + 1);
+        strcpy(newstr, str.cstr());
+        data.push_back(newstr);
+    }
+
+    // FIXME: It might be nice to template this.
+    void append(long long element)
+    {
+        long long *newelem = (long long *)malloc(sizeof(element));
+        *newelem = element;
+        data.push_back(newelem);
+    }
+
+    void append(int element)
+    {
+        int *newelem = (int *)malloc(sizeof(element));
+        *newelem = element;
+        data.push_back(newelem);
+    }
+
+    void append(short element)
+    {
+        short *newelem = (short *)malloc(sizeof(element));
+        *newelem = element;
+        data.push_back(newelem);
+    }
+
+    void append(unsigned char element)
+    {
+        unsigned char *newelem = (unsigned char *)malloc(sizeof(element));
+        *newelem = element;
+        data.push_back(newelem);
+    }
+
+    void append(signed char element)
+    {
+        signed char *newelem = (signed char *)malloc(sizeof(element));
+        *newelem = element;
+        data.push_back(newelem);
+    }
+
+    void append(double element)
+    {
+        double *newelem = (double *)malloc(sizeof(element));
+        *newelem = element;
+        data.push_back(newelem);
+    }
+
+    void addDataTo(WvDBusMsg &reply)
+    {
+        switch (info.coltype)
+        {
+        case Int64:
+            reply.append(*(long long *)data[0]);
+            break;
+        case Int32:
+            reply.append(*(int *)data[0]);
+            break;
+        case Int16:
+            reply.append(*(short *)data[0]);
+            break;
+        case UInt8:
+            reply.append(*(unsigned char *)data[0]);
+            break;
+        case Bool:
+            reply.append(*(bool *)data[0]);
+            break;
+        case Double:
+            reply.append(*(double *)data[0]);
+            break;
+        case Uuid:
+            reply.append((char *)data[0]);
+            break;
+        case Binary:
+            // FIXME: Binary data needs a type signature or something.
+            break;
+        case String:
+            reply.append((char *)data[0]);
+            break;
+        case DateTime:
+            reply.struct_start("ii");
+            reply.append(*(int *)data[0]);
+            reply.append(*(((int *)data[0])+1));
+            reply.struct_end();
+            break;
+        case Decimal:
+            reply.append((char *)data[0]);
+            break;
+        case ColumnTypeMax:
+        default:
+            WVFAILEQ(WvString("Unknown SQL type %d", info.coltype), WvString::null);
+            break;
+        }
+        return;
+    }
 };
 
 class Table
@@ -182,6 +304,17 @@ public:
         result.append(")");
         return result;
     }
+
+    WvString getDBusTypeSignature()
+    {
+        WvString result("");
+        std::vector<Column>::iterator it;
+        for (it = cols.begin(); it != cols.end(); ++it)
+        {
+            result.append(gColTypeDBusType[it->info.coltype]);
+        }
+        return result;
+    }
 };
 
 class TestDBusServer
@@ -206,25 +339,13 @@ public:
     }
 };
 
-void add_colinfo(WvDBusMsg &msg, int size, WvStringParm colname, 
-    WvStringParm coltype, short precision, short scale, unsigned char nullable)
-{
-    msg.struct_start("issnny");
-    msg.append(size);
-    msg.append(colname);
-    msg.append(coltype);
-    msg.append(precision);
-    msg.append(scale);
-    msg.append((signed char)nullable);
-    msg.struct_end();
-}
-
 class FakeVersaplexServer
 {
 public:
     TestDBusServer dbus;
     WvDBusConn vxserver_conn;
     Table *t;
+    WvString expected_query;
 
     // FIXME: Use a private bus when we can tell VxODBC where to find it.
     // Until then, just use the session bus and impersonate Versaplex, 
@@ -242,7 +363,6 @@ public:
         WvDBusCallback cb(wv::bind(
             &FakeVersaplexServer::msg_received, this, _1));
         vxserver_conn.add_callback(WvDBusConn::PriNormal, cb, this);
-
     }
 
     static int num_names_registered;
@@ -294,48 +414,33 @@ public:
                     "Argument is out of range.").send(vxserver_conn);
                 return false;
             }
-            else if (query == "select * from odbctestdata")
+            else if (query == expected_query)
             {
                 printf("*** Sending reply\n");
                 WvDBusMsg reply = msg.reply();
-                reply.array_start("(issnny)");
-#if 0
-                add_colinfo(reply, 30, "col1", "String", 0, 0, 0);
-                add_colinfo(reply, 4, "col2", "Int32", 0, 0, 0);
-                add_colinfo(reply, 8, "col3", "Double", 0, 0, 0);
-                add_colinfo(reply, 17, "col4", "Decimal", 0, 0, 0);
-                add_colinfo(reply, 8, "col5", "DateTime", 0, 0, 0);
-                add_colinfo(reply, INT_MAX, "col6", "String", 0, 0, 0);
-#else
                 std::vector<Column>::iterator it;
+
+                reply.array_start(WvString("(%s)", ColumnInfo::getDBusSignature()));
                 for (it = t->cols.begin(); it != t->cols.end(); ++it)
                     it->info.writeHeader(reply);
-#endif
                 reply.array_end();
-                reply.varray_start("(sids(ii)s)");
-                reply.struct_start("sids(ii)s");
-                reply.append("ABCDEFGHIJKLMNOP");
-                reply.append(123456);
-                reply.append(1234.0);
-                reply.append("123456.780000");
-                reply.struct_start("ii");
-                reply.append(1000202400);
-                reply.append(0);
-                reply.struct_end();
-                reply.append("just to check returned length...");
-                reply.struct_end();
-                reply.varray_end();
-                reply.array_start("ay");
-                reply.array_start("y");
+
+                // Write the body signature
+                WvString sig(t->getDBusTypeSignature());
+                reply.varray_start(WvString("(%s)", sig)).struct_start(sig);
+                // Write the body
+                for (it = t->cols.begin(); it != t->cols.end(); ++it)
+                {
+                    it->addDataTo(reply);
+                }
+                reply.struct_end().varray_end();
+
                 // Nullity
-                reply.append((char)0);
-                reply.append((char)0);
-                reply.append((char)0);
-                reply.append((char)0);
-                reply.append((char)0);
-                reply.append((char)0);
-                reply.array_end();
-                reply.array_end();
+                reply.array_start("ay").array_start("y");
+                for (it = t->cols.begin(); it != t->cols.end(); ++it)
+                    reply.append(it->info.nullable);
+                reply.array_end().array_end();
+
                 reply.send(vxserver_conn);
             }
             else
@@ -384,15 +489,30 @@ int main(int argc, char *argv[])
     t.addCol("col6", String, not_null, 0, 0, 0);
     v.t = &t;
 
+    // Send the CREATE TABLE statement even though we've already created it 
+    // behind the scenes; this lets us also run against a real DB backend for
+    // sanity checking.
     WVPASS_SQL(CommandWithResult(Statement, t.getCreateTableStmt()));
 
+    std::vector<Column>::iterator it;
+    it = t.cols.begin();
+    it->append("ABCDEFGHIJKLMNOP");
+    (++it)->append(123456);
+    (++it)->append(1234.56);
+    (++it)->append("123456.78");
+    (++it)->append(123456);
+    it->append(0);
+    (++it)->append("just to check returned length...");
+
+    WVPASS(it == t.cols.end());
     command = "insert dbo.odbctestdata values ("
         "'ABCDEFGHIJKLMNOP',"
         "123456," "1234.56," "123456.78," "'Sep 11 2001 10:00AM'," 
         "'just to check returned length...')";
     WVPASS_SQL(CommandWithResult(Statement, command)); 
 
-    WVPASS_SQL(CommandWithResult(Statement, "select * from odbctestdata"));
+    v.expected_query = "select * from odbctestdata";
+    WVPASS_SQL(CommandWithResult(Statement, v.expected_query));
 
     WVPASS_SQL(SQLFetch(Statement));
 
@@ -402,6 +522,8 @@ int main(int argc, char *argv[])
 
         WVPASS_SQL(SQLGetData(Statement, i, SQL_C_CHAR, 
                                 output, sizeof(output), &cnamesize));
+
+        WVFAILEQ((char *)output, WvString::null);
         WVPASSEQ((int)cnamesize, strlen((char *)output));
     }
 
