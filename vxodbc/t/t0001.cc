@@ -71,9 +71,7 @@ public:
         msg.append(coltype);
         msg.append(precision);
         msg.append(scale);
-        // FIXME: This cast is due to a silly bug in WvStreams, append()
-        // should have an overload for an unsigned char
-        msg.append((signed char)nullable);
+        msg.append(nullable);
         msg.struct_end();
     }
 
@@ -301,7 +299,7 @@ public:
                 printf("*** Sending reply\n");
                 WvDBusMsg reply = msg.reply();
                 reply.array_start("(issnny)");
-#if 1
+#if 0
                 add_colinfo(reply, 30, "col1", "String", 0, 0, 0);
                 add_colinfo(reply, 4, "col2", "Int32", 0, 0, 0);
                 add_colinfo(reply, 8, "col3", "Double", 0, 0, 0);
