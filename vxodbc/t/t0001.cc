@@ -241,12 +241,14 @@ public:
         while (num_names_registered < 1)
             WvIStreamList::globallist.runonce();
 
-        WvDBusCallback cb(this, &FakeVersaplexServer::msg_received);
-        vxserver_conn.add_callback(WvDBusConn::PriNormal, cb);
+        WvDBusCallback cb(wv::bind(
+            &FakeVersaplexServer::msg_received, this, _1));
+        vxserver_conn.add_callback(WvDBusConn::PriNormal, cb, this);
+
     }
 
     static int num_names_registered;
-    static bool name_request_cb(WvDBusConn &conn, WvDBusMsg &msg) 
+    static bool name_request_cb(WvDBusMsg &msg) 
     {
         num_names_registered++;
         // FIXME: Sensible logging
@@ -255,7 +257,7 @@ public:
         return true;
     }
 
-    bool msg_received(WvDBusConn &conn, WvDBusMsg &msg) 
+    bool msg_received(WvDBusMsg &msg) 
     {
         if (msg.get_dest() != "com.versabanq.versaplex")
             return false;
@@ -268,12 +270,12 @@ public:
 
         // The message was for us
 
+        fprintf(stdout, "*** Received message %s\n", ((WvString)msg).cstr());
+        printf("*** Got argstr '%s'\n", msg.get_argstr().cstr());
+
         printf("sender:%s\ndest:%s\npath:%s\niface:%s\nmember:%s\n",
             msg.get_sender().cstr(), msg.get_dest().cstr(), msg.get_path().cstr(), 
             msg.get_interface().cstr(), msg.get_member().cstr());
-
-        fprintf(stdout, "*** Received message %s\n", ((WvString)msg).cstr());
-        printf("*** Got argstr '%s'\n", msg.get_argstr().cstr());
 
 #if 0
         WvDBusMsg::Iter ii(msg);
@@ -283,15 +285,15 @@ public:
         }
 #endif
 
-
         if (msg.get_member() == "ExecRecordset")
         {
+            printf("Processing ExecRecordSet\n");
             WvString query(msg.get_argstr());
             if (query == "use pmccurdy")
             {
                 printf("*** Sending error\n");
                 WvDBusError(msg, "System.ArgumentOutOfRangeException", 
-                    "Argument is out of range.").send(conn);
+                    "Argument is out of range.").send(vxserver_conn);
                 return false;
             }
             else if (query == "select * from odbctestdata")
@@ -336,14 +338,18 @@ public:
                 reply.append((char)0);
                 reply.array_end();
                 reply.array_end();
-                reply.send(conn);
+                reply.send(vxserver_conn);
             }
             else
             {
                 WvDBusError(msg, "System.NotImplemented", 
-                    "Not yet implemented.  Try again later.").send(conn);
+                    "Not yet implemented.  Try again later.").send(vxserver_conn);
             }
-            //msg.reply().append(WvString("baz")).send(conn);
+        }
+        else
+        {
+            WvDBusError(msg, "System.NotImplemented", 
+                "Not yet implemented.  Try again later.").send(vxserver_conn);
         }
         return true;
     }
