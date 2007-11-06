@@ -15,7 +15,7 @@
 #include <vector>
 
 
-int main(int argc, char *argv[])
+WVTEST_MAIN("Basic data insertion and retrieval")
 {
     FakeVersaplexServer v;
     WvString command;
@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
     (++it)->append(123456).append(0);
     (++it)->append("just to check returned length...");
 
-    WVPASS(it == t.cols.end());
+    WVPASS(++it == t.cols.end());
     command = "insert dbo.odbctestdata values ("
         "'ABCDEFGHIJKLMNOP',"
         "123456," "1234.56," "123456.78," "'Sep 11 2001 10:00AM'," 
@@ -78,7 +78,4 @@ int main(int argc, char *argv[])
     WVPASS_SQL(CommandWithResult(Statement, "drop table odbctestdata"));
 
     Disconnect();
-
-    printf("Done.\n");
-    return 0;
 }

@@ -51,8 +51,7 @@ DoTest(int prepared)
     WVPASS_SQL(Command(Statement, "drop table #odbctestdata"));
 }
 
-int
-main(int argc, char *argv[])
+WVTEST_MAIN("Two empty record sets")
 {
     Connect();
 
@@ -62,5 +61,4 @@ main(int argc, char *argv[])
     Disconnect();
 
     printf("Done.\n");
-    return 0;
 }
