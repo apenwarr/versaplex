@@ -25,8 +25,6 @@
 #include <sql.h>
 #include <sqlext.h>
 
-static char rcsid_common_h[] = "$Id: common.h,v 1.17 2005/08/14 09:20:53 freddy77 Exp $";
-static void *no_unused_common_h_warn[] = { rcsid_common_h, no_unused_common_h_warn };
 
 #ifndef HAVE_SQLLEN
 #ifndef SQLULEN
