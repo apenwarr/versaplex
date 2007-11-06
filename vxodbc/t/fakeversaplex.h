@@ -2,6 +2,14 @@
 #include "wvstring.h"
 #include "wvistreamlist.h"
 
+#define WVPASS_SQL(sql) \
+    do \
+    { \
+        if (!WvTest::start_check(__FILE__, __LINE__, #sql, SQL_SUCCEEDED(sql)))\
+            ReportError(#sql, __LINE__, __FILE__); \
+    } while (0)
+#define WVPASS_SQL_EQ(x, y) do { if (!WVPASSEQ((x), (y))) { CheckReturn(); } } while (0)
+
 class Table;
 
 class FakeVersaplexServer
