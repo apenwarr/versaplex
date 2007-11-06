@@ -18,7 +18,7 @@ LIBS+=-L$(WVSTREAMS) -lwvdbus $(WVSTREAMS)/libwvtest.a
 CC=gcc
 CXX=g++
 
-t0001: t0001.o common.o
+t0001: t0001.o common.o fakeversaplex.o column.o
 	$(CXX) -o $@ $^ $(LIBS) 
 
 t0003: t0003.o common.o
