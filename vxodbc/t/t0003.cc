@@ -1,63 +1,54 @@
 #include "common.h"
+#include "fakeversaplex.h"
+#include "wvtest.h"
 
 /* Test for SQLMoreResults */
-
-static char software_version[] = "$Id: t0003.c,v 1.16 2005/03/29 15:19:36 freddy77 Exp $";
-static void *no_unused_var_warn[] = { software_version, no_unused_var_warn };
 
 static void
 DoTest(int prepared)
 {
+    FakeVersaplexServer v;
     Command(Statement, "create table #odbctestdata (i int)");
 
     /* test that 2 empty result set are returned correctly */
     if (!prepared) {
-        Command(Statement, "select * from #odbctestdata select * from #odbctestdata");
+        WVPASS_SQL(Command(Statement, 
+                    "select * from #odbctestdata select * from #odbctestdata"));
     } else {
-        if (SQLPrepare(Statement, (SQLCHAR *)"select * from #odbctestdata select * from #odbctestdata", SQL_NTS) != SQL_SUCCESS)
-            ODBC_REPORT_ERROR("SQLPrepare return failure");
-        if (SQLExecute(Statement) != SQL_SUCCESS)
-            ODBC_REPORT_ERROR("SQLExecure return failure");
+        WVPASS_SQL(SQLPrepare(Statement, (SQLCHAR *)
+                    "select * from #odbctestdata select * from #odbctestdata", 
+                    SQL_NTS));
+        WVPASS_SQL(SQLExecute(Statement));
     }
 
-    if (SQLFetch(Statement) != SQL_NO_DATA)
-        ODBC_REPORT_ERROR("Data not expected");
+    WVPASS_SQL_EQ(SQLFetch(Statement), SQL_NO_DATA);
 
-    if (SQLMoreResults(Statement) != SQL_SUCCESS)
-        ODBC_REPORT_ERROR("Expected another recordset");
+    WVPASS_SQL(SQLMoreResults(Statement));
     printf("Getting next recordset\n");
 
-    if (SQLFetch(Statement) != SQL_NO_DATA)
-        ODBC_REPORT_ERROR("Data not expected");
-
-    if (SQLMoreResults(Statement) != SQL_NO_DATA)
-        ODBC_REPORT_ERROR("Not expected another recordset");
+    WVPASS_SQL_EQ(SQLFetch(Statement), SQL_NO_DATA);
+    WVPASS_SQL_EQ(SQLMoreResults(Statement), SQL_NO_DATA);
 
     /* test that skipping a no empty result go to other result set */
-    Command(Statement, "insert into #odbctestdata values(123)");
+    WVPASS_SQL(Command(Statement, "insert into #odbctestdata values(123)"));
     if (!prepared) {
-        Command(Statement, "select * from #odbctestdata select * from #odbctestdata");
+        WVPASS_SQL(Command(Statement, 
+            "select * from #odbctestdata select * from #odbctestdata"));
     } else {
-        if (SQLPrepare(Statement, (SQLCHAR *)"select * from #odbctestdata select * from #odbctestdata", SQL_NTS) != SQL_SUCCESS)
-            ODBC_REPORT_ERROR("SQLPrepare return failure");
-        if (SQLExecute(Statement) != SQL_SUCCESS)
-            ODBC_REPORT_ERROR("SQLExecure return failure");
+        WVPASS_SQL(SQLPrepare(Statement, (SQLCHAR *)
+            "select * from #odbctestdata select * from #odbctestdata", SQL_NTS));
+        WVPASS_SQL(SQLExecute(Statement));
     }
 
-    if (SQLMoreResults(Statement) != SQL_SUCCESS)
-        ODBC_REPORT_ERROR("Expected another recordset");
+    WVPASS_SQL(SQLMoreResults(Statement));
     printf("Getting next recordset\n");
 
-    if (SQLFetch(Statement) != SQL_SUCCESS)
-        ODBC_REPORT_ERROR("Expecting a row");
+    WVPASS(SQLFetch(Statement));
 
-    if (SQLFetch(Statement) != SQL_NO_DATA)
-        ODBC_REPORT_ERROR("Data not expected");
+    WVPASS_SQL_EQ(SQLFetch(Statement), SQL_NO_DATA);
+    WVPASS_SQL_EQ(SQLMoreResults(Statement), SQL_NO_DATA);
 
-    if (SQLMoreResults(Statement) != SQL_NO_DATA)
-        ODBC_REPORT_ERROR("Not expected another recordset");
-
-    Command(Statement, "drop table #odbctestdata");
+    WVPASS_SQL(Command(Statement, "drop table #odbctestdata"));
 }
 
 int
