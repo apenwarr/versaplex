@@ -1,7 +1,3 @@
-TESTPROGS=t0001 t0003
-
-all: $(TESTPROGS)
-
 CFLAGS=-DHAVE_CONFIG_H -I. -I. -I../../../include -I../../../include   
 CFLAGS+=-D_FREETDS_LIBRARY_SOURCE -DUNIXODBC -D_REENTRANT -D_THREAD_SAFE 
 CFLAGS+=-DDEBUG=1 
@@ -18,15 +14,22 @@ LIBS+=-L$(WVSTREAMS) -lwvdbus $(WVSTREAMS)/libwvtest.a
 CC=gcc
 CXX=g++
 
-t0001: t0001.o common.o fakeversaplex.o column.o
-	$(CXX) -o $@ $^ $(LIBS) 
+TESTPROGS=t0001.t t0003.t
 
-t0003: t0003.o common.o fakeversaplex.o column.o
-	$(CXX) -o $@ $^ $(LIBS) 
-	
-test:
+all: $(TESTPROGS) all.t
+
+test: all.t
 	# nothing yet
 
+all.t: t0001.t.o t0003.t.o common.o fakeversaplex.o column.o
+	$(CXX) -o $@ $^ $(LIBS)
+
+t0001.t: t0001.t.o common.o fakeversaplex.o column.o
+	$(CXX) -o $@ $^ $(LIBS) 
+
+t0003.t: t0003.t.o common.o fakeversaplex.o column.o
+	$(CXX) -o $@ $^ $(LIBS) 
+	
 %.o: %.cc
 	$(CXX) $(CFLAGS) -c -o $@ $^
 
