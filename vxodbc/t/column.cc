@@ -83,3 +83,112 @@ void ColumnInfo::writeHeader(WvDBusMsg &msg)
     msg.append(nullable);
     msg.struct_end();
 }
+
+void Column::addDataTo(WvDBusMsg &reply)
+{
+    switch (info.coltype)
+    {
+    case ColumnInfo::Int64:
+        reply.append(*(long long *)data[0]);
+        break;
+    case ColumnInfo::Int32:
+        reply.append(*(int *)data[0]);
+        break;
+    case ColumnInfo::Int16:
+        reply.append(*(short *)data[0]);
+        break;
+    case ColumnInfo::UInt8:
+        reply.append(*(unsigned char *)data[0]);
+        break;
+    case ColumnInfo::Bool:
+        reply.append(*(bool *)data[0]);
+        break;
+    case ColumnInfo::Double:
+        reply.append(*(double *)data[0]);
+        break;
+    case ColumnInfo::Uuid:
+        reply.append((char *)data[0]);
+        break;
+    case ColumnInfo::Binary:
+        // FIXME: Binary data needs a type signature or something.
+        break;
+    case ColumnInfo::String:
+        reply.append((char *)data[0]);
+        break;
+    case ColumnInfo::DateTime:
+        reply.struct_start("ii");
+        // FIXME: Each element in the vector should be a complete entry
+        WVPASS(data.size() >= 2);
+        reply.append(*(int *)data[0]);
+        reply.append(*(int *)data[1]);
+        reply.struct_end();
+        break;
+    case ColumnInfo::Decimal:
+        reply.append((char *)data[0]);
+        break;
+    case ColumnInfo::ColumnTypeMax:
+    default:
+        WVFAILEQ(WvString("Unknown SQL type %d", info.coltype), WvString::null);
+        break;
+    }
+    return;
+}
+
+Column& Column::append(WvStringParm str)
+{
+    char *newstr = (char *)malloc(str.len() + 1);
+    strcpy(newstr, str.cstr());
+    data.push_back(newstr);
+    return *this;
+}
+
+// FIXME: It might be nice to template this.
+Column& Column::append(long long element)
+{
+    long long *newelem = (long long *)malloc(sizeof(element));
+    *newelem = element;
+    data.push_back(newelem);
+    return *this;
+}
+
+Column& Column::append(int element)
+{
+    WVFAILEQ(element, -234);
+    int *newelem = (int *)malloc(sizeof(element));
+    *newelem = element;
+    data.push_back(newelem);
+    return *this;
+}
+
+Column& Column::append(short element)
+{
+    short *newelem = (short *)malloc(sizeof(element));
+    *newelem = element;
+    data.push_back(newelem);
+    return *this;
+}
+
+Column& Column::append(unsigned char element)
+{
+    unsigned char *newelem = (unsigned char *)malloc(sizeof(element));
+    *newelem = element;
+    data.push_back(newelem);
+    return *this;
+}
+
+Column& Column::append(signed char element)
+{
+    signed char *newelem = (signed char *)malloc(sizeof(element));
+    *newelem = element;
+    data.push_back(newelem);
+    return *this;
+}
+
+Column& Column::append(double element)
+{
+    double *newelem = (double *)malloc(sizeof(element));
+    *newelem = element;
+    data.push_back(newelem);
+    return *this;
+}
+
