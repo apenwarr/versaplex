@@ -55,15 +55,7 @@ odbc_setenv(const char *name, const char *value, int overwrite)
 int
 read_login_info(void)
 {
-	FILE *in;
-	char line[512];
-	char *s1, *s2;
-#ifndef WIN32
-	char path[1024];
-	int len;
-#endif
-
-	in = fopen(".." TDS_SDIR_SEPARATOR ".." TDS_SDIR_SEPARATOR ".." TDS_SDIR_SEPARATOR "PWD", "r");
+	FILE *in = fopen(".." TDS_SDIR_SEPARATOR ".." TDS_SDIR_SEPARATOR ".." TDS_SDIR_SEPARATOR "PWD", "r");
 	if (!in)
 		in = fopen("PWD", "r");
 
@@ -75,9 +67,11 @@ read_login_info(void)
                 strcpy(DATABASE, "pmccurdy");
 		//return 0;
         } else {
+            char line[512];
+
             while (fgets(line, 512, in)) {
-                    s1 = strtok(line, "=");
-                    s2 = strtok(NULL, "\n");
+                    char *s1 = strtok(line, "=");
+                    char *s2 = strtok(NULL, "\n");
                     if (!s1 || !s2)
                             continue;
                     if (!strcmp(s1, "UID")) {
@@ -94,11 +88,12 @@ read_login_info(void)
         }
 
 #ifndef WIN32
+#if 0
+	char path[1024];
 	/* find our driver */
 	if (!getcwd(path, sizeof(path)))
 		return 0;
-#if 0
-	len = strlen(path);
+	int len = strlen(path);
 	if (len < 10 || strcmp(path + len - 10, "/unittests") != 0)
 		return 0;
 	path[len - 9] = 0;
