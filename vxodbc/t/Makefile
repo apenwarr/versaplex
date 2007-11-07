@@ -34,4 +34,4 @@ all.t: $(TESTOBJS) common.o fakeversaplex.o column.o
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 clean: 
-	rm -f *.o $(TESTPROGS) valgrind.log.*
+	rm -f $(TESTOBJS) all.t valgrind.log.*
