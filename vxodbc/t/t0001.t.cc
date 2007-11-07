@@ -18,7 +18,6 @@
 WVTEST_MAIN("Basic data insertion and retrieval")
 {
     FakeVersaplexServer v;
-    WvString command;
 
     Connect();
 
@@ -50,7 +49,7 @@ WVTEST_MAIN("Basic data insertion and retrieval")
     (++it)->append("just to check returned length...");
 
     WVPASS(++it == t.cols.end());
-    command = "insert dbo.odbctestdata values ("
+    WvString command = "insert dbo.odbctestdata values ("
         "'ABCDEFGHIJKLMNOP',"
         "123456," "1234.56," "123456.78," "'Sep 11 2001 10:00AM'," 
         "'just to check returned length...')";

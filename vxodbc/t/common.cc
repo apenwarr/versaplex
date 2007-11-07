@@ -152,12 +152,6 @@ ReportError(const char *errmsg, int line, const char *file)
 int
 Connect(void)
 {
-
-	int res;
-
-
-	char command[512];
-
 	if (read_login_info())
 		exit(1);
 
@@ -171,6 +165,7 @@ Connect(void)
 
 	if (SQLAllocHandle(SQL_HANDLE_DBC, Environment, &Connection) != SQL_SUCCESS) {
 		printf("Unable to allocate connection\n");
+                CheckReturn();
 		SQLFreeHandle(SQL_HANDLE_ENV, Environment);
 		exit(1);
 	}
@@ -178,7 +173,7 @@ Connect(void)
 	printf("connection parameters:\nserver:   '%s'\nuser:     '%s'\npassword: '%s'\ndatabase: '%s'\n",
 	       SERVER, USER,  PASSWORD /* "????" */ , DATABASE);
 
-	res = SQLConnect(Connection, (SQLCHAR *) SERVER, SQL_NTS, (SQLCHAR *) USER, SQL_NTS, (SQLCHAR *) PASSWORD, SQL_NTS);
+	int res = SQLConnect(Connection, (SQLCHAR *) SERVER, SQL_NTS, (SQLCHAR *) USER, SQL_NTS, (SQLCHAR *) PASSWORD, SQL_NTS);
 	if (!SQL_SUCCEEDED(res)) {
 		printf("Unable to open data source (ret=%d)\n", res);
 		CheckReturn();
@@ -191,6 +186,7 @@ Connect(void)
 		exit(1);
 	}
 
+	char command[512];
 	sprintf(command, "use %s", DATABASE);
 	printf("%s\n", command);
 
