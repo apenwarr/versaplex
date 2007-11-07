@@ -26,16 +26,18 @@ public:
     FakeVersaplexServer() : vxserver_conn("dbus:session"),
         t(NULL)
     {
-        WvIStreamList::globallist.append(&vxserver_conn, false);
+        if (getenv("USE_REAL_VERSAPLEX") != NULL) {
+            WvIStreamList::globallist.append(&vxserver_conn, false);
 
-        fprintf(stderr, "*** Registering com.versabanq.versaplex\n");
-        vxserver_conn.request_name("com.versabanq.versaplex", &name_request_cb);
-        while (num_names_registered < 1)
-            WvIStreamList::globallist.runonce();
+            fprintf(stderr, "*** Registering com.versabanq.versaplex\n");
+            vxserver_conn.request_name("com.versabanq.versaplex", &name_request_cb);
+            while (num_names_registered < 1)
+                WvIStreamList::globallist.runonce();
 
-        WvDBusCallback cb(wv::bind(
-            &FakeVersaplexServer::msg_received, this, _1));
-        vxserver_conn.add_callback(WvDBusConn::PriNormal, cb, this);
+            WvDBusCallback cb(wv::bind(
+                &FakeVersaplexServer::msg_received, this, _1));
+            vxserver_conn.add_callback(WvDBusConn::PriNormal, cb, this);
+        }
     }
 
     static bool name_request_cb(WvDBusMsg &msg) 
