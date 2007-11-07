@@ -86,6 +86,9 @@ void ColumnInfo::writeHeader(WvDBusMsg &msg)
 
 void Column::addDataTo(WvDBusMsg &reply)
 {
+    if (data.size() < 1)
+        return;
+
     switch (info.coltype)
     {
     case ColumnInfo::Int64:
