@@ -20,35 +20,27 @@ bool FakeVersaplexServer::msg_received(WvDBusMsg &msg)
 
     // The message was for us
 
-    fprintf(stdout, "*** Received message %s\n", ((WvString)msg).cstr());
-    printf("*** Got argstr '%s'\n", msg.get_argstr().cstr());
+    log("*** Received message %s\n", (WvString)msg);
+    log("*** Got argstr '%s'\n", msg.get_argstr());
 
-    printf("sender:%s\ndest:%s\npath:%s\niface:%s\nmember:%s\n",
-        msg.get_sender().cstr(), msg.get_dest().cstr(), msg.get_path().cstr(), 
-        msg.get_interface().cstr(), msg.get_member().cstr());
-
-#if 0
-    WvDBusMsg::Iter ii(msg);
-    for (ii.rewind(); ii.next(); )
-    {
-        printf("**** Contents: %s\n", ii
-    }
-#endif
+    log("sender:%s\ndest:%s\npath:%s\niface:%s\nmember:%s\n",
+        msg.get_sender(), msg.get_dest(), msg.get_path(), 
+        msg.get_interface(), msg.get_member());
 
     if (msg.get_member() == "ExecRecordset")
     {
-        printf("Processing ExecRecordSet\n");
+        log("Processing ExecRecordSet\n");
         WvString query(msg.get_argstr());
         if (query == "use pmccurdy")
         {
-            printf("*** Sending error\n");
+            log("*** Sending error\n");
             WvDBusError(msg, "System.ArgumentOutOfRangeException", 
                 "Argument is out of range.").send(vxserver_conn);
             return false;
         }
         else if (query == expected_query)
         {
-            printf("*** Sending reply\n");
+            log("*** Sending reply\n");
             WvDBusMsg reply = msg.reply();
             std::vector<Column>::iterator it;
 
@@ -58,20 +50,35 @@ bool FakeVersaplexServer::msg_received(WvDBusMsg &msg)
             reply.array_end();
 
             // Write the body signature
-            WvString sig(t->getDBusTypeSignature());
-            reply.varray_start(WvString("(%s)", sig)).struct_start(sig);
-            // Write the body
-            for (it = t->cols.begin(); it != t->cols.end(); ++it)
+            if (t->cols.size() > 0)
             {
-                it->addDataTo(reply);
+                WvString sig(t->getDBusTypeSignature());
+                log("Body signature is %s\n", sig);
+                reply.varray_start(WvString("(%s)", sig));
+                if (t->cols[0].data.size() > 0) {
+                    reply.struct_start(sig);
+                    // Write the body
+                    for (it = t->cols.begin(); it != t->cols.end(); ++it)
+                    {
+                        it->addDataTo(reply);
+                    }
+                    reply.struct_end();
+                } 
+                reply.varray_end();
             }
-            reply.struct_end().varray_end();
 
             // Nullity
-            reply.array_start("ay").array_start("y");
-            for (it = t->cols.begin(); it != t->cols.end(); ++it)
-                reply.append(it->info.nullable);
-            reply.array_end().array_end();
+            // FIXME: Need to send one copy per row, and properly reflect 
+            // the data (not the column's overall nullability)
+            reply.array_start("ay");
+            if (t->cols.size() > 0 && t->cols[0].data.size() > 0)
+            {
+                reply.array_start("y");
+                for (it = t->cols.begin(); it != t->cols.end(); ++it)
+                    reply.append(it->info.nullable);
+                reply.array_end();
+            }
+            reply.array_end();
 
             reply.send(vxserver_conn);
         }
