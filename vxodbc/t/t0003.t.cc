@@ -8,6 +8,8 @@
 static void
 DoTest(int prepared)
 {
+    // See GoogleCode bug #2
+#ifdef VXODBC_SUPPORTS_MULTIPLE_RESULT_SETS
     FakeVersaplexServer v;
     Table t("odbctestdata");
     bool null = 1;
@@ -48,12 +50,13 @@ DoTest(int prepared)
     WVPASS_SQL(SQLMoreResults(Statement));
     printf("Getting next recordset\n");
 
-    WVPASS(SQLFetch(Statement));
+    WVPASS_SQL(SQLFetch(Statement));
 
     WVPASS_SQL_EQ(SQLFetch(Statement), SQL_NO_DATA);
     WVPASS_SQL_EQ(SQLMoreResults(Statement), SQL_NO_DATA);
 
     WVPASS_SQL(Command(Statement, "drop table odbctestdata"));
+#endif
 }
 
 WVTEST_MAIN("Two empty record sets, unprepared")
