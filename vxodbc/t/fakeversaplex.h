@@ -26,7 +26,9 @@ public:
     FakeVersaplexServer() : vxserver_conn("dbus:session"),
         t(NULL)
     {
-        if (getenv("USE_REAL_VERSAPLEX") != NULL) {
+        WvString use_real(getenv("USE_REAL_VERSAPLEX"));
+        if (!use_real || use_real == "0") 
+        {
             WvIStreamList::globallist.append(&vxserver_conn, false);
 
             fprintf(stderr, "*** Registering com.versabanq.versaplex\n");

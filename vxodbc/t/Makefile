@@ -18,6 +18,7 @@ CC=gcc
 CXX=g++
 
 TESTSOURCES=$(wildcard *.t.cc)
+TESTHEADERS=$(wildcard *.h)
 TESTOBJS=$(patsubst %.cc,%.o,$(TESTSOURCES))
 
 all: all.t
@@ -30,7 +31,7 @@ all.t: $(TESTOBJS) common.o fakeversaplex.o column.o
 	$(CXX) -o $@ $^ $(LIBS)
 
 # FIXME: Should be using GCC-generated dependencies here
-%.o: %.cc %.h
+%.o: %.cc $(TESTHEADERS)
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 clean: 
