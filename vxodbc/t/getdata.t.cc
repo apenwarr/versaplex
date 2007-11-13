@@ -6,8 +6,9 @@
 WVTEST_MAIN("SQLGetData")
 {
     FakeVersaplexServer v;
+    bool nullable = 1;
     Table t("whatever");
-    t.addCol("", ColumnInfo::String, 1, 0, 0, 0);
+    t.addCol("", ColumnInfo::String, nullable, 0, 0, 0);
     t.cols[0].append("Prova");
     v.t = &t;
     char buf[16];

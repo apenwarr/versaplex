@@ -9,10 +9,10 @@ WVTEST_MAIN("SQLPrepare results")
 {
     FakeVersaplexServer v;
     Table t("odbctestdata");
-    bool null = 1;
-    t.addCol("i", ColumnInfo::Int32, null, 4, 0, 0);
-    t.addCol("c", ColumnInfo::String, null, 20, 0, 0);
-    t.addCol("n", ColumnInfo::Decimal, null, 17, 34, 12);
+    bool nullable = 1;
+    t.addCol("i", ColumnInfo::Int32, nullable, 4, 0, 0);
+    t.addCol("c", ColumnInfo::String, nullable, 20, 0, 0);
+    t.addCol("n", ColumnInfo::Decimal, nullable, 17, 34, 12);
     v.t = &t;
 
     Connect();

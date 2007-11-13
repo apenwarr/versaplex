@@ -8,8 +8,8 @@ WVTEST_MAIN("Dropped statements don't destroy pending data")
 {
     FakeVersaplexServer v;
     Table t("odbctestdata");
-    bool null = 1;
-    t.addCol("i", ColumnInfo::Int32, null, 4, 0, 0);
+    bool nullable = 1;
+    t.addCol("i", ColumnInfo::Int32, nullable, 4, 0, 0);
     v.t = &t;
 
     Connect();

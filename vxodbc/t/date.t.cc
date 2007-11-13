@@ -6,8 +6,9 @@
 static void DoTest(int convert_to_char)
 {
     FakeVersaplexServer v;
+    bool nullable = 0;
     Table t("unnamed");
-    t.addCol("unnamed", ColumnInfo::DateTime, 0, 8, 0, 0);
+    t.addCol("unnamed", ColumnInfo::DateTime, nullable, 8, 0, 0);
     // time_t value for 2002-12-27 18:43:21
     t.cols[0].append(1041014601).append(0);
     v.t = &t;

@@ -23,14 +23,14 @@ WVTEST_MAIN("Basic data insertion and retrieval")
 
     WVPASS_SQL(CommandWithResult(Statement, "drop table odbctestdata"));
 
-    bool not_null = 0;
+    bool nullable = 0;
     Table t("odbctestdata");
-    t.addCol("col1", ColumnInfo::String, not_null, 30, 0, 0);
-    t.addCol("col2", ColumnInfo::Int32, not_null, 4, 0, 0);
-    t.addCol("col3", ColumnInfo::Double, not_null, 8, 0, 0);
-    t.addCol("col4", ColumnInfo::Decimal, not_null, 0, 18, 6);
-    t.addCol("col5", ColumnInfo::DateTime, not_null, 8, 0, 0);
-    t.addCol("col6", ColumnInfo::String, not_null, 0, 0, 0);
+    t.addCol("col1", ColumnInfo::String, nullable, 30, 0, 0);
+    t.addCol("col2", ColumnInfo::Int32, nullable, 4, 0, 0);
+    t.addCol("col3", ColumnInfo::Double, nullable, 8, 0, 0);
+    t.addCol("col4", ColumnInfo::Decimal, nullable, 0, 18, 6);
+    t.addCol("col5", ColumnInfo::DateTime, nullable, 8, 0, 0);
+    t.addCol("col6", ColumnInfo::String, nullable, 0, 0, 0);
     v.t = &t;
 
     // Send the CREATE TABLE statement even though we've already created it 

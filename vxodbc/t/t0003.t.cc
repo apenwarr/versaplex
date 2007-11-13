@@ -12,8 +12,8 @@ DoTest(int prepared)
 #ifdef VXODBC_SUPPORTS_MULTIPLE_RESULT_SETS
     FakeVersaplexServer v;
     Table t("odbctestdata");
-    bool null = 1;
-    t.addCol("i", ColumnInfo::Int32, null, 4, 0, 0);
+    bool nullable = 1;
+    t.addCol("i", ColumnInfo::Int32, nullable, 4, 0, 0);
     v.t = &t;
     Command(Statement, "create table odbctestdata (i int)");
 
