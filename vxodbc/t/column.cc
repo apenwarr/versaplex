@@ -20,7 +20,7 @@ WvString ColumnInfo::ColTypeNames[ColumnTypeMax + 1] = {
 WvString ColumnInfo::ColTypeDBusType[ColumnTypeMax + 1] = {
     "x",
     "i",
-    "s",
+    "n",
     "y",
     "b",
     "d",
