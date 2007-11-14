@@ -25,9 +25,7 @@ WvString ColumnInfo::ColTypeDBusType[ColumnTypeMax + 1] = {
     "b",
     "d",
     "s",
-    // FIXME: Binary data will need additional type information to be sent 
-    // across DBus.  Maybe use an array of bytes?
-    "v",
+    "ay",
     "s",
     "(ii)",
     "s"
@@ -113,8 +111,14 @@ void Column::addDataTo(WvDBusMsg &reply)
         reply.append((char *)data[0]);
         break;
     case ColumnInfo::Binary:
-        // FIXME: Binary data needs a type signature or something.
+    {
+        unsigned char *blob = (unsigned char *)data[0];
+        reply.array_start("y");
+        for (int i = 0; i < info.size; ++i)
+            reply.append(blob[i]);
+        reply.array_end();
         break;
+    }
     case ColumnInfo::String:
         reply.append((char *)data[0]);
         break;

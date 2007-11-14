@@ -63,17 +63,22 @@ public:
     // A bunch of malloc'd data.  Cast it back to whatever is appropriate.
     std::vector<void *> data;
 
-    Column(ColumnInfo _info) : info(_info)
-    {
-    }
+    Column(ColumnInfo _info) : info(_info) { }
 
     ~Column()
+    {
+        zapData();
+    }
+
+    Column &zapData()
     {
         std::vector<void *>::iterator it;
         for (it = data.begin(); it != data.end(); ++it)
         {
             free(*it);
         }
+        data.clear();
+        return *this;
     }
 
     void addDataTo(WvDBusMsg &reply);
