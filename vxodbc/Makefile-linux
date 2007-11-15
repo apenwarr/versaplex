@@ -49,4 +49,4 @@ test-linker: linker-test
 	LD_LIBRARY_PATH=. ./linker-test
 
 test:
-	$(MAKE) -C t @
+	$(MAKE) -C t $@
