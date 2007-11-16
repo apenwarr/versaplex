@@ -20,6 +20,8 @@ static void DoTest(int convert_to_char)
 
     TIMESTAMP_STRUCT ts;
 
+    Connect();
+
     v.expected_query = "select convert(datetime, '2002-12-27 18:43:21')";
     WVPASS_SQL(CommandWithResult(Statement, v.expected_query));
 
@@ -52,18 +54,16 @@ static void DoTest(int convert_to_char)
     WVPASS_SQL_EQ(SQLFetch(Statement), SQL_NO_DATA);
 
     WVPASS_SQL(SQLCloseCursor(Statement));
+
+    Disconnect();
 }
 
 WVTEST_MAIN("Date conversion to timestamp")
 {
-    Connect();
     DoTest(0);
-    Disconnect();
 }
 
 WVTEST_MAIN("Date conversion to char")
 {
-    Connect();
     DoTest(1);
-    Disconnect();
 }
