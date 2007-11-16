@@ -38,6 +38,7 @@ OBJS=\
 
 clean:
 	rm -f *.o *.so *~ *.res *.dll *.a .*.d *.d .stamp-config
+	$(MAKE) -C t $@
 
 %.E: %.c
 	$(CC) -o $@ -E $< $(CFLAGS)
