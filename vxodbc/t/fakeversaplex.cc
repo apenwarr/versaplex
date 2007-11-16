@@ -14,7 +14,6 @@ FakeVersaplexServer::FakeVersaplexServer() :
     t(NULL),
     log("Fake Versaplex", WvLog::Debug1)
 {
-    fprintf(stderr, "*** In FakeVersaplexServer constructor\n");
     WvString use_real(getenv("USE_REAL_VERSAPLEX"));
     if (!use_real || use_real == "0") 
     {
@@ -33,13 +32,9 @@ FakeVersaplexServer::FakeVersaplexServer() :
 
 FakeVersaplexServer::~FakeVersaplexServer()
 {
-    fprintf(stderr, "*** In FakeVersaplexServer destructor\n");
-    // Dirty hack: Close any open WvLog files when we destroy a
-    // FakeVersaplexServer.  
-    // This keeps the WvTest open file detector from freaking out since the
-    // log files are opened lazily after the open file detector does its
-    // initial check.  These will get reopened if we call any relevant
-    // WvLog functions again via VxODBC.  
+    // Dirty hack: Close any WvLog files VxODBC opened.  This keeps the WvTest
+    // open file detector from freaking out, since the log files are opened
+    // lazily after the open file detector does its initial check.  
     wvlog_close();
 }
     
