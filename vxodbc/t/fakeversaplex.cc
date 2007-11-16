@@ -5,8 +5,44 @@
 
 #include <vector>
 
+#include "../wvlogger.h"
+
 int FakeVersaplexServer::num_names_registered = 0;
 
+FakeVersaplexServer::FakeVersaplexServer() :
+    vxserver_conn("dbus:session"),
+    t(NULL),
+    log("Fake Versaplex", WvLog::Debug1)
+{
+    fprintf(stderr, "*** In FakeVersaplexServer constructor\n");
+    WvString use_real(getenv("USE_REAL_VERSAPLEX"));
+    if (!use_real || use_real == "0") 
+    {
+        WvIStreamList::globallist.append(&vxserver_conn, false);
+
+        log("*** Registering com.versabanq.versaplex\n");
+        vxserver_conn.request_name("com.versabanq.versaplex", &name_request_cb);
+        while (num_names_registered < 1)
+            WvIStreamList::globallist.runonce();
+
+        WvDBusCallback cb(wv::bind(
+            &FakeVersaplexServer::msg_received, this, _1));
+        vxserver_conn.add_callback(WvDBusConn::PriNormal, cb, this);
+    }
+}
+
+FakeVersaplexServer::~FakeVersaplexServer()
+{
+    fprintf(stderr, "*** In FakeVersaplexServer destructor\n");
+    // Dirty hack: Close any open WvLog files when we destroy a
+    // FakeVersaplexServer.  
+    // This keeps the WvTest open file detector from freaking out since the
+    // log files are opened lazily after the open file detector does its
+    // initial check.  These will get reopened if we call any relevant
+    // WvLog functions again via VxODBC.  
+    wvlog_close();
+}
+    
 bool FakeVersaplexServer::msg_received(WvDBusMsg &msg)
 {
     if (msg.get_dest() != "com.versabanq.versaplex")

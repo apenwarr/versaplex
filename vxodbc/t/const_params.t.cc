@@ -6,6 +6,7 @@
 
 WVTEST_MAIN("Stored procedures with const parameters")
 {
+    FakeVersaplexServer v;
     SQLINTEGER input, ind, ind2, ind3, output;
     SQLINTEGER out1;
 

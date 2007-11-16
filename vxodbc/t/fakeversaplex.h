@@ -25,26 +25,9 @@ public:
     // FIXME: Use a private bus when we can tell VxODBC where to find it.
     // Until then, just use the session bus and impersonate Versaplex, 
     // hoping that no other Versaplex server is running.
-    FakeVersaplexServer() : 
-        vxserver_conn("dbus:session"),
-        t(NULL),
-        log("Fake Versaplex", WvLog::Debug1)
-    {
-        WvString use_real(getenv("USE_REAL_VERSAPLEX"));
-        if (!use_real || use_real == "0") 
-        {
-            WvIStreamList::globallist.append(&vxserver_conn, false);
+    FakeVersaplexServer();
 
-            log("*** Registering com.versabanq.versaplex\n");
-            vxserver_conn.request_name("com.versabanq.versaplex", &name_request_cb);
-            while (num_names_registered < 1)
-                WvIStreamList::globallist.runonce();
-
-            WvDBusCallback cb(wv::bind(
-                &FakeVersaplexServer::msg_received, this, _1));
-            vxserver_conn.add_callback(WvDBusConn::PriNormal, cb, this);
-        }
-    }
+    ~FakeVersaplexServer();
 
     static bool name_request_cb(WvDBusMsg &msg) 
     {
