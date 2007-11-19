@@ -6,6 +6,7 @@
 #include <stdlib.h>
 
 #include "wvfile.h"
+#include "wvlog.h"
 
 #ifndef WIN32
 #include "tds_sysdep_private.h"
@@ -72,6 +73,7 @@ ReportError(const char *errmsg, int line, const char *file)
 	SQLRETURN ret;
 	unsigned char sqlstate[6];
 	unsigned char msg[256];
+	WvLog log("Unit Test Error", WvLog::Error);
 
 
 	if (Statement) {
@@ -86,13 +88,17 @@ ReportError(const char *errmsg, int line, const char *file)
 	}
 	if (errmsg[0]) {
 		if (line)
-			fprintf(stdout, "%s:%d %s\n", file, line, errmsg);
+			log("%s:%s %s\n", file, line, errmsg);
 		else
-			fprintf(stdout, "%s\n", errmsg);
+			log("%s\n", errmsg);
 	}
 	ret = SQLGetDiagRec(handletype, handle, 1, sqlstate, NULL, msg, sizeof(msg), NULL);
-	if (ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO)
-		fprintf(stdout, "SQL error %s -- %s (%s:%d)\n", sqlstate, msg, file, line);
+	if (SQL_SUCCEEDED(ret))
+		log("SQL error %s -- %s (%s:%s)\n", 
+			(char *)sqlstate, (char *)msg, file, line);
+	else
+		log("SQLGetDiagRec failed (code %s) when attempting to "
+		    "retrieve error information\n", ret);
 }
 
 int
