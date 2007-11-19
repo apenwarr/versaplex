@@ -211,8 +211,7 @@ void getDSNinfo(ConnInfo * ci, char overwrite)
 
     if (ci->drivername[0] == '\0' || overwrite)
     {
-	getDriverNameFromDSN(DSN, ci->drivername,
-			     sizeof(ci->drivername));
+	getDriverNameFromDSN(DSN, ci->drivername, sizeof(ci->drivername));
 	if (ci->drivername[0] && stricmp(ci->drivername, DBMS_NAME))
 	    getCommonDefaults(ci->drivername, ODBCINST_INI, ci);
     }
@@ -243,11 +242,21 @@ void getDSNinfo(ConnInfo * ci, char overwrite)
 	SQLGetPrivateProfileString(DSN, INI_READONLY, "", ci->onlyread,
 				   sizeof(ci->onlyread), ODBC_INI);
 
+    if (ci->dbus_moniker[0] == '\0' || overwrite)
+        SQLGetPrivateProfileString(DSN, INI_DBUS, "dbus:session", 
+                ci->dbus_moniker, sizeof(ci->dbus_moniker), ODBC_INI);
+
     /* Allow override of odbcinst.ini parameters here */
     getCommonDefaults(DSN, ODBC_INI, ci);
 
-    qlog("DSN info: DSN='%s',server='%s',port='%s',dbase='%s',user='%s',passwd='%s'\n", DSN, ci->server, ci->port, ci->database, ci->username, ci->password ? "xxxxx" : "");
-    qlog("          onlyread='%s',protocol='%s',showoid='%s',fakeoidindex='%s',showsystable='%s'\n", ci->onlyread, ci->protocol, ci->show_oid_column, ci->fake_oid_index, ci->show_system_tables);
+    qlog("DSN info: DSN='%s',server='%s',port='%s',dbase='%s',user='%s'"
+        ",passwd='%s',dbus='%s',ini='%s'\n", 
+        DSN, ci->server, ci->port, ci->database, ci->username, 
+        ci->password ? "xxxxx" : "", ci->dbus_moniker, ODBC_INI);
+    qlog("          onlyread='%s',protocol='%s',showoid='%s',fakeoidindex='%s'"
+        ",showsystable='%s'\n", 
+        ci->onlyread, ci->protocol, ci->show_oid_column, ci->fake_oid_index, 
+        ci->show_system_tables);
 
     if (get_qlog())
     {

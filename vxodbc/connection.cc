@@ -112,6 +112,8 @@ PGAPI_Connect(HDBC hdbc,
     /* initialize pg_version from connInfo.protocol    */
     CC_initialize_pg_version(conn);
 
+    conn->dbus = new WvDBusConn(ci->dbus_moniker);
+
     /*
      * override values from DSN info with UID and authStr(pwd) This only
      * occurs if the values are actually there.
@@ -290,8 +292,6 @@ ConnectionClass *CC_Constructor()
 	rv->status = CONN_NOT_CONNECTED;
 	rv->transact_status = CONN_IN_AUTOCOMMIT;	/* autocommit by default */
 	
-	rv->dbus = new WvDBusConn("dbus:session");
-
 	CC_conninfo_init(&(rv->connInfo));
 	rv->sock = SOCK_Constructor(rv);
 	if (!rv->sock)

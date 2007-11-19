@@ -44,12 +44,14 @@ extern "C" {
 							 * running the Postgres
 							 * service */
 #define SPEC_SERVER			"server"
-#define INI_PORT			"Port"	/* Port on which the
+#define INI_PORT			"Port"	/* Port on which the 
 						 * Postmaster is listening */
 #define INI_DATABASE			"Database"	/* Database Name */
 #define INI_UID				"UID"		/* Default User Name */
 #define INI_USER			"Username"	/* Default User Name */
 #define INI_PASSWORD			"Password"	/* Default Password */
+// Which DBus connection to use.  Defaults to "dbus:session".
+#define INI_DBUS                        "DBus Connection"
 
 #define INI_READONLY			"ReadOnly"	/* Database is read only */
 #if 0

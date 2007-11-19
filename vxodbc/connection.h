@@ -282,6 +282,7 @@ typedef struct
 	char		conn_settings[LARGE_REGISTRY_LEN];
 	char		protocol[SMALL_REGISTRY_LEN];
 	char		port[SMALL_REGISTRY_LEN];
+	char 		dbus_moniker[MEDIUM_REGISTRY_LEN];
 	char		sslmode[SMALL_REGISTRY_LEN];
 	char		onlyread[SMALL_REGISTRY_LEN];
 	char		fake_oid_index[SMALL_REGISTRY_LEN];
