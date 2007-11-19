@@ -12,8 +12,6 @@ WVTEST_MAIN("Dropped statements don't destroy pending data")
     t.addCol("i", ColumnInfo::Int32, nullable, 4, 0, 0);
     v.t = &t;
 
-    Connect();
-
     WVPASS_SQL(CommandWithResult(Statement, "drop table odbctestdata"));
     WVPASS_SQL(CommandWithResult(Statement, "create table odbctestdata (i int)"));
     WVPASS_SQL(CommandWithResult(Statement, "insert odbctestdata values (123)"));
@@ -48,6 +46,4 @@ WVTEST_MAIN("Dropped statements don't destroy pending data")
 
     WVPASS_SQL(SQLCloseCursor(Statement));
     WVPASS_SQL(CommandWithResult(Statement, "drop table odbctestdata"));
-
-    Disconnect();
 }

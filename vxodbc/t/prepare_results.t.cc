@@ -15,8 +15,6 @@ WVTEST_MAIN("SQLPrepare results")
     t.addCol("n", ColumnInfo::Decimal, nullable, 17, 34, 12);
     v.t = &t;
 
-    Connect();
-
     v.expected_query = 
         "create table odbctestdata (i int, c char(20), n numeric(34,12) )";
     WVPASS_SQL(CommandWithResult(Statement, v.expected_query));
@@ -86,6 +84,4 @@ WVTEST_MAIN("SQLPrepare results")
 #if VERSAPLEX_SUPPORTS_CREATE_TABLE
     Command(Statement, "drop table odbctestdata");
 #endif
-
-    Disconnect();
 }

@@ -1,19 +1,35 @@
 #include "fakeversaplex.h"
-
 #include "table.h"
+
+#include "wvistreamlist.h"
 #include "wvtest.h"
+#include "common.h"
 
 #include <vector>
+#include "odbcinst.h"
 
 #include "../wvlogger.h"
 
 int FakeVersaplexServer::num_names_registered = 0;
 
+bool FakeVersaplexServer::name_request_cb(WvDBusMsg &msg)
+{
+    WvLog log("name_request_cb", WvLog::Debug1);
+    num_names_registered++;
+    // FIXME: Sensible logging
+    // FIXME: Do something useful if the name was already registered
+    log("*** A name was registered: %s\n", (WvString)msg);
+    return true;
+}
+    
 FakeVersaplexServer::FakeVersaplexServer() :
-    vxserver_conn("dbus:session"),
+    dbus_server(),
+    vxserver_conn(dbus_server.moniker),
     t(NULL),
     log("Fake Versaplex", WvLog::Debug1)
 {
+    WvString dbus(dbus_server.moniker);
+
     WvString use_real(getenv("USE_REAL_VERSAPLEX"));
     if (!use_real || use_real == "0") 
     {
@@ -28,16 +44,24 @@ FakeVersaplexServer::FakeVersaplexServer() :
             &FakeVersaplexServer::msg_received, this, _1));
         vxserver_conn.add_callback(WvDBusConn::PriNormal, cb, this);
     }
+    else
+        dbus = "dbus:session";
+
+    set_odbcini_info("localhost", "", "pmccurdy", "pmccurdy", "scs", dbus);
+
+    Connect();
 }
 
 FakeVersaplexServer::~FakeVersaplexServer()
 {
+    Disconnect();
+
     // Dirty hack: Close any WvLog files VxODBC opened.  This keeps the WvTest
     // open file detector from freaking out, since the log files are opened
     // lazily after the open file detector does its initial check.  
     wvlog_close();
 }
-    
+
 bool FakeVersaplexServer::msg_received(WvDBusMsg &msg)
 {
     if (msg.get_dest() != "com.versabanq.versaplex")

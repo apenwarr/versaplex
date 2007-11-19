@@ -10,8 +10,6 @@ WVTEST_MAIN("Stored procedures with const parameters")
     SQLINTEGER input, ind, ind2, ind3, output;
     SQLINTEGER out1;
 
-    Connect();
-
     WVPASS_SQL(CommandWithResult(Statement, "drop proc const_param"));
 
     WVPASS_SQL(Command(Statement, 
@@ -115,6 +113,4 @@ WVTEST_MAIN("Stored procedures with const parameters")
 #endif
 
     WVPASS_SQL(CommandWithResult(Statement, "drop proc const_param"));
-
-    Disconnect();
 }

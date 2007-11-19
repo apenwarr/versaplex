@@ -19,8 +19,6 @@ WVTEST_MAIN("Basic data insertion and retrieval")
 {
     FakeVersaplexServer v;
 
-    Connect();
-
     WVPASS_SQL(CommandWithResult(Statement, "drop table odbctestdata"));
 
     bool nullable = 0;
@@ -75,6 +73,4 @@ WVTEST_MAIN("Basic data insertion and retrieval")
     WVPASS_SQL(SQLCloseCursor(Statement));
 
     WVPASS_SQL(CommandWithResult(Statement, "drop table odbctestdata"));
-
-    Disconnect();
 }

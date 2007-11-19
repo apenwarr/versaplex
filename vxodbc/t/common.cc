@@ -14,29 +14,13 @@
 HENV Environment;
 HDBC Connection;
 HSTMT Statement;
-int use_odbc_version3 = 0;
 
+bool HACKY_GLOBAL_VARS_INITED = false;
 char USER[512];
 char SERVER[512];
 char PASSWORD[512];
 char DATABASE[512];
 char DRIVER[1024];
-
-static int
-check_lib(char *path, const char *file)
-{
-	int len = strlen(path);
-	FILE *f;
-
-	strcat(path, file);
-	f = fopen(path, "rb");
-	if (f) {
-		fclose(f);
-		return 1;
-	}
-	path[len] = 0;
-	return 0;
-}
 
 /* some platforms do not have setenv, define a replacement */
 #if !HAVE_SETENV
@@ -52,70 +36,30 @@ odbc_setenv(const char *name, const char *value, int overwrite)
 }
 #endif
 
-int
-read_login_info(void)
+void set_odbcini_info(WvStringParm server, WvStringParm driver, 
+	WvStringParm database, WvStringParm user, WvStringParm pass, 
+	WvStringParm dbus)
 {
-	FILE *in = fopen(".." TDS_SDIR_SEPARATOR ".." TDS_SDIR_SEPARATOR ".." TDS_SDIR_SEPARATOR "PWD", "r");
-	if (!in)
-		in = fopen("PWD", "r");
+	fprintf(stderr, "*** In set_odbcini_info\n");
+	
+	strcpy(SERVER, server.cstr());
+	strcpy(DRIVER, driver.cstr());
+	strcpy(DATABASE, database.cstr());
+	strcpy(USER, user.cstr());
+	strcpy(PASSWORD, pass.cstr());
 
-	if (!in) {
-		fprintf(stderr, "Can not open PWD file\n\n");
-                strcpy(USER, "pmccurdy");
-                strcpy(SERVER, "localhost");
-                strcpy(PASSWORD, "scs");
-                strcpy(DATABASE, "pmccurdy");
-		//return 0;
-        } else {
-            char line[512];
-
-            while (fgets(line, 512, in)) {
-                    char *s1 = strtok(line, "=");
-                    char *s2 = strtok(NULL, "\n");
-                    if (!s1 || !s2)
-                            continue;
-                    if (!strcmp(s1, "UID")) {
-                            strcpy(USER, s2);
-                    } else if (!strcmp(s1, "SRV")) {
-                            strcpy(SERVER, s2);
-                    } else if (!strcmp(s1, "PWD")) {
-                            strcpy(PASSWORD, s2);
-                    } else if (!strcmp(s1, "DB")) {
-                            strcpy(DATABASE, s2);
-                    }
-            }
-            fclose(in);
-        }
-
-#ifndef WIN32
-#if 0
-	char path[1024];
-	/* find our driver */
-	if (!getcwd(path, sizeof(path)))
-		return 0;
-	int len = strlen(path);
-	if (len < 10 || strcmp(path + len - 10, "/unittests") != 0)
-		return 0;
-	path[len - 9] = 0;
-	/* TODO this must be extended with all possible systems... */
-	if (!check_lib(path, ".libs/libtdsodbc.so") && !check_lib(path, ".libs/libtdsodbc.sl")
-	    && !check_lib(path, ".libs/libtdsodbc.dll") && !check_lib(path, ".libs/libtdsodbc.dylib"))
-		return 0;
-	strcpy(DRIVER, path);
-#endif
+	HACKY_GLOBAL_VARS_INITED = true;
 
 	/* craft out odbc.ini, avoid to read wrong one */
-	in = fopen("odbc.ini", "w");
+	FILE *in = fopen("odbc.ini", "w");
 	if (in) {
 		fprintf(in, "[%s]\nDriver = %s\nDatabase = %s\n"
-                        "Servername = %s\nUsername = %s\n", 
-                        SERVER, DRIVER, DATABASE, SERVER, USER);
+                        "Servername = %s\nUsername = %s\nDBus Connection = %s\n", 
+                        SERVER, DRIVER, DATABASE, SERVER, USER, dbus.cstr());
 		fclose(in);
 		setenv("ODBCINI", "./odbc.ini", 1);
 		setenv("SYSODBCINI", "./odbc.ini", 1);
 	}
-#endif
-	return 0;
 }
 
 void
@@ -152,16 +96,18 @@ ReportError(const char *errmsg, int line, const char *file)
 int
 Connect(void)
 {
-	if (read_login_info())
-		exit(1);
+	if (!HACKY_GLOBAL_VARS_INITED)
+	{
+		printf("No connection information provided\n");
+		return 1;
+	}
 
 	if (SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &Environment) != SQL_SUCCESS) {
 		printf("Unable to allocate env\n");
 		exit(1);
 	}
 
-	if (use_odbc_version3)
-		SQLSetEnvAttr(Environment, SQL_ATTR_ODBC_VERSION, (SQLPOINTER) (SQL_OV_ODBC3), SQL_IS_UINTEGER);
+        SQLSetEnvAttr(Environment, SQL_ATTR_ODBC_VERSION, (SQLPOINTER) (SQL_OV_ODBC3), SQL_IS_UINTEGER);
 
 	if (SQLAllocHandle(SQL_HANDLE_DBC, Environment, &Connection) != SQL_SUCCESS) {
 		printf("Unable to allocate connection\n");

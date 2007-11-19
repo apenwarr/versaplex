@@ -13,8 +13,6 @@ WVTEST_MAIN("SQLGetData")
     v.t = &t;
     char buf[16];
 
-    Connect();
-
     /* TODO test with VARCHAR too */
     v.expected_query = "SELECT CONVERT(TEXT,'Prova')";
     WVPASS_SQL(Command(Statement, v.expected_query.cstr()));
@@ -34,6 +32,4 @@ WVTEST_MAIN("SQLGetData")
 
     WVPASS_SQL(SQLGetData(Statement, 1, SQL_C_CHAR, buf, 16, NULL));
     WVPASSEQ(buf, "ova");
-
-    Disconnect();
 }

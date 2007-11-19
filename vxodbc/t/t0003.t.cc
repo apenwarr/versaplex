@@ -11,6 +11,7 @@ DoTest(int prepared)
     // See GoogleCode bug #2
 #ifdef VXODBC_SUPPORTS_MULTIPLE_RESULT_SETS
     FakeVersaplexServer v;
+
     Table t("odbctestdata");
     bool nullable = 1;
     t.addCol("i", ColumnInfo::Int32, nullable, 4, 0, 0);
@@ -61,14 +62,10 @@ DoTest(int prepared)
 
 WVTEST_MAIN("Two empty record sets, unprepared")
 {
-    Connect();
     DoTest(0);
-    Disconnect();
 }
 
 WVTEST_MAIN("Two empty record sets, prepared")
 {
-    Connect();
     DoTest(0);
-    Disconnect();
 }

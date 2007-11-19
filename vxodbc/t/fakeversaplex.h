@@ -1,7 +1,11 @@
-#include "wvdbusconn.h"
+#ifndef FAKEVERSAPLEX_H
+#define FAKEVERSAPLEX_H
+
 #include "wvstring.h"
-#include "wvistreamlist.h"
 #include "wvlog.h"
+#include "fileutils.h"
+#include "wvdbusserver.h"
+#include "wvdbusconn.h"
 
 #define WVPASS_SQL(sql) \
     do \
@@ -12,33 +16,47 @@
 #define WVPASS_SQL_EQ(x, y) do { if (!WVPASSEQ((x), (y))) { CheckReturn(); } } while (0)
 
 class Table;
+class WvDBusConn;
+class WvDBusMsg;
+
+class TestDBusServer
+{
+public:
+    WvString moniker;
+    WvDBusServer *s;
+
+    TestDBusServer()
+    {
+        fprintf(stderr, "Creating a test DBus server.\n");
+        WvString smoniker("unix:tmpdir=%s.dir",
+                         wvtmpfilename("wvdbus-sock-"));
+        s = new WvDBusServer(smoniker);
+        moniker = s->get_addr();
+        fprintf(stderr, "Server address is '%s'\n", moniker.cstr());
+        WvIStreamList::globallist.append(s, false);
+    }
+
+    ~TestDBusServer()
+    {
+        delete s;
+    }
+};
 
 class FakeVersaplexServer
 {
 public:
+    TestDBusServer dbus_server;
     WvDBusConn vxserver_conn;
     Table *t;
     WvString expected_query;
     static int num_names_registered;
     WvLog log;
 
-    // FIXME: Use a private bus when we can tell VxODBC where to find it.
-    // Until then, just use the session bus and impersonate Versaplex, 
-    // hoping that no other Versaplex server is running.
     FakeVersaplexServer();
-
     ~FakeVersaplexServer();
 
-    static bool name_request_cb(WvDBusMsg &msg) 
-    {
-        WvLog log("name_request_cb", WvLog::Debug1);
-        num_names_registered++;
-        // FIXME: Sensible logging
-        // FIXME: Do something useful if the name was already registered
-        log("*** A name was registered: %s\n", (WvString)msg);
-        return true;
-    }
-
+    static bool name_request_cb(WvDBusMsg &msg); 
     bool msg_received(WvDBusMsg &msg);
 };
 
+#endif // FAKEVERSAPLEX_H

@@ -25,6 +25,8 @@
 #include <sql.h>
 #include <sqlext.h>
 
+#include "wvstring.h"
+
 
 #ifndef HAVE_SQLLEN
 #ifndef SQLULEN
@@ -46,7 +48,9 @@ extern char PASSWORD[512];
 extern char DATABASE[512];
 extern char DRIVER[1024];
 
-int read_login_info(void);
+void set_odbcini_info(WvStringParm server, WvStringParm driver, 
+	WvStringParm database, WvStringParm user, WvStringParm pass,
+        WvStringParm dbus);
 #define CheckReturn() ReportError("", __LINE__, __FILE__)
 
 void ReportError(const char *msg, int line, const char *file);

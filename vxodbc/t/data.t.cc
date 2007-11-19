@@ -71,8 +71,6 @@ WVTEST_MAIN("Data conversion")
     char version[32];
     SQLSMALLINT version_len;
 
-    Connect();
-
     if (((char *) &big_endian)[0] == 1)
         big_endian = 0;
     memset(version, 0, sizeof(version));
@@ -201,6 +199,4 @@ WVTEST_MAIN("Data conversion")
         Test(v, "UNIQUEIDENTIFIER", "0DDF3B64-E692-11D1-AB06-00AA00BDD685", SQL_C_BINARY,
              big_endian ? "0DDF3B64E69211D1AB0600AA00BDD685" : "643BDF0D92E6D111AB0600AA00BDD685");
 #endif
-
-    Disconnect();
 }
