@@ -18,11 +18,12 @@ public:
     {
     }
 
-    void addCol(WvStringParm colname, ColumnInfo::ColumnType coltype, 
+    Column &addCol(WvStringParm colname, ColumnInfo::ColumnType coltype, 
             bool nullable, int size, short precision, short scale)
     {
         cols.push_back(
             Column(ColumnInfo(colname, coltype, nullable, size, precision, scale)));
+	return cols.back();
     }
 
     // String lenth of 0 means use unlimited length (TEXT as opposed to

@@ -80,8 +80,7 @@ WVTEST_MAIN("Data conversion")
     // also makes the fake Versaplex server say that the data *is* null.
     bool nullable = 0;
 #ifdef VXODBC_SUPPORTS_CONVERTING_DECIMALS
-    t.addCol("data", ColumnInfo::Decimal, nullable, 17, 18, 2);
-    t.cols[0].append("123.00");
+    t.addCol("data", ColumnInfo::Decimal, nullable, 17, 18, 2).append("123.00");
     Test(v, "NUMERIC(18,2)", "123", SQL_C_NUMERIC, "38 0 1 7B");
 #endif
 
@@ -100,20 +99,20 @@ WVTEST_MAIN("Data conversion")
 
 #ifdef VXODBC_SUPPORTS_CONVERTING_BINARY
     t.cols.clear();
-    t.addCol("data", ColumnInfo::Binary, nullable, 5, 0, 0);
-    t.cols[0].append("qwer");
+    t.addCol("data", ColumnInfo::Binary, nullable, 5, 0, 0).append("qwer");
     Test(v, "BINARY(5)", "qwer", SQL_C_BINARY, "7177657200");
-    t.cols[0].zapData().append("cricetone");
+    t.cols.clear();
+    t.addCol("data", ColumnInfo::Binary, nullable, 10, 0, 0).append("cricetone");
     Test(v, "IMAGE", "cricetone", SQL_C_BINARY, "6372696365746F6E65");
-    t.cols[0].zapData().append("teo");
+    t.cols.clear();
+    t.addCol("data", ColumnInfo::Binary, nullable, 3, 0, 0).append("teo");
     Test(v, "VARBINARY(20)", "teo", SQL_C_BINARY, "74656F");
 #endif
 
     // This checks that a TIMESTAMP value is truncated to 8 bytes
 #ifdef VXODBC_SUPPORTS_CONVERTING_FIXED_LENTGH_COLUMNS
     t.cols.clear();
-    t.addCol("data", ColumnInfo::String, nullable, 20, 0, 0);
-    t.cols[0].append("abcdefghi");
+    t.addCol("data", ColumnInfo::String, nullable, 20, 0, 0).append("abcdefghi");
     Test(v, "TIMESTAMP", "abcdefghi", SQL_C_BINARY, "6162636465666768");
 #endif
 
@@ -130,22 +129,18 @@ WVTEST_MAIN("Data conversion")
 
 #ifdef VXODBC_SUPPORTS_CONVERTING_INTS_TO_BINARY
     t.cols.clear();
-    t.addCol("data", ColumnInfo::Bool, nullable, 1, 0, 0);
-    t.cols[0].append(1);
+    t.addCol("data", ColumnInfo::Bool, nullable, 1, 0, 0).append(1);
     Test(v, "BIT", "1", SQL_C_BINARY, "01");
     t.cols[0].zapData().append(0);
     Test(v, "BIT", "0", SQL_C_BINARY, "00");
     t.cols.clear();
-    t.addCol("data", ColumnInfo::UInt8, nullable, 1, 0, 0);
-    t.cols[0].append(231);
+    t.addCol("data", ColumnInfo::UInt8, nullable, 1, 0, 0).append(231);
     Test(v, "TINYINT", "231", SQL_C_BINARY, "E7");
     t.cols.clear();
-    t.addCol("data", ColumnInfo::Int16, nullable, 1, 0, 0);
-    t.cols[0].append(4231);
+    t.addCol("data", ColumnInfo::Int16, nullable, 1, 0, 0).append(4231);
     Test(v, "SMALLINT", "4321", SQL_C_BINARY, big_endian ? "10E1" : "E110");
     t.cols.clear();
-    t.addCol("data", ColumnInfo::Int32, nullable, 1, 0, 0);
-    t.cols[0].append(1234567);
+    t.addCol("data", ColumnInfo::Int32, nullable, 1, 0, 0).append(1234567);
     Test(v, "INT", "1234567", SQL_C_BINARY, big_endian ? "0012D687" : "87D61200");
     //
     // FIXME: This doesn't really make any sense for VxODBC.  Test what's
@@ -155,8 +150,7 @@ WVTEST_MAIN("Data conversion")
         int old_result = result;
 
         t.cols.clear();
-        t.addCol("data", ColumnInfo::Int64, nullable, 1, 0, 0);
-        t.cols[0].append(123456789012345LL);
+        t.addCol("data", ColumnInfo::Int64, nullable, 1, 0, 0).append(123456789012345LL);
         Test(v, "BIGINT", "123456789012345", SQL_C_BINARY, big_endian ? "00007048860DDF79" : "79DF0D8648700000");
         if (result && strcmp(sbuf, "13000179DF0D86487000000000000000000000") == 0) {
             fprintf(stderr, "Ignore previous error. You should configure TDS 8.0 for this!!!\n");
@@ -168,15 +162,13 @@ WVTEST_MAIN("Data conversion")
 
 #ifdef VXODBC_SUPPORTS_CONVERTING_DECIMALS_TO_BINARY
     t.cols.clear();
-    t.addCol("data", ColumnInfo::Decimal, nullable, 17, 8, 4);
-    t.cols[0].append("1234.5678");
+    t.addCol("data", ColumnInfo::Decimal, nullable, 17, 8, 4).append("1234.5678");
     Test(v, "DECIMAL", "1234.5678", SQL_C_BINARY, "120001D3040000000000000000000000000000");
     t.cols[0].zapData().append("8765.4321");
     Test(v, "NUMERIC", "8765.4321", SQL_C_BINARY, "1200013D220000000000000000000000000000");
 
     t.cols.clear();
-    t.addCol("data", ColumnInfo::Double, nullable, 17, 8, 4);
-    t.cols[0].append(1234.5678);
+    t.addCol("data", ColumnInfo::Double, nullable, 17, 8, 4).append(1234.5678);
     Test(v, "FLOAT", "1234.5678", SQL_C_BINARY, big_endian ? "40934A456D5CFAAD" : "ADFA5C6D454A9340");
     t.cols[0].zapData().append(8765.4321);
     Test(v, "REAL", "8765.4321", SQL_C_BINARY, big_endian ? "4608F5BA" : "BAF50846");
