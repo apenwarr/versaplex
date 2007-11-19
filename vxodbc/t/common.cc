@@ -5,6 +5,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "wvfile.h"
+
 #ifndef WIN32
 #include "tds_sysdep_private.h"
 #else
@@ -51,12 +53,12 @@ void set_odbcini_info(WvStringParm server, WvStringParm driver,
 	HACKY_GLOBAL_VARS_INITED = true;
 
 	/* craft out odbc.ini, avoid to read wrong one */
-	FILE *in = fopen("odbc.ini", "w");
-	if (in) {
-		fprintf(in, "[%s]\nDriver = %s\nDatabase = %s\n"
+	WvFile odbc("odbc.ini", O_WRONLY|O_CREAT|O_TRUNC);
+	if (odbc.isok()) 
+	{
+		odbc.write(WvString("[%s]\nDriver = %s\nDatabase = %s\n"
                         "Servername = %s\nUsername = %s\nDBus Connection = %s\n", 
-                        SERVER, DRIVER, DATABASE, SERVER, USER, dbus.cstr());
-		fclose(in);
+                        server, driver, database, server, user, dbus));
 		setenv("ODBCINI", "./odbc.ini", 1);
 		setenv("SYSODBCINI", "./odbc.ini", 1);
 	}
