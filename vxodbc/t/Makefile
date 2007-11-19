@@ -27,7 +27,7 @@ test: all.t
 	$(RUNTEST) $(VALGRIND) ./all.t $(TESTNAME)
 
 # FIXME: Should be using GCC-generated dependencies here
-all.t: $(TESTOBJS) common.o fakeversaplex.o column.o 
+all.t: $(TESTOBJS) common.o vxodbctester.o column.o 
 	$(CXX) -o $@ $^ $(LIBS)
 
 # FIXME: Should be using GCC-generated dependencies here

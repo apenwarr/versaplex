@@ -1,11 +1,11 @@
 #include "common.h"
 #include "wvtest.h"
 #include "table.h"
-#include "fakeversaplex.h"
+#include "vxodbctester.h"
 
 WVTEST_MAIN("SQLGetData")
 {
-    FakeVersaplexServer v;
+    VxOdbcTester v;
     bool nullable = 1;
     Table t("whatever");
     t.addCol("", ColumnInfo::String, nullable, 0, 0, 0);

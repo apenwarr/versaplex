@@ -1,4 +1,4 @@
-#include "fakeversaplex.h"
+#include "vxodbctester.h"
 #include "table.h"
 
 #include "wvistreamlist.h"
@@ -10,9 +10,9 @@
 
 #include "../wvlogger.h"
 
-int FakeVersaplexServer::num_names_registered = 0;
+int VxOdbcTester::num_names_registered = 0;
 
-bool FakeVersaplexServer::name_request_cb(WvDBusMsg &msg)
+bool VxOdbcTester::name_request_cb(WvDBusMsg &msg)
 {
     WvLog log("name_request_cb", WvLog::Debug1);
     num_names_registered++;
@@ -22,7 +22,7 @@ bool FakeVersaplexServer::name_request_cb(WvDBusMsg &msg)
     return true;
 }
     
-FakeVersaplexServer::FakeVersaplexServer() :
+VxOdbcTester::VxOdbcTester() :
     dbus_server(),
     vxserver_conn(dbus_server.moniker),
     t(NULL),
@@ -41,7 +41,7 @@ FakeVersaplexServer::FakeVersaplexServer() :
             WvIStreamList::globallist.runonce();
 
         WvDBusCallback cb(wv::bind(
-            &FakeVersaplexServer::msg_received, this, _1));
+            &VxOdbcTester::msg_received, this, _1));
         vxserver_conn.add_callback(WvDBusConn::PriNormal, cb, this);
     }
     else
@@ -52,7 +52,7 @@ FakeVersaplexServer::FakeVersaplexServer() :
     Connect();
 }
 
-FakeVersaplexServer::~FakeVersaplexServer()
+VxOdbcTester::~VxOdbcTester()
 {
     Disconnect();
 
@@ -62,7 +62,7 @@ FakeVersaplexServer::~FakeVersaplexServer()
     wvlog_close();
 }
 
-bool FakeVersaplexServer::msg_received(WvDBusMsg &msg)
+bool VxOdbcTester::msg_received(WvDBusMsg &msg)
 {
     if (msg.get_dest() != "com.versabanq.versaplex")
         return false;

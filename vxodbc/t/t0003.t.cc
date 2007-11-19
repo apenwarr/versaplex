@@ -1,5 +1,5 @@
 #include "common.h"
-#include "fakeversaplex.h"
+#include "vxodbctester.h"
 #include "table.h"
 #include "wvtest.h"
 
@@ -10,7 +10,7 @@ DoTest(int prepared)
 {
     // See GoogleCode bug #2
 #ifdef VXODBC_SUPPORTS_MULTIPLE_RESULT_SETS
-    FakeVersaplexServer v;
+    VxOdbcTester v;
 
     Table t("odbctestdata");
     bool nullable = 1;

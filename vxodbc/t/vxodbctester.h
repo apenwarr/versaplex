@@ -1,5 +1,5 @@
-#ifndef FAKEVERSAPLEX_H
-#define FAKEVERSAPLEX_H
+#ifndef VXODBCTESTER_H
+#define VXODBCTESTER_H
 
 #include "wvstring.h"
 #include "wvlog.h"
@@ -42,7 +42,7 @@ public:
     }
 };
 
-class FakeVersaplexServer
+class VxOdbcTester
 {
 public:
     TestDBusServer dbus_server;
@@ -52,11 +52,11 @@ public:
     static int num_names_registered;
     WvLog log;
 
-    FakeVersaplexServer();
-    ~FakeVersaplexServer();
+    VxOdbcTester();
+    ~VxOdbcTester();
 
     static bool name_request_cb(WvDBusMsg &msg); 
     bool msg_received(WvDBusMsg &msg);
 };
 
-#endif // FAKEVERSAPLEX_H
+#endif // VXODBCTESTER_H

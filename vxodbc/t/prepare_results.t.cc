@@ -1,13 +1,13 @@
 #include "common.h"
 #include "wvtest.h"
-#include "fakeversaplex.h"
+#include "vxodbctester.h"
 #include "table.h"
 
 /* Test for data format returned from SQLPrepare */
 
 WVTEST_MAIN("SQLPrepare results")
 {
-    FakeVersaplexServer v;
+    VxOdbcTester v;
     Table t("odbctestdata");
     bool nullable = 1;
     t.addCol("i", ColumnInfo::Int32, nullable, 4, 0, 0);

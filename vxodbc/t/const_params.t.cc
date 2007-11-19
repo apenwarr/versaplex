@@ -1,12 +1,12 @@
 #include "common.h"
 #include "wvtest.h"
-#include "fakeversaplex.h"
+#include "vxodbctester.h"
 
 /* Test for {?=call store(?,123,'foo')} syntax and run */
 
 WVTEST_MAIN("Stored procedures with const parameters")
 {
-    FakeVersaplexServer v;
+    VxOdbcTester v;
     SQLINTEGER input, ind, ind2, ind3, output;
     SQLINTEGER out1;
 

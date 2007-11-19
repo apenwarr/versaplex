@@ -1,11 +1,11 @@
 #include "common.h"
-#include "fakeversaplex.h"
+#include "vxodbctester.h"
 #include "table.h"
 #include "wvtest.h"
 
 static void DoTest(int convert_to_char)
 {
-    FakeVersaplexServer v;
+    VxOdbcTester v;
     bool nullable = 0;
     Table t("unnamed");
     t.addCol("unnamed", ColumnInfo::DateTime, nullable, 8, 0, 0);

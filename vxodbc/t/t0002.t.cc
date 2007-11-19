@@ -2,11 +2,11 @@
 #include "wvtest.h"
 #include "table.h"
 
-#include "fakeversaplex.h"
+#include "vxodbctester.h"
 
 WVTEST_MAIN("Dropped statements don't destroy pending data")
 {
-    FakeVersaplexServer v;
+    VxOdbcTester v;
     Table t("odbctestdata");
     bool nullable = 1;
     t.addCol("i", ColumnInfo::Int32, nullable, 4, 0, 0);

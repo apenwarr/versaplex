@@ -8,7 +8,7 @@
 #include <string.h>
 
 #include "common.h"
-#include "fakeversaplex.h"
+#include "vxodbctester.h"
 #include "table.h"
 #include "column.h"
 
@@ -17,7 +17,7 @@
 
 WVTEST_MAIN("Basic data insertion and retrieval")
 {
-    FakeVersaplexServer v;
+    VxOdbcTester v;
 
     WVPASS_SQL(CommandWithResult(Statement, "drop table odbctestdata"));
 

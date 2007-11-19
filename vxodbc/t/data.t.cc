@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "wvtest.h"
-#include "fakeversaplex.h"
+#include "vxodbctester.h"
 #include "table.h"
 
 /* Test various bind type */
@@ -11,7 +11,7 @@
 static int result = 0;
 static char sbuf[1024];
 
-static void Test(FakeVersaplexServer &v, 
+static void Test(VxOdbcTester &v, 
                 const char *type, const char *value_to_convert, 
                 SQLSMALLINT out_c_type, const char *expected)
 {
@@ -63,7 +63,7 @@ static void Test(FakeVersaplexServer &v,
 
 WVTEST_MAIN("Data conversion")
 {
-    FakeVersaplexServer v;
+    VxOdbcTester v;
     Table t("conversions");
     v.t = &t;
 
