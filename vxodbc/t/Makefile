@@ -9,7 +9,7 @@ VALGRIND=valgrind --tool=memcheck --leak-check=yes --num-callers=10 --suppressio
 RUNTEST=$(WVSTREAMS)/wvtesthelper
 
 CFLAGS+=-Wall -Wno-long-long  
-CFLAGS+=-g -O2 
+CFLAGS+=-g 
 CFLAGS+=-I$(WVSTREAMS)/include -I$(XPLC)/include
 CXXFLAGS=$(CFLAGS)
 LIBS=../vxodbc-test.so /usr/lib/libltdl.so -ldl -lpthread /usr/lib/libodbc.a
