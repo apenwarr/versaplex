@@ -2,11 +2,38 @@
 #define __VXHELPERS_H
 
 #include <wvdbusconn.h>
+#include "pgtypes.h"
 
 
 class VxResultSet
 {
     int maxcol;
+
+    int vxtype_to_pgtype(WvStringParm vxtype)
+    {
+	if (vxtype == "String")
+	    return PG_TYPE_VARCHAR;
+	else if (vxtype == "Int64")
+	    return PG_TYPE_INT8;
+	else if (vxtype == "Int32")
+	    return PG_TYPE_INT4;
+	else if (vxtype == "Int16")
+	    return PG_TYPE_INT2;
+	else if (vxtype == "UInt8")
+	    return PG_TYPE_CHAR;
+	else if (vxtype == "Bool")
+	    return PG_TYPE_BOOL;
+	else if (vxtype == "Double")
+	    return PG_TYPE_FLOAT8;
+	else if (vxtype == "Uuid")
+	    return PG_TYPE_VARCHAR;
+	else if (vxtype == "Binary")
+	    return PG_TYPE_BYTEA;
+	else if (vxtype == "DateTime")
+	    return VX_TYPE_DATETIME;
+	else if (vxtype == "Decimal")
+	    return PG_TYPE_NUMERIC;
+    }
 public:
     QResultClass *res;
     
@@ -20,9 +47,11 @@ public:
     
     void set_field_info(int col, const char *colname, OID type, int typesize)
     {
-	mylog("Col#%d is '%s'\n", col, colname);
+	mylog("Col#%d is '%s', type=%d, size=%d\n", col, colname, type, typesize);
 	if (maxcol < col)
 	{
+	    // FIXME: This will destroy old data
+	    mylog("!!!!!! Resizing colinfo array, destroying data !!!!!!\n");
 	    maxcol = col;
 	    QR_set_num_fields(res, maxcol+1);
 	}
@@ -57,12 +86,24 @@ public:
 	    WvDBusMsg::Iter colinfo(top.getnext().open());
 	    WvDBusMsg::Iter data(top.getnext().open().getnext().open());
 	    WvDBusMsg::Iter flags(top.getnext().open());
+
+	    int num_cols;
+	    // Sadly there's no better way to get the number of columns
+	    for (num_cols = 0; colinfo.next(); num_cols++) { }
+	    colinfo.rewind();
+	    // Allocate space for the column info data.
+	    QR_set_num_fields(res, num_cols);
+	    maxcol = num_cols - 1;
 	    
 	    for (int colnum = 0; colinfo.next(); colnum++)
 	    {
 		WvDBusMsg::Iter i(colinfo.open());
-		i.next();
-		set_field_info(colnum, *i, PG_TYPE_VARCHAR, 20);
+
+		int colsize = i.getnext();
+		WvString colname = i.getnext();
+		int coltype = vxtype_to_pgtype(i.getnext());
+
+		set_field_info(colnum, colname, coltype, colsize);
 	    }
 	    
 	    for (data.rewind(); data.next(); )
