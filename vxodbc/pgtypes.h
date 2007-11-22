@@ -69,6 +69,7 @@
 #define PG_TYPE_NUMERIC			1700
 #define PG_TYPE_RECORD			2249
 #define PG_TYPE_VOID			2278
+#define VX_TYPE_DATETIME		3000
 #define INTERNAL_ASIS_TYPE		(-9999)
 
 /* extern Int4 pgtypes_defined[]; */

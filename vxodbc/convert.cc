@@ -607,10 +607,34 @@ copy_and_convert_field(StatementClass * stmt, OID field_type,
      */
     switch (field_type)
     {
-	/*
-	 * $$$ need to add parsing for date/time/timestamp strings in
-	 * PG_TYPE_CHAR,VARCHAR $$$
-	 */
+    /*
+     * $$$ need to add parsing for date/time/timestamp strings in
+     * PG_TYPE_CHAR,VARCHAR $$$
+     */
+    case VX_TYPE_DATETIME:
+    {
+	long long secs;
+	int usecs;
+	sscanf(value, "[%lld,%d]", &secs, &usecs);
+	struct tm *ptm;
+	// FIXME: This might only be 32-bit
+	time_t secs_time_t = (time_t)secs;
+#ifdef	HAVE_LOCALTIME_R
+	struct tm tm;
+	if (secs >= 0 && (ptm = localtime_r(&secs_time_t, &tm)) != NULL)
+#else
+	if (secs >= 0 && (ptm = localtime(&secs_time_t)) != NULL)
+#endif				/* HAVE_LOCALTIME_R */
+	{
+	    std_time.y = ptm->tm_year + 1900;
+	    std_time.m = ptm->tm_mon + 1;
+	    std_time.d = ptm->tm_mday;
+	    std_time.hh = ptm->tm_hour;
+	    std_time.mm = ptm->tm_min;
+	    std_time.ss = ptm->tm_sec;
+	}
+	break;
+    }
     case PG_TYPE_DATE:
 	sscanf(value, "%4d-%2d-%2d", &std_time.y, &std_time.m,
 	       &std_time.d);
