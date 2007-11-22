@@ -42,14 +42,14 @@ WVTEST_MAIN("Basic data insertion and retrieval")
     (++it)->append(123456);
     (++it)->append(1234.56);
     (++it)->append("123456.78");
-    // Note: this doesn't match the value inserted, but nobody actually checks.
-    (++it)->append(123456).append(0);
+    // Let's party like it's time_t 1e9
+    (++it)->append(1000000000).append(0);
     (++it)->append("just to check returned length...");
 
     WVPASS(++it == t.cols.end());
     WvString command = "insert dbo.odbctestdata values ("
         "'ABCDEFGHIJKLMNOP',"
-        "123456," "1234.56," "123456.78," "'Sep 11 2001 10:00AM'," 
+        "123456," "1234.56," "123456.78," "'Sep 8 2001 9:46:40PM'," 
         "'just to check returned length...')";
     WVPASS_SQL(CommandWithResult(Statement, command)); 
 
@@ -58,16 +58,59 @@ WVTEST_MAIN("Basic data insertion and retrieval")
 
     WVPASS_SQL(SQLFetch(Statement));
 
-    for (int i = 1; i <= 6; i++) {
-        SQLLEN cnamesize;
-        SQLCHAR output[256];
+    SQLLEN cnamesize;
+    SQLCHAR output[256];
 
-        WVPASS_SQL(SQLGetData(Statement, i, SQL_C_CHAR, 
-                                output, sizeof(output), &cnamesize));
+    WVPASS_SQL(SQLGetData(Statement, 1, SQL_C_CHAR, 
+			    output, sizeof(output), &cnamesize));
 
-        WVFAILEQ((char *)output, WvString::null);
-        WVPASSEQ((int)cnamesize, strlen((char *)output));
-    }
+    WVFAILEQ((char *)output, WvString::null);
+    WVPASSEQ((int)cnamesize, strlen((char *)output));
+    WVPASSEQ((char *)output, "ABCDEFGHIJKLMNOP");
+    WVPASSEQ(cnamesize, 16);
+
+    long longval = 0;
+    WVPASS_SQL(SQLGetData(Statement, 2, SQL_C_LONG, 
+			    &longval, sizeof(longval), &cnamesize));
+    WVPASSEQ(longval, 123456);
+    WVPASSEQ(cnamesize, 4);
+
+    double doubleval;
+    WVPASS_SQL(SQLGetData(Statement, 3, SQL_C_DOUBLE, 
+			    &doubleval, sizeof(doubleval), &cnamesize));
+    // Sadly there's no WVPASSEQ for doubles, and it'd be difficult to add
+    WVPASS(doubleval == 1234.56);
+    WVPASSEQ(cnamesize, 8);
+
+    SQL_NUMERIC_STRUCT numericval;
+    WVPASS_SQL(SQLGetData(Statement, 4, SQL_C_NUMERIC, 
+			    &numericval, sizeof(numericval), &cnamesize));
+    WVPASSEQ(numericval.precision, 8);
+    WVPASSEQ(numericval.scale, 2);
+    WVPASSEQ(numericval.sign, 1);
+    WVPASSEQ(numericval.val[0], 12345678 % 256);
+    WVPASSEQ(numericval.val[1], (12345678 >> 8) % 256);
+    WVPASSEQ(numericval.val[2], (12345678 >> 16) % 256);
+    WVPASSEQ((int)cnamesize, sizeof(numericval));
+
+    SQL_TIMESTAMP_STRUCT ts;
+    WVPASS_SQL(SQLGetData(Statement, 5, SQL_C_TIMESTAMP, 
+			    &ts, sizeof(ts), &cnamesize));
+    WVPASSEQ(ts.year, 2001);
+    WVPASSEQ(ts.month, 9);
+    WVPASSEQ(ts.day, 8);
+    WVPASSEQ(ts.hour, 21);
+    WVPASSEQ(ts.minute, 46);
+    WVPASSEQ(ts.second, 40);
+    WVPASSEQ(ts.fraction, 0);
+    WVPASSEQ((int)cnamesize, sizeof(ts));
+
+    WVPASS_SQL(SQLGetData(Statement, 6, SQL_C_CHAR, 
+			    output, sizeof(output), &cnamesize));
+
+    WVFAILEQ((char *)output, WvString::null);
+    WVPASSEQ((int)cnamesize, strlen((char *)output));
+    WVPASSEQ((char *)output, "just to check returned length...");
 
     WVPASS_SQL_EQ(SQLFetch(Statement), SQL_NO_DATA);
     WVPASS_SQL(SQLCloseCursor(Statement));
