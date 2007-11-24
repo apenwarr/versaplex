@@ -871,6 +871,7 @@ copy_and_convert_field(StatementClass * stmt, OID field_type,
 	case PG_TYPE_DATETIME:
 	case PG_TYPE_TIMESTAMP_NO_TMZONE:
 	case PG_TYPE_TIMESTAMP:
+	case VX_TYPE_DATETIME:
 	    len = 19;
 	    if (cbValueMax > len)
 		sprintf(rgbValueBindRow,
