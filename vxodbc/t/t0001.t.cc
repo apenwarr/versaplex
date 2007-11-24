@@ -41,7 +41,7 @@ WVTEST_MAIN("Basic data insertion and retrieval")
     it->append("ABCDEFGHIJKLMNOP");
     (++it)->append(123456);
     (++it)->append(1234.56);
-    (++it)->append("123456.78");
+    (++it)->append("123456.780000");
     // Let's party like it's time_t 1e9
     (++it)->append(1000000000).append(0);
     (++it)->append("just to check returned length...");
@@ -49,7 +49,7 @@ WVTEST_MAIN("Basic data insertion and retrieval")
     WVPASS(++it == t.cols.end());
     WvString command = "insert dbo.odbctestdata values ("
         "'ABCDEFGHIJKLMNOP',"
-        "123456," "1234.56," "123456.78," "'Sep 8 2001 9:46:40PM'," 
+        "123456," "1234.56," "123456.78," "'Sep 9 2001 1:46:40AM'," 
         "'just to check returned length...')";
     WVPASS_SQL(CommandWithResult(Statement, command)); 
 
@@ -85,21 +85,25 @@ WVTEST_MAIN("Basic data insertion and retrieval")
     SQL_NUMERIC_STRUCT numericval;
     WVPASS_SQL(SQLGetData(Statement, 4, SQL_C_NUMERIC, 
 			    &numericval, sizeof(numericval), &cnamesize));
-    WVPASSEQ(numericval.precision, 8);
-    WVPASSEQ(numericval.scale, 2);
+    WVPASSEQ(numericval.precision, 12);
+    WVPASSEQ(numericval.scale, 6);
     WVPASSEQ(numericval.sign, 1);
-    WVPASSEQ(numericval.val[0], 12345678 % 256);
-    WVPASSEQ(numericval.val[1], (12345678 >> 8) % 256);
-    WVPASSEQ(numericval.val[2], (12345678 >> 16) % 256);
+    WVPASSEQ(numericval.val[0], (123456780000LL >> 0) % 256);
+    WVPASSEQ(numericval.val[1], (123456780000LL >> 8) % 256);
+    WVPASSEQ(numericval.val[2], (123456780000LL >> 16) % 256);
+    WVPASSEQ(numericval.val[3], (123456780000LL >> 24) % 256);
+    WVPASSEQ(numericval.val[4], (123456780000LL >> 32) % 256);
     WVPASSEQ((int)cnamesize, sizeof(numericval));
 
+    // We added this in GMT, but get it back in local time.  This means that
+    // this code probably fails outside of the Eastern timezone.  Sigh.
     SQL_TIMESTAMP_STRUCT ts;
     WVPASS_SQL(SQLGetData(Statement, 5, SQL_C_TIMESTAMP, 
 			    &ts, sizeof(ts), &cnamesize));
     WVPASSEQ(ts.year, 2001);
     WVPASSEQ(ts.month, 9);
     WVPASSEQ(ts.day, 8);
-    WVPASSEQ(ts.hour, 21);
+    WVPASSEQ(ts.hour, 20);
     WVPASSEQ(ts.minute, 46);
     WVPASSEQ(ts.second, 40);
     WVPASSEQ(ts.fraction, 0);

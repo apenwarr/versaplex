@@ -11,6 +11,12 @@
 static int result = 0;
 static char sbuf[1024];
 
+//#define VXODBC_SUPPORTS_CONVERTING_BINARY
+//#define VXODBC_SUPPORTS_CONVERTING_DATETIME_TO_BINARY
+//#define VXODBC_SUPPORTS_CONVERTING_INTS_TO_BINARY
+//#define VXODBC_SUPPORTS_CONVERTING_DECIMALS_TO_BINARY
+//#define VXODBC_SUPPORTS_CONVERTING_FIXED_LENTGH_COLUMNS
+
 static void Test(VxOdbcTester &v, 
                 const char *type, const char *value_to_convert, 
                 SQLSMALLINT out_c_type, const char *expected)
@@ -54,7 +60,7 @@ static void Test(VxOdbcTester &v,
         break;
     }
 
-        WVPASSEQ(sbuf, expected);
+    WVPASSEQ(sbuf, expected);
     if (strcmp(sbuf, expected) != 0) {
         fprintf(stderr, "Wrong result\n  Got: %s\n  Expected: %s\n", sbuf, expected);
         result = 1;
@@ -79,10 +85,8 @@ WVTEST_MAIN("Data conversion")
     // FIXME: Strictly, these columns should be nullable, but ATM saying that
     // also makes the fake Versaplex server say that the data *is* null.
     bool nullable = 0;
-#ifdef VXODBC_SUPPORTS_CONVERTING_DECIMALS
     t.addCol("data", ColumnInfo::Decimal, nullable, 17, 18, 2).append("123.00");
-    Test(v, "NUMERIC(18,2)", "123", SQL_C_NUMERIC, "38 0 1 7B");
-#endif
+    Test(v, "NUMERIC(18,2)", "123", SQL_C_NUMERIC, "5 2 1 300C");
 
     /* all binary results */
     t.cols.clear();
@@ -110,13 +114,18 @@ WVTEST_MAIN("Data conversion")
 #endif
 
     // This checks that a TIMESTAMP value is truncated to 8 bytes
-#ifdef VXODBC_SUPPORTS_CONVERTING_FIXED_LENTGH_COLUMNS
     t.cols.clear();
-    t.addCol("data", ColumnInfo::String, nullable, 20, 0, 0).append("abcdefghi");
-    Test(v, "TIMESTAMP", "abcdefghi", SQL_C_BINARY, "6162636465666768");
-#endif
+    t.addCol("data", ColumnInfo::Binary, nullable, 8, 0, 0).append("abcdefghi");
+    // This insanely ugly mess is "[y97,y98,y99,y100,y101,y102,y103,y104]" 
+    // rendered into its component bytes.  The important thing is that it
+    // only represents the first 8 bytes.
+    Test(v, "TIMESTAMP", "abcdefghi", SQL_C_BINARY, 
+	//[ y 9 7 , y 9 8 , y 9 9 , y 1 0 0 , y 1 0 1 ,
+	"5B7939372C7939382C7939392C793130302C793130312C"
+	//y 1 0 2 , y 1 0 3 , y 1 0 4 ]
+	"793130322C793130332C793130345D");
 
-#ifdef VXODBC_SUPPORTS_DATETIME_RETRIEVAL
+#ifdef VXODBC_SUPPORTS_CONVERTING_DATETIME_TO_BINARY
     t.cols.clear();
     t.addCol("data", ColumnInfo::DateTime, nullable, 8, 0, 0);
     // FIXME: This value probably isn't right

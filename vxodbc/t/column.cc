@@ -160,7 +160,6 @@ Column& Column::append(long long element)
 
 Column& Column::append(int element)
 {
-    WVFAILEQ(element, -234);
     int *newelem = (int *)malloc(sizeof(element));
     *newelem = element;
     data.push_back(newelem);
