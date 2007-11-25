@@ -43,13 +43,13 @@ WVTEST_MAIN("Basic data insertion and retrieval")
     (++it)->append(1234.56);
     (++it)->append("123456.780000");
     // Let's party like it's time_t 1e9
-    (++it)->append(1000000000).append(0);
+    (++it)->append(1000000000).append(100000);
     (++it)->append("just to check returned length...");
 
     WVPASS(++it == t.cols.end());
     WvString command = "insert dbo.odbctestdata values ("
         "'ABCDEFGHIJKLMNOP',"
-        "123456," "1234.56," "123456.78," "'Sep 9 2001 1:46:40AM'," 
+        "123456," "1234.56," "123456.78," "'Sep 9 2001 1:46:40.1AM'," 
         "'just to check returned length...')";
     WVPASS_SQL(CommandWithResult(Statement, command)); 
 
@@ -106,7 +106,7 @@ WVTEST_MAIN("Basic data insertion and retrieval")
     WVPASSEQ(ts.hour, 20);
     WVPASSEQ(ts.minute, 46);
     WVPASSEQ(ts.second, 40);
-    WVPASSEQ(ts.fraction, 0);
+    WVPASSEQ(ts.fraction, 100000000);
     WVPASSEQ((int)cnamesize, sizeof(ts));
 
     WVPASS_SQL(SQLGetData(Statement, 6, SQL_C_CHAR, 

@@ -632,6 +632,9 @@ copy_and_convert_field(StatementClass * stmt, OID field_type,
 	    std_time.hh = ptm->tm_hour;
 	    std_time.mm = ptm->tm_min;
 	    std_time.ss = ptm->tm_sec;
+            // The server provides us with millionths of a second, but ODBC
+            // uses billionths
+            std_time.fr = usecs * 1000;
 	}
 	break;
     }
