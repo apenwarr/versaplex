@@ -14,7 +14,6 @@ static void DoTest(int convert_to_char)
     // time_t value for 2002-12-27 18:43:21 UTC
     t.cols[0].append(1041014601).append(0);
     v.t = &t;
-    int res;
 
     SQLCHAR output[256];
 
