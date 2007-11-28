@@ -433,9 +433,6 @@ copy_and_convert_field(StatementClass * stmt, OID field_type,
     SIMPLE_TIME std_time;
     time_t stmt_t = SC_get_time(stmt);
     struct tm *tim;
-#ifdef	HAVE_LOCALTIME_R
-    struct tm tm;
-#endif				/* HAVE_LOCALTIME_R */
     SQLLEN pcbValueOffset, rgbValueOffset;
     char *rgbValueBindRow = NULL;
     SQLLEN *pcbValueBindRow = NULL, *pIndicatorBindRow = NULL;
@@ -516,6 +513,7 @@ copy_and_convert_field(StatementClass * stmt, OID field_type,
 
     /* Initialize current date */
 #ifdef	HAVE_LOCALTIME_R
+    struct tm tm;
     tim = localtime_r(&stmt_t, &tm);
 #else
     tim = localtime(&stmt_t);
@@ -616,14 +614,28 @@ copy_and_convert_field(StatementClass * stmt, OID field_type,
 	long long secs;
 	int usecs;
 	sscanf(value, "[%lld,%d]", &secs, &usecs);
-	struct tm *ptm;
-	// FIXME: This might only be 32-bit
+
+        // January 1, 1900, 00:00:00. Note: outside the range of 32-bit time_t.
+        long long sql_epoch = -2208988800LL; 
+        int seconds_per_day = 60*60*24;
+        if (secs >= sql_epoch && secs < sql_epoch + seconds_per_day)
+        {
+            // The value is a time of day for the SQL Epoch, aka a SQL time
+            // value.  Fudge it to the Unix Epoch, so localtime() can deal
+            // with it on 32-bit systems.  If it was a DateTime, it was going
+            // to be wrong anyway.
+            secs += -sql_epoch;
+        }
+
+	// FIXME: This loses precision on 32-bit systems.
 	time_t secs_time_t = (time_t)secs;
+
+	struct tm *ptm;
 #ifdef	HAVE_LOCALTIME_R
 	struct tm tm;
-	if (secs >= 0 && (ptm = localtime_r(&secs_time_t, &tm)) != NULL)
+	if ((ptm = localtime_r(&secs_time_t, &tm)) != NULL)
 #else
-	if (secs >= 0 && (ptm = localtime(&secs_time_t)) != NULL)
+	if ((ptm = localtime(&secs_time_t)) != NULL)
 #endif				/* HAVE_LOCALTIME_R */
 	{
 	    std_time.y = ptm->tm_year + 1900;
@@ -3282,9 +3294,6 @@ static int ResolveOneParam(QueryBuild * qb, QueryParse * qp)
     SIMPLE_TIME st;
     time_t t;
     struct tm *tim;
-#ifdef	HAVE_LOCALTIME_R
-    struct tm tm;
-#endif				/* HAVE_LOCALTIME_R */
     SQLLEN used;
     char *buffer, *buf, *allocbuf, *lastadd = NULL;
     OID lobj_oid;
@@ -3539,6 +3548,7 @@ static int ResolveOneParam(QueryBuild * qb, QueryParse * qp)
     memset(&st, 0, sizeof(st));
     t = SC_get_time(qb->stmt);
 #ifdef	HAVE_LOCALTIME_R
+    struct tm tm;
     tim = localtime_r(&t, &tm);
 #else
     tim = localtime(&t);

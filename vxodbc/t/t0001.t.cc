@@ -29,6 +29,8 @@ WVTEST_MAIN("Basic data insertion and retrieval")
     t.addCol("col4", ColumnInfo::Decimal, nullable, 0, 18, 6);
     t.addCol("col5", ColumnInfo::DateTime, nullable, 8, 0, 0);
     t.addCol("col6", ColumnInfo::String, nullable, 0, 0, 0);
+    t.addCol("col7", ColumnInfo::DateTime, nullable, 8, 0, 0);
+    t.addCol("col8", ColumnInfo::DateTime, nullable, 8, 0, 0);
     v.t = &t;
 
     // Send the CREATE TABLE statement even though we've already created it 
@@ -45,12 +47,14 @@ WVTEST_MAIN("Basic data insertion and retrieval")
     // Let's party like it's time_t 1e9
     (++it)->append(1000000000).append(100000);
     (++it)->append("just to check returned length...");
+    (++it)->append(-293846400).append(0);
+    (++it)->append(-2208982400LL).append(0);
 
     WVPASS(++it == t.cols.end());
     WvString command = "insert dbo.odbctestdata values ("
         "'ABCDEFGHIJKLMNOP',"
         "123456," "1234.56," "123456.78," "'Sep 9 2001 1:46:40.1AM'," 
-        "'just to check returned length...')";
+        "'just to check returned length...'," "'Sep 9 1960'," "'1:46:40AM')";
     WVPASS_SQL(CommandWithResult(Statement, command)); 
 
     v.expected_query = "select * from odbctestdata";
@@ -115,6 +119,20 @@ WVTEST_MAIN("Basic data insertion and retrieval")
     WVFAILEQ((char *)output, WvString::null);
     WVPASSEQ((int)cnamesize, strlen((char *)output));
     WVPASSEQ((char *)output, "just to check returned length...");
+
+    SQL_DATE_STRUCT ds;
+    WVPASS_SQL(SQLGetData(Statement, 7, SQL_C_DATE, 
+        &ds, sizeof(ds), &cnamesize));
+    WVPASSEQ(ds.year, 1960);
+    WVPASSEQ(ds.month, 9);
+    WVPASSEQ(ds.day, 8);
+
+    SQL_TIME_STRUCT tms;
+    WVPASS_SQL(SQLGetData(Statement, 8, SQL_C_TIME, 
+        &tms, sizeof(tms), &cnamesize));
+    WVPASSEQ(tms.hour, 20);
+    WVPASSEQ(tms.minute, 46);
+    WVPASSEQ(tms.second, 40);
 
     WVPASS_SQL_EQ(SQLFetch(Statement), SQL_NO_DATA);
     WVPASS_SQL(SQLCloseCursor(Statement));

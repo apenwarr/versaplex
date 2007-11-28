@@ -27,7 +27,7 @@ WvString ColumnInfo::ColTypeDBusType[ColumnTypeMax + 1] = {
     "s",
     "ay",
     "s",
-    "(ii)",
+    "(xi)",
     "s"
 };
 
@@ -126,7 +126,7 @@ void Column::addDataTo(WvDBusMsg &reply)
         reply.struct_start("ii");
         // FIXME: Each element in the vector should be a complete entry
         WVPASS(data.size() >= 2);
-        reply.append(*(int *)data[0]);
+        reply.append(*(long long *)data[0]);
         reply.append(*(int *)data[1]);
         reply.struct_end();
         break;
@@ -160,6 +160,11 @@ Column& Column::append(long long element)
 
 Column& Column::append(int element)
 {
+    // It's error-prone to have to specify LL after every time value literal,
+    // even the ones that fit into 32 bits.
+    if (info.coltype == ColumnInfo::DateTime && data.size() == 0)
+        return append((long long)element);
+
     int *newelem = (int *)malloc(sizeof(element));
     *newelem = element;
     data.push_back(newelem);
