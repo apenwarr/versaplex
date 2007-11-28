@@ -648,66 +648,6 @@ copy_and_convert_field(StatementClass * stmt, OID field_type,
 	       &std_time.ss);
 	break;
 
-    case PG_TYPE_ABSTIME:
-    case PG_TYPE_DATETIME:
-    case PG_TYPE_TIMESTAMP_NO_TMZONE:
-    case PG_TYPE_TIMESTAMP:
-	std_time.fr = 0;
-	std_time.infinity = 0;
-	if (strnicmp(value, INFINITY_STRING, 8) == 0)
-	{
-	    std_time.infinity = 1;
-	    std_time.m = 12;
-	    std_time.d = 31;
-	    std_time.y = 9999;
-	    std_time.hh = 23;
-	    std_time.mm = 59;
-	    std_time.ss = 59;
-	}
-	if (strnicmp(value, MINFINITY_STRING, 9) == 0)
-	{
-	    std_time.infinity = -1;
-	    std_time.m = 0;
-	    std_time.d = 0;
-	    std_time.y = 0;
-	    std_time.hh = 0;
-	    std_time.mm = 0;
-	    std_time.ss = 0;
-	}
-	if (strnicmp(value, "invalid", 7) != 0)
-	{
-	    BOOL bZone = (field_type != PG_TYPE_TIMESTAMP_NO_TMZONE
-			  && PG_VERSION_GE(conn, 7.2));
-	    int zone;
-
-	    /*
-	     * sscanf(value, "%4d-%2d-%2d %2d:%2d:%2d", &std_time.y, &std_time.m,
-	     * &std_time.d, &std_time.hh, &std_time.mm, &std_time.ss);
-	     */
-	    bZone = FALSE;	/* time zone stuff is unreliable */
-	    timestamp2stime(value, &std_time, &bZone, &zone);
-	    inolog("2stime fr=%d\n", std_time.fr);
-	} else
-	{
-	    /*
-	     * The timestamp is invalid so set something conspicuous,
-	     * like the epoch
-	     */
-	    time_t t = 0;
-#ifdef	HAVE_LOCALTIME_R
-	    tim = localtime_r(&t, &tm);
-#else
-	    tim = localtime(&t);
-#endif				/* HAVE_LOCALTIME_R */
-	    std_time.m = tim->tm_mon + 1;
-	    std_time.d = tim->tm_mday;
-	    std_time.y = tim->tm_year + 1900;
-	    std_time.hh = tim->tm_hour;
-	    std_time.mm = tim->tm_min;
-	    std_time.ss = tim->tm_sec;
-	}
-	break;
-
     case PG_TYPE_BOOL:
 	{			/* change T/F to 1/0 */
 	    char *s;
@@ -870,10 +810,6 @@ copy_and_convert_field(StatementClass * stmt, OID field_type,
 			std_time.mm, std_time.ss);
 	    break;
 
-	case PG_TYPE_ABSTIME:
-	case PG_TYPE_DATETIME:
-	case PG_TYPE_TIMESTAMP_NO_TMZONE:
-	case PG_TYPE_TIMESTAMP:
 	case VX_TYPE_DATETIME:
 	    len = 19;
 	    if (cbValueMax > len)

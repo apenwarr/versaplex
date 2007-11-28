@@ -47,7 +47,6 @@
 #define PG_TYPE_FILENAME		605
 #define PG_TYPE_FLOAT4			700
 #define PG_TYPE_FLOAT8			701
-#define PG_TYPE_ABSTIME			702
 #define PG_TYPE_RELTIME			703
 #define PG_TYPE_TINTERVAL		704
 #define PG_TYPE_UNKNOWN			705
@@ -62,10 +61,6 @@
 #define PG_TYPE_VARCHAR			1043
 #define PG_TYPE_DATE			1082
 #define PG_TYPE_TIME			1083
-#define PG_TYPE_TIMESTAMP_NO_TMZONE	1114		/* since 7.2 */
-#define PG_TYPE_DATETIME		1184
-#define PG_TYPE_TIME_WITH_TMZONE	1266		/* since 7.1 */
-#define PG_TYPE_TIMESTAMP		1296	/* deprecated since 7.0 */
 #define PG_TYPE_NUMERIC			1700
 #define PG_TYPE_RECORD			2249
 #define PG_TYPE_VOID			2278

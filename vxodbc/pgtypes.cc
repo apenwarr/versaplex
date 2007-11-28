@@ -45,11 +45,6 @@ OID pgtypes_defined[][2] = {
 			,{PG_TYPE_BPCHAR, 0}
 			,{PG_TYPE_DATE, 0}
 			,{PG_TYPE_TIME, 0}
-			,{PG_TYPE_TIME_WITH_TMZONE, 0}
-			,{PG_TYPE_DATETIME, 0}
-			,{PG_TYPE_ABSTIME, 0}
-			,{PG_TYPE_TIMESTAMP_NO_TMZONE, 0}
-			,{PG_TYPE_TIMESTAMP, 0}
 			,{PG_TYPE_TEXT, 0}
 			,{PG_TYPE_INT2, 0}
 			,{PG_TYPE_INT4, 0}
@@ -180,7 +175,7 @@ OID sqltype_to_pgtype(StatementClass * stmt, SQLSMALLINT fSqlType)
 
     case SQL_TIMESTAMP:
     case SQL_TYPE_TIMESTAMP:
-	pgType = PG_TYPE_DATETIME;
+	pgType = VX_TYPE_DATETIME;
 	break;
 
     case SQL_VARBINARY:
@@ -316,10 +311,7 @@ pgtype_to_concise_type(StatementClass * stmt, OID type, int col)
 	if (EN_is_odbc3(env))
 	    return SQL_TYPE_TIME;
 	return SQL_TIME;
-    case PG_TYPE_ABSTIME:
-    case PG_TYPE_DATETIME:
-    case PG_TYPE_TIMESTAMP_NO_TMZONE:
-    case PG_TYPE_TIMESTAMP:
+    case VX_TYPE_DATETIME:
 	if (EN_is_odbc3(env))
 	    return SQL_TYPE_TIMESTAMP;
 	return SQL_TIMESTAMP;
@@ -405,10 +397,7 @@ SQLSMALLINT pgtype_to_ctype(StatementClass * stmt, OID type)
 	if (EN_is_odbc3(env))
 	    return SQL_C_TYPE_TIME;
 	return SQL_C_TIME;
-    case PG_TYPE_ABSTIME:
-    case PG_TYPE_DATETIME:
-    case PG_TYPE_TIMESTAMP_NO_TMZONE:
-    case PG_TYPE_TIMESTAMP:
+    case VX_TYPE_DATETIME:
 	if (EN_is_odbc3(env))
 	    return SQL_C_TYPE_TIMESTAMP;
 	return SQL_C_TIMESTAMP;
@@ -488,19 +477,8 @@ const char *pgtype_to_name(StatementClass * stmt, OID type,
 	return "date";
     case PG_TYPE_TIME:
 	return "time";
-    case PG_TYPE_ABSTIME:
-	return "abstime";
-    case PG_TYPE_DATETIME:
-	if (PG_VERSION_GT(conn, 7.1))
-	    return "timestamptz";
-	else if (PG_VERSION_LT(conn, 7.0))
-	    return "datetime";
-	else
-	    return "timestamp";
-    case PG_TYPE_TIMESTAMP_NO_TMZONE:
-	return "timestamp without time zone";
-    case PG_TYPE_TIMESTAMP:
-	return "timestamp";
+    case VX_TYPE_DATETIME:
+        return "datetime";
     case PG_TYPE_MONEY:
 	return "money";
     case PG_TYPE_BOOL:
@@ -716,54 +694,6 @@ Int4 getCharColumnSize(StatementClass * stmt, OID type, int col,
 	return -1;
 }
 
-static SQLSMALLINT
-getTimestampDecimalDigits(StatementClass * stmt, OID type, int col)
-{
-    ConnectionClass *conn = SC_get_conn(stmt);
-    Int4 atttypmod;
-    QResultClass *result;
-
-    mylog("getTimestampDecimalDigits: type=%d, col=%d\n", type, col);
-
-    if (col < 0)
-	return 0;
-    if (PG_VERSION_LT(conn, 7.2))
-	return 0;
-
-    result = SC_get_Curres(stmt);
-
-    atttypmod = QR_get_atttypmod(result, col);
-    mylog("atttypmod2=%d\n", atttypmod);
-    return (atttypmod > -1 ? atttypmod : 6);
-}
-static SQLSMALLINT
-getTimestampColumnSize(StatementClass * stmt, OID type, int col)
-{
-    Int4 fixed, scale;
-
-    mylog("getTimestampColumnSize: type=%d, col=%d\n", type, col);
-
-    switch (type)
-    {
-    case PG_TYPE_TIME:
-	fixed = 8;
-	break;
-    case PG_TYPE_TIME_WITH_TMZONE:
-	fixed = 11;
-	break;
-    case PG_TYPE_TIMESTAMP_NO_TMZONE:
-	fixed = 19;
-	break;
-    default:
-	if (USE_ZONE)
-	    fixed = 22;
-	else
-	    fixed = 19;
-	break;
-    }
-    scale = getTimestampDecimalDigits(stmt, type, col);
-    return (scale > 0) ? fixed + 1 + scale : fixed;
-}
 
 /*
  *	This corresponds to "precision" in ODBC 2.x.
@@ -837,13 +767,10 @@ pgtype_column_size(StatementClass * stmt, OID type, int col,
     case PG_TYPE_TIME:
 	return 8;
 
-    case PG_TYPE_ABSTIME:
-    case PG_TYPE_TIMESTAMP:
-	return 22;
-    case PG_TYPE_DATETIME:
-    case PG_TYPE_TIMESTAMP_NO_TMZONE:
-	/* return 22; */
-	return getTimestampColumnSize(stmt, type, col);
+    // A VX_TYPE_DATETIME is "[x,y]", where x is a signed 64-bit value (up to
+    // 19 characters), and y is in the range [0, 999999]
+    case VX_TYPE_DATETIME:
+        return 28;
 
     case PG_TYPE_BOOL:
 	return ci->true_is_minus1 ? 2 : 1;
@@ -876,9 +803,6 @@ pgtype_precision(StatementClass * stmt, OID type, int col,
     {
     case PG_TYPE_NUMERIC:
 	return getNumericColumnSize(stmt, type, col);
-    case PG_TYPE_DATETIME:
-    case PG_TYPE_TIMESTAMP_NO_TMZONE:
-	return getTimestampDecimalDigits(stmt, type, col);
     }
     return -1;
 }
@@ -963,10 +887,7 @@ Int4 pgtype_buffer_length(StatementClass * stmt, OID type, int col,
     case PG_TYPE_TIME:
 	return 6;		/* sizeof(DATE(TIME)_STRUCT) */
 
-    case PG_TYPE_ABSTIME:
-    case PG_TYPE_DATETIME:
-    case PG_TYPE_TIMESTAMP:
-    case PG_TYPE_TIMESTAMP_NO_TMZONE:
+    case VX_TYPE_DATETIME:
 	return 16;		/* sizeof(TIMESTAMP_STRUCT) */
 
 	/* Character types use the default precision */
@@ -1030,12 +951,9 @@ Int4 pgtype_desclength(StatementClass * stmt, OID type, int col,
     case PG_TYPE_FLOAT8:
 	return 8;
 
+    case VX_TYPE_DATETIME:
     case PG_TYPE_DATE:
     case PG_TYPE_TIME:
-    case PG_TYPE_ABSTIME:
-    case PG_TYPE_DATETIME:
-    case PG_TYPE_TIMESTAMP_NO_TMZONE:
-    case PG_TYPE_TIMESTAMP:
     case PG_TYPE_VARCHAR:
     case PG_TYPE_BPCHAR:
 	return pgtype_column_size(stmt, type, col,
@@ -1106,10 +1024,7 @@ Int2 pgtype_min_decimal_digits(StatementClass * stmt, OID type)
     case PG_TYPE_FLOAT8:
     case PG_TYPE_MONEY:
     case PG_TYPE_BOOL:
-    case PG_TYPE_ABSTIME:
-    case PG_TYPE_TIMESTAMP:
-    case PG_TYPE_DATETIME:
-    case PG_TYPE_TIMESTAMP_NO_TMZONE:
+    case VX_TYPE_DATETIME:
     case PG_TYPE_NUMERIC:
 	return 0;
     default:
@@ -1133,12 +1048,8 @@ Int2 pgtype_max_decimal_digits(StatementClass * stmt, OID type)
     case PG_TYPE_FLOAT8:
     case PG_TYPE_MONEY:
     case PG_TYPE_BOOL:
-    case PG_TYPE_ABSTIME:
-    case PG_TYPE_TIMESTAMP:
+    case VX_TYPE_DATETIME:
 	return 0;
-    case PG_TYPE_DATETIME:
-    case PG_TYPE_TIMESTAMP_NO_TMZONE:
-	return 38;
     case PG_TYPE_NUMERIC:
 	return getNumericDecimalDigits(stmt, type, -1);
     default:
@@ -1162,18 +1073,8 @@ Int2 pgtype_decimal_digits(StatementClass * stmt, OID type, int col)
     case PG_TYPE_FLOAT8:
     case PG_TYPE_MONEY:
     case PG_TYPE_BOOL:
-
-	/*
-	 * Number of digits to the right of the decimal point in
-	 * "yyyy-mm=dd hh:mm:ss[.f...]"
-	 */
-    case PG_TYPE_ABSTIME:
-    case PG_TYPE_TIMESTAMP:
-	return 0;
-    case PG_TYPE_DATETIME:
-    case PG_TYPE_TIMESTAMP_NO_TMZONE:
-	/* return 0; */
-	return getTimestampDecimalDigits(stmt, type, col);
+    case VX_TYPE_DATETIME:
+        return 0;
 
     case PG_TYPE_NUMERIC:
 	return getNumericDecimalDigits(stmt, type, col);
@@ -1239,12 +1140,8 @@ Int2 pgtype_auto_increment(StatementClass * stmt, OID type)
     case PG_TYPE_NUMERIC:
 
     case PG_TYPE_DATE:
-    case PG_TYPE_TIME_WITH_TMZONE:
     case PG_TYPE_TIME:
-    case PG_TYPE_ABSTIME:
-    case PG_TYPE_DATETIME:
-    case PG_TYPE_TIMESTAMP_NO_TMZONE:
-    case PG_TYPE_TIMESTAMP:
+    case VX_TYPE_DATETIME:
 	return FALSE;
 
     default:
