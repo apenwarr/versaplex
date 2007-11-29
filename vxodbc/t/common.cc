@@ -139,16 +139,6 @@ Connect(void)
 		CheckReturn();
 		exit(1);
 	}
-
-	char command[512];
-	sprintf(command, "use %s", DATABASE);
-	printf("%s\n", command);
-
-	if (!SQL_SUCCEEDED(SQLExecDirect(Statement, (SQLCHAR *) command, SQL_NTS))) {
-		printf("Unable to execute statement\n");
-		CheckReturn();
-		exit(1);
-	}
 	return 0;
 }
 
