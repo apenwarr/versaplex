@@ -86,14 +86,7 @@ bool VxOdbcTester::msg_received(WvDBusMsg &msg)
     {
         log("Processing ExecRecordSet\n");
         WvString query(msg.get_argstr());
-        if (query == "use pmccurdy")
-        {
-            log("*** Sending error\n");
-            WvDBusError(msg, "System.ArgumentOutOfRangeException", 
-                "Argument is out of range.").send(vxserver_conn);
-            return false;
-        }
-        else if (query == expected_query)
+        if (query == expected_query)
         {
             log("*** Sending reply\n");
             WvDBusMsg reply = msg.reply();
