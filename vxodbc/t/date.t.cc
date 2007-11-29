@@ -44,8 +44,7 @@ static void DoTest(int convert_to_char)
         WVPASS_SQL(SQLGetData(Statement, 1, SQL_C_CHAR, output, sizeof(output), &dataSize));
     }
 
-    // We add this in UTC, and get it back in EST.  Sigh.
-    WVPASSEQ((char *) output, "2002-12-27 13:43:21");
+    WVPASSEQ((char *) output, "2002-12-27 18:43:21");
 
     WVPASS_SQL_EQ(SQLFetch(Statement), SQL_NO_DATA);
     WVPASS_SQL(SQLCloseCursor(Statement));

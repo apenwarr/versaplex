@@ -106,8 +106,8 @@ WVTEST_MAIN("Basic data insertion and retrieval")
 			    &ts, sizeof(ts), &cnamesize));
     WVPASSEQ(ts.year, 2001);
     WVPASSEQ(ts.month, 9);
-    WVPASSEQ(ts.day, 8);
-    WVPASSEQ(ts.hour, 20);
+    WVPASSEQ(ts.day, 9);
+    WVPASSEQ(ts.hour, 1);
     WVPASSEQ(ts.minute, 46);
     WVPASSEQ(ts.second, 40);
     WVPASSEQ(ts.fraction, 100000000);
@@ -125,12 +125,12 @@ WVTEST_MAIN("Basic data insertion and retrieval")
         &ds, sizeof(ds), &cnamesize));
     WVPASSEQ(ds.year, 1960);
     WVPASSEQ(ds.month, 9);
-    WVPASSEQ(ds.day, 8);
+    WVPASSEQ(ds.day, 9);
 
     SQL_TIME_STRUCT tms;
     WVPASS_SQL(SQLGetData(Statement, 8, SQL_C_TIME, 
         &tms, sizeof(tms), &cnamesize));
-    WVPASSEQ(tms.hour, 20);
+    WVPASSEQ(tms.hour, 1);
     WVPASSEQ(tms.minute, 46);
     WVPASSEQ(tms.second, 40);
 

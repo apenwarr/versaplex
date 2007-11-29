@@ -29,7 +29,6 @@ VxOdbcTester::VxOdbcTester() :
     log("Fake Versaplex", WvLog::Debug1)
 {
     WvString dbus(dbus_server.moniker);
-    setenv("TZ", "EST", 1);
 
     WvString use_real(getenv("USE_REAL_VERSAPLEX"));
     if (!use_real || use_real == "0") 

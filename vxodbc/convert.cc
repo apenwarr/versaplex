@@ -396,12 +396,12 @@ copy_and_convert_field(StatementClass * stmt, OID field_type,
     memset(&std_time, 0, sizeof(SIMPLE_TIME));
 
     /* Initialize current date */
-#ifdef	HAVE_LOCALTIME_R
+#ifdef	HAVE_GMTIME_R
     struct tm tm;
-    tim = localtime_r(&stmt_t, &tm);
+    tim = gmtime_r(&stmt_t, &tm);
 #else
-    tim = localtime(&stmt_t);
-#endif				/* HAVE_LOCALTIME_R */
+    tim = gmtime(&stmt_t);
+#endif				/* HAVE_GMTIME_R */
     std_time.m = tim->tm_mon + 1;
     std_time.d = tim->tm_mday;
     std_time.y = tim->tm_year + 1900;
@@ -505,7 +505,7 @@ copy_and_convert_field(StatementClass * stmt, OID field_type,
         if (secs >= sql_epoch && secs < sql_epoch + seconds_per_day)
         {
             // The value is a time of day for the SQL Epoch, aka a SQL time
-            // value.  Fudge it to the Unix Epoch, so localtime() can deal
+            // value.  Fudge it to the Unix Epoch, so gmtime() can deal
             // with it on 32-bit systems.  If it was a DateTime, it was going
             // to be wrong anyway.
             secs += -sql_epoch;
@@ -515,12 +515,12 @@ copy_and_convert_field(StatementClass * stmt, OID field_type,
 	time_t secs_time_t = (time_t)secs;
 
 	struct tm *ptm;
-#ifdef	HAVE_LOCALTIME_R
+#ifdef	HAVE_GMTIME_R
 	struct tm tm;
-	if ((ptm = localtime_r(&secs_time_t, &tm)) != NULL)
+	if ((ptm = gmtime_r(&secs_time_t, &tm)) != NULL)
 #else
-	if ((ptm = localtime(&secs_time_t)) != NULL)
-#endif				/* HAVE_LOCALTIME_R */
+	if ((ptm = gmtime(&secs_time_t)) != NULL)
+#endif				/* HAVE_GMTIME_R */
 	{
 	    std_time.y = ptm->tm_year + 1900;
 	    std_time.m = ptm->tm_mon + 1;
@@ -3431,12 +3431,12 @@ static int ResolveOneParam(QueryBuild * qb, QueryParse * qp)
     cbuf[0] = '\0';
     memset(&st, 0, sizeof(st));
     t = SC_get_time(qb->stmt);
-#ifdef	HAVE_LOCALTIME_R
+#ifdef	HAVE_GMTIME_R
     struct tm tm;
-    tim = localtime_r(&t, &tm);
+    tim = gmtime_r(&t, &tm);
 #else
-    tim = localtime(&t);
-#endif				/* HAVE_LOCALTIME_R */
+    tim = gmtime(&t);
+#endif				/* HAVE_GMTIME_R */
     st.m = tim->tm_mon + 1;
     st.d = tim->tm_mday;
     st.y = tim->tm_year + 1900;
