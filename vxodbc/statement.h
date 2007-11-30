@@ -202,7 +202,6 @@ struct StatementClass_
 						 * handle multiple calls */
 	SQLLEN		last_fetch_count;	/* number of rows retrieved in
 						 * last fetch/extended fetch */
-	int		lobj_fd;		/* fd of the current large object */
 
 	char	   *statement;		/* if non--null pointer to the SQL
 					 * statement that has been executed */

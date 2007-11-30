@@ -12,7 +12,6 @@ OBJS=\
 	execute.o \
 	info.o \
 	info30.o \
-	lobj.o \
 	win_md5.o \
 	misc.o \
 	mylog.o \

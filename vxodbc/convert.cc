@@ -29,7 +29,6 @@
 #include "qresult.h"
 #include "bind.h"
 #include "pgtypes.h"
-#include "lobj.h"
 #include "connection.h"
 #include "catfunc.h"
 #include "pgapifunc.h"
@@ -627,16 +626,13 @@ copy_and_convert_field(StatementClass * stmt, OID field_type,
 	 */
     case PG_TYPE_LO_UNDEFINED:
 
-	return convert_lo(stmt, value, fCType, rgbValueBindRow,
-			  cbValueMax, pcbValueBindRow);
+	SC_set_error(stmt, STMT_EXEC_ERROR, "Large objects are not supported.",
+		     func);
+	return SQL_ERROR;
 
     default:
+	break;
 
-	if (field_type == stmt->hdbc->lobj_type	/* hack until permanent type available */
-	    || (PG_TYPE_OID == field_type && SQL_C_BINARY == fCType
-		&& conn->lo_is_domain))
-	    return convert_lo(stmt, value, fCType, rgbValueBindRow,
-			      cbValueMax, pcbValueBindRow);
     }
 
     /* Change default into something useable */
@@ -3180,12 +3176,11 @@ static int ResolveOneParam(QueryBuild * qb, QueryParse * qp)
     struct tm *tim;
     SQLLEN used;
     char *buffer, *buf, *allocbuf, *lastadd = NULL;
-    OID lobj_oid;
-    int lobj_fd, retval;
+    int retval;
     SQLULEN offset =
 	apdopts->param_offset_ptr ? *apdopts->param_offset_ptr : 0;
     size_t current_row = qb->current_row, npos = 0;
-    BOOL handling_large_object = FALSE, req_bind, add_quote = FALSE;
+    BOOL req_bind, add_quote = FALSE;
     ParameterInfoClass *apara;
     ParameterImplClass *ipara;
     BOOL outputDiscard, valueOutput;
@@ -3326,8 +3321,6 @@ static int ResolveOneParam(QueryBuild * qb, QueryParse * qp)
 	    pdata->pdata[param_number].EXEC_used ? *pdata->
 	    pdata[param_number].EXEC_used : SQL_NTS;
 	buffer = pdata->pdata[param_number].EXEC_buffer;
-	if (pdata->pdata[param_number].lobj_oid)
-	    handling_large_object = TRUE;
     } else
     {
 	UInt4 bind_size = apdopts->param_bind_type;
@@ -3404,7 +3397,7 @@ static int ResolveOneParam(QueryBuild * qb, QueryParse * qp)
 	    CVT_APPEND_STR(qb, "NULL");
 	    qb->flags |= FLGB_INACCURATE_RESULT;
 	    return SQL_SUCCESS;
-	} else if (!handling_large_object)
+	} else 
 	{
 	    CVT_APPEND_CHAR(qb, '?');
 	    return SQL_SUCCESS;
@@ -3731,119 +3724,9 @@ static int ResolveOneParam(QueryBuild * qb, QueryParse * qp)
     case SQL_BINARY:
     case SQL_VARBINARY:
     case SQL_LONGVARBINARY:
-	switch (param_ctype)
-	{
-	case SQL_C_BINARY:
-	    break;
-	case SQL_C_CHAR:
-	    switch (used)
-	    {
-	    case SQL_NTS:
-		used = strlen(buf);
-		break;
-	    }
-	    allocbuf = (char *)malloc(used / 2 + 1);
-	    if (allocbuf)
-	    {
-		pg_hex2bin((const UCHAR *)buf, (UCHAR *)allocbuf, used);
-		buf = allocbuf;
-		used /= 2;
-	    }
-	    break;
-	default:
-	    qb->errormsg = "Could not convert the ctype to binary type";
-	    qb->errornumber = STMT_EXEC_ERROR;
-	    return SQL_ERROR;
-	}
-	if (param_pgtype == PG_TYPE_BYTEA)
-	{
-	    if (0 != (qb->flags & FLGB_BINARY_AS_POSSIBLE))
-	    {
-		mylog("sending binary data leng=%d\n", used);
-		CVT_APPEND_DATA(qb, buf, used);
-	    } else
-	    {
-		/* non-ascii characters should be
-		 * converted to octal
-		 */
-		mylog
-		    ("SQL_VARBINARY: about to call convert_to_pgbinary, used = %d\n",
-		     used);
-
-		CVT_APPEND_BINARY(qb, buf, used);
-	    }
-	    break;
-	}
-	if (PG_TYPE_OID == param_pgtype && conn->lo_is_domain)
-	    ;
-	else if (param_pgtype != conn->lobj_type)
-	{
-	    qb->errormsg =
-		"Could not convert binary other than LO type";
-	    qb->errornumber = STMT_EXEC_ERROR;
-	    return SQL_ERROR;
-	}
-
-	if (apara->data_at_exec)
-	    lobj_oid = pdata->pdata[param_number].lobj_oid;
-	else
-	{
-	    /* begin transaction if needed */
-	    if (!CC_is_in_trans(conn))
-	    {
-		if (!CC_begin(conn))
-		{
-		    qb->errormsg =
-			"Could not begin (in-line) a transaction";
-		    qb->errornumber = STMT_EXEC_ERROR;
-		    return SQL_ERROR;
-		}
-	    }
-
-	    /* store the oid */
-	    lobj_oid = odbc_lo_creat(conn, INV_READ | INV_WRITE);
-	    if (lobj_oid == 0)
-	    {
-		qb->errornumber = STMT_EXEC_ERROR;
-		qb->errormsg = "Couldnt create (in-line) large object.";
-		return SQL_ERROR;
-	    }
-
-	    /* store the fd */
-	    lobj_fd = odbc_lo_open(conn, lobj_oid, INV_WRITE);
-	    if (lobj_fd < 0)
-	    {
-		qb->errornumber = STMT_EXEC_ERROR;
-		qb->errormsg =
-		    "Couldnt open (in-line) large object for writing.";
-		return SQL_ERROR;
-	    }
-
-	    retval = odbc_lo_write(conn, lobj_fd, buffer, (Int4) used);
-
-	    odbc_lo_close(conn, lobj_fd);
-
-	    /* commit transaction if needed */
-	    if (CC_is_in_autocommit(conn))
-	    {
-		if (!CC_commit(conn))
-		{
-		    qb->errormsg =
-			"Could not commit (in-line) a transaction";
-		    qb->errornumber = STMT_EXEC_ERROR;
-		    return SQL_ERROR;
-		}
-	    }
-	}
-
-	/*
-	 * the oid of the large object -- just put that in for the
-	 * parameter marker -- the data has already been sent to
-	 * the large object
-	 */
-	sprintf(param_string, "%u", lobj_oid);
-	lastadd = "::lo";
-	CVT_APPEND_STR(qb, param_string);
+	qb->errormsg = "Large objects are not supported";
+	qb->errornumber = STMT_EXEC_ERROR;
+	return SQL_ERROR;
 
 	break;
 
@@ -4803,169 +4686,3 @@ SQLLEN pg_hex2bin(const UCHAR * src, UCHAR * dst, SQLLEN length)
     return length;
 }
 
-/*-------
- *	1. get oid (from 'value')
- *	2. open the large object
- *	3. read from the large object (handle multiple GetData)
- *	4. close when read less than requested?  -OR-
- *		lseek/read each time
- *		handle case where application receives truncated and
- *		decides not to continue reading.
- *
- *	CURRENTLY, ONLY LONGVARBINARY is handled, since that is the only
- *	data type currently mapped to a PG_TYPE_LO.  But, if any other types
- *	are desired to map to a large object (PG_TYPE_LO), then that would
- *	need to be handled here.  For example, LONGVARCHAR could possibly be
- *	mapped to PG_TYPE_LO someday, instead of PG_TYPE_TEXT as it is now.
- *-------
- */
-int
-convert_lo(StatementClass * stmt, const void *value, SQLSMALLINT fCType,
-	   PTR rgbValue, SQLLEN cbValueMax, SQLLEN * pcbValue)
-{
-    CSTR func = "convert_lo";
-    OID oid;
-    int retval, result;
-    SQLLEN left = -1;
-    GetDataClass *gdata = NULL;
-    ConnectionClass *conn = SC_get_conn(stmt);
-    GetDataInfo *gdata_info = SC_get_GDTI(stmt);
-    int factor;
-
-    switch (fCType)
-    {
-    case SQL_C_CHAR:
-	factor = 2;
-	break;
-    case SQL_C_BINARY:
-	factor = 1;
-	break;
-    default:
-	SC_set_error(stmt, STMT_EXEC_ERROR,
-		     "Could not convert lo to the c-type", func);
-	return COPY_GENERAL_ERROR;
-    }
-    /* If using SQLGetData, then current_col will be set */
-    if (stmt->current_col >= 0)
-    {
-	gdata = &gdata_info->gdata[stmt->current_col];
-	left = gdata->data_left;
-    }
-
-    /*
-     * if this is the first call for this column, open the large object
-     * for reading
-     */
-
-    if (!gdata || gdata->data_left == -1)
-    {
-	/* begin transaction if needed */
-	if (!CC_is_in_trans(conn))
-	{
-	    if (!CC_begin(conn))
-	    {
-		SC_set_error(stmt, STMT_EXEC_ERROR,
-			     "Could not begin (in-line) a transaction",
-			     func);
-		return COPY_GENERAL_ERROR;
-	    }
-	}
-
-	oid = ATOI32U((const char *)value);
-	stmt->lobj_fd = odbc_lo_open(conn, oid, INV_READ);
-	if (stmt->lobj_fd < 0)
-	{
-	    SC_set_error(stmt, STMT_EXEC_ERROR,
-			 "Couldnt open large object for reading.",
-			 func);
-	    return COPY_GENERAL_ERROR;
-	}
-
-	/* Get the size */
-	retval = odbc_lo_lseek(conn, stmt->lobj_fd, 0L, SEEK_END);
-	if (retval >= 0)
-	{
-	    left = odbc_lo_tell(conn, stmt->lobj_fd);
-	    if (gdata)
-		gdata->data_left = left;
-
-	    /* return to beginning */
-	    odbc_lo_lseek(conn, stmt->lobj_fd, 0L, SEEK_SET);
-	}
-    } else if (left == 0)
-	return COPY_NO_DATA_FOUND;
-    mylog("lo data left = %d\n", left);
-
-    if (stmt->lobj_fd < 0)
-    {
-	SC_set_error(stmt, STMT_EXEC_ERROR,
-		     "Large object FD undefined for multiple read.",
-		     func);
-	return COPY_GENERAL_ERROR;
-    }
-
-    if (0 >= cbValueMax)
-	retval = 0;
-    else
-	retval =
-	    odbc_lo_read(conn, stmt->lobj_fd, (char *) rgbValue,
-			 (Int4) (factor >
-				 1 ? (cbValueMax -
-				      1) / factor : cbValueMax));
-    if (retval < 0)
-    {
-	odbc_lo_close(conn, stmt->lobj_fd);
-
-	/* commit transaction if needed */
-	if (CC_is_in_autocommit(conn))
-	{
-	    if (!CC_commit(conn))
-	    {
-		SC_set_error(stmt, STMT_EXEC_ERROR,
-			     "Could not commit (in-line) a transaction",
-			     func);
-		return COPY_GENERAL_ERROR;
-	    }
-	}
-
-	stmt->lobj_fd = -1;
-
-	SC_set_error(stmt, STMT_EXEC_ERROR,
-		     "Error reading from large object.", func);
-	return COPY_GENERAL_ERROR;
-    }
-
-    if (factor > 1)
-	pg_bin2hex((UCHAR *) rgbValue, (UCHAR *) rgbValue, retval);
-    if (retval < left)
-	result = COPY_RESULT_TRUNCATED;
-    else
-	result = COPY_OK;
-
-    if (pcbValue)
-	*pcbValue = left < 0 ? SQL_NO_TOTAL : left * factor;
-
-    if (gdata && gdata->data_left > 0)
-	gdata->data_left -= retval;
-
-    if (!gdata || gdata->data_left == 0)
-    {
-	odbc_lo_close(conn, stmt->lobj_fd);
-
-	/* commit transaction if needed */
-	if (CC_is_in_autocommit(conn))
-	{
-	    if (!CC_commit(conn))
-	    {
-		SC_set_error(stmt, STMT_EXEC_ERROR,
-			     "Could not commit (in-line) a transaction",
-			     func);
-		return COPY_GENERAL_ERROR;
-	    }
-	}
-
-	stmt->lobj_fd = -1;	/* prevent further reading */
-    }
-
-    return result;
-}

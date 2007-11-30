@@ -18,7 +18,6 @@
 #include "socket.h"
 #include "statement.h"
 #include "qresult.h"
-#include "lobj.h"
 #include "dlg_specific.h"
 
 #include "multibyte.h"
@@ -308,8 +307,6 @@ ConnectionClass *CC_Constructor()
 	       sizeof(DescriptorClass *) * STMT_INCREMENT);
 
 	rv->num_descs = STMT_INCREMENT;
-
-	rv->lobj_type = PG_TYPE_LO_UNDEFINED;
 
 	// rv->ncursors = 0;
 	// rv->ntables = 0;
@@ -1523,221 +1520,6 @@ QResultClass *CC_send_query(ConnectionClass * self, char *query,
 }
 
 
-// VX_CLEANUP: This looks useless.
-int
-CC_send_function(ConnectionClass * self, int fnid, void *result_buf,
-		 int *actual_result_len, int result_is_int,
-		 LO_ARG * args, int nargs)
-{
-    CSTR func = "CC_send_function";
-    char id, c, done;
-    SocketClass *sock = self->sock;
-
-    /* ERROR_MSG_LENGTH is sufficient */
-    char msgbuffer[ERROR_MSG_LENGTH + 1];
-    int i;
-    int ret = TRUE;
-    UInt4 leng;
-    Int4 response_length;
-    ConnInfo *ci;
-    int func_cs_count = 0;
-    BOOL sinceV3, beforeV3, beforeV2, resultResponse;
-
-    mylog
-	("send_function(): conn=%p, fnid=%d, result_is_int=%d, nargs=%d\n",
-	 self, fnid, result_is_int, nargs);
-
-    if (!self->sock)
-    {
-	CC_set_error(self, CONNECTION_COULD_NOT_SEND,
-		     "Could not send function(connection dead)", func);
-	CC_on_abort(self, CONN_DEAD);
-	return FALSE;
-    }
-
-    if (SOCK_get_errcode(sock) != 0)
-    {
-	CC_set_error(self, CONNECTION_COULD_NOT_SEND,
-		     "Could not send function to backend", func);
-	CC_on_abort(self, CONN_DEAD);
-	return FALSE;
-    }
-#define	return DONT_CALL_RETURN_FROM_HERE???
-    ENTER_INNER_CONN_CS(self, func_cs_count);
-    ci = &(self->connInfo);
-    sinceV3 = PROTOCOL_74(ci);
-    beforeV3 = (!sinceV3);
-    beforeV2 = (beforeV3 && !PROTOCOL_64(ci));
-    if (sinceV3)
-    {
-	leng = 4 + sizeof(uint32) + 2 + 2 + sizeof(uint16);
-
-	for (i = 0; i < nargs; i++)
-	{
-	    leng += 4;
-	    if (args[i].len >= 0)
-	    {
-		if (args[i].isint)
-		    leng += 4;
-		else
-		    leng += args[i].len;
-	    }
-	}
-	leng += 2;
-	SOCK_put_char(sock, 'F');
-	SOCK_put_int(sock, leng, 4);
-    } else
-	SOCK_put_string(sock, "F ");
-    if (SOCK_get_errcode(sock) != 0)
-    {
-	CC_set_error(self, CONNECTION_COULD_NOT_SEND,
-		     "Could not send function to backend", func);
-	CC_on_abort(self, CONN_DEAD);
-	ret = FALSE;
-	goto cleanup;
-    }
-
-    SOCK_put_int(sock, fnid, 4);
-    if (sinceV3)
-    {
-	SOCK_put_int(sock, 1, 2);	/* # of formats */
-	SOCK_put_int(sock, 1, 2);	/* the format is binary */
-	SOCK_put_int(sock, nargs, 2);
-    } else
-	SOCK_put_int(sock, nargs, 4);
-
-    mylog("send_function: done sending function\n");
-
-    for (i = 0; i < nargs; ++i)
-    {
-	mylog
-	    ("  arg[%d]: len = %d, isint = %d, integer = %d, ptr = %p\n",
-	     i, args[i].len, args[i].isint, args[i].u.integer,
-	     args[i].u.ptr);
-
-	SOCK_put_int(sock, args[i].len, 4);
-	if (args[i].isint)
-	    SOCK_put_int(sock, args[i].u.integer, 4);
-	else
-	    SOCK_put_n_char(sock, (char *) args[i].u.ptr, args[i].len);
-
-    }
-
-    if (sinceV3)
-	SOCK_put_int(sock, 1, 2);	/* result format is binary */
-    mylog("    done sending args\n");
-
-    SOCK_flush_output(sock);
-    mylog("  after flush output\n");
-
-    done = FALSE;
-    resultResponse = FALSE;	/* for before V3 only */
-    while (!done)
-    {
-	id = SOCK_get_id(sock);
-	mylog("   got id = %c\n", id);
-	response_length = SOCK_get_response_length(sock);
-	inolog("send_func response_length=%d\n", response_length);
-
-	switch (id)
-	{
-	case 'G':
-	    if (!resultResponse)
-	    {
-		done = TRUE;
-		ret = FALSE;
-		break;
-	    }			/* fall through */
-	case 'V':
-	    if ('V' == id)
-	    {
-		if (beforeV3)	/* FunctionResultResponse */
-		{
-		    resultResponse = TRUE;
-		    break;
-		}
-	    }
-	    *actual_result_len = SOCK_get_int(sock, 4);
-	    if (-1 != *actual_result_len)
-	    {
-		if (result_is_int)
-		    *((int *) result_buf) = SOCK_get_int(sock, 4);
-		else
-		    SOCK_get_n_char(sock, (char *) result_buf,
-				    *actual_result_len);
-
-		mylog("  after get result\n");
-	    }
-	    if (beforeV3)
-	    {
-		c = SOCK_get_char(sock);	/* get the last '0' */
-		if (beforeV2)
-		    done = TRUE;
-		resultResponse = FALSE;
-		mylog("   after get 0\n");
-	    }
-	    break;		/* ok */
-
-	case 'N':
-	    handle_notice_message(self, msgbuffer, sizeof(msgbuffer),
-				  NULL, "send_function", NULL);
-	    /* continue reading */
-	    break;
-
-	case 'E':
-	    handle_error_message(self, msgbuffer, sizeof(msgbuffer),
-				 NULL, "send_function", NULL);
-	    CC_set_errormsg(self, msgbuffer);
-#ifdef	_LEGACY_MODE_
-	    CC_on_abort(self, 0);
-#endif				/* _LEGACY_MODE_ */
-
-	    mylog("send_function(V): 'E' - %s\n",
-		  CC_get_errormsg(self));
-	    qlog("ERROR from backend during send_function: '%s'\n",
-		 CC_get_errormsg(self));
-	    if (beforeV2)
-		done = TRUE;
-	    ret = FALSE;
-	    break;
-
-	case 'Z':
-	    EatReadyForQuery(self);
-	    done = TRUE;
-	    break;
-
-	case '0':		/* empty result */
-	    if (resultResponse)
-	    {
-		if (beforeV2)
-		    done = TRUE;
-		resultResponse = FALSE;
-		break;
-	    }
-	    /* fall through */
-	default:
-	    /* skip the unexpected response if possible */
-	    if (response_length >= 0)
-		break;
-	    CC_set_error(self, CONNECTION_BACKEND_CRAZY,
-			 "Unexpected protocol character from backend (send_function, args)",
-			 func);
-	    CC_on_abort(self, CONN_DEAD);
-
-	    mylog("send_function: error - %s\n", CC_get_errormsg(self));
-	    done = TRUE;
-	    ret = FALSE;
-	    break;
-	}
-    }
-
-  cleanup:
-#undef	return
-    CLEANUP_FUNC_CONN_CS(func_cs_count, self);
-    return ret;
-}
-
-
 static char CC_setenv(ConnectionClass * self)
 {
     HSTMT hstmt;
@@ -1952,8 +1734,8 @@ CC_log_error(const char *func, const char *desc,
 	qlog("            ------------------------------------------------------------\n");
 	qlog("            henv=%p, conn=%p, status=%u, num_stmts=%d\n",
 	     self->henv, self, self->status, self->num_stmts);
-	qlog("            sock=%p, stmts=%p, lobj_type=%d\n",
-	     self->sock, self->stmts, self->lobj_type);
+	qlog("            sock=%p, stmts=%p\n",
+	     self->sock, self->stmts);
 
 	qlog("            ---------------- Socket Info -------------------------------\n");
 	if (self->sock)

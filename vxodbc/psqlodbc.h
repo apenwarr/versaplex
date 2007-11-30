@@ -323,7 +323,6 @@ typedef struct IRDFields_ IRDFields;
 typedef struct IPDFields_ IPDFields;
 
 typedef struct col_info COL_INFO;
-typedef struct lo_arg LO_ARG;
 
 typedef struct GlobalValues_
 {

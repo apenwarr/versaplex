@@ -18,7 +18,6 @@
 #include "convert.h"
 #include "bind.h"
 #include "pgtypes.h"
-#include "lobj.h"
 #include "pgapifunc.h"
 #include "vxhelpers.h"
 
@@ -1391,26 +1390,6 @@ RETCODE SQL_API PGAPI_ParamData(HSTMT hstmt, PTR FAR * prgbValue)
 	goto cleanup;
     }
 
-    /* close the large object */
-    if (estmt->lobj_fd >= 0)
-    {
-	odbc_lo_close(conn, estmt->lobj_fd);
-
-	/* commit transaction if needed */
-	if (!CC_cursor_count(conn) && CC_is_in_autocommit(conn))
-	{
-	    if (!CC_commit(conn))
-	    {
-		SC_set_error(stmt, STMT_EXEC_ERROR,
-			     "Could not commit (in-line) a transaction",
-			     func);
-		retval = SQL_ERROR;
-		goto cleanup;
-	    }
-	}
-	estmt->lobj_fd = -1;
-    }
-
     /* Done, now copy the params and then execute the statement */
     ipdopts = SC_get_IPDF(estmt);
     inolog("ipdopts=%p\n", ipdopts);
@@ -1589,17 +1568,6 @@ RETCODE SQL_API PGAPI_PutData(HSTMT hstmt, PTR rgbValue, SQLLEN cbValue)
 	    putlen = ctype_length(ctype);
     }
     putbuf = (char *)rgbValue;
-    if (current_iparam->PGType == conn->lobj_type
-	&& SQL_C_CHAR == ctype)
-    {
-	allocbuf = (char *)malloc(putlen / 2 + 1);
-	if (allocbuf)
-	{
-	    pg_hex2bin((const UCHAR *)rgbValue, (UCHAR *)allocbuf, putlen);
-	    putbuf = allocbuf;
-	    putlen /= 2;
-	}
-    }
 
     if (!estmt->put_data)
     {				/* first call */
@@ -1624,125 +1592,57 @@ RETCODE SQL_API PGAPI_PutData(HSTMT hstmt, PTR rgbValue, SQLLEN cbValue)
 	    goto cleanup;
 	}
 
-	/* Handle Long Var Binary with Large Objects */
-	/* if (current_iparam->SQLType == SQL_LONGVARBINARY) */
-	if (current_iparam->PGType == conn->lobj_type)
+	current_pdata->EXEC_buffer = (char *)malloc(putlen + 1);
+	if (!current_pdata->EXEC_buffer)
 	{
-	    /* begin transaction if needed */
-	    if (!CC_is_in_trans(conn))
-	    {
-		if (!CC_begin(conn))
-		{
-		    SC_set_error(stmt, STMT_EXEC_ERROR,
-				 "Could not begin (in-line) a transaction",
-				 func);
-		    retval = SQL_ERROR;
-		    goto cleanup;
-		}
-	    }
-
-	    /* store the oid */
-	    current_pdata->lobj_oid =
-		odbc_lo_creat(conn, INV_READ | INV_WRITE);
-	    if (current_pdata->lobj_oid == 0)
-	    {
-		SC_set_error(stmt, STMT_EXEC_ERROR,
-			     "Couldnt create large object.", func);
-		retval = SQL_ERROR;
-		goto cleanup;
-	    }
-
-	    /*
-	     * major hack -- to allow convert to see somethings there have
-	     * to modify convert to handle this better
-	     */
-			/***current_param->EXEC_buffer = (char *) &current_param->lobj_oid;***/
-
-	    /* store the fd */
-	    estmt->lobj_fd =
-		odbc_lo_open(conn, current_pdata->lobj_oid, INV_WRITE);
-	    if (estmt->lobj_fd < 0)
-	    {
-		SC_set_error(stmt, STMT_EXEC_ERROR,
-			     "Couldnt open large object for writing.",
-			     func);
-		retval = SQL_ERROR;
-		goto cleanup;
-	    }
-
-	    retval =
-		odbc_lo_write(conn, estmt->lobj_fd, putbuf,
-			      (Int4) putlen);
-	    mylog("lo_write: cbValue=%d, wrote %d bytes\n", putlen,
-		  retval);
-	} else
-	{
-	    current_pdata->EXEC_buffer = (char *)malloc(putlen + 1);
-	    if (!current_pdata->EXEC_buffer)
-	    {
-		SC_set_error(stmt, STMT_NO_MEMORY_ERROR,
-			     "Out of memory in PGAPI_PutData (2)",
-			     func);
-		retval = SQL_ERROR;
-		goto cleanup;
-	    }
-	    memcpy(current_pdata->EXEC_buffer, putbuf, putlen);
-	    current_pdata->EXEC_buffer[putlen] = '\0';
+	    SC_set_error(stmt, STMT_NO_MEMORY_ERROR,
+			 "Out of memory in PGAPI_PutData (2)",
+			 func);
+	    retval = SQL_ERROR;
+	    goto cleanup;
 	}
+	memcpy(current_pdata->EXEC_buffer, putbuf, putlen);
+	current_pdata->EXEC_buffer[putlen] = '\0';
     } else
     {
 	/* calling SQLPutData more than once */
 	mylog("PGAPI_PutData: (>1) cbValue = %d\n", cbValue);
 
-	/* if (current_iparam->SQLType == SQL_LONGVARBINARY) */
-	if (current_iparam->PGType == conn->lobj_type)
+	buffer = current_pdata->EXEC_buffer;
+	old_pos = *current_pdata->EXEC_used;
+	if (putlen > 0)
 	{
-	    /* the large object fd is in EXEC_buffer */
-	    retval =
-		odbc_lo_write(conn, estmt->lobj_fd, putbuf,
-			      (Int4) putlen);
-	    mylog("lo_write(2): cbValue = %d, wrote %d bytes\n", putlen,
-		  retval);
+	    SQLLEN used =
+		*current_pdata->EXEC_used + putlen, allocsize;
+	    for (allocsize = (1 << 4); allocsize <= used;
+		 allocsize <<= 1);
+	    mylog
+		("        cbValue = %d, old_pos = %d, *used = %d\n",
+		 putlen, old_pos, used);
 
-	    *current_pdata->EXEC_used += putlen;
-	} else
-	{
-	    buffer = current_pdata->EXEC_buffer;
-	    old_pos = *current_pdata->EXEC_used;
-	    if (putlen > 0)
+	    /* dont lose the old pointer in case out of memory */
+	    buffer = (char *)realloc(current_pdata->EXEC_buffer, allocsize);
+	    if (!buffer)
 	    {
-		SQLLEN used =
-		    *current_pdata->EXEC_used + putlen, allocsize;
-		for (allocsize = (1 << 4); allocsize <= used;
-		     allocsize <<= 1);
-		mylog
-		    ("        cbValue = %d, old_pos = %d, *used = %d\n",
-		     putlen, old_pos, used);
-
-		/* dont lose the old pointer in case out of memory */
-		buffer = (char *)realloc(current_pdata->EXEC_buffer, allocsize);
-		if (!buffer)
-		{
-		    SC_set_error(stmt, STMT_NO_MEMORY_ERROR,
-				 "Out of memory in PGAPI_PutData (3)",
-				 func);
-		    retval = SQL_ERROR;
-		    goto cleanup;
-		}
-
-		memcpy(&buffer[old_pos], putbuf, putlen);
-		buffer[used] = '\0';
-
-		/* reassign buffer incase realloc moved it */
-		*current_pdata->EXEC_used = used;
-		current_pdata->EXEC_buffer = buffer;
-	    } else
-	    {
-		SC_set_error(stmt, STMT_INTERNAL_ERROR, "bad cbValue",
+		SC_set_error(stmt, STMT_NO_MEMORY_ERROR,
+			     "Out of memory in PGAPI_PutData (3)",
 			     func);
 		retval = SQL_ERROR;
 		goto cleanup;
 	    }
+
+	    memcpy(&buffer[old_pos], putbuf, putlen);
+	    buffer[used] = '\0';
+
+	    /* reassign buffer incase realloc moved it */
+	    *current_pdata->EXEC_used = used;
+	    current_pdata->EXEC_buffer = buffer;
+	} else
+	{
+	    SC_set_error(stmt, STMT_INTERNAL_ERROR, "bad cbValue",
+			 func);
+	    retval = SQL_ERROR;
+	    goto cleanup;
 	}
     }
 

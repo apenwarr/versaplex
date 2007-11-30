@@ -59,7 +59,6 @@ typedef struct
 {
 	SQLLEN	*EXEC_used;	/* amount of data */
 	char	*EXEC_buffer; 	/* the data */
-	OID	lobj_oid;
 }	PutDataClass;
 
 /*

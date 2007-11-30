@@ -1030,7 +1030,6 @@ void reset_a_putdata_info(PutDataInfo * pdata_info, int ipar)
 	free(pdata_info->pdata[ipar].EXEC_buffer);
 	pdata_info->pdata[ipar].EXEC_buffer = NULL;
     }
-    pdata_info->pdata[ipar].lobj_oid = 0;
 }
 
 

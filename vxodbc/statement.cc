@@ -389,7 +389,6 @@ StatementClass *SC_Constructor(ConnectionClass * conn)
 	rv->join_info = 0;
 	SC_init_parse_method(rv);
 
-	rv->lobj_fd = -1;
 	INIT_NAME(rv->cursor_name);
 
 	/* Parse Stuff */
@@ -828,8 +827,6 @@ char SC_recycle_statement(StatementClass * self)
 
     self->__error_message = NULL;
     self->__error_number = 0;
-
-    self->lobj_fd = -1;
 
     /*
      * Free any data at exec params before the statement is executed
@@ -2286,7 +2283,7 @@ SC_log_error(const char *func, const char *desc,
 	    qlog("                 stmt_with_params='%s'\n",
 		 nullcheck(self->stmt_with_params));
 	    qlog("                 data_at_exec=%d, current_exec_param=%d, put_data=%d\n", self->data_at_exec, self->current_exec_param, self->put_data);
-	    qlog("                 currTuple=%d, current_col=%d, lobj_fd=%d\n", self->currTuple, self->current_col, self->lobj_fd);
+	    qlog("                 currTuple=%d, current_col=%d\n", self->currTuple, self->current_col);
 	    qlog("                 maxRows=%d, rowset_size=%d, keyset_size=%d, cursor_type=%d, scroll_concurrency=%d\n", self->options.maxRows, rowsetSize, self->options.keyset_size, self->options.cursor_type, self->options.scroll_concurrency);
 	    qlog("                 cursor_name='%s'\n",
 		 SC_cursor_name(self));
