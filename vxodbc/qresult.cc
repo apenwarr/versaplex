@@ -1297,12 +1297,16 @@ int QR_next_tuple(QResultClass * self, StatementClass * stmt)
 	    continue;
 
 	case 'Z':		/* Ready for query */
-	    EatReadyForQuery(conn);
-	    if (QR_is_fetching_tuples(self))
-	    {
-		reached_eof_now = TRUE;
-		QR_set_no_fetching_tuples(self);
-	    }
+	    // VX_CLEANUP: This whole function needs to go, but I wanted to
+	    // get rid of a function being called here first.  I feel bad just
+	    // silently breaking this function, so this will at least raise
+	    // some attention.
+	    mylog("%s: Unimplemented state.  id = '%c' (%d)\n", func, id, id);
+	    qlog("%s: Unimplemented state.  id = '%c' (%d)\n", func, id, id);
+	    QR_set_message(self, "Unimplemented state");
+	    QR_set_rstatus(self, PORES_FATAL_ERROR);
+	    CC_on_abort(conn, CONN_DEAD);
+	    ret = FALSE;
 	    rcvend = TRUE;
 	    break;
 	case 's':		/* portal suspend */

@@ -672,39 +672,6 @@ int CC_set_translation(ConnectionClass * self)
 }
 
 
-// VX_CLEANUP: This is total junk.
-int EatReadyForQuery(ConnectionClass * conn)
-{
-    int id = 0;
-
-    if (PROTOCOL_74(&(conn->connInfo)))
-    {
-	BOOL is_in_error_trans = CC_is_in_error_trans(conn);
-	switch (id = SOCK_get_char(conn->sock))
-	{
-	case 'I':
-	    if (CC_is_in_trans(conn))
-	    {
-		if (is_in_error_trans)
-		    CC_on_abort(conn, NO_TRANS);
-		else
-		    CC_on_commit(conn);
-	    }
-	    break;
-	case 'T':
-	    CC_set_in_trans(conn);
-	    CC_set_no_error_trans(conn);
-	    if (is_in_error_trans)
-		CC_on_abort_partial(conn);
-	    break;
-	case 'E':
-	    CC_set_in_error_trans(conn);
-	    break;
-	}
-    }
-    return id;
-}
-
 int
 handle_error_message(ConnectionClass * self, char *msgbuf,
 		     size_t buflen, char *sqlstate, const char *comment,

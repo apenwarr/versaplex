@@ -521,7 +521,6 @@ int	handle_error_message(ConnectionClass *self, char *msgbuf, size_t buflen,
 		 char *sqlstate, const char *comment, QResultClass *res);
 int	handle_notice_message(ConnectionClass *self, char *msgbuf, size_t buflen,
 		 char *sqlstate, const char *comment, QResultClass *res);
-int		EatReadyForQuery(ConnectionClass *self);
 void		getParameterValues(ConnectionClass *self);
 int		CC_get_max_idlen(ConnectionClass *self);
 

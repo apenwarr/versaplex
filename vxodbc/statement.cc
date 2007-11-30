@@ -2355,6 +2355,7 @@ BOOL SendBindRequest(StatementClass * stmt, const char *plan_name)
     return TRUE;
 }
 
+// VX_CLEANUP: This is junk.
 QResultClass *SendSyncAndReceive(StatementClass * stmt,
 				 QResultClass * res,
 				 const char *comment)
@@ -2451,8 +2452,13 @@ QResultClass *SendSyncAndReceive(StatementClass * stmt,
 	    QR_set_no_fetching_tuples(res);
 	    break;
 	case 'Z':		/* ReadyForQuery */
+	    // VX_CLEANUP: This whole function needs to go, but I wanted to
+	    // get rid of a function being called here first.  I feel bad just
+	    // silently breaking this function, so this will at least raise
+	    // some attention.
+	    QR_set_rstatus(res, PORES_FATAL_ERROR);
+	    QR_set_message(res, "Unimplemented state in SendSyncAndReceive");
 	    rcvend = TRUE;
-	    EatReadyForQuery(conn);
 	    break;
 	case 't':		/* ParameterDesription */
 	    num_p = SOCK_get_int(sock, 2);
