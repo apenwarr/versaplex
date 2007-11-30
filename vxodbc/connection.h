@@ -410,7 +410,6 @@ struct ConnectionClass_
 	Int2		num_stmts;
 	Int2		ncursors;
 	SocketClass	*sock;
-	Int4		lobj_type;
 	Int2		coli_allocated;
 	Int2		ntables;
 	COL_INFO	**col_info;

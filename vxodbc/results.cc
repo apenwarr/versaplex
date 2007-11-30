@@ -348,9 +348,7 @@ PGAPI_DescribeCol(HSTMT hstmt,
     if (FI_is_applicable(fi))
     {
 	mylog("XXX5\n");
-	fieldtype =
-	    (conn->lobj_type ==
-	     fi->columntype) ? fi->columntype : FI_type(fi);
+	fieldtype = FI_type(fi);
 	if (NAME_IS_VALID(fi->column_alias))
 	    col_name = GET_NAME(fi->column_alias);
 	else
@@ -621,9 +619,7 @@ PGAPI_ColAttributes(HSTMT hstmt,
     if (col_idx < irdflds->nfields && irdflds->fi)
 	fi = irdflds->fi[col_idx];
     if (FI_is_applicable(fi))
-	field_type =
-	    (conn->lobj_type ==
-	     fi->columntype) ? fi->columntype : FI_type(fi);
+	field_type = FI_type(fi);
     else
     {
 	BOOL build_fi = FALSE;
@@ -679,9 +675,7 @@ PGAPI_ColAttributes(HSTMT hstmt,
     if (FI_is_applicable(fi))
     {
 	ti = fi->ti;
-	field_type =
-	    (conn->lobj_type ==
-	     fi->columntype) ? fi->columntype : FI_type(fi);
+	field_type = FI_type(fi);
     }
 
     mylog("colAttr: col %d field_type=%d fi,ti=%p,%p\n", col_idx,

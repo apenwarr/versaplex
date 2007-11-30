@@ -145,10 +145,7 @@ OID sqltype_to_pgtype(StatementClass * stmt, SQLSMALLINT fSqlType)
 	break;
 
     case SQL_LONGVARBINARY:
-	if (ci->bytea_as_longvarbinary)
-	    pgType = PG_TYPE_BYTEA;
-	else
-	    pgType = conn->lobj_type;
+        pgType = PG_TYPE_BYTEA;
 	break;
 
     case SQL_LONGVARCHAR:
@@ -321,16 +318,6 @@ pgtype_to_concise_type(StatementClass * stmt, OID type, int col)
 	return SQL_CHAR;
 
     default:
-
-	/*
-	 * first, check to see if 'type' is in list.  If not, look up
-	 * with query. Add oid, name to list.  If it's already in
-	 * list, just return.
-	 */
-	/* hack until permanent type is available */
-	if (type == stmt->hdbc->lobj_type)
-	    return SQL_LONGVARBINARY;
-
 	return SQL_VARCHAR;
     }
 }
@@ -420,10 +407,6 @@ SQLSMALLINT pgtype_to_ctype(StatementClass * stmt, OID type)
 #endif				/* UNICODE_SUPPORT */
 
     default:
-	/* hack until permanent type is available */
-	if (type == stmt->hdbc->lobj_type)
-	    return SQL_C_BINARY;
-
 	/* Experimental, Does this work ? */
 #ifdef	EXPERIMENTAL_CURRENTLY
 	if (ALLOW_WCHAR(conn))
@@ -490,10 +473,6 @@ const char *pgtype_to_name(StatementClass * stmt, OID type,
 	return PG_TYPE_LO_NAME;
 
     default:
-	/* hack until permanent type is available */
-	if (type == stmt->hdbc->lobj_type)
-	    return PG_TYPE_LO_NAME;
-
 	/*
 	 * "unknown" can actually be used in alter table because it is
 	 * a real PG type!
@@ -780,9 +759,6 @@ pgtype_column_size(StatementClass * stmt, OID type, int col,
 
     default:
 
-	if (type == stmt->hdbc->lobj_type)	/* hack until permanent
-						 * type is available */
-	    return SQL_NO_TOTAL;
 	if (PG_TYPE_BYTEA == type && ci->bytea_as_longvarbinary)
 	    return SQL_NO_TOTAL;
 
@@ -1002,8 +978,7 @@ Int4 pgtype_transfer_octet_length(StatementClass * stmt, OID type,
     case PG_TYPE_BYTEA:
 	return prec;
     default:
-	if (type == conn->lobj_type)
-	    return prec;
+        break;
     }
     return -1;
 }
@@ -1200,8 +1175,6 @@ Int2 pgtype_searchable(StatementClass * stmt, OID type)
 	return SQL_SEARCHABLE;
 
     default:
-	if (stmt && type == SC_get_conn(stmt)->lobj_type)
-	    return SQL_UNSEARCHABLE;
 	return SQL_ALL_EXCEPT_LIKE;
     }
 }
