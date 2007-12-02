@@ -43,7 +43,6 @@ int	copy_and_convert_field(StatementClass *stmt, OID field_type,
 			void *value, SQLSMALLINT fCType, PTR rgbValue,
 			SQLLEN cbValueMax, SQLLEN *pcbValue, SQLLEN *pIndicator);
 
-int		copy_statement_with_parameters(StatementClass *stmt, BOOL);
 BOOL		convert_money(const char *s, char *sout, size_t soutmax);
 char		parse_datetime(const char *buf, SIMPLE_TIME *st);
 size_t		convert_linefeeds(const char *s, char *dst, size_t max, BOOL convlf, BOOL *changed);

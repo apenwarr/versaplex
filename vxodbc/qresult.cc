@@ -804,6 +804,7 @@ static SQLLEN enlargeKeyCache(QResultClass * self, SQLLEN add_size,
     return alloc;
 }
 
+// VX_CLEANUP: At least the majority of this is crap, possibly all of it.
 /*	This function is called by fetch_tuples() AND SQLFetch() */
 int QR_next_tuple(QResultClass * self, StatementClass * stmt)
 {

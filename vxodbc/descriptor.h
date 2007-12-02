@@ -154,6 +154,7 @@ typedef struct DescriptorHeader_
 	PG_ErrorInfo	*pgerror;
 } DescriptorClass;
 
+// App Row Descriptor
 /*
  *	ARD and APD are(must be) of the same format
  */
@@ -170,6 +171,7 @@ struct ARDFields_
 	SQLLEN		size_of_rowset_odbc2; /* for SQLExtendedFetch */
 };
 
+// App Param Descriptor
 /*
  *	APD must be of the same format as ARD
  */
@@ -186,6 +188,7 @@ struct APDFields_
 	SQLLEN		paramset_size_dummy; /* dummy item to fit APD to ARD */
 };
 
+// Implementation Row Descriptor
 struct IRDFields_
 {
 	StatementClass	*stmt;
@@ -196,6 +199,7 @@ struct IRDFields_
 	FIELD_INFO	**fi;
 };
 
+// Implementation Param Descriptor
 struct IPDFields_
 {
 	SQLUINTEGER		*param_processed_ptr;

@@ -26,11 +26,11 @@ WVTEST_MAIN("Stored procedures with const parameters")
         " return 24680\n"
         "end"));
 
-    WVPASS_SQL(SQLBindParameter(Statement, 1, SQL_PARAM_INPUT, SQL_C_SLONG, 
-            SQL_INTEGER, 0, 0, &input, 0, &ind));
+    WVPASS_SQL_EQ(SQLBindParameter(Statement, 1, SQL_PARAM_INPUT, SQL_C_SLONG, 
+            SQL_INTEGER, 0, 0, &input, 0, &ind), SQL_ERROR);
 
-    WVPASS_SQL(SQLBindParameter(Statement, 2, SQL_PARAM_OUTPUT, SQL_C_SLONG, 
-            SQL_INTEGER, 0, 0, &out1, 0, &ind2));
+    WVPASS_SQL_EQ(SQLBindParameter(Statement, 2, SQL_PARAM_OUTPUT, SQL_C_SLONG, 
+            SQL_INTEGER, 0, 0, &out1, 0, &ind2), SQL_ERROR);
 
     /* TODO use {ts ...} for date */
     WVPASS_SQL(SQLPrepare(Statement, (SQLCHAR *) 
@@ -49,12 +49,12 @@ WVTEST_MAIN("Stored procedures with const parameters")
     /* just to reset some possible buffers */
     WVPASS_SQL(Command(Statement, "DECLARE @i INT"));
 
-    WVPASS_SQL(SQLBindParameter(Statement, 1, SQL_PARAM_OUTPUT, SQL_C_SLONG, 
-            SQL_INTEGER, 0, 0, &output, 0, &ind));
-    WVPASS_SQL(SQLBindParameter(Statement, 2, SQL_PARAM_INPUT, SQL_C_SLONG, 
-            SQL_INTEGER, 0, 0, &input, 0, &ind2));
-    WVPASS_SQL(SQLBindParameter(Statement, 3, SQL_PARAM_OUTPUT, SQL_C_SLONG, 
-            SQL_INTEGER, 0, 0, &out1, 0, &ind3));
+    WVPASS_SQL_EQ(SQLBindParameter(Statement, 1, SQL_PARAM_OUTPUT, SQL_C_SLONG, 
+            SQL_INTEGER, 0, 0, &output, 0, &ind), SQL_ERROR);
+    WVPASS_SQL_EQ(SQLBindParameter(Statement, 2, SQL_PARAM_INPUT, SQL_C_SLONG, 
+            SQL_INTEGER, 0, 0, &input, 0, &ind2), SQL_ERROR);
+    WVPASS_SQL_EQ(SQLBindParameter(Statement, 3, SQL_PARAM_OUTPUT, SQL_C_SLONG, 
+            SQL_INTEGER, 0, 0, &out1, 0, &ind3), SQL_ERROR);
 
     /* TODO use {ts ...} for date */
     WVPASS_SQL(SQLPrepare(Statement, (SQLCHAR *) 
@@ -81,8 +81,8 @@ WVTEST_MAIN("Stored procedures with const parameters")
         " return 54321\n"
         "end"));
 
-    WVPASS_SQL(SQLBindParameter(Statement, 1, SQL_PARAM_OUTPUT, SQL_C_SLONG, 
-            SQL_INTEGER, 0, 0, &output, 0, &ind));
+    WVPASS_SQL_EQ(SQLBindParameter(Statement, 1, SQL_PARAM_OUTPUT, SQL_C_SLONG, 
+            SQL_INTEGER, 0, 0, &output, 0, &ind), SQL_ERROR);
 
     WVPASS_SQL(SQLPrepare(Statement, (SQLCHAR *) 
             "{?=call const_param(12.5, 0x0102030405060708)}", SQL_NTS));

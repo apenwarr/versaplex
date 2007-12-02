@@ -214,7 +214,6 @@ struct StatementClass_
 	Int2		data_at_exec; /* Number of params needing SQLPutData */
 	Int2		current_exec_param;	/* The current parameter for
 						 * SQLPutData */
-	PutDataInfo	pdata_info;
 	char		parse_status;
 	char		proc_return;
 	char		put_data;	/* Has SQLPutData been called ? */
@@ -288,7 +287,6 @@ void SC_set_Result(StatementClass *s, QResultClass *q);
 #define SC_get_IRDi(a)  (&(a->irdi))
 #define SC_get_IPDi(a)  (&(a->ipdi))
 #define SC_get_GDTI(a)  (&(a->gdata_info))
-#define SC_get_PDTI(a)  (&(a->pdata_info))
 
 #define	SC_get_errornumber(a) (a->__error_number)
 #define	SC_set_errornumber(a, n) (a->__error_number = n)
@@ -441,9 +439,7 @@ void		SC_set_planname(StatementClass *self, const char *plan_name);
 void		SC_set_rowset_start(StatementClass *self, SQLLEN, BOOL);
 void		SC_inc_rowset_start(StatementClass *self, SQLLEN);
 RETCODE		SC_initialize_stmts(StatementClass *self, BOOL);
-RETCODE		SC_execute(StatementClass *self);
 RETCODE		SC_fetch(StatementClass *self);
-void		SC_free_params(StatementClass *self, char option);
 void		SC_log_error(const char *func, const char *desc, const StatementClass *self);
 time_t		SC_get_time(StatementClass *self);
 SQLULEN		SC_get_bookmark(StatementClass *self);
@@ -472,13 +468,8 @@ int		StartRollbackState(StatementClass *self);
 RETCODE		SetStatementSvp(StatementClass *self);
 RETCODE		DiscardStatementSvp(StatementClass *self, RETCODE, BOOL errorOnly);
 
-BOOL		SendParseRequest(StatementClass *self, const char *name,
-			const char *query, Int4 qlen, Int2 num_params);
 BOOL		SendDescribeRequest(StatementClass *self, const char *name);
-BOOL		SendBindRequest(StatementClass *self, const char *name);
-BOOL		BuildBindRequest(StatementClass *stmt, const char *name);
 BOOL		SendExecuteRequest(StatementClass *stmt, const char *portal, UInt4 count);
-QResultClass	*SendSyncAndReceive(StatementClass *stmt, QResultClass *res, const char *comment);
 /*
  *	Macros to convert global index <-> relative index in resultset/rowset
  */

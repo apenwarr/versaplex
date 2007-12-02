@@ -672,6 +672,8 @@ int CC_set_translation(ConnectionClass * self)
 }
 
 
+// VX_CLEANUP: This goes as soon as we get rid of QR_next_tuple and 
+// SendSyncAndReceive
 int
 handle_error_message(ConnectionClass * self, char *msgbuf,
 		     size_t buflen, char *sqlstate, const char *comment,
@@ -791,6 +793,8 @@ handle_error_message(ConnectionClass * self, char *msgbuf,
     return msg_truncated;
 }
 
+// VX_CLEANUP: This goes as soon as we get rid of QR_next_tuple and
+// SendSyncAndReceive
 int
 handle_notice_message(ConnectionClass * self, char *msgbuf,
 		      size_t buflen, char *sqlstate,
@@ -890,6 +894,7 @@ handle_notice_message(ConnectionClass * self, char *msgbuf,
     return msg_truncated;
 }
 
+// VX_CLEANUP: Likely junk
 void getParameterValues(ConnectionClass * conn)
 {
     SocketClass *sock = conn->sock;
@@ -943,6 +948,7 @@ void getParameterValues(ConnectionClass * conn)
     inolog("parameter value=%s\n", msgbuffer);
 }
 
+// VX_CLEANUP: Likely junk
 static int protocol3_opts_array(ConnectionClass * self,
 				const char *opts[][2], BOOL libpqopt,
 				int dim_opts)
@@ -1018,6 +1024,7 @@ static int protocol3_opts_array(ConnectionClass * self,
     return cnt;
 }
 
+// VX_CLEANUP: Junk
 static int protocol3_packet_build(ConnectionClass * self)
 {
     CSTR func = "protocol3_packet_build";
