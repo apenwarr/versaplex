@@ -154,10 +154,13 @@ typedef struct DescriptorHeader_
 	PG_ErrorInfo	*pgerror;
 } DescriptorClass;
 
-// App Row Descriptor
+// VX_CLEANUP: There's no longer any external access to the App/Implementation
+// Row/Param Descriptors now that SQLGetDescField and SQLSetDescField are
+// disabled.  It might be possible to get rid of these altogether.
 /*
  *	ARD and APD are(must be) of the same format
  */
+// App Row Descriptor
 struct ARDFields_
 {
 	SQLLEN		size_of_rowset; /* for ODBC3 fetch operation */
@@ -171,10 +174,10 @@ struct ARDFields_
 	SQLLEN		size_of_rowset_odbc2; /* for SQLExtendedFetch */
 };
 
-// App Param Descriptor
 /*
  *	APD must be of the same format as ARD
  */
+// App Param Descriptor
 struct APDFields_
 {
 	SQLLEN		paramset_size;	/* really an SQLINTEGER type */ 

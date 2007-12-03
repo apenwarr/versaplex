@@ -499,11 +499,6 @@ char		CC_get_error(ConnectionClass *self, int *number, char **message);
 QResultClass *CC_send_query(ConnectionClass *self, char *query, QueryInfo *qi, UDWORD flag, StatementClass *stmt);
 void		CC_clear_error(ConnectionClass *self);
 char		CC_send_settings(ConnectionClass *self);
-/*
-char		*CC_create_errormsg(ConnectionClass *self);
-void		CC_lookup_lo(ConnectionClass *conn);
-void		CC_lookup_pg_version(ConnectionClass *conn);
-*/
 void		CC_initialize_pg_version(ConnectionClass *conn);
 void		CC_log_error(const char *func, const char *desc, const ConnectionClass *self);
 int		CC_get_max_query_len(const ConnectionClass *self);

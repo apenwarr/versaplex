@@ -23,7 +23,6 @@
 #include "multibyte.h"
 
 #include "pgapifunc.h"
-#include "md5.h"
 
 #include <wvdbusconn.h>
 #include <wvistreamlist.h>
@@ -32,10 +31,6 @@
 				 * at a time */
 
 #define PRN_NULLCHECK
-
-static void CC_lookup_pg_version(ConnectionClass * self);
-static void CC_lookup_lo(ConnectionClass * self);
-static char *CC_create_errormsg(ConnectionClass * self);
 
 extern GLOBAL_VALUES globals;
 
@@ -1779,7 +1774,7 @@ int CC_send_cancel_request(const ConnectionClass * conn)
     int save_errno = SOCK_ERRNO;
     SOCKETFD tmpsock = (unsigned)-1;
     struct {
-	uint32 packetlen;
+	UInt4 packetlen;
 	CancelRequestPacket cp;
     } crp;
     BOOL ret = TRUE;
@@ -1813,7 +1808,7 @@ int CC_send_cancel_request(const ConnectionClass * conn)
     /*
      * We needn't set nonblocking I/O or NODELAY options here.
      */
-    crp.packetlen = htonl((uint32) sizeof(crp));
+    crp.packetlen = htonl((UInt4) sizeof(crp));
     crp.cp.cancelRequestCode = (MsgType) htonl(CANCEL_REQUEST_CODE);
     crp.cp.backendPID = htonl(conn->be_pid);
     crp.cp.cancelAuthCode = htonl(conn->be_key);
