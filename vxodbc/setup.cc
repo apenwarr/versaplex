@@ -200,8 +200,8 @@ BOOL CALLBACK ConfigDlgProc(HWND hdlg, UINT wMsg,
 
 	/*
 	 * NOTE: Values supplied in the attribute string will always
+	 * override settings in ODBC.INI
 	 */
-	/* override settings in ODBC.INI */
 
 	memcpy(&ci->drivers, &globals, sizeof(globals));
 	/* Get the rest of the common attributes */
@@ -283,30 +283,10 @@ BOOL CALLBACK ConfigDlgProc(HWND hdlg, UINT wMsg,
 			char *emsg;
 			int errnum;
 
-			EN_add_connection(env, conn);
-			memcpy(&conn->connInfo, &lpsetupdlg->ci,
-			       sizeof(ConnInfo));
-			CC_initialize_pg_version(conn);
-			if (CC_connect(conn, AUTH_REQ_OK, NULL) > 0)
-			{
-			    if (CC_get_errornumber(conn) != 0)
-			    {
-				CC_get_error(conn, &errnum, &emsg);
-				snprintf(szMsg, sizeof(szMsg),
-					 "Warning: %s", emsg);
-			    } else
-				strncpy(szMsg, "Connection successful",
-					sizeof(szMsg));
-			    emsg = szMsg;
-			} else
-			{
-			    CC_get_error(conn, &errnum, &emsg);
-			}
+			emsg = "Connection test not yet implemented.";
 			MessageBox(lpsetupdlg->hwndParent, emsg,
 				   "Connection Test",
 				   MB_ICONEXCLAMATION | MB_OK);
-			EN_remove_connection(env, conn);
-			CC_Destructor(conn);
 		    }
 		    if (env)
 			EN_Destructor(env);
