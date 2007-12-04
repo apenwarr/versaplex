@@ -703,21 +703,10 @@ pgtype_column_size(StatementClass * stmt, OID type, int col,
 
     case PG_TYPE_NAME:
 	{
-	    int value = 0;
-	    if (PG_VERSION_GT(conn, 7.4))
-		value = CC_get_max_idlen(conn);
-#ifdef	NAME_FIELD_SIZE
-	    else
-		value = NAME_FIELD_SIZE;
-#endif				/* NAME_FIELD_SIZE */
-	    if (0 == value)
-	    {
-		if (PG_VERSION_GE(conn, 7.3))
-		    value = NAMEDATALEN_V73;
-		else
-		    value = NAMEDATALEN_V72;
-	    }
-	    return value;
+	    SC_set_error(stmt, STMT_INTERNAL_ERROR, 
+		"pgtype_column_size not implemented for PG_TYPE_NAME",
+		"pgtype_column_size");
+	    return 0;
 	}
 
     case PG_TYPE_INT2:

@@ -323,20 +323,10 @@ RETCODE SQL_API
 	break;
 
     case SQL_MAX_COLUMN_NAME_LEN:	/* ODBC 1.0 */
-	len = 2;
-	if (PG_VERSION_GT(conn, 7.4))
-	    value = CC_get_max_idlen(conn);
-#ifdef	MAX_COLUMN_LEN
-	else
-	    value = MAX_COLUMN_LEN;
-#endif				/* MAX_COLUMN_LEN */
-	if (0 == value)
-	{
-	    if (PG_VERSION_GE(conn, 7.3))
-		value = NAMEDATALEN_V73;
-	    else
-		value = NAMEDATALEN_V72;
-	}
+	// TODO: Look into MAX_COLUMN_LEN - is it sensible?
+	CC_set_error(conn, CONN_NOT_IMPLEMENTED_ERROR,
+		     "SQL_MAX_COLUMN_NAME_LEN not yet implemented.", NULL);
+	return SQL_ERROR;
 	break;
 
     case SQL_MAX_COLUMNS_IN_GROUP_BY:	/* ODBC 2.0 */
@@ -375,20 +365,10 @@ RETCODE SQL_API
 	break;
 
     case SQL_MAX_OWNER_NAME_LEN:	/* ODBC 1.0 */
-	len = 2;
-	value = 0;
-	if (PG_VERSION_GT(conn, 7.4))
-	    value = CC_get_max_idlen(conn);
-#ifdef	MAX_SCHEMA_LEN
-	else if (conn->schema_support)
-	    value = MAX_SCHEMA_LEN;
-#endif				/* MAX_SCHEMA_LEN */
-	if (0 == value)
-	{
-	    if (PG_VERSION_GE(conn, 7.3))
-		value = NAMEDATALEN_V73;
-	}
-	break;
+	// TODO: Look into MAX_SCHEMA_LEN - is it sensible?
+	CC_set_error(conn, CONN_NOT_IMPLEMENTED_ERROR,
+		     "SQL_MAX_OWNER_NAME_LEN not yet implemented.", NULL);
+	return SQL_ERROR;
 
     case SQL_MAX_PROCEDURE_NAME_LEN:	/* ODBC 1.0 */
 	len = 2;
@@ -431,21 +411,10 @@ RETCODE SQL_API
 	break;
 
     case SQL_MAX_TABLE_NAME_LEN:	/* ODBC 1.0 */
-	len = 2;
-	if (PG_VERSION_GT(conn, 7.4))
-	    value = CC_get_max_idlen(conn);
-#ifdef	MAX_TABLE_LEN
-	else
-	    value = MAX_TABLE_LEN;
-#endif				/* MAX_TABLE_LEN */
-	if (0 == value)
-	{
-	    if (PG_VERSION_GE(conn, 7.3))
-		value = NAMEDATALEN_V73;
-	    else
-		value = NAMEDATALEN_V72;
-	}
-	break;
+	// TODO: Look into MAX_TABLE_LEN - is it sensible?
+	CC_set_error(conn, CONN_NOT_IMPLEMENTED_ERROR,
+		     "SQL_MAX_TABLE_NAME_LEN not yet implemented.", NULL);
+	return SQL_ERROR;
 
     case SQL_MAX_TABLES_IN_SELECT:	/* ODBC 2.0 */
 	len = 2;

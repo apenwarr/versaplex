@@ -279,8 +279,7 @@ PGAPI_GetDiagField(SQLSMALLINT HandleType, SQLHANDLE Handle,
 		   return SQL_ERROR; */
 		if (stmt->proc_return > 0)
 		    rc = 0;
-		else if (res && QR_NumResultCols(res) > 0
-			 && !SC_is_fetchcursor(stmt))
+		else if (res && QR_NumResultCols(res) > 0)
 		    rc = QR_get_num_total_tuples(res) - res->dl_count;
 	    }
 	    *((SQLLEN *) DiagInfoPtr) = rc;
@@ -787,128 +786,12 @@ PGAPI_SetStmtAttr(HSTMT StatementHandle,
 	(book->buffer + offset + \
 	(bind_size > 0 ? bind_size : (SQL_C_VARBOOKMARK == book->returntype ? book->buflen : sizeof(UInt4))) * index)
 
-/*	SQL_NEED_DATA callback for PGAPI_BulkOperations */
-typedef struct {
-    StatementClass *stmt;
-    SQLSMALLINT operation;
-    char need_data_callback;
-    char auto_commit_needed;
-    ARDFields *opts;
-    int idx, processed;
-} bop_cdata;
-
-static
-RETCODE bulk_ope_callback(RETCODE retcode, void *para)
-{
-    RETCODE ret = retcode;
-    bop_cdata *s = (bop_cdata *) para;
-    SQLULEN offset, global_idx;
-    SQLUINTEGER bind_size;
-    ConnectionClass *conn;
-    QResultClass *res;
-    IRDFields *irdflds;
-    BindInfoClass *bookmark;
-
-    if (s->need_data_callback)
-    {
-	mylog("bulk_ope_callback in\n");
-	s->processed++;
-	s->idx++;
-    } else
-    {
-	s->idx = s->processed = 0;
-    }
-    s->need_data_callback = FALSE;
-    bookmark = s->opts->bookmark;
-    offset = s->opts->row_offset_ptr ? *(s->opts->row_offset_ptr) : 0;
-    bind_size = s->opts->bind_size;
-    for (; SQL_ERROR != ret && s->idx < s->opts->size_of_rowset;
-	 s->idx++)
-    {
-	if (SQL_ADD != s->operation)
-	{
-	    memcpy(&global_idx,
-		   CALC_BOOKMARK_ADDR(bookmark, offset, bind_size,
-				      s->idx), sizeof(UInt4));
-	    global_idx = SC_resolve_bookmark(global_idx);
-	}
-	/* Note opts->row_operation_ptr is ignored */
-	switch (s->operation)
-	{
-	case SQL_ADD:
-	    ret = SC_pos_add(s->stmt, (UWORD) s->idx);
-	    break;
-	case SQL_UPDATE_BY_BOOKMARK:
-	    ret = SC_pos_update(s->stmt, (UWORD) s->idx, global_idx);
-	    break;
-	case SQL_DELETE_BY_BOOKMARK:
-	    ret = SC_pos_delete(s->stmt, (UWORD) s->idx, global_idx);
-	    break;
-	case SQL_FETCH_BY_BOOKMARK:
-	    ret = SC_pos_refresh(s->stmt, (UWORD) s->idx, global_idx);
-	    break;
-	}
-	if (SQL_NEED_DATA == ret)
-	{
-	    bop_cdata *cbdata = (bop_cdata *) malloc(sizeof(bop_cdata));
-	    memcpy(cbdata, s, sizeof(bop_cdata));
-	    cbdata->need_data_callback = TRUE;
-	    enqueueNeedDataCallback(s->stmt, bulk_ope_callback, cbdata);
-	    return ret;
-	}
-	s->processed++;
-    }
-    conn = SC_get_conn(s->stmt);
-    if (s->auto_commit_needed)
-	PGAPI_SetConnectOption(conn, SQL_AUTOCOMMIT, SQL_AUTOCOMMIT_ON);
-    irdflds = SC_get_IRDF(s->stmt);
-    if (irdflds->rowsFetched)
-	*(irdflds->rowsFetched) = s->processed;
-
-    if (res = SC_get_Curres(s->stmt), res)
-	res->recent_processed_row_count = s->stmt->diag_row_count =
-	    s->processed;
-    return ret;
-}
 
 RETCODE SQL_API
 PGAPI_BulkOperations(HSTMT hstmt, SQLSMALLINT operationX)
 {
     CSTR func = "PGAPI_BulkOperations";
-    bop_cdata s;
-    RETCODE ret;
-    ConnectionClass *conn;
-    BindInfoClass *bookmark;
-
-    mylog("%s operation = %d\n", func, operationX);
-    s.stmt = (StatementClass *) hstmt;
-    s.operation = operationX;
-    SC_clear_error(s.stmt);
-    s.opts = SC_get_ARDF(s.stmt);
-
-    s.auto_commit_needed = FALSE;
-    if (SQL_FETCH_BY_BOOKMARK != s.operation)
-    {
-	conn = SC_get_conn(s.stmt);
-	if (s.auto_commit_needed =
-	    (char) CC_is_in_autocommit(conn), s.auto_commit_needed)
-	    PGAPI_SetConnectOption(conn, SQL_AUTOCOMMIT,
-				   SQL_AUTOCOMMIT_OFF);
-    }
-    if (SQL_ADD != s.operation)
-    {
-	if (!(bookmark = s.opts->bookmark) || !(bookmark->buffer))
-	{
-	    SC_set_error(s.stmt, DESC_INVALID_OPTION_IDENTIFIER,
-			 "bookmark isn't specified", func);
-	    return SQL_ERROR;
-	}
-    }
-
-    /* StartRollbackState(s.stmt); */
-    s.need_data_callback = FALSE;
-    ret = bulk_ope_callback(SQL_SUCCESS, &s);
-    if (s.stmt->internal)
-	ret = DiscardStatementSvp(s.stmt, ret, FALSE);
-    return ret;
+    SC_set_error((StatementClass *)hstmt, DESC_INTERNAL_ERROR, 
+	"Bulk operations are not yet supported.", func);
+    return SQL_ERROR;
 }

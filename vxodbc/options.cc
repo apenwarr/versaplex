@@ -290,6 +290,7 @@ set_statement_option(ConnectionClass * conn,
 }
 
 
+// VX_CLEANUP: Some of these are probably irrelevant
 /* Implements only SQL_AUTOCOMMIT */
 RETCODE SQL_API
 PGAPI_SetConnectOption(HDBC hdbc, SQLUSMALLINT fOption, SQLULEN vParam)
@@ -347,34 +348,8 @@ PGAPI_SetConnectOption(HDBC hdbc, SQLUSMALLINT fOption, SQLULEN vParam)
 	break;
 
     case SQL_AUTOCOMMIT:
-	if (vParam == SQL_AUTOCOMMIT_ON && CC_is_in_autocommit(conn))
-	    break;
-	else if (vParam == SQL_AUTOCOMMIT_OFF
-		 && !CC_is_in_autocommit(conn))
-	    break;
-	if (CC_is_in_trans(conn))
-	    CC_commit(conn);
-
-	mylog
-	    ("PGAPI_SetConnectOption: AUTOCOMMIT: transact_status=%d, vparam=%d\n",
-	     conn->transact_status, vParam);
-
-	switch (vParam)
-	{
-	case SQL_AUTOCOMMIT_OFF:
-	    CC_set_autocommit_off(conn);
-	    break;
-
-	case SQL_AUTOCOMMIT_ON:
-	    CC_set_autocommit_on(conn);
-	    break;
-
-	default:
-	    CC_set_error(conn, CONN_INVALID_ARGUMENT_NO,
-			 "Illegal parameter value for SQL_AUTOCOMMIT",
-			 func);
-	    return SQL_ERROR;
-	}
+	// Ignored.
+	mylog("Attempt to set SQL_AUTOCOMMIT ignored\n");
 	break;
 
     case SQL_CURRENT_QUALIFIER:	/* ignored */
@@ -392,13 +367,6 @@ PGAPI_SetConnectOption(HDBC hdbc, SQLUSMALLINT fOption, SQLULEN vParam)
 
     case SQL_TXN_ISOLATION:	/* ignored */
 	retval = SQL_SUCCESS;
-	if (CC_is_in_trans(conn))
-	{
-	    CC_set_error(conn, CONN_TRANSACT_IN_PROGRES,
-			 "Cannot switch isolation level while a transaction is in progress",
-			 func);
-	    return SQL_ERROR;
-	}
 	if (conn->isolation == vParam)
 	    break;
 	switch (vParam)
@@ -503,6 +471,7 @@ PGAPI_SetConnectOption(HDBC hdbc, SQLUSMALLINT fOption, SQLULEN vParam)
 }
 
 
+// VX_CLEANUP: Most of these are probably irrelevant
 /* This function just can tell you whether you are in Autcommit mode or not */
 RETCODE SQL_API
 PGAPI_GetConnectOption(HDBC hdbc,
@@ -532,9 +501,9 @@ PGAPI_GetConnectOption(HDBC hdbc,
 	break;
 
     case SQL_AUTOCOMMIT:
-	*((SQLUINTEGER *) pvParam) =
-	    (SQLUINTEGER) (CC_is_in_autocommit(conn) ? SQL_AUTOCOMMIT_ON
-			   : SQL_AUTOCOMMIT_OFF);
+	// VX_CLEANUP: FIXME: We don't do any committing at all, does that
+	// mean autocommit is on or off?
+	*((SQLUINTEGER *) pvParam) = (SQLUINTEGER) SQL_AUTOCOMMIT_OFF;
 	break;
 
     case SQL_CURRENT_QUALIFIER:	/* don't use qualifiers */
@@ -699,18 +668,9 @@ PGAPI_GetStmtOption(HSTMT hstmt,
 	}
 
 	ridx = GIdx2CacheIdx(stmt->currTuple, stmt, res);
-	if (!SC_is_fetchcursor(stmt))
 	{
 	    /* make sure we're positioned on a valid row */
 	    if ((ridx < 0) || (ridx >= QR_get_num_cached_tuples(res)))
-	    {
-		SC_set_error(stmt, STMT_INVALID_CURSOR_STATE_ERROR,
-			     "Not positioned on a valid row.", func);
-		return SQL_ERROR;
-	    }
-	} else
-	{
-	    if (stmt->currTuple < 0 || !res->tupleField)
 	    {
 		SC_set_error(stmt, STMT_INVALID_CURSOR_STATE_ERROR,
 			     "Not positioned on a valid row.", func);

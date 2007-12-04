@@ -83,26 +83,6 @@ enum
 #define CONN_IN_MANUAL_TRANSACTION	(1L<<2)
 #define CONN_IN_ERROR_BEFORE_IDLE	(1L<<3)
 
-/* AutoCommit functions */
-#define CC_set_autocommit_off(x)	(x->transact_status &= ~CONN_IN_AUTOCOMMIT)
-#define CC_set_autocommit_on(x)		(x->transact_status |= CONN_IN_AUTOCOMMIT)
-#define CC_is_in_autocommit(x)		(x->transact_status & CONN_IN_AUTOCOMMIT)
-
-/* Transaction in/not functions */
-#define CC_set_in_trans(x)	(x->transact_status |= CONN_IN_TRANSACTION)
-#define CC_set_no_trans(x)	(x->transact_status &= ~(CONN_IN_TRANSACTION | CONN_IN_ERROR_BEFORE_IDLE))
-#define CC_is_in_trans(x)	(0 != (x->transact_status & CONN_IN_TRANSACTION))
-
-/* Manual transaction in/not functions */
-#define CC_set_in_manual_trans(x) (x->transact_status |= CONN_IN_MANUAL_TRANSACTION)
-#define CC_set_no_manual_trans(x) (x->transact_status &= ~CONN_IN_MANUAL_TRANSACTION)
-#define CC_is_in_manual_trans(x) (0 != (x->transact_status & CONN_IN_MANUAL_TRANSACTION))
-
-/* Error waiting for ROLLBACK */
-#define CC_set_in_error_trans(x) (x->transact_status |= CONN_IN_ERROR_BEFORE_IDLE)
-#define CC_set_no_error_trans(x) (x->transact_status &= ~CONN_IN_ERROR_BEFORE_IDLE)
-#define CC_is_in_error_trans(x) (x->transact_status & CONN_IN_ERROR_BEFORE_IDLE)
-
 #define CC_get_errornumber(x)	(x->__error_number)
 #define CC_get_errormsg(x)	(x->__error_message)
 #define CC_set_errornumber(x, n)	(x->__error_number = n)
@@ -308,7 +288,6 @@ typedef struct
 	signed char	cvt_null_date_string;
 #ifdef	_HANDLE_ENLIST_IN_DTC_
 	signed char	xa_opt;
-	signed char	autocommit_normal;
 #endif /* _HANDLE_ENLIST_IN_DTC_ */
 	GLOBAL_VALUES drivers;		/* moved from driver's option */
 } ConnInfo;
@@ -418,8 +397,6 @@ struct ConnectionClass_
 	DataSourceToDriverProc DataSourceToDriver;
 	DriverToDataSourceProc DriverToDataSource;
 	Int2		driver_version;		/* prepared for ODBC3.0 */
-	char		transact_status;	/* Is a transaction is currently
-						 * in progress */
 	char		errormsg_created;	/* has an informative error msg
 						 * been created ? */
 	char		pg_version[MAX_INFO_STRING];	/* Version of PostgreSQL
@@ -430,7 +407,6 @@ struct ConnectionClass_
 	Int2		pg_version_minor;
 	char		ms_jet;
 	char		unicode;
-	char		result_uncommitted;
 	char		schema_support;
 	char		lo_is_domain;
 	char		escape_in_literal;
@@ -503,22 +479,10 @@ void		CC_initialize_pg_version(ConnectionClass *conn);
 void		CC_log_error(const char *func, const char *desc, const ConnectionClass *self);
 int		CC_get_max_query_len(const ConnectionClass *self);
 int		CC_send_cancel_request(const ConnectionClass *conn);
-void		CC_on_commit(ConnectionClass *conn);
-void		CC_on_abort(ConnectionClass *conn, UDWORD opt);
-void		CC_on_abort_partial(ConnectionClass *conn);
 void		ProcessRollback(ConnectionClass *conn, BOOL undo, BOOL partial);
 const char	*CC_get_current_schema(ConnectionClass *conn);
 int             CC_mark_a_object_to_discard(ConnectionClass *conn, int type, const char *plan);
 int             CC_discard_marked_objects(ConnectionClass *conn);
-
-int	handle_error_message(ConnectionClass *self, char *msgbuf, size_t buflen,
-		 char *sqlstate, const char *comment, QResultClass *res);
-int	handle_notice_message(ConnectionClass *self, char *msgbuf, size_t buflen,
-		 char *sqlstate, const char *comment, QResultClass *res);
-void		getParameterValues(ConnectionClass *self);
-int		CC_get_max_idlen(ConnectionClass *self);
-
-BOOL		SendSyncRequest(ConnectionClass *self);
 
 const		char *CurrCat(const ConnectionClass *self);
 const		char *CurrCatString(const ConnectionClass *self);
@@ -527,6 +491,8 @@ const		char *CurrCatString(const ConnectionClass *self);
 enum {
 	IGNORE_ABORT_ON_CONN	= 1L /* not set the error result even when  */
 	,CREATE_KEYSET		= (1L << 1) /* create keyset for updatable curosrs */
+	// VX_CLEANUP: Neither GO_INTO_TRANSACTION nor ROLLBACK_ON_ERROR make
+	// sense any more
 	,GO_INTO_TRANSACTION	= (1L << 2) /* issue begin in advance */
 	, ROLLBACK_ON_ERROR	= (1L << 3) /* rollback the query when an error occurs */
 };

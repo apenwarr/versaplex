@@ -246,196 +246,22 @@ static int inquireHowToPrepare(const StatementClass * stmt)
 }
 
 
-// VX_CLEANUP: This looks fishy
+// VX_CLEANUP: This is called all over the place, it'll be a pain to extract.
 int StartRollbackState(StatementClass * stmt)
 {
     CSTR func = "StartRollbackState";
-    int ret;
-    ConnectionClass *conn;
-    ConnInfo *ci = NULL;
-
-    inolog("%s:%p->internal=%d\n", func, stmt, stmt->internal);
-    conn = SC_get_conn(stmt);
-    if (conn)
-	ci = &conn->connInfo;
-    ret = 0;
-    if (!ci || ci->rollback_on_error < 0)	/* default */
-    {
-	if (conn && PG_VERSION_GE(conn, 8.0))
-	    ret = 2;		/* statement rollback */
-	else
-	    ret = 1;		/* transaction rollback */
-    } else
-    {
-	ret = ci->rollback_on_error;
-	if (2 == ret && PG_VERSION_LT(conn, 8.0))
-	    ret = 1;
-    }
-    switch (ret)
-    {
-    case 1:
-	SC_start_tc_stmt(stmt);
-	break;
-    case 2:
-	SC_start_rb_stmt(stmt);
-	break;
-    }
-    return ret;
+    return 1;
 }
 
-/*
- *	Must be in a transaction or the subsequent execution
- *	invokes a transaction.
- */
-RETCODE SetStatementSvp(StatementClass * stmt)
-{
-    CSTR func = "SetStatementSvp";
-    char esavepoint[32], cmd[64];
-    ConnectionClass *conn = SC_get_conn(stmt);
-    QResultClass *res;
-    RETCODE ret = SQL_SUCCESS_WITH_INFO;
 
-    if (CC_is_in_error_trans(conn))
-	return ret;
-
-    if (0 == stmt->lock_CC_for_rb)
-    {
-	ENTER_CONN_CS(conn);
-	stmt->lock_CC_for_rb++;
-    }
-    switch (stmt->statement_type)
-    {
-    case STMT_TYPE_SPECIAL:
-    case STMT_TYPE_TRANSACTION:
-	return ret;
-    }
-    if (!SC_accessed_db(stmt))
-    {
-	BOOL need_savep = FALSE;
-
-	if (stmt->internal)
-	{
-	    if (PG_VERSION_GE(conn, 8.0))
-		SC_start_rb_stmt(stmt);
-	    else
-		SC_start_tc_stmt(stmt);
-	}
-	if (SC_is_rb_stmt(stmt))
-	{
-	    if (CC_is_in_trans(conn))
-	    {
-		need_savep = TRUE;
-	    }
-	}
-	if (need_savep)
-	{
-	    sprintf(esavepoint, "_EXEC_SVP_%p", stmt);
-	    snprintf(cmd, sizeof(cmd), "SAVEPOINT %s", esavepoint);
-	    res = CC_send_query(conn, cmd, NULL, 0, NULL);
-	    if (QR_command_maybe_successful(res))
-	    {
-		SC_set_accessed_db(stmt);
-		SC_start_rbpoint(stmt);
-		ret = SQL_SUCCESS;
-	    } else
-	    {
-		SC_set_error(stmt, STMT_INTERNAL_ERROR,
-			     "internal SAVEPOINT failed", func);
-		ret = SQL_ERROR;
-	    }
-	    QR_Destructor(res);
-	} else
-	    SC_set_accessed_db(stmt);
-    }
-    inolog("%s:%p->accessed=%d\n", func, stmt, SC_accessed_db(stmt));
-    return ret;
-}
-
+// VX_CLEANUP: SetStatementSvp was killed in or around r225; one might think
+// that would make this function totally redundant, but it's still called all
+// over the place, and breaks the unit tests if it returns an error.
 RETCODE
 DiscardStatementSvp(StatementClass * stmt, RETCODE ret, BOOL errorOnly)
 {
     CSTR func = "DiscardStatementSvp";
-    char esavepoint[32], cmd[64];
-    ConnectionClass *conn = SC_get_conn(stmt);
-    QResultClass *res;
-    BOOL cmd_success, start_stmt = FALSE;
-    mylog("Hello\n");
 
-    inolog("%s:%p->accessed=%d is_in=%d is_rb=%d is_tc=%d\n", func,
-	   stmt, SC_accessed_db(stmt), CC_is_in_trans(conn),
-	   SC_is_rb_stmt(stmt), SC_is_tc_stmt(stmt));
-    switch (ret)
-    {
-    case SQL_NEED_DATA:
-	break;
-    case SQL_ERROR:
-	start_stmt = TRUE;
-	break;
-    default:
-	if (!errorOnly)
-	    start_stmt = TRUE;
-	break;
-    }
-    if (!SC_accessed_db(stmt) || !CC_is_in_trans(conn))
-	goto cleanup;
-    if (!SC_is_rb_stmt(stmt) && !SC_is_tc_stmt(stmt))
-	goto cleanup;
-    sprintf(esavepoint, "_EXEC_SVP_%p", stmt);
-    if (SQL_ERROR == ret)
-    {
-	if (SC_started_rbpoint(stmt))
-	{
-	    snprintf(cmd, sizeof(cmd), "ROLLBACK to %s", esavepoint);
-	    res =
-		CC_send_query(conn, cmd, NULL, IGNORE_ABORT_ON_CONN,
-			      NULL);
-	    cmd_success = QR_command_maybe_successful(res);
-	    QR_Destructor(res);
-	    if (!cmd_success)
-	    {
-		SC_set_error(stmt, STMT_INTERNAL_ERROR,
-			     "internal ROLLBACK failed", func);
-		CC_abort(conn);
-		goto cleanup;
-	    }
-	} else
-	{
-	    CC_abort(conn);
-	    goto cleanup;
-	}
-    } else if (errorOnly)
-	return ret;
-    inolog("ret=%d\n", ret);
-    if (SQL_NEED_DATA != ret && SC_started_rbpoint(stmt))
-    {
-	snprintf(cmd, sizeof(cmd), "RELEASE %s", esavepoint);
-	res =
-	    CC_send_query(conn, cmd, NULL, IGNORE_ABORT_ON_CONN, NULL);
-	cmd_success = QR_command_maybe_successful(res);
-	QR_Destructor(res);
-	if (!cmd_success)
-	{
-	    SC_set_error(stmt, STMT_INTERNAL_ERROR,
-			 "internal RELEASE failed", func);
-	    CC_abort(conn);
-	    ret = SQL_ERROR;
-	}
-    }
-  cleanup:
-    if (SQL_NEED_DATA != ret)
-	SC_forget_unnamed(stmt);	/* unnamed plan is no longer reliable */
-    if (!SC_is_prepare_statement(stmt)
-	&& ONCE_DESCRIBED == stmt->prepared)
-	SC_set_prepared(stmt, NOT_YET_PREPARED);
-    if (start_stmt || SQL_ERROR == ret)
-    {
-	if (stmt->lock_CC_for_rb > 0)
-	{
-	    LEAVE_CONN_CS(conn);
-	    stmt->lock_CC_for_rb--;
-	}
-	SC_start_stmt(stmt);
-    }
     return ret;
 }
 
@@ -532,73 +358,16 @@ RETCODE SQL_API PGAPI_Execute(HSTMT hstmt, UWORD flag)
 RETCODE SQL_API PGAPI_Transact(HENV henv, HDBC hdbc, SQLUSMALLINT fType)
 {
     CSTR func = "PGAPI_Transact";
-    extern ConnectionClass *conns[];
-    ConnectionClass *conn;
-    QResultClass *res;
-    char ok, *stmt_string;
-    int lf;
 
-    mylog("entering %s: hdbc=%p, henv=%p\n", func, hdbc, henv);
-
-    if (hdbc == SQL_NULL_HDBC && henv == SQL_NULL_HENV)
-    {
-	CC_log_error(func, "", NULL);
-	return SQL_INVALID_HANDLE;
-    }
-
-    /*
-     * If hdbc is null and henv is valid, it means transact all
-     * connections on that henv.
-     */
-    if (hdbc == SQL_NULL_HDBC && henv != SQL_NULL_HENV)
-    {
-	for (lf = 0; lf < MAX_CONNECTIONS; lf++)
-	{
-	    conn = conns[lf];
-
-	    if (conn && conn->henv == henv)
-		if (PGAPI_Transact(henv, (HDBC) conn, fType) !=
-		    SQL_SUCCESS)
-		    return SQL_ERROR;
-	}
-	return SQL_SUCCESS;
-    }
-
-    conn = (ConnectionClass *) hdbc;
-
-    if (fType == SQL_COMMIT)
-	stmt_string = "COMMIT";
-    else if (fType == SQL_ROLLBACK)
-	stmt_string = "ROLLBACK";
-    else
-    {
-	CC_set_error(conn, CONN_INVALID_ARGUMENT_NO,
-		     "PGAPI_Transact can only be called with SQL_COMMIT or SQL_ROLLBACK as parameter",
-		     func);
-	return SQL_ERROR;
-    }
-
-    /* If manual commit and in transaction, then proceed. */
-    if (!CC_is_in_autocommit(conn) && CC_is_in_trans(conn))
-    {
-	mylog("PGAPI_Transact: sending on conn %d '%s'\n", conn,
-	      stmt_string);
-
-	res = CC_send_query(conn, stmt_string, NULL, 0, NULL);
-	ok = QR_command_maybe_successful(res);
-	QR_Destructor(res);
-	if (!ok)
-	{
-	    /* error msg will be in the connection */
-	    CC_on_abort(conn, NO_TRANS);
-	    CC_log_error(func, "", conn);
-	    return SQL_ERROR;
-	}
-    }
-    return SQL_SUCCESS;
+    CC_set_error((ConnectionClass *)hdbc, CONN_NOT_IMPLEMENTED_ERROR,
+		 "PGAPI_Transact is not yet implemented",
+		 func);
+    return SQL_ERROR;
 }
 
 
+// VX_CLEANUP: A lot of this is probably related to transactions, hence
+// deletable
 RETCODE SQL_API PGAPI_Cancel(HSTMT hstmt)	/* Statement to cancel. */
 {
     CSTR func = "PGAPI_Cancel";

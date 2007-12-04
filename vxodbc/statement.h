@@ -225,7 +225,6 @@ struct StatementClass_
 							 * internally ? */
 	char		transition_status;	/* Transition status */
 	char		multi_statement; /* -1:unknown 0:single 1:multi */
-	char		rbonerr;	/* rollback on error */
 	char		discard_output_params;	 /* discard output parameters on parse stage */
 	char		cancel_info;	/* cancel information */
 	char		ref_CC_error;	/* refer to CC_error ? */
@@ -363,9 +362,6 @@ enum
 #define SC_set_pre_executable(a) (a->miscinfo |= 1L)
 #define SC_no_pre_executable(a) (a->miscinfo &= ~1L)
 #define SC_is_pre_executable(a) ((a->miscinfo & 1L) != 0)
-#define SC_set_fetchcursor(a)	(a->miscinfo |= (1L << 1))
-#define SC_no_fetchcursor(a)	(a->miscinfo &= ~(1L << 1))
-#define SC_is_fetchcursor(a)	((a->miscinfo & (1L << 1)) != 0)
 #define SC_set_concat_prepare_exec(a)	(a->miscinfo |= (1L << 2))
 #define SC_no_concat_prepare_exec(a)	(a->miscinfo &= ~(1L << 2))
 #define SC_is_concat_prepare_exec(a)	((a->miscinfo & (1L << 2)) != 0)
@@ -381,15 +377,6 @@ enum
 #define SC_set_outer_join(a)	((a)->join_info |= STMT_HAS_OUTER_JOIN)
 #define SC_set_inner_join(a)	((a)->join_info |= STMT_HAS_INNER_JOIN)
 
-#define SC_start_stmt(a)	(a->rbonerr = 0)
-#define SC_start_tc_stmt(a)	(a->rbonerr = (1L << 1))
-#define SC_is_tc_stmt(a)	((a->rbonerr & (1L << 1)) != 0)
-#define SC_start_rb_stmt(a)	(a->rbonerr = (1L << 2))
-#define SC_is_rb_stmt(a)	((a->rbonerr & (1L << 2)) != 0)
-#define SC_set_accessed_db(a)	(a->rbonerr |= (1L << 3))
-#define SC_accessed_db(a)	((a->rbonerr & (1L << 3)) != 0)
-#define SC_start_rbpoint(a)	(a->rbonerr |= (1L << 4))
-#define SC_started_rbpoint(a)	((a->rbonerr & (1L << 4)) != 0)
 #define SC_unref_CC_error(a)	((a->ref_CC_error) = FALSE)
 #define SC_ref_CC_error(a)	((a->ref_CC_error) = TRUE)
 #define SC_forget_unnamed(a)	(PREPARED_TEMPORARILY == (a)->prepared ? SC_set_prepared(a, ONCE_DESCRIBED) : (void) 0)
@@ -465,11 +452,8 @@ int		enqueueNeedDataCallback(StatementClass *self, NeedDataCallfunc, void *);
 RETCODE		dequeueNeedDataCallback(RETCODE, StatementClass *self);
 void		cancelNeedDataState(StatementClass *self);
 int		StartRollbackState(StatementClass *self);
-RETCODE		SetStatementSvp(StatementClass *self);
 RETCODE		DiscardStatementSvp(StatementClass *self, RETCODE, BOOL errorOnly);
 
-BOOL		SendDescribeRequest(StatementClass *self, const char *name);
-BOOL		SendExecuteRequest(StatementClass *stmt, const char *portal, UInt4 count);
 /*
  *	Macros to convert global index <-> relative index in resultset/rowset
  */

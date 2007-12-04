@@ -239,7 +239,6 @@ void CC_conninfo_init(ConnInfo * conninfo)
     conninfo->cvt_null_date_string = -1;
 #ifdef	_HANDLE_ENLIST_IN_DTC_
     conninfo->xa_opt = -1;
-    conninfo->autocommit_normal = 0;
 #endif				/* _HANDLE_ENLIST_IN_DTC_ */
     memcpy(&(conninfo->drivers), &globals, sizeof(globals));
 }
@@ -278,7 +277,6 @@ ConnectionClass *CC_Constructor()
 	// rv->errormsg_created = FALSE;
 
 	rv->status = CONN_NOT_CONNECTED;
-	rv->transact_status = CONN_IN_AUTOCOMMIT;	/* autocommit by default */
 	
 	CC_conninfo_init(&(rv->connInfo));
 	rv->sock = SOCK_Constructor(rv);
@@ -400,6 +398,7 @@ char CC_Destructor(ConnectionClass * self)
 }
 
 
+// VX_CLEANUP: We don't support cursors
 /*	Return how many cursors are opened on this connection */
 int CC_cursor_count(ConnectionClass * self)
 {
@@ -449,55 +448,31 @@ void CC_clear_error(ConnectionClass * self)
  */
 char CC_begin(ConnectionClass * self)
 {
-    char ret = TRUE;
-    if (!CC_is_in_trans(self))
-    {
-	QResultClass *res = CC_send_query(self, "BEGIN", NULL, 0, NULL);
-	mylog("CC_begin:  sending BEGIN!\n");
-
-	ret = QR_command_maybe_successful(res);
-	QR_Destructor(res);
-    }
-
-    return ret;
+    return FALSE;
 }
 
+// VX_CLEANUP: This is a fairly sensible API request, but CC_send_query isn't
+// about to implement it sensibly.  Most people who call this either we don't
+// care about, or we should reimplement.
 /*
  *	Used to commit a transaction.
  *	We are almost always in the middle of a transaction.
  */
 char CC_commit(ConnectionClass * self)
 {
-    char ret = TRUE;
-    if (CC_is_in_trans(self))
-    {
-	QResultClass *res =
-	    CC_send_query(self, "COMMIT", NULL, 0, NULL);
-	mylog("CC_commit:  sending COMMIT!\n");
-	ret = QR_command_maybe_successful(res);
-	QR_Destructor(res);
-    }
-
-    return ret;
+    return FALSE;
 }
 
+// VX_CLEANUP: This is a fairly sensible API request, but CC_send_query isn't
+// about to implement it sensibly.  Most people who call this either we don't
+// care about, or we should reimplement.
 /*
  *	Used to cancel a transaction.
  *	We are almost always in the middle of a transaction.
  */
 char CC_abort(ConnectionClass * self)
 {
-    char ret = TRUE;
-    if (CC_is_in_trans(self))
-    {
-	QResultClass *res =
-	    CC_send_query(self, "ROLLBACK", NULL, 0, NULL);
-	mylog("CC_abort:  sending ABORT!\n");
-	ret = QR_command_maybe_successful(res);
-	QR_Destructor(res);
-    }
-
-    return ret;
+    return FALSE;
 }
 
 
@@ -565,7 +540,6 @@ char CC_cleanup(ConnectionClass * self)
 #endif
 
     self->status = CONN_NOT_CONNECTED;
-    self->transact_status = CONN_IN_AUTOCOMMIT;
     CC_conninfo_init(&(self->connInfo));
     if (self->original_client_encoding)
     {
@@ -666,414 +640,6 @@ int CC_set_translation(ConnectionClass * self)
     return TRUE;
 }
 
-
-// VX_CLEANUP: This goes as soon as we get rid of QR_next_tuple and 
-// SendSyncAndReceive
-int
-handle_error_message(ConnectionClass * self, char *msgbuf,
-		     size_t buflen, char *sqlstate, const char *comment,
-		     QResultClass * res)
-{
-    BOOL new_format = FALSE, msg_truncated = FALSE, truncated, hasmsg =
-	FALSE;
-    SocketClass *sock = self->sock;
-    char msgbuffer[ERROR_MSG_LENGTH];
-    UDWORD abort_opt;
-
-    inolog("handle_error_message prptocol=%s\n",
-	   self->connInfo.protocol);
-    if (PROTOCOL_74(&(self->connInfo)))
-	new_format = TRUE;
-
-    inolog("new_format=%d\n", new_format);
-    if (new_format)
-    {
-	size_t msgl;
-
-	msgbuf[0] = '\0';
-	for (;;)
-	{
-	    truncated =
-		SOCK_get_string(sock, msgbuffer, sizeof(msgbuffer));
-	    if (!msgbuffer[0])
-		break;
-
-	    mylog("%s: 'E' - %s\n", comment, msgbuffer);
-	    qlog("ERROR from backend during %s: '%s'\n", comment,
-		 msgbuffer);
-	    msgl = strlen(msgbuffer + 1);
-	    switch (msgbuffer[0])
-	    {
-	    case 'S':
-		if (buflen > 0)
-		{
-		    strncat(msgbuf, msgbuffer + 1, buflen);
-		    buflen -= msgl;
-		}
-		if (buflen > 0)
-		{
-		    strncat(msgbuf, ": ", buflen);
-		    buflen -= 2;
-		}
-		break;
-	    case 'M':
-	    case 'D':
-		if (buflen > 0)
-		{
-		    if (hasmsg)
-		    {
-			strcat(msgbuf, "\n");
-			buflen--;
-		    }
-		    if (buflen > 0)
-		    {
-			strncat(msgbuf, msgbuffer + 1, buflen);
-			buflen -= msgl;
-		    }
-		}
-		if (truncated)
-		    msg_truncated = truncated;
-		hasmsg = TRUE;
-		break;
-	    case 'C':
-		if (sqlstate)
-		    strncpy(sqlstate, msgbuffer + 1, 8);
-		break;
-	    }
-	    if (buflen < 0)
-		buflen = 0;
-	    while (truncated)
-		truncated =
-		    SOCK_get_string(sock, msgbuffer, sizeof(msgbuffer));
-	}
-    } else
-    {
-	msg_truncated = SOCK_get_string(sock, msgbuf, (Int4) buflen);
-
-	/* Remove a newline */
-	if (msgbuf[0] != '\0'
-	    && msgbuf[(int) strlen(msgbuf) - 1] == '\n')
-	    msgbuf[(int) strlen(msgbuf) - 1] = '\0';
-
-	mylog("%s: 'E' - %s\n", comment, msgbuf);
-	qlog("ERROR from backend during %s: '%s'\n", comment, msgbuf);
-	for (truncated = msg_truncated; truncated;)
-	    truncated =
-		SOCK_get_string(sock, msgbuffer, sizeof(msgbuffer));
-    }
-    abort_opt = 0;
-    if (!strncmp(msgbuffer, "FATAL", 5))
-    {
-	CC_set_errornumber(self, CONNECTION_SERVER_REPORTED_ERROR);
-	abort_opt = CONN_DEAD;
-    } else
-    {
-	CC_set_errornumber(self, CONNECTION_SERVER_REPORTED_WARNING);
-	if (CC_is_in_trans(self))
-	    CC_set_in_error_trans(self);
-    }
-    if (0 != abort_opt
-#ifdef	_LEGACY_MODE_
-	|| TRUE
-#endif				/* _LEGACY_NODE_ */
-	)
-	CC_on_abort(self, abort_opt);
-    if (res)
-    {
-	QR_set_rstatus(res, PORES_FATAL_ERROR);
-	QR_set_message(res, msgbuf);
-	QR_set_aborted(res, TRUE);
-    }
-
-    return msg_truncated;
-}
-
-// VX_CLEANUP: This goes as soon as we get rid of QR_next_tuple and
-// SendSyncAndReceive
-int
-handle_notice_message(ConnectionClass * self, char *msgbuf,
-		      size_t buflen, char *sqlstate,
-		      const char *comment, QResultClass * res)
-{
-    BOOL new_format = FALSE, msg_truncated = FALSE, truncated, hasmsg =
-	FALSE;
-    SocketClass *sock = self->sock;
-    char msgbuffer[ERROR_MSG_LENGTH];
-
-    if (PROTOCOL_74(&(self->connInfo)))
-	new_format = TRUE;
-
-    if (new_format)
-    {
-	size_t msgl;
-
-	msgbuf[0] = '\0';
-	for (;;)
-	{
-	    truncated =
-		SOCK_get_string(sock, msgbuffer, sizeof(msgbuffer));
-	    if (!msgbuffer[0])
-		break;
-
-	    mylog("%s: 'N' - %s\n", comment, msgbuffer);
-	    qlog("NOTICE from backend during %s: '%s'\n", comment,
-		 msgbuffer);
-	    msgl = strlen(msgbuffer + 1);
-	    switch (msgbuffer[0])
-	    {
-	    case 'S':
-		if (buflen > 0)
-		{
-		    strncat(msgbuf, msgbuffer + 1, buflen);
-		    buflen -= msgl;
-		}
-		if (buflen > 0)
-		{
-		    strncat(msgbuf, ": ", buflen);
-		    buflen -= 2;
-		}
-		break;
-	    case 'M':
-	    case 'D':
-		if (buflen > 0)
-		{
-		    if (hasmsg)
-		    {
-			strcat(msgbuf, "\n");
-			buflen--;
-		    }
-		    if (buflen > 0)
-		    {
-			strncat(msgbuf, msgbuffer + 1, buflen);
-			buflen -= msgl;
-		    }
-		} else
-		    msg_truncated = TRUE;
-		if (truncated)
-		    msg_truncated = truncated;
-		hasmsg = TRUE;
-		break;
-	    case 'C':
-		if (sqlstate && !sqlstate[0]
-		    && strcmp(msgbuffer + 1, "00000"))
-		    strncpy(sqlstate, msgbuffer + 1, 8);
-		break;
-	    }
-	    if (buflen < 0)
-		msg_truncated = TRUE;
-	    while (truncated)
-		truncated =
-		    SOCK_get_string(sock, msgbuffer, sizeof(msgbuffer));
-	}
-    } else
-    {
-	msg_truncated = SOCK_get_string(sock, msgbuf, (Int4) buflen);
-
-	/* Remove a newline */
-	if (msgbuf[0] != '\0' && msgbuf[strlen(msgbuf) - 1] == '\n')
-	    msgbuf[strlen(msgbuf) - 1] = '\0';
-
-	mylog("%s: 'N' - %s\n", comment, msgbuf);
-	qlog("NOTICE from backend during %s: '%s'\n", comment, msgbuf);
-	for (truncated = msg_truncated; truncated;)
-	    truncated =
-		SOCK_get_string(sock, msgbuffer, sizeof(msgbuffer));
-    }
-    if (res)
-    {
-	if (QR_command_successful(res))
-	    QR_set_rstatus(res, PORES_NONFATAL_ERROR);
-	QR_set_notice(res, msgbuf);	/* will dup this string */
-    }
-
-    return msg_truncated;
-}
-
-// VX_CLEANUP: Likely junk
-void getParameterValues(ConnectionClass * conn)
-{
-    SocketClass *sock = conn->sock;
-    /* ERROR_MSG_LENGTH is suffcient */
-    char msgbuffer[ERROR_MSG_LENGTH + 1];
-
-    SOCK_get_string(sock, msgbuffer, sizeof(msgbuffer));
-    inolog("parameter name=%s\n", msgbuffer);
-    if (stricmp(msgbuffer, "server_encoding") == 0)
-    {
-	SOCK_get_string(sock, msgbuffer, sizeof(msgbuffer));
-	if (conn->server_encoding)
-	    free(conn->server_encoding);
-	conn->server_encoding = strdup(msgbuffer);
-    } else if (stricmp(msgbuffer, "client_encoding") == 0)
-    {
-	SOCK_get_string(sock, msgbuffer, sizeof(msgbuffer));
-	if (conn->current_client_encoding)
-	    free(conn->current_client_encoding);
-	conn->current_client_encoding = strdup(msgbuffer);
-    } else if (stricmp(msgbuffer, "server_version") == 0)
-    {
-	char szVersion[32];
-	int major, minor;
-
-	SOCK_get_string(sock, msgbuffer, sizeof(msgbuffer));
-	strncpy(conn->pg_version, msgbuffer, sizeof(conn->pg_version));
-	strcpy(szVersion, "0.0");
-	if (sscanf(conn->pg_version, "%d.%d", &major, &minor) >= 2)
-	{
-	    snprintf(szVersion, sizeof(szVersion), "%d.%d", major,
-		     minor);
-	    conn->pg_version_major = major;
-	    conn->pg_version_minor = minor;
-	}
-	conn->pg_version_number = (float) atof(szVersion);
-	if (PG_VERSION_GE(conn, 7.3))
-	    conn->schema_support = 1;
-
-	mylog("Got the PostgreSQL version string: '%s'\n",
-	      conn->pg_version);
-	mylog("Extracted PostgreSQL version number: '%1.1f'\n",
-	      conn->pg_version_number);
-	qlog("    [ PostgreSQL version string = '%s' ]\n",
-	     conn->pg_version);
-	qlog("    [ PostgreSQL version number = '%1.1f' ]\n",
-	     conn->pg_version_number);
-    } else
-	SOCK_get_string(sock, msgbuffer, sizeof(msgbuffer));
-
-    inolog("parameter value=%s\n", msgbuffer);
-}
-
-// VX_CLEANUP: Likely junk
-static int protocol3_opts_array(ConnectionClass * self,
-				const char *opts[][2], BOOL libpqopt,
-				int dim_opts)
-{
-    ConnInfo *ci = &(self->connInfo);
-    const char *enc = NULL;
-    int cnt;
-
-    cnt = 0;
-    if (libpqopt && ci->server[0])
-    {
-	opts[cnt][0] = "host";
-	opts[cnt++][1] = ci->server;
-    }
-    if (libpqopt && ci->port[0])
-    {
-	opts[cnt][0] = "port";
-	opts[cnt++][1] = ci->port;
-    }
-    if (ci->database[0])
-    {
-	if (libpqopt)
-	{
-	    opts[cnt][0] = "dbname";
-	    opts[cnt++][1] = ci->database;
-	} else
-	{
-	    opts[cnt][0] = "database";
-	    opts[cnt++][1] = ci->database;
-	}
-    }
-    if (ci->username[0])
-    {
-	opts[cnt][0] = "user";
-	opts[cnt++][1] = ci->username;
-    }
-    if (libpqopt)
-    {
-	if (ci->sslmode[0])
-	{
-	    opts[cnt][0] = "sslmode";
-	    opts[cnt++][1] = ci->sslmode;
-	}
-	if (ci->password[0])
-	{
-	    opts[cnt][0] = "password";
-	    opts[cnt++][1] = ci->password;
-	}
-    } else
-    {
-	/* DateStyle */
-	opts[cnt][0] = "DateStyle";
-	opts[cnt++][1] = "ISO";
-	/* extra_float_digits */
-	opts[cnt][0] = "extra_float_digits";
-	opts[cnt++][1] = "2";
-	/* geqo */
-	opts[cnt][0] = "geqo";
-	opts[cnt++][1] = "on";
-	/* client_encoding */
-	enc =
-	    get_environment_encoding(self,
-				     self->original_client_encoding,
-				     NULL, TRUE);
-	if (enc)
-	{
-	    mylog("startup client_encoding=%s\n", enc);
-	    opts[cnt][0] = "client_encoding";
-	    opts[cnt++][1] = enc;
-	}
-    }
-
-    return cnt;
-}
-
-// VX_CLEANUP: Junk
-static int protocol3_packet_build(ConnectionClass * self)
-{
-    CSTR func = "protocol3_packet_build";
-    SocketClass *sock = self->sock;
-    size_t slen;
-    char *packet, *ppacket;
-    ProtocolVersion pversion;
-    const char *opts[20][2];
-    int cnt, i;
-
-    cnt =
-	protocol3_opts_array(self, opts, FALSE,
-			     sizeof(opts) / sizeof(opts[0]));
-
-    slen = sizeof(ProtocolVersion);
-    for (i = 0; i < cnt; i++)
-    {
-	slen += (strlen(opts[i][0]) + 1);
-	slen += (strlen(opts[i][1]) + 1);
-    }
-    slen++;
-
-    if (packet = (char *)malloc(slen), !packet)
-    {
-	CC_set_error(self, CONNECTION_SERVER_NOT_REACHED,
-		     "Could not allocate a startup packet", func);
-	return 0;
-    }
-
-    mylog("sizeof startup packet = %d\n", slen);
-
-    sock->pversion = PG_PROTOCOL_LATEST;
-    /* Send length of Authentication Block */
-    SOCK_put_int(sock, (Int4) (slen + 4), 4);
-
-    ppacket = packet;
-    pversion = (ProtocolVersion) htonl(sock->pversion);
-    memcpy(ppacket, &pversion, sizeof(pversion));
-    ppacket += sizeof(pversion);
-    for (i = 0; i < cnt; i++)
-    {
-	strcpy(ppacket, opts[i][0]);
-	ppacket += (strlen(opts[i][0]) + 1);
-	strcpy(ppacket, opts[i][1]);
-	ppacket += (strlen(opts[i][1]) + 1);
-    }
-    *ppacket = '\0';
-
-    SOCK_put_n_char(sock, packet, (Int4) slen);
-    SOCK_flush_output(sock);
-    free(packet);
-
-    return 1;
-}
 
 static char CC_initial_log(ConnectionClass * self, const char *func)
 {
@@ -1211,26 +777,6 @@ char CC_remove_statement(ConnectionClass * self, StatementClass * stmt)
     CONNLOCK_RELEASE(self);
 
     return ret;
-}
-
-int CC_get_max_idlen(ConnectionClass * self)
-{
-    int len = self->max_identifier_length;
-
-    if (len < 0)
-    {
-	QResultClass *res;
-
-	res =
-	    CC_send_query(self, "show max_identifier_length", NULL,
-			  ROLLBACK_ON_ERROR | IGNORE_ABORT_ON_CONN,
-			  NULL);
-	if (QR_command_maybe_successful(res))
-	    len = self->max_identifier_length = atoi(res->command);
-	QR_Destructor(res);
-    }
-    mylog("max_identifier_length=%d\n", len);
-    return len < 0 ? 0 : len;
 }
 
 /*
@@ -1371,81 +917,6 @@ static void CC_clear_cursors(ConnectionClass * self, BOOL on_abort)
 	}
     }
     CONNLOCK_RELEASE(self);
-}
-
-void CC_on_commit(ConnectionClass * conn)
-{
-    CONNLOCK_ACQUIRE(conn);
-    if (CC_is_in_trans(conn))
-    {
-	CC_set_no_trans(conn);
-	CC_set_no_manual_trans(conn);
-    }
-    CC_clear_cursors(conn, FALSE);
-    CONNLOCK_RELEASE(conn);
-    CC_discard_marked_objects(conn);
-    CONNLOCK_ACQUIRE(conn);
-    if (conn->result_uncommitted)
-    {
-	CONNLOCK_RELEASE(conn);
-	ProcessRollback(conn, FALSE, FALSE);
-	CONNLOCK_ACQUIRE(conn);
-	conn->result_uncommitted = 0;
-    }
-    CONNLOCK_RELEASE(conn);
-}
-
-void CC_on_abort(ConnectionClass * conn, UDWORD opt)
-{
-    BOOL set_no_trans = FALSE;
-
-    mylog("CC_on_abort in\n");
-    CONNLOCK_ACQUIRE(conn);
-    if (0 != (opt & CONN_DEAD))	/* CONN_DEAD implies NO_TRANS also */
-	opt |= NO_TRANS;
-    if (CC_is_in_trans(conn))
-    {
-	if (0 != (opt & NO_TRANS))
-	{
-	    CC_set_no_trans(conn);
-	    CC_set_no_manual_trans(conn);
-	    set_no_trans = TRUE;
-	}
-    }
-    CC_clear_cursors(conn, TRUE);
-    if (0 != (opt & CONN_DEAD))
-    {
-	conn->status = CONN_DOWN;
-	if (conn->sock)
-	{
-	    CONNLOCK_RELEASE(conn);
-	    SOCK_Destructor(conn->sock);
-	    CONNLOCK_ACQUIRE(conn);
-	    conn->sock = NULL;
-	}
-    } else if (set_no_trans)
-    {
-	CONNLOCK_RELEASE(conn);
-	CC_discard_marked_objects(conn);
-	CONNLOCK_ACQUIRE(conn);
-    }
-    if (conn->result_uncommitted)
-    {
-	CONNLOCK_RELEASE(conn);
-	ProcessRollback(conn, TRUE, FALSE);
-	CONNLOCK_ACQUIRE(conn);
-	conn->result_uncommitted = 0;
-    }
-    CONNLOCK_RELEASE(conn);
-}
-
-void CC_on_abort_partial(ConnectionClass * conn)
-{
-    mylog("CC_on_abort_partial in\n");
-    ProcessRollback(conn, TRUE, TRUE);
-    CONNLOCK_ACQUIRE(conn);
-    CC_discard_marked_objects(conn);
-    CONNLOCK_RELEASE(conn);
 }
 
 static BOOL is_setting_search_path(const UCHAR * query)
@@ -1605,84 +1076,6 @@ void CC_initialize_pg_version(ConnectionClass * self)
     }
 }
 
-
-/*
- *	This function gets the version of PostgreSQL that we're connected to.
- *	This is used to return the correct info in SQLGetInfo
- *	DJP - 25-1-2001
- */
-static void CC_lookup_pg_version(ConnectionClass * self)
-{
-    HSTMT hstmt;
-    StatementClass *stmt;
-    RETCODE result;
-    char szVersion[32];
-    int major, minor;
-    CSTR func = "CC_lookup_pg_version";
-
-    mylog("%s: entering...\n", func);
-
-/*
- *	This function must use the local odbc API functions since the odbc state
- *	has not transitioned to "connected" yet.
- */
-    result = PGAPI_AllocStmt(self, &hstmt);
-    if (!SQL_SUCCEEDED(result))
-	return;
-    stmt = (StatementClass *) hstmt;
-
-    /* get the server's version if possible  */
-    result = PGAPI_ExecDirect(hstmt, (const UCHAR *)"select version()", SQL_NTS, 0);
-    if (!SQL_SUCCEEDED(result))
-    {
-	PGAPI_FreeStmt(hstmt, SQL_DROP);
-	return;
-    }
-
-    result = PGAPI_Fetch(hstmt);
-    if (!SQL_SUCCEEDED(result))
-    {
-	PGAPI_FreeStmt(hstmt, SQL_DROP);
-	return;
-    }
-
-    result =
-	PGAPI_GetData(hstmt, 1, SQL_C_CHAR, self->pg_version,
-		      MAX_INFO_STRING, NULL);
-    if (!SQL_SUCCEEDED(result))
-    {
-	PGAPI_FreeStmt(hstmt, SQL_DROP);
-	return;
-    }
-
-    /*
-     * Extract the Major and Minor numbers from the string. This assumes
-     * the string starts 'Postgresql X.X'
-     */
-    strcpy(szVersion, "0.0");
-    if (sscanf(self->pg_version, "%*s %d.%d", &major, &minor) >= 2)
-    {
-	snprintf(szVersion, sizeof(szVersion), "%d.%d", major, minor);
-	self->pg_version_major = major;
-	self->pg_version_minor = minor;
-    }
-    self->pg_version_number = (float) atof(szVersion);
-    if (PG_VERSION_GE(self, 7.3))
-	self->schema_support = 1;
-
-    mylog("Got the PostgreSQL version string: '%s'\n",
-	  self->pg_version);
-    mylog("Extracted PostgreSQL version number: '%1.1f'\n",
-	  self->pg_version_number);
-    qlog("    [ PostgreSQL version string = '%s' ]\n",
-	 self->pg_version);
-    qlog("    [ PostgreSQL version number = '%1.1f' ]\n",
-	 self->pg_version_number);
-
-    result = PGAPI_FreeStmt(hstmt, SQL_DROP);
-}
-
-
 void
 CC_log_error(const char *func, const char *desc,
 	     const ConnectionClass * self)
@@ -1744,6 +1137,8 @@ int CC_get_max_query_len(const ConnectionClass * conn)
 
 // VX_CLEANUP: This looks like a fairly cromulent thing to ask, but
 // CC_send_query is the wrong way to get an answer.
+// VX_CLEANUP: We probably don't support schemas, so anything referencing
+// conn->schema_support is probably junk.
 /*
  *	This doesn't really return the CURRENT SCHEMA
  *	but there's no alternative.
@@ -2050,11 +1445,9 @@ static int LIBPQ_send_cancel_request(const ConnectionClass * conn)
 	return FALSE;
 }
 
+// VX_CLEANUP: This can obviously be simplified away.
 const char *CurrCat(const ConnectionClass * conn)
 {
-    if (conn->schema_support)
-	return conn->connInfo.database;
-    else
 	return NULL;
 }
 

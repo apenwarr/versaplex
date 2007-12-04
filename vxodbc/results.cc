@@ -66,7 +66,6 @@ RETCODE SQL_API PGAPI_RowCount(HSTMT hstmt, SQLLEN FAR * pcrow)
 	} else if (QR_NumResultCols(res) > 0)
 	{
 	    *pcrow =
-		SC_is_fetchcursor(stmt) ? -1 :
 		QR_get_num_total_tuples(res) - res->dl_count;
 	    mylog("RowCount=%d\n", *pcrow);
 	    return SQL_SUCCESS;
@@ -811,7 +810,6 @@ PGAPI_GetData(HSTMT hstmt,
 
 #define	return	DONT_CALL_RETURN_FROM_HERE???
     /* StartRollbackState(stmt); */
-    if (!SC_is_fetchcursor(stmt))
     {
 	/* make sure we're positioned on a valid row */
 	num_rows = QR_get_num_total_tuples(res);
@@ -834,25 +832,6 @@ PGAPI_GetData(HSTMT hstmt,
 		   SC_get_rowset_start(stmt));
 	    mylog("     value = '%s'\n", value ? value : "(null)");
 	}
-    } else
-    {
-	/* it's a SOCKET result (backend data) */
-	if (stmt->currTuple == -1 || !res || !res->tupleField)
-	{
-	    SC_set_error(stmt, STMT_INVALID_CURSOR_STATE_ERROR,
-			 "Not positioned on a valid row for GetData.",
-			 func);
-	    result = SQL_ERROR;
-	    goto cleanup;
-	}
-
-	if (!get_bookmark)
-	{
-			/** value = QR_get_value_backend(res, icol); maybe thiw doesn't work */
-	    SQLLEN curt = GIdx2CacheIdx(stmt->currTuple, stmt, res);
-	    value = QR_get_value_backend_row(res, curt, icol);
-	}
-	mylog("  socket: value = '%s'\n", value ? value : "(null)");
     }
 
     if (get_bookmark)
@@ -1331,8 +1310,6 @@ PGAPI_ExtendedFetch(HSTMT hstmt,
 
     num_tuples = QR_get_num_total_tuples(res);
     reached_eof = QR_once_reached_eof(res) && QR_get_cursor(res);
-    if (SC_is_fetchcursor(stmt) && !reached_eof)
-	num_tuples = INT_MAX;
 
     inolog("num_tuples=%d\n", num_tuples);
     /* Save and discard the saved rowset size */
@@ -1566,12 +1543,6 @@ PGAPI_ExtendedFetch(HSTMT hstmt,
      */
     if (!should_set_rowset_start)
 	rowset_start = SC_get_rowset_start(stmt);
-    if (SC_is_fetchcursor(stmt))
-    {
-	if (reached_eof && rowset_start >= num_tuples)
-	{
-	EXTFETCH_RETURN_EOF(stmt, res)}
-    } else
     {
 	/* If *new* rowset is after the result_set, return no data found */
 	if (rowset_start >= num_tuples)
@@ -1599,12 +1570,7 @@ PGAPI_ExtendedFetch(HSTMT hstmt,
     /* currTuple is always 1 row prior to the rowset start */
     stmt->currTuple = RowIdx2GIdx(-1, stmt);
 
-    if (SC_is_fetchcursor(stmt) ||
-	SQL_CURSOR_KEYSET_DRIVEN == stmt->options.cursor_type)
-    {
-	move_cursor_position_if_needed(stmt, res);
-    } else
-	QR_set_rowstart_in_cache(res, SC_get_rowset_start(stmt));
+    QR_set_rowstart_in_cache(res, SC_get_rowset_start(stmt));
 
     if (res->keyset && !QR_get_cursor(res))
     {
@@ -1731,10 +1697,6 @@ PGAPI_ExtendedFetch(HSTMT hstmt,
     /* Move the cursor position to the first row in the result set. */
     stmt->currTuple = RowIdx2GIdx(0, stmt);
 
-    /* For declare/fetch, need to reset cursor to beginning of rowset */
-    if (SC_is_fetchcursor(stmt))
-	QR_set_position(res, 0);
-
     /* Set the number of rows retrieved */
     if (pcrow)
 	*pcrow = i;
@@ -1834,57 +1796,6 @@ static void KeySetSet(const TupleField * tuple, int num_fields,
 	keyset->oid = 0;
 }
 
-static void AddRollback(StatementClass * stmt, QResultClass * res,
-			SQLLEN index, const KeySet * keyset,
-			Int4 dmlcode)
-{
-    ConnectionClass *conn = SC_get_conn(stmt);
-    Rollback *rollback;
-
-    if (!CC_is_in_trans(conn))
-	return;
-    inolog("AddRollback %d(%d,%d) %s\n", index, keyset->blocknum,
-	   keyset->offset,
-	   dmlcode == SQL_ADD ? "ADD" : (dmlcode ==
-					 SQL_UPDATE ? "UPDATE"
-					 : (dmlcode ==
-					    SQL_DELETE ? "DELETE" :
-					    "REFRESH")));
-    if (!res->rollback)
-    {
-	res->rb_count = 0;
-	res->rb_alloc = 10;
-	rollback = res->rollback = (Rollback *)
-	    malloc(sizeof(Rollback) * res->rb_alloc);
-    } else
-    {
-	if (res->rb_count >= res->rb_alloc)
-	{
-	    res->rb_alloc *= 2;
-	    if (rollback = (Rollback *)
-		realloc(res->rollback,
-			sizeof(Rollback) * res->rb_alloc), !rollback)
-	    {
-		res->rb_alloc = res->rb_count = 0;
-		return;
-	    }
-	    res->rollback = rollback;
-	}
-	rollback = res->rollback + res->rb_count;
-    }
-    rollback->index = index;
-    rollback->option = dmlcode;
-    rollback->offset = 0;
-    rollback->blocknum = 0;
-    if (keyset)
-    {
-	rollback->blocknum = keyset->blocknum;
-	rollback->offset = keyset->offset;
-    }
-
-    conn->result_uncommitted = 1;
-    res->rb_count++;
-}
 
 SQLLEN ClearCachedRows(TupleField * tuple, int num_fields,
 		       SQLLEN num_rows)
@@ -2052,11 +1963,8 @@ static void AddAdded(StatementClass * stmt, QResultClass * res,
     KeySetSet(tuple_added, num_fields + res->num_key_fields,
 	      res->num_key_fields, &keys);
     keys.status = SQL_ROW_ADDED;
-    if (CC_is_in_trans(SC_get_conn(stmt)))
-	keys.status |= CURS_SELF_ADDING;
-    else
-	keys.status |= CURS_SELF_ADDED;
-    AddRollback(stmt, res, index, &keys, SQL_ADD);
+    // VX_CLEANUP: It might be possible to extend the carnage from here.
+    keys.status |= CURS_SELF_ADDED;
 
     if (!QR_get_cursor(res))
 	return;
@@ -2219,11 +2127,7 @@ int AddDeleted(QResultClass * res, SQLULEN index, KeySet * keyset)
     status = keyset->status;
     status &= (~KEYSET_INFO_PUBLIC);
     status |= SQL_ROW_DELETED;
-    if (CC_is_in_trans(QR_get_conn(res)))
-    {
-	status |= CURS_SELF_DELETING;
-	QR_get_conn(res)->result_uncommitted = 1;
-    } else
+    // VX_CLEANUP: It might be possible to extend the carnage from here.
     {
 	status &=
 	    ~(CURS_SELF_ADDING | CURS_SELF_UPDATING |
@@ -2384,7 +2288,6 @@ static void AddUpdated(StatementClass * stmt, SQLLEN index)
     TupleField *updated_tuples = NULL, *tuple_updated, *tuple;
     SQLULEN kres_ridx;
     UInt2 up_count;
-    BOOL is_in_trans;
     SQLLEN upd_idx, upd_add_idx;
     Int2 num_fields;
     int i;
@@ -2401,9 +2304,6 @@ static void AddUpdated(StatementClass * stmt, SQLLEN index)
     if (kres_ridx < 0 || kres_ridx >= res->num_cached_keys)
 	return;
     keyset = res->keyset + kres_ridx;
-    if (0 != (keyset->status & CURS_SELF_ADDING))
-	AddRollback(stmt, res, index, res->keyset + kres_ridx,
-		    SQL_REFRESH);
     if (!QR_get_cursor(res))
 	return;
     up_count = res->up_count;
@@ -2416,33 +2316,28 @@ static void AddUpdated(StatementClass * stmt, SQLLEN index)
     upd_idx = -1;
     upd_add_idx = -1;
     updated = res->updated;
-    is_in_trans = CC_is_in_trans(SC_get_conn(stmt));
     updated_keyset = res->updated_keyset;
     status = keyset->status;
     status &= (~KEYSET_INFO_PUBLIC);
     status |= SQL_ROW_UPDATED;
-    if (is_in_trans)
-	status |= CURS_SELF_UPDATING;
+
+    for (i = up_count - 1; i >= 0; i--)
+    {
+	if (updated[i] == index)
+	    break;
+    }
+    if (i >= 0)
+	upd_idx = i;
     else
     {
-	for (i = up_count - 1; i >= 0; i--)
-	{
-	    if (updated[i] == index)
-		break;
-	}
-	if (i >= 0)
-	    upd_idx = i;
-	else
-	{
-	    SQLLEN num_totals = QR_get_num_total_tuples(res);
-	    if (index >= num_totals)
-		upd_add_idx = num_totals - index;
-	}
-	status |= CURS_SELF_UPDATED;
-	status &=
-	    ~(CURS_SELF_ADDING | CURS_SELF_UPDATING |
-	      CURS_SELF_DELETING);
+	SQLLEN num_totals = QR_get_num_total_tuples(res);
+	if (index >= num_totals)
+	    upd_add_idx = num_totals - index;
     }
+    status |= CURS_SELF_UPDATED;
+    status &=
+	~(CURS_SELF_ADDING | CURS_SELF_UPDATING |
+	  CURS_SELF_DELETING);
 
     tuple = NULL;
     /* update the corresponding add(updat)ed info */
@@ -2483,8 +2378,6 @@ static void AddUpdated(StatementClass * stmt, SQLLEN index)
 
     if (tuple)
 	ReplaceCachedRows(tuple, tuple_updated, num_fields, 1);
-    if (is_in_trans)
-	SC_get_conn(stmt)->result_uncommitted = 1;
     mylog("up_count=%d\n", res->up_count);
 }
 
@@ -3020,9 +2913,7 @@ SC_pos_reload_with_tid(StatementClass * stmt, SQLULEN global_ridx,
 
 	rcnt = (UInt2) QR_get_num_cached_tuples(qres);
 	tuple_old = res->backend_tuples + res->num_fields * res_ridx;
-	if (0 != logKind && CC_is_in_trans(conn))
-	    AddRollback(stmt, res, global_ridx, res->keyset + kres_ridx,
-			logKind);
+	// VX_CLEANUP: It might be possible to extend the carnage from here.
 	if (rcnt == 1)
 	{
 	    int effective_fields = res_cols;
@@ -3624,13 +3515,9 @@ static RETCODE pos_update_callback(RETCODE retcode, void *para)
     {
 	ConnectionClass *conn = SC_get_conn(s->stmt);
 
-	if (CC_is_in_trans(conn))
-	{
-	    s->res->keyset[kres_ridx].status |=
-		(SQL_ROW_UPDATED | CURS_SELF_UPDATING);
-	} else
-	    s->res->keyset[kres_ridx].status |=
-		(SQL_ROW_UPDATED | CURS_SELF_UPDATED);
+	// VX_CLEANUP: It might be possible to extend the carnage from here.
+	s->res->keyset[kres_ridx].status |=
+	    (SQL_ROW_UPDATED | CURS_SELF_UPDATED);
     }
     if (s->irdflds->rowStatusArray)
     {
@@ -3902,9 +3789,7 @@ SC_pos_delete(StatementClass * stmt,
 
     mylog("dltstr=%s\n", dltstr);
     qflag = 0;
-    if (!stmt->internal && !CC_is_in_trans(conn) &&
-	(!CC_is_in_autocommit(conn)))
-	qflag |= GO_INTO_TRANSACTION;
+    // VX_CLEANUP: GO_INTO_TRANSACTION doesn't seem to be used elsewhere
     qres = CC_send_query(conn, dltstr, NULL, qflag, stmt);
     ret = SQL_SUCCESS;
     if (QR_command_maybe_successful(qres))
@@ -3947,13 +3832,9 @@ SC_pos_delete(StatementClass * stmt,
     {
 	AddDeleted(res, global_ridx, res->keyset + kres_ridx);
 	res->keyset[kres_ridx].status &= (~KEYSET_INFO_PUBLIC);
-	if (CC_is_in_trans(conn))
-	{
-	    res->keyset[kres_ridx].status |=
-		(SQL_ROW_DELETED | CURS_SELF_DELETING);
-	} else
-	    res->keyset[kres_ridx].status |=
-		(SQL_ROW_DELETED | CURS_SELF_DELETED);
+	// VX_CLEANUP: It might be possible to extend the carnage from here.
+	res->keyset[kres_ridx].status |=
+	    (SQL_ROW_DELETED | CURS_SELF_DELETED);
 	inolog(".status[%d]=%x\n", global_ridx,
 	       res->keyset[kres_ridx].status);
     }
@@ -4087,10 +3968,8 @@ static RETCODE pos_add_callback(RETCODE retcode, void *para)
 	SQLLEN kres_ridx;
 	UWORD status = SQL_ROW_ADDED;
 
-	if (CC_is_in_trans(conn))
-	    status |= CURS_SELF_ADDING;
-	else
-	    status |= CURS_SELF_ADDED;
+	// VX_CLEANUP: It might be possible to extend the carnage from here.
+	status |= CURS_SELF_ADDED;
 	kres_ridx = GIdx2KResIdx(global_ridx, s->stmt, s->res);
 	if (kres_ridx >= 0 || kres_ridx < s->res->num_cached_keys)
 	{
@@ -4458,6 +4337,8 @@ RETCODE spos_callback(RETCODE retcode, void *para)
  *	This positions the cursor within a rowset, that was positioned using SQLExtendedFetch.
  *	This will be useful (so far) only when using SQLGetData after SQLExtendedFetch.
  */
+// VX_CLEANUP: In ODBC 3, SQLExtendedFetch has been replaced with
+// SQLFetchScroll.  Need to check whether either of them works.
 RETCODE SQL_API
 PGAPI_SetPos(HSTMT hstmt,
 	     SQLSETPOSIROW irow,
@@ -4539,20 +4420,7 @@ PGAPI_SetPos(HSTMT hstmt,
 	    gdata[i].data_left = -1;
     }
     ret = SQL_SUCCESS;
-    conn = SC_get_conn(s.stmt);
-    switch (s.fOption)
-    {
-    case SQL_UPDATE:
-    case SQL_DELETE:
-    case SQL_ADD:
-	if (s.auto_commit_needed =
-	    CC_is_in_autocommit(conn), s.auto_commit_needed)
-	    PGAPI_SetConnectOption(conn, SQL_AUTOCOMMIT,
-				   SQL_AUTOCOMMIT_OFF);
-	break;
-    case SQL_POSITION:
-	break;
-    }
+    // VX_CLEANUP: It might be possible to extend the carnage from here.
 
     s.need_data_callback = FALSE;
 #define	return	DONT_CALL_RETURN_FROM_HERE???

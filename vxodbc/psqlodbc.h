@@ -56,7 +56,7 @@
 #define NAMEDATALEN_V73					64
 #ifndef NAMESTORAGELEN
 #define NAMESTORAGELEN					64
-#endif   /* NAMEDATALEN */
+#endif   /* NAMESTORAGELEN */
 
 
 #ifndef	WIN32

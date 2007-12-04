@@ -21,10 +21,6 @@ extern "C" {
 #define COPY_RESULT_TRUNCATED					3
 #define COPY_GENERAL_ERROR						4
 #define COPY_NO_DATA_FOUND						5
-/* convert_escape results */
-#define CONVERT_ESCAPE_OK					0
-#define CONVERT_ESCAPE_OVERFLOW					1
-#define CONVERT_ESCAPE_ERROR					-1
 
 typedef struct
 {

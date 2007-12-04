@@ -413,7 +413,6 @@ StatementClass *SC_Constructor(ConnectionClass * conn)
 	rv->pre_executing = FALSE;
 	rv->inaccurate_result = FALSE;
 	rv->miscinfo = 0;
-	rv->rbonerr = 0;
 	rv->updatable = FALSE;
 	rv->diag_row_count = 0;
 	rv->stmt_time = 0;
@@ -568,35 +567,10 @@ int SC_set_current_col(StatementClass * stmt, int col)
     return stmt->current_col;
 }
 
+// VX_CLEANUP: We don't support much in the way of prepared statements, this
+// may be unused.  It sure is useless.
 void SC_set_prepared(StatementClass * stmt, BOOL prepared)
 {
-    if (prepared == stmt->prepared)
-	;
-    else if (NOT_YET_PREPARED == prepared
-	     && PREPARED_PERMANENTLY == stmt->prepared)
-    {
-	ConnectionClass *conn = SC_get_conn(stmt);
-
-	if (conn && CONN_CONNECTED == conn->status)
-	{
-	    if (CC_is_in_error_trans(conn))
-	    {
-		CC_mark_a_object_to_discard(conn, 's', stmt->plan_name);
-	    } else
-	    {
-		QResultClass *res;
-		char dealloc_stmt[128];
-
-		sprintf(dealloc_stmt, "DEALLOCATE \"%s\"",
-			stmt->plan_name);
-		res =
-		    CC_send_query(conn, dealloc_stmt, NULL,
-				  IGNORE_ABORT_ON_CONN |
-				  ROLLBACK_ON_ERROR, NULL);
-		QR_Destructor(res);
-	    }
-	}
-    }
     if (NOT_YET_PREPARED == prepared)
 	SC_set_planname(stmt, NULL);
     stmt->prepared = prepared;
@@ -740,11 +714,7 @@ char SC_recycle_statement(StatementClass * self)
 	 * start of a transaction. If so, we have to rollback that
 	 * transaction.
 	 */
-	if (!CC_is_in_autocommit(conn) && CC_is_in_trans(conn))
-	{
-	    if (SC_is_pre_executable(self) && !SC_is_parse_tricky(self))
-		CC_abort(conn);
-	}
+	// VX_CLEANUP: This was cleaned up.
 	break;
 
     case STMT_FINISHED:
@@ -782,7 +752,6 @@ char SC_recycle_statement(StatementClass * self)
     }
     self->inaccurate_result = FALSE;
     self->miscinfo = 0;
-    /* self->rbonerr = 0; Never clear the bits here */
 
     /*
      * Reset only parameters that have anything to do with results
@@ -1324,65 +1293,29 @@ RETCODE SC_fetch(StatementClass * self)
     ColumnInfoClass *coli;
     BindInfoClass *bookmark;
 
-    /* TupleField *tupleField; */
-
     inolog("%s statement=%p ommitted=0\n", func, self);
     self->last_fetch_count = self->last_fetch_count_include_ommitted =
 	0;
     coli = QR_get_fields(res);	/* the column info */
 
     mylog("fetch_cursor=%d, %p->total_read=%d\n",
-	  SC_is_fetchcursor(self), res, res->num_total_read);
+	  0 /*SC_is_fetchcursor(self)*/, res, res->num_total_read);
 
-    if (!SC_is_fetchcursor(self))
+    if (self->currTuple >= (Int4) QR_get_num_total_tuples(res) - 1
+	|| (self->options.maxRows > 0
+	    && self->currTuple == self->options.maxRows - 1))
     {
-	if (self->currTuple >= (Int4) QR_get_num_total_tuples(res) - 1
-	    || (self->options.maxRows > 0
-		&& self->currTuple == self->options.maxRows - 1))
-	{
-	    /*
-	     * if at the end of the tuples, return "no data found" and set
-	     * the cursor past the end of the result set
-	     */
-	    self->currTuple = QR_get_num_total_tuples(res);
-	    return SQL_NO_DATA_FOUND;
-	}
-
-	mylog("**** %s: non-cursor_result\n", func);
-	(self->currTuple)++;
-    } else
-    {
-	/* read from the cache or the physical next tuple */
-	retval = QR_next_tuple(res, self);
-	if (retval < 0)
-	{
-	    mylog("**** %s: end_tuples\n", func);
-	    if (QR_get_cursor(res) &&
-		SQL_CURSOR_FORWARD_ONLY == self->options.cursor_type &&
-		QR_once_reached_eof(res))
-		QR_close(res);
-	    return SQL_NO_DATA_FOUND;
-	} else if (retval > 0)
-	    (self->currTuple)++;	/* all is well */
-	else
-	{
-	    ConnectionClass *conn = SC_get_conn(self);
-
-	    mylog("%s: error\n", func);
-	    switch (conn->status)
-	    {
-	    case CONN_NOT_CONNECTED:
-	    case CONN_DOWN:
-		SC_set_error(self, STMT_BAD_ERROR,
-			     "Error fetching next row", func);
-		break;
-	    default:
-		SC_set_error(self, STMT_EXEC_ERROR,
-			     "Error fetching next row", func);
-	    }
-	    return SQL_ERROR;
-	}
+	/*
+	 * if at the end of the tuples, return "no data found" and set
+	 * the cursor past the end of the result set
+	 */
+	self->currTuple = QR_get_num_total_tuples(res);
+	return SQL_NO_DATA_FOUND;
     }
+
+    mylog("**** %s: non-cursor_result\n", func);
+    (self->currTuple)++;
+
     if (QR_haskeyset(res))
     {
 	SQLLEN kres_ridx;
@@ -1469,17 +1402,12 @@ RETCODE SC_fetch(StatementClass * self)
 
 	    mylog("type = %d\n", type);
 
-	    if (SC_is_fetchcursor(self))
-		value = QR_get_value_backend((char *)res, lf);
-	    else
-	    {
-		SQLLEN curt = GIdx2CacheIdx(self->currTuple, self, res);
-		inolog("base=%d curr=%d st=%d\n",
-		       QR_get_rowstart_in_cache(res), self->currTuple,
-		       SC_get_rowset_start(self));
-		inolog("curt=%d\n", curt);
-		value = (char *)QR_get_value_backend_row(res, curt, lf);
-	    }
+	    SQLLEN curt = GIdx2CacheIdx(self->currTuple, self, res);
+	    inolog("base=%d curr=%d st=%d\n",
+		   QR_get_rowstart_in_cache(res), self->currTuple,
+		   SC_get_rowset_start(self));
+	    inolog("curt=%d\n", curt);
+	    value = (char *)QR_get_value_backend_row(res, curt, lf);
 
 	    mylog("value = '%s'\n", (value == NULL) ? "<NULL>" : value);
 
@@ -1679,161 +1607,6 @@ SC_log_error(const char *func, const char *desc,
 /*
  *	Extended Query 
  */
-
-static BOOL
-RequestStart(StatementClass * stmt, ConnectionClass * conn,
-	     const char *func)
-{
-    BOOL ret = TRUE;
-
-    if (SC_accessed_db(stmt))
-	return TRUE;
-    if (SQL_ERROR == SetStatementSvp(stmt))
-    {
-	char emsg[128];
-
-	snprintf(emsg, sizeof(emsg), "internal savepoint error in %s",
-		 func);
-	SC_set_error(stmt, STMT_INTERNAL_ERROR, emsg, func);
-	return FALSE;
-    }
-    if (!CC_is_in_trans(conn) && !CC_is_in_autocommit(conn))
-    {
-	if (ret = CC_begin(conn), !ret)
-	    return ret;
-    }
-    return ret;
-}
-
-
-// VX_CLEANUP: Junk
-BOOL SendDescribeRequest(StatementClass * stmt, const char *plan_name)
-{
-    CSTR func = "SendDescribeRequest";
-    ConnectionClass *conn = SC_get_conn(stmt);
-    SocketClass *sock = conn->sock;
-    size_t leng;
-    BOOL sockerr = FALSE;
-
-    mylog("%s:plan_name=%s\n", func, plan_name);
-    if (!RequestStart(stmt, conn, func))
-	return FALSE;
-
-    SOCK_put_char(sock, 'D');	/* Describe command */
-    if (SOCK_get_errcode(sock) != 0)
-	sockerr = TRUE;
-    if (!sockerr)
-    {
-	leng = 1 + strlen(plan_name) + 1;
-	SOCK_put_int(sock, (Int4) (leng + 4), 4);	/* length */
-	if (SOCK_get_errcode(sock) != 0)
-	    sockerr = TRUE;
-    }
-    if (!sockerr)
-    {
-	inolog("describe leng=%d\n", leng);
-	SOCK_put_char(sock, 'S');	/* describe a prepared statement */
-	if (SOCK_get_errcode(sock) != 0)
-	    sockerr = TRUE;
-    }
-    if (!sockerr)
-    {
-	SOCK_put_string(sock, plan_name);
-	if (SOCK_get_errcode(sock) != 0)
-	    sockerr = TRUE;
-    }
-    if (sockerr)
-    {
-	CC_set_error(conn, CONNECTION_COULD_NOT_SEND,
-		     "Could not send D Request to backend", func);
-	CC_on_abort(conn, CONN_DEAD);
-	return FALSE;
-    }
-
-    return TRUE;
-}
-
-// VX_CLEANUP: Junk
-BOOL
-SendExecuteRequest(StatementClass * stmt, const char *plan_name,
-		   UInt4 count)
-{
-    CSTR func = "SendExecuteRequest";
-    ConnectionClass *conn;
-    SocketClass *sock;
-    size_t leng;
-
-    if (!stmt)
-	return FALSE;
-    if (conn = SC_get_conn(stmt), !conn)
-	return FALSE;
-    if (sock = conn->sock, !sock)
-	return FALSE;
-
-    mylog("%s: plan_name=%s count=%d\n", func, plan_name, count);
-    qlog("%s: plan_name=%s count=%d\n", func, plan_name, count);
-    if (!SC_is_fetchcursor(stmt))
-    {
-	switch (stmt->prepared)
-	{
-	case NOT_YET_PREPARED:
-	case ONCE_DESCRIBED:
-	    SC_set_error(stmt, STMT_EXEC_ERROR,
-			 "about to execute a non-prepared statement",
-			 func);
-	    return FALSE;
-	}
-    }
-    if (!RequestStart(stmt, conn, func))
-	return FALSE;
-
-    SOCK_put_char(sock, 'E');	/* Execute command */
-    SC_forget_unnamed(stmt);	/* unnamed plans are unavailable */
-    if (SOCK_get_errcode(sock) != 0)
-    {
-	CC_set_error(conn, CONNECTION_COULD_NOT_SEND,
-		     "Could not send E Request to backend", func);
-	CC_on_abort(conn, CONN_DEAD);
-	return FALSE;
-    }
-
-    leng = strlen(plan_name) + 1 + 4;
-    SOCK_put_int(sock, (Int4) (leng + 4), sizeof(Int4));	/* length */
-    inolog("execute leng=%d\n", leng);
-    SOCK_put_string(sock, plan_name);	/* portal name == plan name */
-    SOCK_put_int(sock, count, sizeof(Int4));
-    if (0 == count)		/* will send a Close portal command */
-    {
-	SOCK_put_char(sock, 'C');	/* Close command */
-	if (SOCK_get_errcode(sock) != 0)
-	{
-	    CC_set_error(conn, CONNECTION_COULD_NOT_SEND,
-			 "Could not send C Request to backend", func);
-	    CC_on_abort(conn, CONN_DEAD);
-	    return FALSE;
-	}
-
-	leng = 1 + strlen(plan_name) + 1;
-	SOCK_put_int(sock, (Int4) (leng + 4), 4);	/* length */
-	inolog("Close leng=%d\n", leng);
-	SOCK_put_char(sock, 'P');	/* Portal */
-	SOCK_put_string(sock, plan_name);
-    }
-
-    return TRUE;
-}
-
-// VX_CLEANUP: Junk
-BOOL SendSyncRequest(ConnectionClass * conn)
-{
-    SocketClass *sock = conn->sock;
-
-    SOCK_put_char(sock, 'S');	/* Sync command */
-    SOCK_put_int(sock, 4, 4);
-    SOCK_flush_output(sock);
-
-    return TRUE;
-}
 
 enum {
     CancelRequestSet = 1L, CancelRequestAccepted =
