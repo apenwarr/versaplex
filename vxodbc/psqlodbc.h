@@ -308,7 +308,6 @@ typedef int	(*PQFUNC)();
 typedef struct ConnectionClass_ ConnectionClass;
 typedef struct StatementClass_ StatementClass;
 typedef struct QResultClass_ QResultClass;
-typedef struct SocketClass_ SocketClass;
 typedef struct BindInfoClass_ BindInfoClass;
 typedef struct ParameterInfoClass_ ParameterInfoClass;
 typedef struct ParameterImplClass_ ParameterImplClass;

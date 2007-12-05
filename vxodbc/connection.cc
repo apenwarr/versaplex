@@ -4,7 +4,6 @@
  */
 /* Multibyte support	Eiji Tokuya 2001-03-15 */
 
-#include <libpq-fe.h>
 #include "connection.h"
 
 #include <stdio.h>
@@ -15,7 +14,6 @@
 #endif				/* WIN32 */
 
 #include "environ.h"
-#include "socket.h"
 #include "statement.h"
 #include "qresult.h"
 #include "dlg_specific.h"
@@ -279,9 +277,6 @@ ConnectionClass *CC_Constructor()
 	rv->status = CONN_NOT_CONNECTED;
 	
 	CC_conninfo_init(&(rv->connInfo));
-	rv->sock = SOCK_Constructor(rv);
-	if (!rv->sock)
-	    goto cleanup;
 
 	rv->stmts =
 	    (StatementClass **) malloc(sizeof(StatementClass *) *
@@ -487,22 +482,6 @@ char CC_cleanup(ConnectionClass * self)
 	return FALSE;
 
     mylog("in CC_Cleanup, self=%p\n", self);
-
-    /* Cancel an ongoing transaction */
-    /* We are always in the middle of a transaction, */
-    /* even if we are in auto commit. */
-    if (self->sock)
-    {
-	CC_abort(self);
-
-	mylog("after CC_abort\n");
-
-	/* This actually closes the connection to the dbase */
-	SOCK_Destructor(self->sock);
-	self->sock = NULL;
-    }
-
-    mylog("after SOCK destructor\n");
 
     /* Free all the stmts on this connection */
     for (i = 0; i < self->num_stmts; i++)
@@ -783,9 +762,9 @@ char CC_remove_statement(ConnectionClass * self, StatementClass * stmt)
  *	Create a more informative error message by concatenating the connection
  *	error message with its socket error message.
  */
+// VX_CLEANUP: This is a bit dumb now that there is no socket error message.  
 static char *CC_create_errormsg(ConnectionClass * self)
 {
-    SocketClass *sock = self->sock;
     size_t pos;
     char msg[4096];
     const char *sockerrmsg;
@@ -798,14 +777,6 @@ static char *CC_create_errormsg(ConnectionClass * self)
 	strncpy(msg, CC_get_errormsg(self), sizeof(msg));
 
     mylog("msg = '%s'\n", msg);
-
-    if (sock && NULL != (sockerrmsg = SOCK_get_errmsg(sock))
-	&& '\0' != sockerrmsg[0])
-    {
-	pos = strlen(msg);
-	snprintf(&msg[pos], sizeof(msg) - pos, ";\n%s", sockerrmsg);
-    }
-
     mylog("exit CC_create_errormsg\n");
     return msg ? strdup(msg) : NULL;
 }
@@ -1096,19 +1067,6 @@ CC_log_error(const char *func, const char *desc,
 	qlog("            ------------------------------------------------------------\n");
 	qlog("            henv=%p, conn=%p, status=%u, num_stmts=%d\n",
 	     self->henv, self, self->status, self->num_stmts);
-	qlog("            sock=%p, stmts=%p\n",
-	     self->sock, self->stmts);
-
-	qlog("            ---------------- Socket Info -------------------------------\n");
-	if (self->sock)
-	{
-	    SocketClass *sock = self->sock;
-
-	    qlog("            socket=%d, reverse=%d, errornumber=%d, errormsg='%s'\n", sock->socket, sock->reverse, sock->errornumber, nullcheck(SOCK_get_errmsg(sock)));
-	    qlog("            buffer_in=%u, buffer_out=%u\n",
-		 sock->buffer_in, sock->buffer_out);
-	    qlog("            buffer_filled_in=%d, buffer_filled_out=%d, buffer_read_in=%d\n", sock->buffer_filled_in, sock->buffer_filled_out, sock->buffer_read_in);
-	}
     } else
     {
 	qlog("INVALID CONNECTION HANDLE ERROR: func=%s, desc='%s'\n",
@@ -1163,77 +1121,6 @@ const char *CC_get_current_schema(ConnectionClass * conn)
     return (const char *) conn->current_schema;
 }
 
-static int LIBPQ_send_cancel_request(const ConnectionClass * conn);
-int CC_send_cancel_request(const ConnectionClass * conn)
-{
-    int save_errno = SOCK_ERRNO;
-    SOCKETFD tmpsock = (unsigned)-1;
-    struct {
-	UInt4 packetlen;
-	CancelRequestPacket cp;
-    } crp;
-    BOOL ret = TRUE;
-    SocketClass *sock;
-    struct sockaddr *sadr;
-
-    /* Check we have an open connection */
-    if (!conn)
-	return FALSE;
-    sock = CC_get_socket(conn);
-    if (!sock)
-	return FALSE;
-
-    if (sock->via_libpq)
-	return LIBPQ_send_cancel_request(conn);
-    /*
-     * We need to open a temporary connection to the postmaster. Use the
-     * information saved by connectDB to do this with only kernel calls.
-     */
-    sadr = (struct sockaddr *) &(sock->sadr_area);
-    if ((tmpsock = socket(sadr->sa_family, SOCK_STREAM, 0)) < 0)
-    {
-	return FALSE;
-    }
-    if (connect(tmpsock, sadr, sock->sadr_len) < 0)
-    {
-	closesocket(tmpsock);
-	return FALSE;
-    }
-
-    /*
-     * We needn't set nonblocking I/O or NODELAY options here.
-     */
-    crp.packetlen = htonl((UInt4) sizeof(crp));
-    crp.cp.cancelRequestCode = (MsgType) htonl(CANCEL_REQUEST_CODE);
-    crp.cp.backendPID = htonl(conn->be_pid);
-    crp.cp.cancelAuthCode = htonl(conn->be_key);
-
-    while (send(tmpsock, (char *) &crp, sizeof(crp), 0) !=
-	   (int) sizeof(crp))
-    {
-	if (SOCK_ERRNO != EINTR)
-	{
-	    save_errno = SOCK_ERRNO;
-	    ret = FALSE;
-	    break;
-	}
-    }
-    if (ret)
-    {
-	while (recv(tmpsock, (char *) &crp, 1, 0) < 0)
-	{
-	    if (EINTR != SOCK_ERRNO)
-		break;
-	}
-    }
-
-    /* Sent it, done */
-    closesocket(tmpsock);
-    SOCK_ERRNO_SET(save_errno);
-
-    return ret;
-}
-
 int CC_mark_a_object_to_discard(ConnectionClass * conn, int type,
 				const char *plan)
 {
@@ -1277,172 +1164,6 @@ int CC_discard_marked_objects(ConnectionClass * conn)
     }
 
     return 1;
-}
-
-static int LIBPQ_connect(ConnectionClass * self)
-{
-    CSTR func = "LIBPQ_connect";
-    char ret = 0;
-#ifdef LIBPQ
-    char *conninfo = NULL;
-    void *pqconn = NULL;
-    SocketClass *sock;
-    int socket = -1, pqret;
-    BOOL libpqLoaded;
-
-    mylog("connecting to the database  using %s as the server\n",
-	  self->connInfo.server);
-    sock = self->sock;
-    inolog("sock=%p\n", sock);
-    if (!sock)
-    {
-	sock = SOCK_Constructor(self);
-	if (!sock)
-	{
-	    CC_set_error(self, CONN_OPENDB_ERROR,
-			 "Could not construct a socket to the server",
-			 func);
-	    goto cleanup1;
-	}
-    }
-
-    if (!(conninfo = protocol3_opts_build(self)))
-    {
-	CC_set_error(self, CONN_OPENDB_ERROR,
-		     "Couldn't allcate conninfo", func);
-	goto cleanup1;
-    }
-    pqconn = CALL_PQconnectdb(conninfo, &libpqLoaded);
-    free(conninfo);
-    if (!libpqLoaded)
-    {
-	CC_set_error(self, CONN_OPENDB_ERROR,
-		     "Couldn't load libpq library", func);
-	goto cleanup1;
-    }
-    sock->via_libpq = TRUE;
-    if (!pqconn)
-    {
-	CC_set_error(self, CONN_OPENDB_ERROR, "PQconnectdb error",
-		     func);
-	goto cleanup1;
-    }
-    sock->pqconn = pqconn;
-    pqret = PQstatus(pqconn);
-    if (CONNECTION_OK != pqret)
-    {
-	const char *errmsg;
-	inolog("status=%d\n", pqret);
-	errmsg = PQerrorMessage(pqconn);
-	CC_set_error(self, CONNECTION_SERVER_NOT_REACHED, errmsg, func);
-	if (CONNECTION_BAD == pqret && strstr(errmsg, "no password"))
-	{
-	    mylog("password retry\n");
-	    PQfinish(pqconn);
-	    self->sock = sock;
-	    return -1;
-	}
-	mylog
-	    ("Could not establish connection to the database; LIBPQ returned -> %s\n",
-	     errmsg);
-	goto cleanup1;
-    }
-    ret = 1;
-
-  cleanup1:
-    if (!ret)
-    {
-	if (sock)
-	    SOCK_Destructor(sock);
-	self->sock = NULL;
-	return ret;
-    }
-    mylog("libpq connection to the database succeeded.\n");
-    ret = 0;
-    socket = PQsocket(pqconn);
-    inolog("socket=%d\n", socket);
-    sock->socket = socket;
-    sock->ssl = PQgetssl(pqconn);
-    if (TRUE)
-    {
-	int pversion;
-	ConnInfo *ci = &self->connInfo;
-
-	sock->pversion = PG_PROTOCOL_74;
-	strncpy(ci->protocol, PG74, sizeof(ci->protocol));
-	pversion = PQprotocolVersion(pqconn);
-	switch (pversion)
-	{
-	case 2:
-	    sock->pversion = PG_PROTOCOL_64;
-	    strncpy(ci->protocol, PG64, sizeof(ci->protocol));
-	    break;
-	}
-    }
-    mylog("procotol=%s\n", self->connInfo.protocol);
-    {
-	int pversion, on;
-
-	pversion = PQserverVersion(pqconn);
-	self->pg_version_major = pversion / 10000;
-	self->pg_version_minor = (pversion % 10000) / 100;
-	sprintf(self->pg_version, "%d.%d.%d", self->pg_version_major,
-		self->pg_version_minor, pversion % 100);
-	self->pg_version_number = (float) atof(self->pg_version);
-	if (PG_VERSION_GE(self, 7.3))
-	    self->schema_support = 1;
-	/* blocking mode */
-	/* ioctlsocket(sock, FIONBIO , 0);
-	   setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (char *) &on, sizeof(on)); */
-    }
-    if (sock->ssl)
-    {
-	/* flags = fcntl(sock, F_GETFL);
-	   fcntl(sock, F_SETFL, flags & (~O_NONBLOCKING)); */
-    }
-    mylog("Server version=%s\n", self->pg_version);
-    ret = 1;
-    if (ret)
-    {
-	self->sock = sock;
-	if (!CC_get_username(self)[0])
-	{
-	    mylog("PQuser=%s\n", PQuser(pqconn));
-	    strcpy(self->connInfo.username, PQuser(pqconn));
-	}
-    } else
-    {
-	SOCK_Destructor(sock);
-	self->sock = NULL;
-    }
-#else
-    ret = -1;
-#endif
-    mylog("%s: retuning %d\n", func, ret);
-    return ret;
-}
-
-static int LIBPQ_send_cancel_request(const ConnectionClass * conn)
-{
-#ifdef LIBPQ
-    int ret = 0;
-    char errbuf[256];
-    void *cancel;
-    SocketClass *sock = CC_get_socket(conn);
-
-    if (!sock)
-	return FALSE;
-
-    cancel = PQgetCancel(sock->pqconn);
-    if (!cancel)
-	return FALSE;
-    ret = PQcancel(cancel, errbuf, sizeof(errbuf));
-    PQfreeCancel(cancel);
-    if (1 == ret)
-	return TRUE;
-    else
-#endif
-	return FALSE;
 }
 
 // VX_CLEANUP: This can obviously be simplified away.

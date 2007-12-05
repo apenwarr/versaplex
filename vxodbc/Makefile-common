@@ -22,7 +22,6 @@ OBJS=\
 	psqlodbc.o \
 	qresult.o \
 	results.o \
-	socket.o \
 	statement.o \
 	tuple.o \
 	odbcapi.o \

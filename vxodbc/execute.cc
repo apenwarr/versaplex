@@ -404,32 +404,9 @@ RETCODE SQL_API PGAPI_Cancel(HSTMT hstmt)	/* Statement to cancel. */
 	/*
 	 * Tell the Backend that we're cancelling this request
 	 */
-	if (estmt->status == STMT_EXECUTING)
-	{
-	    if (!CC_send_cancel_request(conn))
-	    {
-		ret = SQL_ERROR;
-	    }
-	    goto cleanup;
-	}
-	/*
-	 * MAJOR HACK for Windows to reset the driver manager's cursor
-	 * state: Because of what seems like a bug in the Odbc driver
-	 * manager, SQLCancel does not act like a SQLFreeStmt(CLOSE), as
-	 * many applications depend on this behavior.  So, this brute
-	 * force method calls the driver manager's function on behalf of
-	 * the application.
-	 */
-
-	if (conn->driver_version < 0x0350)
-	{
-	    ENTER_STMT_CS(stmt);
-	    entered_cs = TRUE;
-	    SC_clear_error(stmt);
-	    ret = PGAPI_FreeStmt(hstmt, SQL_CLOSE);
-
-	    mylog("PGAPI_Cancel:  PGAPI_FreeStmt returned %d\n", ret);
-	}
+        mylog("Cancelling while in the middle of SQLParamData/SQLPutData not "
+            "yet supported\n");
+        ret = SQL_ERROR;
 	goto cleanup;
     }
 

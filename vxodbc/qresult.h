@@ -4,7 +4,6 @@
 #include "psqlodbc.h"
 
 #include "connection.h"
-#include "socket.h"
 #include "columninfo.h"
 #include "tuple.h"
 
@@ -206,7 +205,6 @@ do { \
 QResultClass	*QR_Constructor(void);
 void		QR_Destructor(QResultClass *self);
 TupleField	*QR_AddNew(QResultClass *self);
-BOOL		QR_get_tupledata(QResultClass *self, BOOL binary);
 void		QR_close_result(QResultClass *self, BOOL destroy);
 void		QR_free_memory(QResultClass *self);
 void		QR_set_command(QResultClass *self, const char *msg);

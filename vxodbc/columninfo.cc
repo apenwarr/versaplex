@@ -7,7 +7,6 @@
 #include "columninfo.h"
 
 #include "connection.h"
-#include "socket.h"
 #include <stdlib.h>
 #include <string.h>
 #include "pgapifunc.h"
@@ -33,80 +32,6 @@ void CI_Destructor(ColumnInfoClass * self)
     CI_free_memory(self);
 
     free(self);
-}
-
-
-/*
- *	Read in field descriptions.
- *	If self is not null, then also store the information.
- *	If self is null, then just read, don't store.
- */
-char CI_read_fields(ColumnInfoClass * self, ConnectionClass * conn)
-{
-    CSTR func = "CI_read_fields";
-    Int2 lf;
-    int new_num_fields;
-    OID new_adtid, new_relid = 0, new_attid = 0;
-    Int2 new_adtsize;
-    Int4 new_atttypmod = -1;
-
-    /* COLUMN_NAME_STORAGE_LEN may be sufficient but for safety */
-    char new_field_name[2 * COLUMN_NAME_STORAGE_LEN + 1];
-    SocketClass *sock;
-    ConnInfo *ci;
-
-    sock = CC_get_socket(conn);
-    ci = &conn->connInfo;
-
-    /* at first read in the number of fields that are in the query */
-    new_num_fields = (Int2) SOCK_get_int(sock, sizeof(Int2));
-
-    mylog("num_fields = %d\n", new_num_fields);
-
-    if (self)
-	/* according to that allocate memory */
-	CI_set_num_fields(self, new_num_fields, PROTOCOL_74(ci));
-
-    /* now read in the descriptions */
-    for (lf = 0; lf < new_num_fields; lf++)
-    {
-	SOCK_get_string(sock, new_field_name,
-			2 * COLUMN_NAME_STORAGE_LEN);
-	if (PROTOCOL_74(ci))	/* tableid & columnid */
-	{
-	    new_relid = SOCK_get_int(sock, sizeof(Int4));
-	    new_attid = SOCK_get_int(sock, sizeof(Int2));
-	}
-	new_adtid = (OID) SOCK_get_int(sock, 4);
-	new_adtsize = (Int2) SOCK_get_int(sock, 2);
-
-	/* If 6.4 protocol, then read the atttypmod field */
-	if (PG_VERSION_GE(conn, 6.4))
-	{
-	    mylog("READING ATTTYPMOD\n");
-	    new_atttypmod = (Int4) SOCK_get_int(sock, 4);
-
-	    /* Subtract the header length */
-            new_atttypmod -= 4;
-	    if (new_atttypmod < 0)
-		new_atttypmod = -1;
-	    if (PROTOCOL_74(ci))	/* format */
-		SOCK_get_int(sock, sizeof(Int2));
-
-	}
-
-	mylog
-	    ("%s: fieldname='%s', adtid=%d, adtsize=%d, atttypmod=%d (rel,att)=(%d,%d)\n",
-	     func, new_field_name, new_adtid, new_adtsize,
-	     new_atttypmod, new_relid, new_attid);
-
-	if (self)
-	    CI_set_field_info(self, lf, new_field_name, new_adtid,
-			      new_adtsize, new_atttypmod, new_relid,
-			      new_attid);
-    }
-
-    return (SOCK_get_errcode(sock) == 0);
 }
 
 

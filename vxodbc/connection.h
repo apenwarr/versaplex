@@ -388,7 +388,6 @@ struct ConnectionClass_
 	StatementClass	**stmts;
 	Int2		num_stmts;
 	Int2		ncursors;
-	SocketClass	*sock;
 	Int2		coli_allocated;
 	Int2		ntables;
 	COL_INFO	**col_info;

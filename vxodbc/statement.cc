@@ -1010,9 +1010,8 @@ static PG_ErrorInfo *SC_create_errorinfo(const StatementClass * self)
 
     if (conn && !msgend)
     {
-	SocketClass *sock = conn->sock;
-	const char *sockerrmsg;
-
+        // VX_CLEANUP: This is suspiciously similar to CC_create_errormsg, and
+        // just as useless now that there's no socket error message.
 	if (!resmsg && (wmsg = CC_get_errormsg(conn))
 	    && wmsg[0] != '\0')
 	{
@@ -1021,12 +1020,6 @@ static PG_ErrorInfo *SC_create_errorinfo(const StatementClass * self)
 		     CC_get_errormsg(conn));
 	}
 
-	if (sock && NULL != (sockerrmsg = SOCK_get_errmsg(sock))
-	    && '\0' != sockerrmsg[0])
-	{
-	    pos = strlen(msg);
-	    snprintf(&msg[pos], sizeof(msg) - pos, ";\n%s", sockerrmsg);
-	}
 	ermsg = msg;
     }
     pgerror = ER_Constructor(self->__error_number, ermsg);
