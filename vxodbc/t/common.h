@@ -3,13 +3,9 @@
 #include <direct.h>
 #endif
 
-// FIXME: This is only because XPLC is dumb and includes wvautoconf.h in its 
-// public headers
-#if 0
 #if HAVE_CONFIG_H
 #include <config.h>
 #endif /* HAVE_CONFIG_H */
-#endif
 
 #include <stdio.h>
 
@@ -71,11 +67,9 @@ SQLRETURN CommandWithResult(HSTMT stmt, const char *command);
 int db_is_microsoft(void);
 int driver_is_freetds(void);
 
-#if 0
 #if !HAVE_SETENV
 void odbc_setenv(const char *name, const char *value, int overwrite);
 
 #define setenv odbc_setenv
-#endif
 #endif
 
