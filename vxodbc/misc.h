@@ -9,6 +9,11 @@
 #ifndef __MISC_H__
 #define __MISC_H__
 
+/* Define a type for defining a constant string expression. 
+ * Note: needed by psqlodbc.h
+ */
+#define CSTR static const char * const
+
 #include "psqlodbc.h"
 
 #include <stdio.h>
@@ -139,9 +144,6 @@ size_t	snprintf_len(char *buf, size_t size, const char *format, ...);
 #define STRCPY_NULL			(-2)
 
 ssize_t my_strcpy(char *dst, ssize_t dst_len, const char *src, ssize_t src_len);
-
-/* Define a type for defining a constant string expression */
-#define CSTR static const char * const
 
 #ifdef __cplusplus
 }
