@@ -34,7 +34,7 @@ OBJS=\
 	wvlogger.o
 
 clean:
-	rm -f *.o *.so *~ *.res *.dll *.a .*.d *.d .stamp-config
+	rm -f *.o *.so *~ *.res *.dll *.a .*.d *.d config.h* .stamp-config
 	$(MAKE) -C t $@
 
 %.E: %.c
@@ -55,7 +55,10 @@ clean:
 	./configure
 	touch $@
 
-configure:
+config.h.in: configure.ac aclocal.m4
+	autoheader
+
+configure: configure.ac config.h.in
 	autoconf
 
 include $(wildcard .*.d)

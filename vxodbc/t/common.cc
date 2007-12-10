@@ -7,6 +7,7 @@
 
 #include "wvfile.h"
 #include "wvlog.h"
+#include "wvtest.h"
 
 #ifndef WIN32
 #include "tds_sysdep_private.h"
@@ -26,16 +27,16 @@ char DATABASE[512];
 char DRIVER[1024];
 
 /* some platforms do not have setenv, define a replacement */
-#if !HAVE_SETENV
+#ifdef WIN32
 void
 odbc_setenv(const char *name, const char *value, int overwrite)
 {
-#if HAVE_PUTENV
+        fprintf(stderr, "In odbc_setenv\n");
 	char buf[1024];
 
 	sprintf(buf, "%s=%s", name, value);
+        fprintf(stderr, "Calling putenv(%s)\n", buf);
 	putenv(buf);
-#endif
 }
 #endif
 
@@ -55,14 +56,18 @@ void set_odbcini_info(WvStringParm server, WvStringParm driver,
 
 	/* craft out odbc.ini, avoid to read wrong one */
 	WvFile odbc("odbc.ini", O_WRONLY|O_CREAT|O_TRUNC);
-	if (odbc.isok()) 
+	if (WVPASS(odbc.isok()))
 	{
 		odbc.write(WvString("[%s]\nDriver = %s\nDatabase = %s\n"
                         "Servername = %s\nUsername = %s\nDBus Connection = %s\n", 
                         server, driver, database, server, user, dbus));
+                fprintf(stderr, "About to call setenv\n");
 		setenv("ODBCINI", "./odbc.ini", 1);
 		setenv("SYSODBCINI", "./odbc.ini", 1);
 	}
+
+        WVPASSEQ("./odbc.ini", getenv("ODBCINI"));
+        WVPASSEQ("./odbc.ini", getenv("SYSODBCINI"));
 }
 
 void

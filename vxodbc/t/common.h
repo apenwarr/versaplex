@@ -3,10 +3,6 @@
 #include <direct.h>
 #endif
 
-#if HAVE_CONFIG_H
-#include <config.h>
-#endif /* HAVE_CONFIG_H */
-
 #include <stdio.h>
 
 #if HAVE_STDLIB_H
@@ -67,7 +63,7 @@ SQLRETURN CommandWithResult(HSTMT stmt, const char *command);
 int db_is_microsoft(void);
 int driver_is_freetds(void);
 
-#if !HAVE_SETENV
+#ifdef WIN32
 void odbc_setenv(const char *name, const char *value, int overwrite);
 
 #define setenv odbc_setenv
