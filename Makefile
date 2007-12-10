@@ -25,15 +25,8 @@ dbus-sharp wvdotnet versaplexd:
 wvstreams:
 	cd wv && $(MAKE) wvstreams
 
-vxodbc: vxodbc/.stamp-config
+vxodbc: 
 	$(MAKE) -C vxodbc -f$(VXODBC_MAKEFILE)
-
-vxodbc/.stamp-config: vxodbc/configure
-	cd vxodbc && ./configure
-	touch $@
-
-vxodbc/configure:
-	cd vxodbc && autoconf
 
 test: all
 	$(MAKE) -C wvdotnet $@

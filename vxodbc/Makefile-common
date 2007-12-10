@@ -51,4 +51,11 @@ clean:
 	@echo Compiling $@...
 	@$(CXX) -o $@ -c -MMD -MP -MF .$*.d $< $(CXXFLAGS)
 
+.stamp-config: configure
+	./configure
+	touch $@
+
+configure:
+	autoconf
+
 include $(wildcard .*.d)

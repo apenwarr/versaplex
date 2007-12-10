@@ -35,6 +35,8 @@ OBJS+=\
 
 all: vxodbc.dll	
 
+$(OBJS): .stamp-config
+
 %.res.o: %.rc
 	$(WINDRES) $< $@
 

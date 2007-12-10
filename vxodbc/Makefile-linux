@@ -23,6 +23,8 @@ LDFLAGS=-g
 
 all: vxodbc.so vxodbc-test.so test-linker
 
+$(OBJS): .stamp-config 
+
 vxodbc.so: $(OBJS)
 	@echo Linking $@...
 	@$(CXX) -shared -o $@ \
