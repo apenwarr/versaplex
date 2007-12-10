@@ -220,34 +220,7 @@ PGAPI_DriverConnect(HDBC hdbc,
 	if (didUI)
 	    return SQL_NO_DATA_FOUND;
 	CC_set_error(conn, CONN_OPENDB_ERROR,
-		     "connction string lacks some options", func);
-	return SQL_ERROR;
-    }
-
-    inolog("before CC_connect\n");
-    /* do the actual connect */
-    retval = CC_connect(conn, password_required, salt);
-    if (retval < 0)
-    {				/* need a password */
-	if (fDriverCompletion == SQL_DRIVER_NOPROMPT)
-	{
-	    CC_log_error(func, "Need password but Driver_NoPrompt",
-			 conn);
-	    return SQL_ERROR;	/* need a password but not allowed to
-				 * prompt so error */
-	} else
-	{
-#ifdef WIN32
-	    password_required = -retval;
-	    goto dialog;
-#else
-	    return SQL_ERROR;	/* until a better solution is found. */
-#endif
-	}
-    } else if (retval == 0)
-    {
-	/* error msg filled in above */
-	CC_log_error(func, "Error from CC_Connect", conn);
+		     "connection string lacks some options", func);
 	return SQL_ERROR;
     }
 
