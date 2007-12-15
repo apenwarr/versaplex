@@ -33,8 +33,21 @@ OBJS=\
 	win_unicode.o \
 	wvlogger.o
 
+# Files made by configure
+CONFIGUREFILES=\
+	configure \
+	config.status \
+	config.h \
+	config.h.in
+
+distclean: clean
+	rm -f $(CONFIGUREFILES)
+	rm -rf autom4te.cache
+
+$(OBJS): configure config.h 
+
 clean:
-	rm -f *.o *.so *~ *.res *.dll *.a .*.d *.d config.h* .stamp-config
+	rm -f *.o *.so *~ *.res *.dll *.a .*.d *.d 
 	$(MAKE) -C t $@
 
 %.E: %.c
@@ -50,10 +63,6 @@ clean:
 %.o: %.cc
 	@echo Compiling $@...
 	@$(CXX) -o $@ -c -MMD -MP -MF .$*.d $< $(CXXFLAGS)
-
-.stamp-config: configure
-	./configure
-	touch $@
 
 config.h.in: configure.ac aclocal.m4
 	autoheader

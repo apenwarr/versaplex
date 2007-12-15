@@ -5,3 +5,4 @@ cat >config.mk <<EOF
 EOF
 
 (cd wv && ./configure)
+(cd vxodbc && make configure && ./configure)
