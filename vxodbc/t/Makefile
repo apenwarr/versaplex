@@ -26,7 +26,9 @@ CFLAGS+= -D_MSC_VER=1300 -D_WIN32_WINNT=0x0501 -DWIN_MULTITHREAD_SUPPORT
 LIBS+=../vxodbc.a $(WVSTREAMS)/libwvwin32.a $(DBUS)/dbus/.libs/libdbus-1.a 
 LIBS+=$(WVLIBDIR)/libssl.a $(WVLIBDIR)/libcrypto.a $(WVLIBDIR)/libxplc-cxx.a
 LIBS+=$(WVSTREAMS)/gnulib/libgnu.a
-LIBS+=-lwsock32 -lodbc32 -lws2_32 -lgdi32 -lrpcrt4 -lole32 
+LIBS+=-lwsock32 -lgdi32 -lrpcrt4 -lole32 -lodbc32
+VALGRIND=
+RUNTEST=wine
 else
 CC=gcc
 CXX=g++
@@ -37,6 +39,10 @@ endif
 TESTSOURCES=$(wildcard *.t.cc)
 TESTHEADERS=$(wildcard *.h)
 TESTOBJS=$(patsubst %.cc,%.o,$(TESTSOURCES))
+HELPEROBJS=\
+    common.o \
+    vxodbctester.o \
+    column.o
 
 all: all.t
 
@@ -44,7 +50,7 @@ test: all.t
 	$(RUNTEST) $(VALGRIND) ./all.t $(TESTNAME)
 
 # FIXME: Should be using GCC-generated dependencies here
-all.t: $(TESTOBJS) common.o vxodbctester.o column.o 
+all.t: $(HELPEROBJS) $(TESTOBJS) 
 	$(CXX) -o $@ $^ $(LIBS)
 
 # FIXME: Should be using GCC-generated dependencies here
@@ -52,4 +58,4 @@ all.t: $(TESTOBJS) common.o vxodbctester.o column.o
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 clean: 
-	rm -f $(TESTOBJS) all.t valgrind.log.*
+	rm -f $(HELPEROBJS) $(TESTOBJS) all.t valgrind.log.*
