@@ -23,16 +23,17 @@ ifeq ($(BUILD_TARGET),win32)
 CC=i586-mingw32msvc-g++
 CXX=i586-mingw32msvc-g++
 CFLAGS+= -D_MSC_VER=1300 -D_WIN32_WINNT=0x0501 -DWIN_MULTITHREAD_SUPPORT
-LIBS+=../vxodbc.a $(WVSTREAMS)/libwvwin32.a $(DBUS)/dbus/.libs/libdbus-1.a 
-LIBS+=$(WVLIBDIR)/libssl.a $(WVLIBDIR)/libcrypto.a $(WVLIBDIR)/libxplc-cxx.a
-LIBS+=$(WVSTREAMS)/gnulib/libgnu.a
-LIBS+=-lwsock32 -lgdi32 -lrpcrt4 -lole32 -lodbc32
+LIBS+=-L. -L.. -L$(WVSTREAMS) -L$(WVLIBDIR)
+LIBS+=-lwvwin32 -lssl -lcrypto -lxplc-cxx 
+LIBS+=../vxodbc.a $(DBUS)/dbus/.libs/libdbus-1.a $(WVSTREAMS)/gnulib/libgnu.a 
+LIBS+=$(WVSTREAMS)/wvtestmain.o $(WVSTREAMS)/utils/wvcrash.o 
+LIBS+=-lwsock32 -lgdi32 -lrpcrt4 -lole32 -lodbc32 -limagehlp
 VALGRIND=
 RUNTEST=wine
 else
 CC=gcc
 CXX=g++
-LIBS+=../vxodbc-test.so $(WVSTREAMS)/libwvtest.a /usr/lib/libodbc.a
+LIBS+=../vxodbc-test.so $(WVSTREAMS)/libwvtest.a /usr/lib/libodbc.a 
 LIBS+=-L$(WVSTREAMS) -lwvdbus /usr/lib/libltdl.so -ldl -lpthread 
 endif
 
@@ -41,8 +42,8 @@ TESTHEADERS=$(wildcard *.h)
 TESTOBJS=$(patsubst %.cc,%.o,$(TESTSOURCES))
 HELPEROBJS=\
     common.o \
-    vxodbctester.o \
-    column.o
+    column.o \
+    vxodbctester.o 
 
 all: all.t
 

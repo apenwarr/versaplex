@@ -56,10 +56,12 @@ VxOdbcTester::~VxOdbcTester()
 {
     Disconnect();
 
+#ifndef WIN32
     // Dirty hack: Close any WvLog files VxODBC opened.  This keeps the WvTest
     // open file detector from freaking out, since the log files are opened
     // lazily after the open file detector does its initial check.  
     wvlog_close();
+#endif
 }
 
 bool VxOdbcTester::msg_received(WvDBusMsg &msg)
