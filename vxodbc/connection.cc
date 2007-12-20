@@ -104,6 +104,7 @@ PGAPI_Connect(HDBC hdbc,
     /* initialize pg_version from connInfo.protocol    */
     CC_initialize_pg_version(conn);
 
+    mylog("PGAPI_Connect making DBus connection to %s\n", ci->dbus_moniker);
     conn->dbus = new WvDBusConn(ci->dbus_moniker);
 
     /*
@@ -363,9 +364,6 @@ char CC_Destructor(ConnectionClass * self)
 
     mylog("after CC_Cleanup\n");
     
-    if (self->dbus)
-	delete self->dbus;
-
     /* Free up statement holders */
     if (self->stmts)
     {
@@ -564,6 +562,8 @@ char CC_cleanup(ConnectionClass * self)
 	free(self->discardp);
 	self->discardp = NULL;
     }
+    if (self->dbus)
+        WVRELEASE(self->dbus);
 
     mylog("exit CC_Cleanup\n");
     return TRUE;

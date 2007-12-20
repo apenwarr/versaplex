@@ -51,7 +51,7 @@ extern "C" {
 #define INI_USER			"Username"	/* Default User Name */
 #define INI_PASSWORD			"Password"	/* Default Password */
 // Which DBus connection to use.  Defaults to "dbus:session".
-#define INI_DBUS                        "DBus Connection"
+#define INI_DBUS                        "DBus"
 
 #define INI_READONLY			"ReadOnly"	/* Database is read only */
 #if 0

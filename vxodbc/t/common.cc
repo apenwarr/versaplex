@@ -59,7 +59,7 @@ void set_odbcini_info(WvStringParm server, WvStringParm driver,
     if (WVPASS(odbc.isok()))
     {
     	odbc.write(WvString("[%s]\nDriver = %s\nDatabase = %s\n"
-                "Servername = %s\nUsername = %s\nDBus Connection = %s\n", 
+                "Servername = %s\nUsername = %s\nDBus = %s\n", 
                 server, driver, database, server, user, dbus));
         fprintf(stderr, "About to call setenv\n");
     	setenv("ODBCINI", "./odbc.ini", 1);

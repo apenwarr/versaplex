@@ -107,14 +107,21 @@ copyAttributes(ConnInfo * ci, const char *attribute, const char *value)
 
     else if (stricmp(attribute, INI_READONLY) == 0)
 	strcpy(ci->onlyread, value);
+
+    else if (stricmp(attribute, INI_DBUS) == 0)
+        strcpy(ci->dbus_moniker, value);
+
     else
 	found = FALSE;
 
     mylog
-	("%s: DSN='%s',server='%s',dbase='%s',user='%s',passwd='%s',port='%s',onlyread='%s',protocol='%s',conn_settings='%s',disallow_premature=%d)\n",
+	("%s: DSN='%s',server='%s',dbase='%s',user='%s',passwd='%s',port='%s'"
+	",onlyread='%s',protocol='%s',conn_settings='%s',disallow_premature=%d,"
+	"dbus_moniker='%s')\n",
 	 func, ci->dsn, ci->server, ci->database, ci->username,
 	 ci->password ? "xxxxx" : "", ci->port, ci->onlyread,
-	 ci->protocol, ci->conn_settings, ci->disallow_premature);
+	 ci->protocol, ci->conn_settings, ci->disallow_premature,
+	 ci->dbus_moniker);
 
     return found;
 }

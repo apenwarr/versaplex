@@ -22,16 +22,16 @@ bool VxOdbcTester::name_request_cb(WvDBusMsg &msg)
     return true;
 }
     
-VxOdbcTester::VxOdbcTester() :
+VxOdbcTester::VxOdbcTester(bool always_create_server) :
     dbus_server(),
     vxserver_conn(dbus_server.moniker),
     t(NULL),
     log("Fake Versaplex", WvLog::Debug1)
 {
-    WvString dbus(dbus_server.moniker);
+    dbus_moniker = dbus_server.moniker;
 
     WvString use_real(getenv("USE_REAL_VERSAPLEX"));
-    if (!use_real || use_real == "0") 
+    if (always_create_server || !use_real || use_real == "0") 
     {
         WvIStreamList::globallist.append(&vxserver_conn, false);
 
@@ -45,9 +45,10 @@ VxOdbcTester::VxOdbcTester() :
         vxserver_conn.add_callback(WvDBusConn::PriNormal, cb, this);
     }
     else
-        dbus = "dbus:session";
+        dbus_moniker = "dbus:session";
 
-    set_odbcini_info("localhost", "", "pmccurdy", "pmccurdy", "scs", dbus);
+    set_odbcini_info("localhost", "", "pmccurdy", "pmccurdy", "scs", 
+        dbus_moniker);
 
     Connect();
 }

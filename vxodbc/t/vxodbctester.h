@@ -47,12 +47,15 @@ class VxOdbcTester
 public:
     TestDBusServer dbus_server;
     WvDBusConn vxserver_conn;
+    WvString dbus_moniker;
     Table *t;
     WvString expected_query;
     static int num_names_registered;
     WvLog log;
 
-    VxOdbcTester();
+    // Set always_create_server to true if you don't ever want to use the real
+    // Versaplex server, regardless of what USE_REAL_VERSAPLEX says.
+    VxOdbcTester(bool always_create_server = false);
     ~VxOdbcTester();
 
     static bool name_request_cb(WvDBusMsg &msg); 

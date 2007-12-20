@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "connection.h"
 
@@ -25,6 +26,8 @@
 #include "resource.h"
 #endif
 #include "pgapifunc.h"
+
+#include "wvdbusconn.h"
 
 #include "dlg_specific.h"
 
@@ -132,6 +135,8 @@ PGAPI_DriverConnect(HDBC hdbc,
     /* Parse the connect string and fill in conninfo for this hdbc. */
     dconn_get_connect_attributes((const UCHAR *)connStrIn, ci);
 
+    bool dbus_provided = ci->dbus_moniker != NULL && ci->dbus_moniker[0] != '\0';
+
     /*
      * If the ConnInfo in the hdbc is missing anything, this function will
      * fill them in from the registry (assuming of course there is a DSN
@@ -151,9 +156,6 @@ PGAPI_DriverConnect(HDBC hdbc,
     CC_initialize_pg_version(conn);
     memset(salt, 0, sizeof(salt));
 
-#ifdef WIN32
-  dialog:
-#endif
     ci->focus_password = password_required;
 
     inolog("DriverCompletion=%d\n", fDriverCompletion);
@@ -177,10 +179,10 @@ PGAPI_DriverConnect(HDBC hdbc,
 	/* Password is not a required parameter. */
 	if (ci->database[0] == '\0')
 	    paramRequired = TRUE;
-	else if (ci->port[0] == '\0')
+	else if (!dbus_provided && ci->port[0] == '\0')
 	    paramRequired = TRUE;
 #ifdef	WIN32
-	else if (ci->server[0] == '\0')
+	else if (!dbus_provided && ci->server[0] == '\0')
 	    paramRequired = TRUE;
 #endif				/* WIN32 */
 	if (paramRequired)
@@ -209,12 +211,10 @@ PGAPI_DriverConnect(HDBC hdbc,
     paramRequired = FALSE;
     if (ci->database[0] == '\0')
 	paramRequired = TRUE;
-    else if (ci->port[0] == '\0')
+    else if (!dbus_provided && ci->port[0] == '\0')
 	paramRequired = TRUE;
-#ifdef	WIN32
-    else if (ci->server[0] == '\0')
+    else if (!dbus_provided && ci->server[0] == '\0')
 	paramRequired = TRUE;
-#endif				/* WIN32 */
     if (paramRequired)
     {
 	if (didUI)
@@ -222,6 +222,37 @@ PGAPI_DriverConnect(HDBC hdbc,
 	CC_set_error(conn, CONN_OPENDB_ERROR,
 		     "connection string lacks some options", func);
 	return SQL_ERROR;
+    }
+
+    if (!dbus_provided)
+    {
+        // If we weren't provided with a pre-made DBus moniker, use the
+        // provided server and port.  If we weren't provided with those
+        // either, we'll have already returned an error above.
+        WvString moniker("dbus:tcp:host=%s,port=%s", ci->server, ci->port);
+        mylog("Moniker=%s\n", moniker.cstr());
+        if (moniker.len() < sizeof(ci->dbus_moniker))
+            strncpy(ci->dbus_moniker, moniker.cstr(), sizeof(ci->dbus_moniker));
+        else
+        {
+            CC_set_error(conn, CONN_OPENDB_ERROR, 
+                "The DBus connection moniker was too long.", func);
+            return SQL_ERROR;
+        }
+    }
+
+    mylog("PGAPI_DriverConnect making DBus connection to %s\n", 
+        ci->dbus_moniker);
+    mylog("dbus:session is '%s'\n", getenv("DBUS_SESSION_BUS_ADDRESS"));
+    conn->dbus = new WvDBusConn(ci->dbus_moniker);
+    
+    if (!conn->dbus->isok())
+    {
+        CC_set_error(conn, CONN_OPENDB_ERROR, WvString(
+            "Could not open DBus connection: %s (%s).", 
+            conn->dbus->errstr(), conn->dbus->geterr()).cstr(), 
+            func);
+        return SQL_ERROR;
     }
 
     /*
