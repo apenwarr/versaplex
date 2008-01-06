@@ -1756,7 +1756,6 @@ public class VersaplexTest
         tester.RegisterTest("EmptyTable", tests.EmptyTable);
         tester.RegisterTest("NonexistantTable", tests.NonexistantTable);
         tester.RegisterTest("ColumnTypes", tests.ColumnTypes);
-
         tester.RegisterTest("EmptyColumnName", tests.EmptyColumnName);
         tester.RegisterTest("RowOrdering", tests.RowOrdering);
         tester.RegisterTest("ColumnOrdering", tests.ColumnOrdering);
@@ -1771,13 +1770,9 @@ public class VersaplexTest
         tester.RegisterTest("VerifyTimestamp", tests.VerifyTimestamp);
         tester.RegisterTest("VerifyUniqueIdentifier",
                 tests.VerifyUniqueIdentifier);
-        /*
- 	 * These tests are slow and/or have some other minor problems.  
- 	 * See Issue #1.
         tester.RegisterTest("VerifyVarBinaryMax", tests.VerifyVarBinaryMax);
         tester.RegisterTest("VerifyXML", tests.VerifyXML);
         tester.RegisterTest("Unicode", tests.Unicode);
-        */
 
         tester.RegisterInit(tests.init);
         tester.RegisterCleanup(tests.cleanup);
