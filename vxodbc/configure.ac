@@ -264,14 +264,14 @@ AC_ARG_WITH(pgconf,
 AC_PATH_PROGS(PG_CONFIG_PATH, ${PG_CONFIG},${PG_CONFIG})
 #AC_MSG_CHECKING(${PG_CONFIG_PATH})
 
-if test ! -f "${PG_CONFIG_PATH}" ;then
-	AC_MSG_ERROR([you must specify a valid pg_config of PostgreSQL installation with --with-pgconf=pg_config])
-fi
-
-pg_includedir=`${PG_CONFIG_PATH} --includedir`
-pg_libdir=`${PG_CONFIG_PATH} --libdir`
-CPPFLAGS="$CPPFLAGS -I$pg_includedir"
-LIBS="-L$pg_libdir $LIBS"
+#if test ! -f "${PG_CONFIG_PATH}" ;then
+#	AC_MSG_ERROR([you must specify a valid pg_config of PostgreSQL installation with --with-pgconf=pg_config])
+#fi
+#
+#pg_includedir=`${PG_CONFIG_PATH} --includedir`
+#pg_libdir=`${PG_CONFIG_PATH} --libdir`
+#CPPFLAGS="$CPPFLAGS -I$pg_includedir"
+#LIBS="-L$pg_libdir $LIBS"
 
 
 #xAC_CONFIG_FILES([Makefile])
