@@ -1,11 +1,14 @@
 #include "wvtest.cs.h"
 
+using Mono.Unix;
 using System;
 using System.Data;
 using System.Data.SqlClient;
 using System.Data.SqlTypes;
 using System.Collections.Generic;
 using System.IO;
+using System.Net;
+using System.Net.Sockets;
 using Wv.Test;
 using Wv.Utils;
 using NDesk.DBus;
@@ -15,6 +18,87 @@ using NDesk.DBus;
 
 namespace Versaplex.Test
 {
+
+// Versaplex now needs DBus clients to provide their Unix UID to the bus.
+// FIXME: This is mostly duplicated from Main.cs, as it's a bit tricky to share
+// classes between Versaplex and the tests.
+class DodgyTransport : NDesk.DBus.Transports.Transport
+{
+    public override string AuthString()
+    {
+        long uid = UnixUserInfo.GetRealUserId();
+        return uid.ToString();
+    }
+
+    public override void WriteCred()
+    {
+        Stream.WriteByte(0);
+    }
+
+    public override void Open(AddressEntry entry)
+    {
+        Socket sock;
+	if (entry.Method == "unix")
+	{
+	    string path;
+	    bool abstr;
+
+	    if (entry.Properties.TryGetValue("path", out path))
+		abstr = false;
+	    else if (entry.Properties.TryGetValue("abstract", out path))
+		abstr = true;
+	    else
+		throw new Exception("No path specified for UNIX transport");
+
+	    if (abstr)
+		sock = OpenAbstractUnix(path);
+	    else
+		sock = OpenPathUnix(path);
+	}
+	else if (entry.Method == "tcp")
+	{
+	    string host = "127.0.0.1";
+	    string port = "5555";
+	    entry.Properties.TryGetValue("host", out host);
+	    entry.Properties.TryGetValue("port", out port);
+	    sock = OpenTcp(host, Int32.Parse(port));
+	}
+	else
+	    throw new Exception(String.Format("Unknown connection method {0}",
+					      entry.Method));
+	
+        sock.Blocking = true;
+        SocketHandle = (long)sock.Handle;
+        Stream = new NetworkStream(sock);
+    }
+
+    protected Socket OpenAbstractUnix(string path)
+    {
+        AbstractUnixEndPoint ep = new AbstractUnixEndPoint(path);
+        Socket client = new Socket(AddressFamily.Unix, SocketType.Stream, 0);
+        client.Connect(ep);
+        return client;
+    }
+
+    public Socket OpenPathUnix(string path) 
+    {
+        UnixEndPoint ep = new UnixEndPoint(path);
+        Socket client = new Socket(AddressFamily.Unix, SocketType.Stream, 0);
+        client.Connect(ep);
+        return client;
+    }
+    
+    public Socket OpenTcp(string host, int port)
+    {
+	IPHostEntry hent = Dns.GetHostEntry(host);
+	IPAddress ip = hent.AddressList[0];
+        IPEndPoint ep = new IPEndPoint(ip, port);
+        Socket client = new Socket(AddressFamily.InterNetwork,
+						   SocketType.Stream, 0);
+        client.Connect(ep);
+        return client;
+    }
+}
 
 [TestFixture]
 public class VersaplexTest
@@ -512,7 +596,12 @@ public class VersaplexTest
 
 	cmd = con.CreateCommand();
 
-        bus = Bus.Session;
+        if (Address.Session == null)
+            throw new Exception ("DBUS_SESSION_BUS_ADDRESS not set");
+        AddressEntry aent = AddressEntry.Parse(Address.Session);
+        DodgyTransport trans = new DodgyTransport();
+        trans.Open(aent);
+        bus = new Bus(trans);
     }
 
     [TearDown]
