@@ -11,13 +11,13 @@ using versabanq.Versaplex.Dbus;
 namespace versabanq.Versaplex.Dbus.Db {
 
 internal static class VxDb {
-    internal static void ExecNoResult(string query)
+    internal static void ExecNoResult(string connid, string query)
     {
         Console.WriteLine("ExecNoResult " + query);
 
         SqlConnection conn = null;
         try {
-            conn = VxSqlPool.TakeConnection();
+            conn = VxSqlPool.TakeConnection(connid);
 
             using (SqlCommand cmd = conn.CreateCommand()) {
                 cmd.CommandText = query;
@@ -31,13 +31,14 @@ internal static class VxDb {
         }
     }
 
-    internal static void ExecScalar(string query, out object result)
+    internal static void ExecScalar(string connid, string query, 
+        out object result)
     {
         Console.WriteLine("ExecScalar " + query);
 
         SqlConnection conn = null;
         try {
-            conn = VxSqlPool.TakeConnection();
+            conn = VxSqlPool.TakeConnection(connid);
 
             using (SqlCommand cmd = conn.CreateCommand()) {
                 cmd.CommandText = query;
@@ -51,7 +52,7 @@ internal static class VxDb {
         }
     }
 
-    internal static void ExecRecordset(string query,
+    internal static void ExecRecordset(string connid, string query,
             out VxColumnInfo[] colinfo, out object[][] data,
             out byte[][] nullity)
     {
@@ -66,7 +67,7 @@ internal static class VxDb {
 	
         SqlConnection conn = null;
         try {
-            conn = VxSqlPool.TakeConnection();
+            conn = VxSqlPool.TakeConnection(connid);
 
             using (SqlCommand cmd = new SqlCommand(query, conn))
             using (SqlDataReader reader = cmd.ExecuteReader()) {
@@ -280,6 +281,20 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         }
     }
 
+    public static string GetClientId(Message call)
+    {
+        // FIXME: This should instead be something unique to the client app
+        // (e.g. SSL cert) rather than unique to the connection
+        object sender;
+        if (!call.Header.Fields.TryGetValue(FieldCode.Sender, out sender))
+            return null;
+        Console.WriteLine("GetClientId: Sender is {0}", sender);
+
+        ulong uid = Bus.Session.GetUnixUser((string)sender);
+
+        return String.Format("{0}", uid);
+    }
+
     private static void CallExecNoResult(Message call, out Message reply)
     {
         if (call.Signature.ToString() != "s") {
@@ -298,12 +313,21 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
+        string clientid = GetClientId(call);
+        if (clientid == null)
+        {
+            reply = VxDbus.CreateError(
+                    "org.freedesktop.DBus.Error.Failed",
+                    "Could not identify the client", call);
+            return;
+        }
+
         MessageReader reader = new MessageReader(call);
 
         object query;
         reader.GetValue(typeof(string), out query);
 
-        VxDb.ExecNoResult((string)query);
+        VxDb.ExecNoResult(clientid, (string)query);
 
         reply = VxDbus.CreateReply(call);
     }
@@ -314,7 +338,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             reply = VxDbus.CreateError(
                     "org.freedesktop.DBus.Error.UnknownMethod",
                     String.Format(
-                        "No overload of ExecNoResult has signature '{0}'",
+                        "No overload of ExecScalar has signature '{0}'",
                         call.Signature), call);
             return;
         }
@@ -326,13 +350,22 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
+        string clientid = GetClientId(call);
+        if (clientid == null)
+        {
+            reply = VxDbus.CreateError(
+                    "org.freedesktop.DBus.Error.Failed",
+                    "Could not identify the client", call);
+            return;
+        }
+
         MessageReader reader = new MessageReader(call);
 
         object query;
         reader.GetValue(typeof(string), out query);
 
         object result;
-        VxDb.ExecScalar((string)query, out result);
+        VxDb.ExecScalar(clientid, (string)query, out result);
 
         MessageWriter writer =
                 new MessageWriter(Connection.NativeEndianness);
@@ -347,7 +380,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             reply = VxDbus.CreateError(
                     "org.freedesktop.DBus.Error.UnknownMethod",
                     String.Format(
-                        "No overload of ExecNoResult has signature '{0}'",
+                        "No overload of ExecRecordset has signature '{0}'",
                         call.Signature), call);
             return;
         }
@@ -359,6 +392,15 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
+        string clientid = GetClientId(call);
+        if (clientid == null)
+        {
+            reply = VxDbus.CreateError(
+                    "org.freedesktop.DBus.Error.Failed",
+                    "Could not identify the client", call);
+            return;
+        }
+
         MessageReader reader = new MessageReader(call);
 
         object query;
@@ -367,7 +409,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         VxColumnInfo[] colinfo;
         object[][] data;
         byte[][] nullity;
-        VxDb.ExecRecordset((string)query, out colinfo, out data, out nullity);
+        VxDb.ExecRecordset(clientid, (string)query, 
+            out colinfo, out data, out nullity);
 
         // FIXME: Add com.versabanq.versaplex.toomuchdata error
         MessageWriter writer =
