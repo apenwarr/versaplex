@@ -330,6 +330,8 @@ public class VersaplexTest
             int arraysz;
             reader.GetValue(out arraysz);
 
+            // The header is 8-byte aligned
+            reader.ReadPad(8);
             int endpos = reader.Position + arraysz;;
 
             List<object[]> results = new List<object[]>();
@@ -343,6 +345,8 @@ public class VersaplexTest
                     switch (colinfo[i].VxColumnType) {
                     case VxColumnType.Int64:
                     {
+                        Console.WriteLine("Reading Int64 from pos {0}",
+                                reader.Position);
                         long cell;
                         reader.GetValue(out cell);
                         row[i] = cell;
@@ -350,6 +354,8 @@ public class VersaplexTest
                     }
                     case VxColumnType.Int32:
                     {
+                        Console.WriteLine("Reading Int32 from pos {0}",
+                                reader.Position);
                         int cell;
                         reader.GetValue(out cell);
                         row[i] = cell;
@@ -357,6 +363,8 @@ public class VersaplexTest
                     }
                     case VxColumnType.Int16:
                     {
+                        Console.WriteLine("Reading Int16 from pos {0}",
+                                reader.Position);
                         short cell;
                         reader.GetValue(out cell);
                         row[i] = cell;
@@ -364,6 +372,8 @@ public class VersaplexTest
                     }
                     case VxColumnType.UInt8:
                     {
+                        Console.WriteLine("Reading UInt8 from pos {0}",
+                                reader.Position);
                         byte cell;
                         reader.GetValue(out cell);
                         row[i] = cell;
@@ -371,6 +381,8 @@ public class VersaplexTest
                     }
                     case VxColumnType.Bool:
                     {
+                        Console.WriteLine("Reading Bool from pos {0}",
+                                reader.Position);
                         bool cell;
                         reader.GetValue(out cell);
                         row[i] = cell;
@@ -378,6 +390,8 @@ public class VersaplexTest
                     }
                     case VxColumnType.Double:
                     {
+                        Console.WriteLine("Reading Double from pos {0}",
+                                reader.Position);
                         double cell;
                         reader.GetValue(out cell);
                         row[i] = cell;
@@ -385,6 +399,8 @@ public class VersaplexTest
                     }
                     case VxColumnType.Uuid:
                     {
+                        Console.WriteLine("Reading UUID from pos {0}",
+                                reader.Position);
                         string cell;
                         reader.GetValue(out cell);
 
@@ -397,6 +413,8 @@ public class VersaplexTest
                     }
                     case VxColumnType.Binary:
                     {
+                        Console.WriteLine("Reading Binary from pos {0}",
+                                reader.Position);
                         object cell;
                         reader.GetValue(typeof(byte[]), out cell);
                         row[i] = cell;
@@ -413,6 +431,8 @@ public class VersaplexTest
                     }
                     case VxColumnType.DateTime:
                     {
+                        Console.WriteLine("Reading DateTime from pos {0}",
+                                reader.Position);
                         long seconds;
                         int microseconds;
                         
@@ -429,6 +449,8 @@ public class VersaplexTest
                     }
                     case VxColumnType.Decimal:
                     {
+                        Console.WriteLine("Reading Decimal from pos {0}",
+                                reader.Position);
                         string cell;
                         reader.GetValue(out cell);
 
@@ -447,6 +469,7 @@ public class VersaplexTest
                 results.Add(row);
             }
 
+            WVPASSEQ(reader.Position, endpos);
             if (reader.Position != endpos)
                 throw new Exception("Position mismatch after reading data");
  
@@ -1060,6 +1083,15 @@ public class VersaplexTest
         WVASSERT(Exec("DROP TABLE #test1"));
     }
 
+    // The output of LEN() or DATALENGTH() in MS SQL is an int for most types,
+    // but is a BigNum for varchar(max), nvarchar(max), and varbinary(max).
+    // We don't really care, so just do what it takes to get a sensible value.
+    public int GetDataLength(object data)
+    {
+        return data.GetType() == typeof(Decimal) ? 
+            (int)(Decimal)data : (int)data;
+    }
+
     [Test, Category("Data")]
     public void VerifyChar()
     {
@@ -1091,8 +1123,8 @@ public class VersaplexTest
         // dbus-sharp chokes with a "Read length mismatch" exception.  It's
         // probably related to the packets being longer than usual.  See
         // GoogleCode bug #1.
-        for (int i=0; i < 4 /*types.Length*/; i++) {
-            for (int j=0; j < 4 /*sizes.Length*/ && sizes[j] <= typemax[i]; j++) {
+        for (int i=0; i < types.Length; i++) {
+            for (int j=0; j < sizes.Length && sizes[j] <= typemax[i]; j++) {
                 if (sizeparam[i]) {
                     WVASSERT(VxExec(string.Format("CREATE TABLE test1 "
                                     + "(data {0}({1}), roworder int not null)",
@@ -1139,9 +1171,9 @@ public class VersaplexTest
 
                 for (int k=0; k <= j; k++) {
                     if (lenok[i])
-                        WVPASSEQ((int)data[k][0], sizes[k]);
+                        WVPASSEQ(GetDataLength(data[k][0]), sizes[k]);
 
-                    WVPASSEQ((int)data[k][1],
+                    WVPASSEQ(GetDataLength(data[k][1]),
                             sizes[varsize[i] ? k : j]*charsize[i]);
                     WVPASSEQ(((string)data[k][2]).Substring(0, sizes[k]),
                             lipsum_text.Substring(0, sizes[k]));
