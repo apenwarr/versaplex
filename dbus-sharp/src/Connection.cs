@@ -376,12 +376,19 @@ namespace NDesk.DBus
 				//msg.Body = new byte[(int)msg.Header->Length];
 				byte[] body = new byte[bodyLen];
 
-				//int len = ns.Read (msg.Body, 0, msg.Body.Length);
-				int len = ns.Read (body, 0, bodyLen);
+				int numRead = 0;
+				int lastRead = -1;
+				while (numRead < bodyLen && lastRead != 0)
+				{
+					lastRead = ns.Read (body, numRead, bodyLen - numRead);
+					numRead += lastRead;
+				}
 
 				//if (len != msg.Body.Length)
-				if (len != bodyLen)
-					throw new Exception ("Message body size mismatch");
+				if (numRead != bodyLen)
+					throw new Exception (String.Format(
+						"Message body size mismatch: numRead={0}, bodyLen={1}",
+						numRead, bodyLen));
 
 				//msg.Body = new MemoryStream (body);
 				msg.Body = body;
