@@ -272,10 +272,20 @@ namespace NDesk.DBus
 			//read the body
 			if (bodyLen != 0) {
 				body = new byte[bodyLen];
-				read = ns.Read (body, 0, bodyLen);
 
-				if (read != bodyLen)
-					throw new Exception ("Message body length mismatch: " + read + " of expected " + bodyLen);
+				int numRead = 0;
+				int lastRead = -1;
+				while (numRead < bodyLen && lastRead != 0)
+				{
+					lastRead = ns.Read (body, numRead, bodyLen - numRead);
+					numRead += lastRead;
+				}
+
+				//if (len != msg.Body.Length)
+				if (numRead != bodyLen)
+					throw new Exception (String.Format(
+						"Message body size mismatch: numRead={0}, bodyLen={1}",
+						numRead, bodyLen));
 			}
 
 			Message msg = new Message ();
