@@ -281,16 +281,24 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         }
     }
 
+    static Dictionary<string,ulong> uids = new Dictionary<string, ulong>();
+
     public static string GetClientId(Message call)
     {
-        // FIXME: This should instead be something unique to the client app
-        // (e.g. SSL cert) rather than unique to the connection
-        object sender;
-        if (!call.Header.Fields.TryGetValue(FieldCode.Sender, out sender))
+        object sender_obj;
+        if (!call.Header.Fields.TryGetValue(FieldCode.Sender, out sender_obj))
             return null;
-        Console.WriteLine("GetClientId: Sender is {0}", sender);
+        string sender = (string)sender_obj;
 
-        ulong uid = Bus.Session.GetUnixUser((string)sender);
+        // For now, the client ID is just the Unix UID that DBus has
+        // associated with the connection.
+        ulong uid;
+        if (!uids.TryGetValue(sender, out uid))
+        {
+            uid = Bus.Session.GetUnixUser(sender);
+            // Remember the result, so we don't have to ask DBus all the time
+            uids[sender] = uid;
+        }
 
         return String.Format("{0}", uid);
     }
