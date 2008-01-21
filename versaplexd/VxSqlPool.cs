@@ -1,47 +1,56 @@
 using System.Data.SqlClient;
+using System.Collections;
 using System.Collections.Generic;
+using Wv.Utils;
+using Mono.Unix;
 
 namespace versabanq.Versaplex.Server {
 
 public static class VxSqlPool
 {
-    private static IDictionary<string, SqlConnectionStringBuilder> conninfo 
-        = new Dictionary<string, SqlConnectionStringBuilder>();
+    private static Ini inifile = new Ini("versaplexd.ini");
 
     private static bool GetConnInfoFromConnId(string connid, 
         out SqlConnectionStringBuilder conStr)
     {
+        // At the moment, a connection ID is just a Unix userid, which we
+        // assume is from this machine.
+        UnixUserInfo info = new UnixUserInfo(uint.Parse(connid));
+
         conStr = new SqlConnectionStringBuilder();
 
         // Mono doesn't support this
         //conStr.Enlist = false;
-        // FIXME: Get this from DBus
-        conStr.DataSource = "amsdev";
-        conStr.UserID = "asta";
-        conStr.Password = "m!ddle-tear";
-        conStr.InitialCatalog = "adrian_test";
 
-        System.Console.Write("Faked conStr, about to add connection info");
+        string dbname = inifile["User Map"][info.UserName];
+        if (dbname == null)
+            return false;
 
-        // Save it for later so we don't have to keep asking DBus
-        conninfo.Add(connid, conStr);
+        string cfgval = inifile["Connections"][dbname];
+        if (cfgval == null)
+            return false;
 
-        // FIXME: Need to check if we actually got the info and added
-        // it to the list.
+        string moniker_name = "mssql:";
+        if (cfgval.IndexOf(moniker_name) == 0)
+            conStr.ConnectionString = cfgval.Substring(moniker_name.Length);
+        else
+            return false;
+
+        System.Console.Write("Connection string: {0}", conStr.ConnectionString);
+
         return true;
     }
 
     public static SqlConnection TakeConnection(string connid)
     {
         SqlConnectionStringBuilder conStr;
+        System.Console.WriteLine("TakeConnection {0}, starting", connid);
         
-        if (!conninfo.TryGetValue(connid, out conStr))
+        if (!GetConnInfoFromConnId(connid, out conStr))
         {
-            if (!GetConnInfoFromConnId(connid, out conStr))
-            {
-                System.Console.Write("TakeConnection: No value found, aborting");
-                return null;
-            }
+            System.Console.WriteLine(
+                "TakeConnection: No value found, aborting");
+            return null;
         }
 
         SqlConnection con = new SqlConnection(conStr.ConnectionString);
