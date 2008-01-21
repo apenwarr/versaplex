@@ -209,18 +209,32 @@ PGAPI_DriverConnect(HDBC hdbc,
      * Cancel to get out)
      */
     paramRequired = FALSE;
+    WvString missingoptions = "Connection string lacks options: ";
     if (ci->database[0] == '\0')
+    {
 	paramRequired = TRUE;
+	missingoptions.append("'database' ");
+    }
     else if (!dbus_provided && ci->port[0] == '\0')
+    {
 	paramRequired = TRUE;
+	missingoptions.append("'port' ");
+    }
     else if (!dbus_provided && ci->server[0] == '\0')
+    {
 	paramRequired = TRUE;
+	missingoptions.append("'server' ");
+    }
+    if (!dbus_provided)
+    {
+        missingoptions.append("'dbus connection' ");
+    }
     if (paramRequired)
     {
 	if (didUI)
 	    return SQL_NO_DATA_FOUND;
 	CC_set_error(conn, CONN_OPENDB_ERROR,
-		     "connection string lacks some options", func);
+		     missingoptions, func);
 	return SQL_ERROR;
     }
 
