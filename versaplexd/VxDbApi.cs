@@ -263,18 +263,11 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
     {
         try {
             processor(call, out reply);
-        } catch (VxSqlError e) {
-            reply = VxDbus.CreateError(
-                    "com.versabanq.versaplex.sqlerror", e.ToString(), call);
-        } catch (VxTooMuchData e) {
-            reply = VxDbus.CreateError(
-                    "com.versabanq.versaplex.toomuchdata", e.ToString(),
-                    call);
-        } catch (VxBadSchema e) {
-            reply = VxDbus.CreateError(
-                    "com.versabanq.versaplex.badschema", e.ToString(),
-                    call);
+        } catch (VxRequestException e) {
+            reply = VxDbus.CreateError(e.DBusErrorType, e.ToString(), call);
         } catch (Exception e) {
+            // FIXME: In production, it doesn't make sense to send all
+            // exceptions out to the client.
             reply = VxDbus.CreateError(
                     "com.versabanq.versaplex.exception", e.ToString(),
                     call);
@@ -290,8 +283,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return null;
         string sender = (string)sender_obj;
 
-        // For now, the client ID is just the Unix UID that DBus has
-        // associated with the connection.
+        // For now, the client ID is just the username of the Unix UID that
+        // DBus has associated with the connection.
         string username;
         if (!usernames.TryGetValue(sender, out username))
         {
@@ -550,68 +543,97 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
     }
 }
 
-class VxSqlError : Exception {
-    public VxSqlError()
+class VxRequestException : Exception {
+    public string DBusErrorType;
+
+    public VxRequestException(string errortype)
         : base()
+    {
+        DBusErrorType = errortype;
+    }
+    
+    public VxRequestException(string errortype, string msg)
+        : base(msg)
+    {
+        DBusErrorType = errortype;
+    }
+
+    public VxRequestException(string errortype, SerializationInfo si, 
+            StreamingContext sc)
+        : base(si, sc)
+    {
+        DBusErrorType = errortype;
+    }
+
+    public VxRequestException(string errortype, string msg, Exception inner)
+        : base(msg, inner)
+    {
+        DBusErrorType = errortype;
+    }
+}
+
+class VxSqlError : VxRequestException {
+    public VxSqlError()
+        : base("com.versabanq.versaplex.sqlerror")
     {
     }
     
     public VxSqlError(string msg)
-        : base(msg)
+        : base("com.versabanq.versaplex.sqlerror", msg)
     {
     }
 
     public VxSqlError(SerializationInfo si, StreamingContext sc)
-        : base(si, sc)
+        : base("com.versabanq.versaplex.sqlerror", si, sc)
     {
     }
 
     public VxSqlError(string msg, Exception inner)
-        : base(msg, inner)
+        : base("com.versabanq.versaplex.sqlerror", msg, inner)
     {
     }
 }
 
-class VxTooMuchData : Exception {
+class VxTooMuchData : VxRequestException {
     public VxTooMuchData()
-        : base()
+        : base("com.versabanq.versaplex.toomuchdata")
     {
     }
     
     public VxTooMuchData(string msg)
-        : base(msg)
+        : base("com.versabanq.versaplex.toomuchdata", msg)
     {
     }
 
     public VxTooMuchData(SerializationInfo si, StreamingContext sc)
-        : base(si, sc)
+        : base("com.versabanq.versaplex.toomuchdata", si, sc)
     {
     }
 
     public VxTooMuchData(string msg, Exception inner)
-        : base(msg, inner)
+        : base("com.versabanq.versaplex.toomuchdata", msg, inner)
     {
     }
 }
 
-class VxBadSchema : Exception {
+class VxBadSchema : VxRequestException {
     public VxBadSchema()
-        : base()
+        : base("com.versabanq.versaplex.badschema")
     {
     }
     
     public VxBadSchema(string msg)
-        : base(msg)
+        : base("com.versabanq.versaplex.badschema", msg)
     {
     }
 
     public VxBadSchema(SerializationInfo si, StreamingContext sc)
-        : base(si, sc)
+        : base("com.versabanq.versaplex.badschema", si, sc)
     {
     }
 
     public VxBadSchema(string msg, Exception inner)
-        : base(msg, inner)
+        : base("com.versabanq.versaplex.badschema", msg, inner)
     {
     }
 }
