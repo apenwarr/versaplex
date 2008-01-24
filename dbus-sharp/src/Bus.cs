@@ -129,6 +129,11 @@ namespace NDesk.DBus
 			unique_name = bus.Hello ();
 		}
 
+                public string GetUnixUserName (string name)
+                {
+			return bus.GetConnectionUnixUserName (name);
+                }
+
 		public ulong GetUnixUser (string name)
 		{
 			return bus.GetConnectionUnixUser (name);

@@ -2,7 +2,6 @@ using System.Data.SqlClient;
 using System.Collections;
 using System.Collections.Generic;
 using Wv.Utils;
-using Mono.Unix;
 
 namespace versabanq.Versaplex.Server {
 
@@ -13,16 +12,13 @@ public static class VxSqlPool
     private static bool GetConnInfoFromConnId(string connid, 
         out SqlConnectionStringBuilder conStr)
     {
-        // At the moment, a connection ID is just a Unix userid, which we
-        // assume is from this machine.
-        UnixUserInfo info = new UnixUserInfo(uint.Parse(connid));
-
         conStr = new SqlConnectionStringBuilder();
 
         // Mono doesn't support this
         //conStr.Enlist = false;
 
-        string dbname = inifile["User Map"][info.UserName];
+        // At the moment, a connection ID is just a username
+        string dbname = inifile["User Map"][connid];
         if (dbname == null)
             return false;
 

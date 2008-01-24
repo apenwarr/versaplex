@@ -281,7 +281,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         }
     }
 
-    static Dictionary<string,ulong> uids = new Dictionary<string, ulong>();
+    static Dictionary<string,string> usernames = new Dictionary<string, string>();
 
     public static string GetClientId(Message call)
     {
@@ -292,15 +292,15 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 
         // For now, the client ID is just the Unix UID that DBus has
         // associated with the connection.
-        ulong uid;
-        if (!uids.TryGetValue(sender, out uid))
+        string username;
+        if (!usernames.TryGetValue(sender, out username))
         {
-            uid = Bus.Session.GetUnixUser(sender);
+            username = Bus.Session.GetUnixUserName(sender);
             // Remember the result, so we don't have to ask DBus all the time
-            uids[sender] = uid;
+            usernames[sender] = username;
         }
 
-        return String.Format("{0}", uid);
+        return username;
     }
 
     private static void CallExecNoResult(Message call, out Message reply)
