@@ -24,7 +24,7 @@ internal static class VxDb {
                 cmd.ExecuteNonQuery();
             }
         } catch (SqlException e) {
-            throw new VxSqlError("Error in query", e);
+            throw new VxSqlException("Error in query", e);
         } finally {
             if (conn != null)
                 VxSqlPool.ReleaseConnection(conn);
@@ -45,7 +45,7 @@ internal static class VxDb {
                 result = cmd.ExecuteScalar();
             }
         } catch (SqlException e) {
-            throw new VxSqlError("Error in query", e);
+            throw new VxSqlException("Error in query", e);
         } finally {
             if (conn != null)
                 VxSqlPool.ReleaseConnection(conn);
@@ -72,7 +72,7 @@ internal static class VxDb {
             using (SqlCommand cmd = new SqlCommand(query, conn))
             using (SqlDataReader reader = cmd.ExecuteReader()) {
                 if (reader.FieldCount <= 0) {
-                    throw new VxBadSchema("No columns in record set");
+                    throw new VxBadSchemaException("No columns in record set");
                 }
 
                 ProcessSchema(reader, out colinfo);
@@ -160,7 +160,7 @@ internal static class VxDb {
                 nullity = rownulls.ToArray();
             }
         } catch (SqlException e) {
-            throw new VxSqlError("Error in query", e);
+            throw new VxSqlException("Error in query", e);
         } finally {
             if (conn != null)
                 VxSqlPool.ReleaseConnection(conn);
@@ -186,7 +186,7 @@ internal static class VxDb {
 
                 if (type == typeof(object)) {
                     // We're not even going to try to handle this yet
-                    throw new VxBadSchema("Columns of type sql_variant "
+                    throw new VxBadSchemaException("Columns of type sql_variant "
                         + "are not supported by Versaplex at this time");
                 }
 
@@ -220,7 +220,7 @@ internal static class VxDb {
                 } else if (type == typeof(Decimal)) {
                     coltype = VxColumnType.Decimal;
                 } else {
-                    throw new VxBadSchema("Columns of type "
+                    throw new VxBadSchemaException("Columns of type "
                             + type.ToString() + " are not supported by "
                             + "Versaplex at this time " +
                             "(column " + col["ColumnName"].ToString() + ")");
@@ -264,13 +264,13 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         try {
             processor(call, out reply);
         } catch (VxRequestException e) {
-            reply = VxDbus.CreateError(e.DBusErrorType, e.ToString(), call);
+            reply = VxDbus.CreateError(e.DBusErrorType, e.Message, call);
+            Console.WriteLine(e.ToString());
         } catch (Exception e) {
-            // FIXME: In production, it doesn't make sense to send all
-            // exceptions out to the client.
             reply = VxDbus.CreateError(
-                    "com.versabanq.versaplex.exception", e.ToString(),
-                    call);
+                    "com.versabanq.versaplex.exception", 
+                    "An internal error occurred.", call);
+            Console.WriteLine(e.ToString());
         }
     }
 
@@ -572,67 +572,67 @@ class VxRequestException : Exception {
     }
 }
 
-class VxSqlError : VxRequestException {
-    public VxSqlError()
+class VxSqlException : VxRequestException {
+    public VxSqlException()
         : base("com.versabanq.versaplex.sqlerror")
     {
     }
     
-    public VxSqlError(string msg)
+    public VxSqlException(string msg)
         : base("com.versabanq.versaplex.sqlerror", msg)
     {
     }
 
-    public VxSqlError(SerializationInfo si, StreamingContext sc)
+    public VxSqlException(SerializationInfo si, StreamingContext sc)
         : base("com.versabanq.versaplex.sqlerror", si, sc)
     {
     }
 
-    public VxSqlError(string msg, Exception inner)
+    public VxSqlException(string msg, Exception inner)
         : base("com.versabanq.versaplex.sqlerror", msg, inner)
     {
     }
 }
 
-class VxTooMuchData : VxRequestException {
-    public VxTooMuchData()
+class VxTooMuchDataException : VxRequestException {
+    public VxTooMuchDataException()
         : base("com.versabanq.versaplex.toomuchdata")
     {
     }
     
-    public VxTooMuchData(string msg)
+    public VxTooMuchDataException(string msg)
         : base("com.versabanq.versaplex.toomuchdata", msg)
     {
     }
 
-    public VxTooMuchData(SerializationInfo si, StreamingContext sc)
+    public VxTooMuchDataException(SerializationInfo si, StreamingContext sc)
         : base("com.versabanq.versaplex.toomuchdata", si, sc)
     {
     }
 
-    public VxTooMuchData(string msg, Exception inner)
+    public VxTooMuchDataException(string msg, Exception inner)
         : base("com.versabanq.versaplex.toomuchdata", msg, inner)
     {
     }
 }
 
-class VxBadSchema : VxRequestException {
-    public VxBadSchema()
+class VxBadSchemaException : VxRequestException {
+    public VxBadSchemaException()
         : base("com.versabanq.versaplex.badschema")
     {
     }
     
-    public VxBadSchema(string msg)
+    public VxBadSchemaException(string msg)
         : base("com.versabanq.versaplex.badschema", msg)
     {
     }
 
-    public VxBadSchema(SerializationInfo si, StreamingContext sc)
+    public VxBadSchemaException(SerializationInfo si, StreamingContext sc)
         : base("com.versabanq.versaplex.badschema", si, sc)
     {
     }
 
-    public VxBadSchema(string msg, Exception inner)
+    public VxBadSchemaException(string msg, Exception inner)
         : base("com.versabanq.versaplex.badschema", msg, inner)
     {
     }
