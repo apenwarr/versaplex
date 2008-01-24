@@ -36,7 +36,7 @@ public static class VxSqlPool
             conStr.ConnectionString = cfgval.Substring(moniker_name.Length);
         else
             throw new VxConfigException(String.Format(
-                "Malformed connection string '{0}'.", moniker_name));
+                "Malformed connection string '{0}'.", cfgval));
 
         System.Console.Write("Connection string: {0}", conStr.ConnectionString);
 
