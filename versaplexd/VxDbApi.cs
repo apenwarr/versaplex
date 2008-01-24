@@ -638,6 +638,28 @@ class VxBadSchema : VxRequestException {
     }
 }
 
+class VxConfigException : VxRequestException {
+    public VxConfigException()
+        : base("com.versabanq.versaplex.configerror")
+    {
+    }
+    
+    public VxConfigException(string msg)
+        : base("com.versabanq.versaplex.configerror", msg)
+    {
+    }
+
+    public VxConfigException(SerializationInfo si, StreamingContext sc)
+        : base("com.versabanq.versaplex.configerror", si, sc)
+    {
+    }
+
+    public VxConfigException(string msg, Exception inner)
+        : base("com.versabanq.versaplex.configerror", msg, inner)
+    {
+    }
+}
+
 struct VxDbusDateTime {
     private long seconds;
     private int microseconds;
