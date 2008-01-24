@@ -103,11 +103,6 @@ class DodgyTransport : NDesk.DBus.Transports.Transport
 [TestFixture]
 public class VersaplexTest
 {
-    private const string Server = "amsdev";
-    private const string User = "asta";
-    private const string Password = "m!ddle-tear";
-    private const string Database = "adrian_test";
-
     private const string DbusConnName = "com.versabanq.versaplex";
     private const string DbusInterface = "com.versabanq.versaplex.db";
     private static readonly ObjectPath DbusObjPath;
@@ -612,9 +607,40 @@ public class VersaplexTest
     [SetUp]
     public void init()
     {
-	con = new SqlConnection(string.Format(
-		    "Server={0};UID={1};Password={2};Database={3}",
-		    Server, User, Password, Database));
+        // Places to look for the config file.
+        string [] searchfiles = 
+        { 
+            "versaplexd.ini", 
+            Path.Combine("..", "versaplexd.ini") 
+        };
+
+        string cfgfile = null;
+        foreach (string searchfile in searchfiles)
+            if (File.Exists(searchfile))
+                cfgfile = searchfile;
+
+        if (cfgfile == null)
+            throw new Exception("Cannot locate versaplexd.ini.");
+
+        Ini cfg = new Ini(cfgfile);
+            
+        string uname = Mono.Unix.UnixUserInfo.GetRealUser().UserName;
+        string dbname = cfg["User Map"][uname];
+        if (dbname == null)
+            throw new Exception(String.Format(
+                "User '{0}' missing from config.", uname));
+
+        string cfgval = cfg["Connections"][dbname];
+        if (cfgval == null)
+            throw new Exception(String.Format(
+                "Connection string for '{0}' missing from config.", dbname));
+
+        string mssql_moniker = "mssql:";
+        if (cfgval.IndexOf(mssql_moniker) == 0)
+            con = new SqlConnection(cfgval.Substring(mssql_moniker.Length));
+        else
+            throw new Exception(String.Format(
+                "Malformed connection string '{0}'.", cfgval));
 
 	WVASSERT(Connect(con));
 
