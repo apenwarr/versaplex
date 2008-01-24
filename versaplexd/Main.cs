@@ -84,6 +84,11 @@ public static class Versaplex
     {
         msgrouter.AddInterface(VxDbInterfaceRouter.Instance);
 
+        string cfgfile = "versaplexd.ini";
+        if (!System.IO.File.Exists(cfgfile))
+            throw new Exception(String.Format(
+                "Could not find config file '{0}'.", cfgfile));
+
         Console.WriteLine("Connecting to '{0}'", Address.Session);
 	if (Address.Session == null)
 	    throw new Exception("DBUS_SESSION_BUS_ADDRESS not set");
