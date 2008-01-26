@@ -11,6 +11,12 @@ using versabanq.Versaplex.Dbus;
 namespace versabanq.Versaplex.Dbus.Db {
 
 internal static class VxDb {
+    internal static void Test(string connid)
+    {
+        Console.WriteLine("Test");
+	ExecNoResult(connid, "select 1");
+    }
+
     internal static void ExecNoResult(string connid, string query)
     {
         Console.WriteLine("ExecNoResult " + query);
@@ -59,7 +65,7 @@ internal static class VxDb {
 	// XXX this is fishy
 	if (query == "LIST TABLES")
 	    query = "exec sp_tables";
-	else if (query.Substring(0, 13) == "LIST COLUMNS ")
+	else if (query.StartsWith("LIST COLUMNS "))
 	    query = String.Format("exec sp_columns @table_name='{0}'",
 				  query.Substring(13));
 
@@ -253,6 +259,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 
     private VxDbInterfaceRouter() : base("com.versabanq.versaplex.db")
     {
+        methods.Add("Test", CallTest);
         methods.Add("ExecNoResult", CallExecNoResult);
         methods.Add("ExecScalar", CallExecScalar);
         methods.Add("ExecRecordset", CallExecRecordset);
@@ -288,12 +295,44 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         string username;
         if (!usernames.TryGetValue(sender, out username))
         {
-            username = Bus.Session.GetUnixUserName(sender);
+	    try
+	    {
+		username = Bus.Session.GetUnixUserName(sender);
+	    }
+	    catch
+	    {
+		username = "*"; // use default connection, if any
+	    }
+	    
             // Remember the result, so we don't have to ask DBus all the time
             usernames[sender] = username;
         }
 
         return username;
+    }
+
+    private static void CallTest(Message call, out Message reply)
+    {
+        if (call.Signature.ToString() != "") {
+            reply = VxDbus.CreateError(
+                    "org.freedesktop.DBus.Error.UnknownMethod",
+                    String.Format(
+                        "No overload of Test has signature '{0}'",
+                        call.Signature), call);
+            return;
+        }
+
+        string clientid = GetClientId(call);
+        if (clientid == null)
+        {
+            reply = VxDbus.CreateError(
+                    "org.freedesktop.DBus.Error.Failed",
+                    "Could not identify the client", call);
+            return;
+        }
+
+        VxDb.Test(clientid);
+        reply = VxDbus.CreateReply(call);
     }
 
     private static void CallExecNoResult(Message call, out Message reply)
