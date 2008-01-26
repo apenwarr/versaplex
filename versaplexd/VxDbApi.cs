@@ -30,7 +30,7 @@ internal static class VxDb {
                 cmd.ExecuteNonQuery();
             }
         } catch (SqlException e) {
-            throw new VxSqlException("Error in query", e);
+            throw new VxSqlException(e.Message, e);
         } finally {
             if (conn != null)
                 VxSqlPool.ReleaseConnection(conn);
@@ -51,7 +51,7 @@ internal static class VxDb {
                 result = cmd.ExecuteScalar();
             }
         } catch (SqlException e) {
-            throw new VxSqlException("Error in query", e);
+            throw new VxSqlException(e.Message, e);
         } finally {
             if (conn != null)
                 VxSqlPool.ReleaseConnection(conn);
@@ -166,7 +166,7 @@ internal static class VxDb {
                 nullity = rownulls.ToArray();
             }
         } catch (SqlException e) {
-            throw new VxSqlException("Error in query", e);
+            throw new VxSqlException(e.Message, e);
         } finally {
             if (conn != null)
                 VxSqlPool.ReleaseConnection(conn);
