@@ -260,11 +260,28 @@ PGAPI_DriverConnect(HDBC hdbc,
     mylog("dbus:session is '%s'\n", getenv("DBUS_SESSION_BUS_ADDRESS"));
     conn->dbus = new WvDBusConn(ci->dbus_moniker);
     
+    WvDBusMsg reply = conn->dbus->send_and_wait
+	(WvDBusMsg("com.versabanq.versaplex", "/com/versabanq/versaplex",
+		   "com.versabanq.versaplex.db", "Test"),
+	 15000);
+    
     if (!conn->dbus->isok())
     {
         CC_set_error(conn, CONN_OPENDB_ERROR, WvString(
-            "Could not open DBus connection: %s (%s).", 
+            "Could not open DBus connection to %s: %s (%s).", 
+	    ci->dbus_moniker,
             conn->dbus->errstr(), conn->dbus->geterr()).cstr(), 
+            func);
+        return SQL_ERROR;
+    }
+    
+    if (reply.iserror())
+    {
+	WvDBusMsg::Iter i(reply);
+	WvString errstr = i.getnext();
+        CC_set_error(conn, CONN_OPENDB_ERROR, WvString(
+            "DBus connected, but test failed: %s.  Is versaplexd running?", 
+	    errstr).cstr(),
             func);
         return SQL_ERROR;
     }
