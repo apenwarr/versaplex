@@ -1,5 +1,3 @@
-.PHONY: all build clean test
-
 include config.mk
 
 ifndef BUILD_TARGET 
@@ -8,37 +6,44 @@ endif
 
 ifeq ($(BUILD_TARGET),win32)
 WVSTREAMS_MAKEFILE=Makefile-win32
-VXODBC_MAKEFILE=Makefile-win32
 else
 WVSTREAMS_MAKEFILE=Makefile
-VXODBC_MAKEFILE=Makefile-linux
 endif
 
 .PHONY: dbus-sharp wvstreams wvdotnet versaplexd vxodbc
 
-all: dbus-sharp wvstreams wvdotnet versaplexd vxodbc
+all: versaplexd vxodbc
 
-dbus-sharp wvdotnet versaplexd:
+%: %/Makefile
 	$(MAKE) -C $@ all
 
 # Note: $(MAKE) -C wv doesn't work, as wv's Makefile needs an accurate $(PWD)
 wvstreams:
 	cd wv && $(MAKE) wvstreams
 
-vxodbc: 
-	$(MAKE) -C vxodbc -f$(VXODBC_MAKEFILE)
+vxodbc: wvstreams
+
+versaplexd: wvdotnet dbus-sharp
+
+dbus-sharp wvdotnet versaplexd vxodbc:
+	$(MAKE) -C $@ all
 
 test: all
 	$(MAKE) -C wvdotnet $@
 	$(MAKE) -C versaplexd $@
 	$(MAKE) -C vxodbc $@
 	
-clean:
-	$(MAKE) -C vxodbc -fMakefile-common $@
-	$(MAKE) -C versaplexd $@
-	$(MAKE) -C wvdotnet $@
-	$(MAKE) -C wv/wvstreams -f$(WVSTREAMS_MAKEFILE) $@
-	$(MAKE) -C wv/wvports $@
+nclean:
+	for d in versaplexd wvdotnet dbus-sharp; do \
+		$(MAKE) -C $$d clean; \
+	done
+
+clean: nclean
+	$(MAKE) -C vxodbc -fMakefile-common clean
+	
+portclean: clean
+	$(MAKE) -C wv/wvstreams -f$(WVSTREAMS_MAKEFILE) clean
+	$(MAKE) -C wv/wvports clean
 	
 distclean: clean
-	rm config.mk
+	rm -f config.mk

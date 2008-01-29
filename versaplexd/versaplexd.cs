@@ -133,8 +133,12 @@ class DodgyTransport : NDesk.DBus.Transports.Transport
 {
     public override string AuthString()
     {
+#if false
         long uid = UnixUserInfo.GetRealUserId();
         return uid.ToString();
+#else
+	return "WIN32";
+#endif
     }
 
     public override void WriteCred()
