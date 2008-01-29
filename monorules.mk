@@ -14,7 +14,7 @@ ifeq ($(OS),Windows_NT)
   CSC?=csc
   SYMLINK=cp
 else
-  CSC?=gmcs
+  CSC?=gmcs -langversion:linq
   SYMLINK=ln -s
   PKGS += /r:Mono.Posix
 endif
@@ -73,7 +73,7 @@ endef
 
 %.pass: %.exe
 	rm -f $@
-	./$^
+	mono --debug ./$^
 	touch $@
 
 clean::
