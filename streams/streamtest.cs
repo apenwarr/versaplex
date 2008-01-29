@@ -1,14 +1,6 @@
 using System;
 using System.Collections;
-
-public static class wv
-{
-    public static void assert(bool b)
-    {
-	if (!b)
-	    throw new Exception("assertion failure");
-    }    
-}
+using Wv;
 
 public class FooTest
 {
