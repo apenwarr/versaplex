@@ -1,3 +1,4 @@
+include rules.mk
 include config.mk
 
 ifndef BUILD_TARGET 
@@ -10,12 +11,11 @@ else
 WVSTREAMS_MAKEFILE=Makefile
 endif
 
-.PHONY: dbus-sharp wvstreams wvdotnet versaplexd vxodbc
+wvdotnet dbus-sharp versaplexd wvstreams vxodbc: FORCE
 
-all: versaplexd vxodbc
+nall: versaplexd
 
-%: %/Makefile
-	$(MAKE) -C $@ all
+all: nall vxodbc
 
 # Note: $(MAKE) -C wv doesn't work, as wv's Makefile needs an accurate $(PWD)
 wvstreams:
@@ -25,18 +25,11 @@ vxodbc: wvstreams
 
 versaplexd: wvdotnet dbus-sharp
 
-dbus-sharp wvdotnet versaplexd vxodbc:
-	$(MAKE) -C $@ all
+ntest: nall wvdotnet/test versaplexd/test
 
-test: all
-	$(MAKE) -C wvdotnet $@
-	$(MAKE) -C versaplexd $@
-	$(MAKE) -C vxodbc $@
+test: all ntest vxodbc/test
 	
-nclean:
-	for d in versaplexd wvdotnet dbus-sharp; do \
-		$(MAKE) -C $$d clean; \
-	done
+nclean: versaplexd/clean wvdotnet/clean dbus-sharp/clean
 
 clean: nclean
 	$(MAKE) -C vxodbc -fMakefile-common clean

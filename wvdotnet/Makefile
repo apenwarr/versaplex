@@ -1,23 +1,17 @@
+include ../rules.mk
 include ../monorules.mk
 
 all: wv.dll
 
-PKGS=/r:System.Data /r:System.Web
+PKGS += /r:System.Data /r:System.Web
 
 wv.dll: wvutils.cs wvtest.cs wvweb.cs wvdbi.cs wvini.cs assemblyinfo.cs
 
-LIBTESTFILES = wvtest.t.cs.E wvutils.t.cs.E
+wvtest.t.exe: wvtest.t.cs.E wv.dll
 
-TESTS = $(patsubst %.cs.E,%.exe,$(LIBTESTFILES))
+wvutils.t.exe: wvutils.t.cs.E wv.dll
 
-test: wv.dll $(TESTS) $(addsuffix .pass,$(TESTS))
-
-$(addsuffix .pass,$(TESTS)): %.pass: %
-	rm -f $@
-	./$<
-	touch $@
-
-$(TESTS): wv.dll
+test: wvtest.t.pass wvutils.t.pass
 
 clean::
 	rm -f *.pass

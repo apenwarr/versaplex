@@ -71,3 +71,6 @@ configure: configure.ac config.h.in
 	autoconf
 
 include $(wildcard .*.d)
+
+test:
+	$(MAKE) -C t test

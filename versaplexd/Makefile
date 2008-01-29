@@ -1,7 +1,12 @@
-
+include ../rules.mk
 include ../monorules.mk
 
 all: versaplexd
+
+PKGS += /r:System.Data
+
+test: all
+	$(MAKE) -C t $@
 
 versaplexd.exe: versaplexd.cs \
     PriorityQueue.cs VxBufferStream.cs \
@@ -11,5 +16,5 @@ versaplexd.exe: versaplexd.cs \
     VxSqlPool.cs \
     ../dbus-sharp/src/NDesk.DBus.dll ../wvdotnet/wv.dll
 
-clean::
+clean:: t/clean
 	rm -f versaplexd

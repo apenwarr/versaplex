@@ -1,5 +1,3 @@
-.PHONY: all clean test
-
 default: all
 
 SHELL=/bin/bash
@@ -8,8 +6,6 @@ SHELL=/bin/bash
 # And it does other weird things. cpp seems to Just Work(tm), so use that for
 # our C# (.cs) files
 CSCPP=cpp
-
-PKGS=/r:System.Data
 
 # Cygwin supports symlinks, but they aren't actually useful outside cygwin,
 # so let's just copy instead.  We also use Microsoft's .net compiler instead
@@ -26,8 +22,6 @@ endif
 CSFLAGS=/warn:4 /debug
 #CSFLAGS += /warnaserror
 
-test: all
-	$(MAKE) -C t $@
 
 # Rules for generating autodependencies on header files
 $(patsubst %.cs.E,%.d,$(filter %.cs.E,$(FILES))): %.d: %.cs
@@ -50,25 +44,37 @@ include $(patsubst %.cs.E,%.d,$(filter %.cs.E,$(FILES)))
 		| grep -v '^# [0-9]' \
 		>$@ || (rm -f $@ && exit 1)
 
-%.dll: assemblyinfo.cs
-	$(CSC) $(CSFLAGS) /target:library /out:$@ \
-		$(PKGS) \
-		$(filter %.cs.E %.cs,$^) \
-		$(patsubst %.dll,/r:%.dll,$(filter %.dll,$^))
 
-%.exe: %.cs
-	for d in $(filter ../%.dll,$^); do \
+define csbuild
+	@for d in $(filter ../%.dll,$^); do \
 		rm -f $$(basename $$d); \
 		$(SYMLINK) -v $$d .; \
 	done
-	$(CSC) $(CSFLAGS) /target:exe /out:$@ \
+	$(CSC) $(CSFLAGS) /target:$1 /out:$@ \
 		$(PKGS) \
 		$(filter %.cs.E %.cs,$^) \
 		$(patsubst %.dll,/r:%.dll,$(filter %.dll,$^))
+endef
+
+
+%.dll: assemblyinfo.cs
+	$(call csbuild,library)
+
+# This must come before the %.cs rule, since %.cs.E files are better.
+%.exe: %.cs.E
+	$(call csbuild,exe)
+
+%.exe: %.cs
+	$(call csbuild,exe)
 
 %: %.exe
 	rm -f $@
 	$(SYMLINK) $< $@
+
+%.pass: %.exe
+	rm -f $@
+	./$^
+	touch $@
 
 clean::
 	rm -f *~ *.E *.d *.exe *.dll *.mdb *.pdb
