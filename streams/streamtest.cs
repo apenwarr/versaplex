@@ -2,6 +2,17 @@ using System;
 using System.Collections;
 using Wv;
 
+public static class ExceptionHelper
+{
+    public static string Short(this Exception e)
+    {
+	if (e == null)
+	    return "Success";
+	else
+	    return e.Message;
+    }
+}
+
 public class FooTest
 {
     static IEnumerable contprint(WvLog log, WvStream s, string prefix)
@@ -33,6 +44,8 @@ public class FooTest
 	    while (s1.isok || s2.isok)
 		ev.run();
 	    log.print("\n");
+	    log.print("s1 err: {0}\n", s1.err.Short());
+	    log.print("s2 err: {0}\n", s2.err.Short());
 	}
     }
 }

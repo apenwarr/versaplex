@@ -122,6 +122,11 @@ namespace Wv
 	{
 	    write(fmt.ToUTF8());
 	}
+	
+	public void print(object o)
+	{
+	    write(o.ToUTF8());
+	}
     }
 
     public class WvSockStream: WvStream
@@ -253,13 +258,20 @@ namespace Wv
     {
         public WvTcp(IWvEventer ev, string remote) : base(ev, null)
 	{
-	    IPHostEntry ipe = Dns.GetHostEntry(remote);
-	    IPEndPoint ipep = new IPEndPoint(ipe.AddressList[0], 80);
-	    Socket sock = new Socket(AddressFamily.InterNetwork,
-				     SocketType.Stream,
-				     ProtocolType.Tcp);
-	    sock.Connect(ipep);
-	    this.sock = sock;
+	    try
+	    {
+		IPHostEntry ipe = Dns.GetHostEntry(remote);
+		IPEndPoint ipep = new IPEndPoint(ipe.AddressList[0], 80);
+		Socket sock = new Socket(AddressFamily.InterNetwork,
+					 SocketType.Stream,
+					 ProtocolType.Tcp);
+		sock.Connect(ipep);
+		this.sock = sock;
+	    }
+	    catch (Exception e)
+	    {
+		err = e;
+	    }
 	}
     }
 }
