@@ -72,5 +72,5 @@ configure: configure.ac config.h.in
 
 include $(wildcard .*.d)
 
-test:
-	$(MAKE) -C t test
+test: vxodbc.so vxodbc-test.so
+	$(MAKE) -C t $@

@@ -34,6 +34,7 @@ else
 CC=gcc
 CXX=g++
 LIBS+=../vxodbc-test.so $(WVSTREAMS)/libwvtest.a /usr/lib/libodbc.a 
+export LD_LIBRARY_PATH=..:$(WVLIBDIR):$(WVSTREAMS)
 LIBS+=-L$(WVSTREAMS) -lwvdbus /usr/lib/libltdl.so -ldl -lpthread 
 endif
 

@@ -48,5 +48,3 @@ linker-test: linker-test.o vxodbc.so
 test-linker: linker-test
 	LD_LIBRARY_PATH=. ./linker-test
 
-test: vxodbc.so vxodbc-test.so
-	$(MAKE) -C t $@
