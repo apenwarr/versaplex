@@ -7,11 +7,13 @@ namespace Wv
     {
 	Stream outstr = Console.OpenStandardError();
 	WvBuf outbuf = new WvBuf();
-	string name;
+	//string name;
+	byte[] header;
 
 	public WvLog(string name)
 	{
-	    this.name = name;
+	    //this.name = name;
+	    header = String.Format("<{0}> ", name).ToUTF8();
 	}
 
 	public override int write(byte[] buf, int offset, int len)
@@ -20,9 +22,8 @@ namespace Wv
 	    uint i;
 	    while ((i = outbuf.strchr('\n')) > 0)
 	    {
-		byte[] b = (name + ": ").ToUTF8();
-		outstr.Write(b, 0, b.Length);
-		b = outbuf.get(i);
+		outstr.Write(header, 0, header.Length);
+		byte[] b = outbuf.get(i);
 		outstr.Write(b, 0, b.Length);
 	    }
 	    return len;

@@ -3,11 +3,13 @@ using System.IO;
 using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
+using Wv;
 
 namespace versabanq.Versaplex.Server {
 
 public class VxBufferStream : Stream
 {
+    static WvLog log = new WvLog("VxBufferStream");
     private static int streamcount = 0;
     public readonly int streamno = System.Threading.Interlocked.Increment(ref streamcount);
 
@@ -181,10 +183,10 @@ public class VxBufferStream : Stream
         if (closed)
             throw new ObjectDisposedException("Stream is closed");
 
-        Console.WriteLine("{0} Write", streamno);
+        log.print("{0} Write\n", streamno);
         wbuf.Append(buffer, offset, count);
         WriteWaiting = true;
-        Console.WriteLine("{1} Written {0}", wbuf.Size, streamno);
+        log.print("{1} Written {0}\n", wbuf.Size, streamno);
     }
 
     public override void WriteByte(byte value)
@@ -235,7 +237,7 @@ public class VxBufferStream : Stream
             byte[] data = new byte[READSZ];
 
             while (rbuf.Size < rbuf_size) {
-                Console.WriteLine("{1} Attempting receive (available = {0})", sock.Available, streamno);
+                log.print("{1} Attempting receive (available = {0})\n", sock.Available, streamno);
 
                 int amt = sock.Receive(data);
 
@@ -273,7 +275,7 @@ public class VxBufferStream : Stream
             throw new ObjectDisposedException("Stream is closed");
 
         try {
-            Console.WriteLine("{1} Writable {0}", wbuf.Size, streamno);
+            log.print("{1} Writable {0}\n", wbuf.Size, streamno);
 
             int offset, length;
             byte[] buf = wbuf.RetrieveBuf(out offset, out length);
@@ -367,7 +369,7 @@ public class VxBufferStream : Stream
 
                 int amt = Math.Min(count - sofar, LastLeft);
 
-                Console.WriteLine("Copy buf({3}), {0}, internal, {1}, {2}, count {4}", sofar+offset, buf_end, amt, buffer.Length, buf.Count);
+                log.print("Copy buf({3}), {0}, internal, {1}, {2}, count {4}\n", sofar+offset, buf_end, amt, buffer.Length, buf.Count);
                 Array.Copy(buffer, sofar+offset, buf.Last.Value,
                         buf_end, amt);
 

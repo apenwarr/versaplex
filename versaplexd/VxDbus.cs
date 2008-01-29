@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
 using NDesk.DBus;
+using Wv;
 
 namespace versabanq.Versaplex.Dbus {
 
 public static class VxDbus {
+    static WvLog log = new WvLog("VxDbus");
+    
     public static Message CreateError(string type, string msg, Message cause)
     {
         Message error = new Message();
@@ -59,33 +62,34 @@ public static class VxDbus {
     {
         Header hdr = msg.Header;
 
-        Console.WriteLine("Message dump:");
-        Console.WriteLine(" endianness {0}", hdr.Endianness);
-        Console.WriteLine(" type {0}", hdr.MessageType);
-        Console.WriteLine(" flags {0}", hdr.Flags);
-        Console.WriteLine(" version {0}", hdr.MajorVersion);
-        Console.WriteLine(" body length {0}", hdr.Length);
-        Console.WriteLine(" serial {0}", hdr.Serial);
-        Console.WriteLine(" Fields");
-
+        log.print("Message dump:\n");
+        log.print(" endianness={0} ", hdr.Endianness);
+        log.print(" t={0} ", hdr.MessageType);
+        log.print(" ver={0} ", hdr.MajorVersion);
+        log.print(" blen={0} ", hdr.Length);
+        log.print(" ser={0}\n", hdr.Serial);
+        log.print(" flags={0}\n", hdr.Flags);
+	
+        log.print(" Fields\n");
         foreach (KeyValuePair<FieldCode,object> kvp in hdr.Fields) {
-            Console.WriteLine("  - {0}: {1}", kvp.Key, kvp.Value);
+            log.print("  - {0}: {1}\n", kvp.Key, kvp.Value);
         }
 
         int hdrlen = 0;
         if (msg.HeaderData != null) {
-            Console.WriteLine("Header data:");
+            log.print("Header data:\n");
             HexDump(msg.HeaderData);
             hdrlen = msg.HeaderData.Length;
         } else {
-            Console.WriteLine("No header data encoded");
+            log.print("No header data encoded\n");
         }
 
         if (msg.Body != null) {
-            Console.WriteLine("Body data:");
-            HexDump(msg.Body, hdrlen);
+            log.print("Body data:\n");
+	    // HexDump(msg.Body, hdrlen);
+	    log.print("  [skipped]\n");
         } else {
-            Console.WriteLine("No header data encoded");
+            log.print("No header data encoded\n");
         }
     }
 
@@ -105,45 +109,45 @@ public static class VxDbus {
 
         int cnt = rowoffset;
         for (int i=0; i < length; cnt += 16) {
-            Console.Write("{0} ", cnt.ToString("x4"));
+            log.print("{0} ", cnt.ToString("x4"));
 
             int co=0;
             if (coloffset > 0 && i == 0) {
                 for (int j=0; j < coloffset; j++)
-                    Console.Write("   ");
+                    log.print("   ");
 
                 co=coloffset;
             }
 
             // Print out the hex digits
             for (int j=0; j < 8-co && i+j < length; j++)
-                Console.Write("{0} ", data[i+j].ToString("x2"));
+                log.print("{0} ", data[i+j].ToString("x2"));
 
-            Console.Write(" ");
+            log.print(" ");
 
             for (int j=8-co; j < 16-co && i+j < length; j++)
-                Console.Write("{0} ", data[i+j].ToString("x2"));
+                log.print("{0} ", data[i+j].ToString("x2"));
 
             // extra space if incomplete line
             if (i + 16-co > length) {
                 for (int j = length - i; j < 16-co; j++)
-                    Console.Write("   ");
+                    log.print("   ");
             }
 
             if (co > 0) {
                 for (int j=0; j < co; j++)
-                    Console.Write(" ");
+                    log.print(" ");
             }
 
             for (int j=0; j < 16-co && i+j < length; j++) {
                 if (31 < data[i+j] && data[i+j] < 127) {
-                    Console.Write((char)data[i+j]);
+                    log.print((char)data[i+j]);
                 } else {
-                    Console.Write('.');
+                    log.print('.');
                 }
             }
 
-            Console.WriteLine("");
+            log.print("\n");
 
             i += 16-co;
         }
@@ -151,12 +155,14 @@ public static class VxDbus {
 }
 
 public class VxMethodCallRouter {
+    WvLog log = new WvLog("VxMethodCallRouter");
+    
     private IDictionary<string,VxInterfaceRouter> interfaces
         = new Dictionary<string,VxInterfaceRouter>();
 
     public void AddInterface(VxInterfaceRouter ir)
     {
-        Console.WriteLine("Adding interface {0}", ir.Interface);
+        log.print("Adding interface {0}\n", ir.Interface);
         interfaces.Add(ir.Interface, ir);
     }
 
@@ -183,13 +189,13 @@ public class VxMethodCallRouter {
         if (!call.Header.Fields.TryGetValue(FieldCode.Interface, out iface))
             return false; // No interface; ignore it
 
-        Console.WriteLine("Router interface {0}", iface);
+        log.print("Router interface {0}\n", iface);
 
         VxInterfaceRouter ir;
         if (!interfaces.TryGetValue((string)iface, out ir))
             return false; // Interface not found
 
-        Console.WriteLine("Passing to interface router");
+        log.print("Passing to interface router\n");
 
         return ir.RouteMessage(call, out reply);
     }

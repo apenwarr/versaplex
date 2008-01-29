@@ -17,3 +17,6 @@ endef
 
 %/test: %/Makefile
 	$(call make_subdir,$*,test)
+
+%/all: %/Makefile
+	$(call make_subdir,$*,test)

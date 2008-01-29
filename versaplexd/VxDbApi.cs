@@ -7,19 +7,21 @@ using System.Collections.Generic;
 using NDesk.DBus;
 using versabanq.Versaplex.Server;
 using versabanq.Versaplex.Dbus;
+using Wv;
 
 namespace versabanq.Versaplex.Dbus.Db {
 
 internal static class VxDb {
+    static WvLog log = new WvLog("VxDb");
     internal static void Test(string connid)
     {
-        Console.WriteLine("Test");
+        log.print("Test\n");
 	ExecNoResult(connid, "select 1");
     }
 
     internal static void ExecNoResult(string connid, string query)
     {
-        Console.WriteLine("ExecNoResult " + query);
+        log.print("ExecNoResult {0}\n", query);
 
         SqlConnection conn = null;
         try {
@@ -40,7 +42,7 @@ internal static class VxDb {
     internal static void ExecScalar(string connid, string query, 
         out object result)
     {
-        Console.WriteLine("ExecScalar " + query);
+        log.print("ExecScalar {0}\n", query);
 
         SqlConnection conn = null;
         try {
@@ -69,7 +71,7 @@ internal static class VxDb {
 	    query = String.Format("exec sp_columns @table_name='{0}'",
 				  query.Substring(13));
 
-        Console.WriteLine("ExecRecordset " + query);
+        log.print("ExecRecordset {0}\n", query);
 	
         SqlConnection conn = null;
         try {
@@ -164,6 +166,8 @@ internal static class VxDb {
 
                 data = rows.ToArray();
                 nullity = rownulls.ToArray();
+		log.print("({0} rows)\n", data.Length);
+		wv.assert(nullity.Length == data.Length);
             }
         } catch (SqlException e) {
             throw new VxSqlException(e.Message, e);
@@ -182,11 +186,11 @@ internal static class VxDb {
 
         using (DataTable schema = reader.GetSchemaTable()) {
             foreach (DataRowView col in schema.DefaultView) {
-                Console.WriteLine("---");
                 foreach (DataColumn c in schema.Columns) {
-                    Console.WriteLine("{0}:\t{1}", c.ColumnName,
+                    log.print("{0}:'{1}'  ", c.ColumnName,
                             col[c.ColumnName]);
                 }
+		log.print("\n\n");
 
                 System.Type type = (System.Type)col["DataType"];
 
@@ -248,6 +252,7 @@ internal static class VxDb {
 
 public class VxDbInterfaceRouter : VxInterfaceRouter
 {
+    static WvLog log = new WvLog("VxDbInterfaceRouter");
     static readonly VxDbInterfaceRouter instance;
     public static VxDbInterfaceRouter Instance {
         get { return instance; }
@@ -272,12 +277,12 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             processor(call, out reply);
         } catch (VxRequestException e) {
             reply = VxDbus.CreateError(e.DBusErrorType, e.Message, call);
-            Console.WriteLine(e.ToString());
+            log.print("{0}\n", e.ToString());
         } catch (Exception e) {
             reply = VxDbus.CreateError(
                     "com.versabanq.versaplex.exception", 
                     "An internal error occurred.", call);
-            Console.WriteLine(e.ToString());
+            log.print("{0}\n", e.ToString());
         }
     }
 

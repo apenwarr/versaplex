@@ -39,6 +39,7 @@ public class WvEventer : IWvEventer
     
     public void onreadable(Socket s, Action a)
     {
+	if (s == null) return;
 	r.Remove(s);
 	if (a != null)
 	    r.Add(s, a);
@@ -46,6 +47,7 @@ public class WvEventer : IWvEventer
     
     public void onwritable(Socket s, Action a)
     {
+	if (s == null) return;
 	w.Remove(s);
 	if (a != null)
 	    w.Add(s, a);

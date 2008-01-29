@@ -7,9 +7,11 @@ using org.freedesktop.DBus;
 using versabanq.Versaplex.Server;
 using versabanq.Versaplex.Dbus;
 using versabanq.Versaplex.Dbus.Db;
+using Wv;
 
 public static class Versaplex
 {
+    static WvLog log = new WvLog("Versaplex");
     static Connection.MessageHandler oldhandler = null;
     static VxMethodCallRouter msgrouter = new VxMethodCallRouter();
 
@@ -23,7 +25,7 @@ public static class Versaplex
         Connection conn = (Connection)cookie;
 
         if (vxbs.BufferPending == 0) {
-            Console.WriteLine("??? DataReady but nothing to read");
+            log.print("??? DataReady but nothing to read\n");
             return;
         }
 
@@ -35,10 +37,10 @@ public static class Versaplex
 
     private static void NoMoreData(object sender, object cookie)
     {
-        Console.WriteLine(
+        log.print(
                 "***********************************************************\n"+
                 "************ D-bus connection closed by server ************\n"+
-                "***********************************************************");
+                "***********************************************************\n");
 
         VxBufferStream vxbs = (VxBufferStream)sender;
         vxbs.Close();
@@ -51,7 +53,7 @@ public static class Versaplex
         // FIXME: This should really queue things to be run from the thread
         // pool and then the response would be sent back through the action
         // queue
-        Console.WriteLine("MessageReady");
+        log.print("MessageReady\n");
 
         VxDbus.MessageDump(msg);
 
@@ -62,7 +64,7 @@ public static class Versaplex
                 if (msgrouter.RouteMessage(msg, out reply)) {
                     if (reply == null) {
                         // FIXME: Do something if this happens, maybe?
-                        Console.WriteLine("Empty reply from RouteMessage");
+                        log.print("Empty reply from RouteMessage\n");
                     } else {
                         // XXX: Should this be done further down rather than
                         // passing the reply out here?
@@ -89,7 +91,7 @@ public static class Versaplex
             throw new Exception(String.Format(
                 "Could not find config file '{0}'.", cfgfile));
 
-        Console.WriteLine("Connecting to '{0}'", Address.Session);
+        log.print("Connecting to '{0}'\n", Address.Session);
 	if (Address.Session == null)
 	    throw new Exception("DBUS_SESSION_BUS_ADDRESS not set");
         AddressEntry aent = AddressEntry.Parse(Address.Session);
@@ -105,10 +107,10 @@ public static class Versaplex
 
         switch (rnr) {
             case RequestNameReply.PrimaryOwner:
-                Console.WriteLine("Name registered, ready");
+                log.print("Name registered, ready\n");
                 break;
             default:
-                Console.WriteLine("Register name result: " + rnr.ToString());
+                log.print("Register name result: \n" + rnr.ToString());
                 return;
         }
 
@@ -125,7 +127,7 @@ public static class Versaplex
 
         VxEventLoop.Run();
 
-        Console.WriteLine("Done!");
+        log.print("Done!\n");
     }
 }
 

@@ -4,10 +4,12 @@ using System.Net;
 using System.Net.Sockets;
 using System.Collections;
 using System.Collections.Generic;
+using Wv;
 
 namespace versabanq.Versaplex.Server {
 
 public static class VxEventLoop {
+    static WvLog log = new WvLog("VxEventLoop");
     // Public members
     public static void Run()
     {
@@ -63,7 +65,7 @@ public static class VxEventLoop {
 
     public static void RegisterRead(VxSocket c)
     {
-        Console.WriteLine("RegisterRead");
+        log.print("RegisterRead\n");
         AddAction(new VxEvent(
                     delegate() {
                         // XXX: This should maybe verify that c is not already
@@ -83,7 +85,7 @@ public static class VxEventLoop {
 
     public static void RegisterWrite(VxSocket c)
     {
-        Console.WriteLine("RegisterWrite");
+        log.print("RegisterWrite\n");
         AddAction(new VxEvent(
                     delegate() {
                         // XXX: This should maybe verify that c is not already
@@ -298,13 +300,13 @@ public static class VxEventLoop {
             }
         }
 
-        Console.WriteLine("Selecting on {0} readers, {1} writers, waiting {2}",
+        log.print("Select: {0} readers, {1} writers, delay={2}...\n",
                 readers.Count, writers.Count, waittime);
 
         // Do Select()
         Socket.Select(readers, writers, null, waittime);
 
-        Console.WriteLine("Selected on {0} readers, {1} writers, waiting {2}",
+        log.print("    --> {0} readers, {1} writers, remain={2}\n",
                 readers.Count, writers.Count, waittime);
 
         // Process socket activity
@@ -326,14 +328,13 @@ public static class VxEventLoop {
 
                 if (w == s) {
                     try {
-                        Console.WriteLine("Writability handler");
+                        log.print("Writability handler\n");
                         if (!w.OnWritable()) {
                             writelist.Remove(node);
                         }
                     } catch (Exception e) {
-                        Console.WriteLine("Executing write handler for "
-                                + "socket:");
-                        Console.WriteLine(e.ToString());
+                        log.print("Executing write handler for socket: {0}",
+				  e.ToString());
                     }
                     break;
                 }
@@ -345,11 +346,11 @@ public static class VxEventLoop {
         // - Then reading
         foreach (Socket s in readers) {
             if (s.Available == 0) {
-                Console.WriteLine("Liar!");
+                log.print("Liar!\n");
             }
 
             if (s == notify_socket_receiver) {
-                Console.WriteLine("It's the notify socket");
+                log.print("It's the notify socket\n");
                 HandleActions();
                 continue;
             }
@@ -363,14 +364,13 @@ public static class VxEventLoop {
 
                 if (r == s) {
                     try {
-                        Console.WriteLine("Readability handler");
+                        log.print("Readability handler\n");
                         if (!r.OnReadable()) {
                             readlist.Remove(node);
                         }
                     } catch (Exception e) {
-                        Console.WriteLine("Executing read handler for "
-                                + "socket:");
-                        Console.WriteLine(e.ToString());
+                        log.print("Executing read handler for socket: {0}\n"
+                                e.ToString());
                     }
                     continue;
                 }
@@ -388,14 +388,12 @@ public static class VxEventLoop {
             VxSocket vs = (VxSocket)s;
 
             try {
-                Console.WriteLine("Readability handler");
+                log.print("Readability handler\n");
                 if (!vs.OnReadable()) {
                     UnregisterRead(vs);
                 }
             } catch (Exception e) {
-                Console.WriteLine("Executing read handler for "
-                        + "socket:");
-                Console.WriteLine(e.ToString());
+                log.print("Executing read handler for socket: {0}\n", e);
             }
         }
 
@@ -406,11 +404,10 @@ public static class VxEventLoop {
             IVxEvent nextevent = (IVxEvent)events.Dequeue();
 
             try {
-                Console.WriteLine("Running scheduled event");
+                log.print("Running scheduled event\n");
                 nextevent.Run();
             } catch (Exception e) {
-                Console.WriteLine("Executing scheduled event:");
-                Console.WriteLine(e.ToString());
+                log.print("Executing scheduled event: {0}\n", e);
 
                 // This should probably be fatal
                 throw e;
@@ -427,7 +424,7 @@ public static class VxEventLoop {
 
     private static void SendNotification()
     {
-        Console.WriteLine("SendNotification");
+        log.print("SendNotification\n");
         try {
             byte[] notify_octet = new byte[1];
             notify_octet[0] = 0;
@@ -482,26 +479,24 @@ public static class VxEventLoop {
             switch (e.Context) {
             case EventContext.MainThread:
                 try {
-                    Console.WriteLine("Running event from main thread");
+                    log.print("Running event from main thread\n");
                     e.Run();
                 } catch (Exception ex) {
-                    Console.WriteLine("Executing from action queue:");
-                    Console.WriteLine(ex.ToString());
+                    log.print("Executing from action queue: {0}\n", ex);
 
                     // This should probably be fatal
                     throw ex;
                 }
                 break;
             case EventContext.ThreadPool:
-                Console.WriteLine("Queueing into thread pool");
+                log.print("Queueing into thread pool\n");
                 ThreadPool.QueueUserWorkItem(
                         delegate(object state) {
                             try {
-                                Console.WriteLine("Running event from thread pool");
+                                log.print("Running event from thread pool\n");
                                 e.Run();
                             } catch (Exception ex) {
-                                Console.WriteLine("Executing in thread pool:");
-                                Console.WriteLine(ex.ToString());
+                                log.print("Executing in thread pool: {0}\n", ex);
 
                                 // XXX: Not fatal? Look at this later.
                             }

@@ -5,11 +5,13 @@ using System;
 // For the exception types
 using versabanq.Versaplex.Dbus.Db;
 using Wv.Utils;
+using Wv;
 
 namespace versabanq.Versaplex.Server {
 
 public static class VxSqlPool
 {
+    static WvLog log = new WvLog("VxSqlPool");
     private static Ini inifile = new Ini("versaplexd.ini");
 
     private static SqlConnectionStringBuilder GetConnInfoFromConnId(
@@ -39,15 +41,14 @@ public static class VxSqlPool
             throw new VxConfigException(String.Format(
                 "Malformed connection string '{0}'.", cfgval));
 
-        System.Console.WriteLine("Connection string: {0}",
-				 conStr.ConnectionString);
+        log.print("Connection string: {0}\n", conStr.ConnectionString);
 
         return conStr;
     }
 
     public static SqlConnection TakeConnection(string connid)
     {
-        System.Console.WriteLine("TakeConnection {0}, starting", connid);
+        log.print("TakeConnection {0}, starting\n", connid);
         
         SqlConnectionStringBuilder conStr = GetConnInfoFromConnId(connid);
 	

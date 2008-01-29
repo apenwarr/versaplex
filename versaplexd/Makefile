@@ -5,8 +5,10 @@ all: versaplexd
 
 PKGS += /r:System.Data
 
-test: all
+test: all test/test
 	$(MAKE) -C t $@
+	
+tests: all test/all
 
 versaplexd.exe: versaplexd.cs \
     PriorityQueue.cs VxBufferStream.cs \
@@ -14,7 +16,8 @@ versaplexd.exe: versaplexd.cs \
     VxEventLoop.cs VxNotifySocket.cs \
     VxSocket.cs \
     VxSqlPool.cs \
-    ../dbus-sharp/src/NDesk.DBus.dll ../wvdotnet/wv.dll
+    ../dbus-sharp/src/NDesk.DBus.dll \
+    ../wvdotnet/wv.dll ../wvdotnet/streams/wvstreams.dll
 
 clean:: t/clean
 	rm -f versaplexd
