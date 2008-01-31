@@ -24,6 +24,8 @@ public static class VxSqlPool
 
         // At the moment, a connection ID is just a username
         string dbname = inifile["User Map"][connid];
+	if (dbname == null)
+	    dbname = inifile["User Map"]["*"]; // try default
         if (dbname == null)
             throw new VxConfigException(
 		String.Format("No user '{0}' found.",
