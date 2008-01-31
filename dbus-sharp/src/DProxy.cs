@@ -52,14 +52,14 @@ namespace NDesk.DBus
 
 			object[] outArgs;
 			object retVal;
-			Exception exception;
+		        Exception exception;
 			busObject.Invoke (callMessage.MethodBase, callMessage.MethodName, callMessage.InArgs, out outArgs, out retVal, out exception);
 
-			MethodReturnMessageWrapper returnMessage = new MethodReturnMessageWrapper ((IMethodReturnMessage) message);
-			returnMessage.Exception = exception;
-			returnMessage.ReturnValue = retVal;
-
-			return returnMessage;
+		        if (exception != null)
+			    return new ReturnMessage(exception, callMessage);
+		        else 
+			    return new ReturnMessage(retVal, outArgs, 
+				     outArgs.Length, null, callMessage);
 		}
 
 		/*

@@ -133,14 +133,24 @@ public static class Versaplex
 
 class DodgyTransport : NDesk.DBus.Transports.Transport
 {
+    static bool IsMono()
+    {
+	return Type.GetType("Mono.Runtime") != null;
+    }
+    
+    // This has to be a separate function so we can delay JITting it until
+    // we're sure it's mono.
+    string MonoAuthString()
+    {
+	return UnixUserInfo.GetRealUserId().ToString();
+    }
+    
     public override string AuthString()
     {
-#if false
-        long uid = UnixUserInfo.GetRealUserId();
-        return uid.ToString();
-#else
-	return "WIN32";
-#endif
+	if (IsMono())
+	    return MonoAuthString();
+	else
+	    return "WIN32"; // FIXME do something better?
     }
 
     public override void WriteCred()
