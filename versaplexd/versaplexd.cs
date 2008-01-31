@@ -8,12 +8,15 @@ using versabanq.Versaplex.Server;
 using versabanq.Versaplex.Dbus;
 using versabanq.Versaplex.Dbus.Db;
 using Wv;
+using Wv.NDesk.Options;
 
-public static class Versaplex
+public static class VersaMain
 {
     static WvLog log = new WvLog("Versaplex");
     static Connection.MessageHandler oldhandler = null;
     static VxMethodCallRouter msgrouter = new VxMethodCallRouter();
+    
+    public static Bus conn;
 
     private static void DataReady(object sender, object cookie)
     {
@@ -53,9 +56,9 @@ public static class Versaplex
         // FIXME: This should really queue things to be run from the thread
         // pool and then the response would be sent back through the action
         // queue
-        log.print("MessageReady\n");
+        log.print(WvLog.Level.Debug4, "MessageReady\n");
 
-        VxDbus.MessageDump(msg);
+        VxDbus.MessageDump("<<  ", msg);
 
         switch (msg.Header.MessageType) {
             case MessageType.MethodCall:
@@ -81,25 +84,50 @@ public static class Versaplex
         // yet.
         oldhandler(msg);
     }
-
-    public static void Main()
+    
+    static void ShowHelp()
     {
+	Console.Error.WriteLine
+	    ("Usage: versaplexd [-v] [-b dbus-moniker]");
+	Environment.Exit(1);
+    }
+
+    public static int Main(string[] args)
+    {
+	WvLog.Level verbose = WvLog.Level.Info;
+	string bus = null;
+	new OptionSet()
+	    .Add("v|verbose", delegate(string v) { ++verbose; })
+	    .Add("b=|bus=", delegate(string v) { bus = v; })
+	    .Add("?|h|help", delegate(string v) { ShowHelp(); })
+	    .Parse(args);
+	
+	WvLog.maxlevel = (WvLog.Level)verbose;
+	
         msgrouter.AddInterface(VxDbInterfaceRouter.Instance);
 
         string cfgfile = "versaplexd.ini";
         if (!System.IO.File.Exists(cfgfile))
             throw new Exception(String.Format(
                 "Could not find config file '{0}'.", cfgfile));
+	
+	if (bus == null)
+	    bus = Address.Session;
 
-        log.print("Connecting to '{0}'\n", Address.Session);
-	if (Address.Session == null)
-	    throw new Exception("DBUS_SESSION_BUS_ADDRESS not set");
-        AddressEntry aent = AddressEntry.Parse(Address.Session);
+	if (bus == null)
+	{
+	    log.print
+		("DBUS_SESSION_BUS_ADDRESS not set and no -b option given.\n");
+	    ShowHelp();
+	}
+	
+        log.print("Connecting to '{0}'\n", bus);
+        AddressEntry aent = AddressEntry.Parse(bus);
 
         DodgyTransport trans = new DodgyTransport();
         trans.Open(aent);
 
-        Bus conn = new Bus(trans);
+        conn = new Bus(trans);
 
         string myNameReq = "com.versabanq.versaplex";
         RequestNameReply rnr = conn.RequestName(myNameReq,
@@ -111,7 +139,7 @@ public static class Versaplex
                 break;
             default:
                 log.print("Register name result: \n" + rnr.ToString());
-                return;
+                return 2;
         }
 
         VxBufferStream vxbs = new VxBufferStream(trans.Socket);
@@ -128,6 +156,7 @@ public static class Versaplex
         VxEventLoop.Run();
 
         log.print("Done!\n");
+	return 0;
     }
 }
 

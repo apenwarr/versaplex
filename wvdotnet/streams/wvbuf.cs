@@ -103,6 +103,26 @@ namespace Wv
 		addbuf(len);
 	    last.put(bytes, offset, len);
 	}
+	
+	public void put(byte[] bytes)
+	{
+	    put(bytes, 0, (uint)bytes.Length);
+	}
+	
+	public void put(char c)
+	{
+	    put(c.ToUTF8());
+	}
+	
+	public void put(string s)
+	{
+	    put(s.ToUTF8());
+	}
+	
+	public void put(string fmt, params object[] args)
+	{
+	    put(String.Format(fmt, args));
+	}
 
 	uint min(uint a, uint b)
 	{
@@ -143,6 +163,11 @@ namespace Wv
 	public byte[] getall()
 	{
 	    return get(used);
+	}
+	
+	public string getstr()
+	{
+	    return getall().FromUTF8();
 	}
 
 	public void unget(uint len)

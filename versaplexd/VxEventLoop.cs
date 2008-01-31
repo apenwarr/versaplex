@@ -9,7 +9,7 @@ using Wv;
 namespace versabanq.Versaplex.Server {
 
 public static class VxEventLoop {
-    static WvLog log = new WvLog("VxEventLoop");
+    static WvLog log = new WvLog("VxEventLoop", WvLog.Level.Debug3);
     // Public members
     public static void Run()
     {
@@ -308,7 +308,7 @@ public static class VxEventLoop {
 
         log.print("    --> {0} readers, {1} writers, remain={2}\n",
                 readers.Count, writers.Count, waittime);
-
+	
         // Process socket activity
         // FIXME: This can probably be done better
 

@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Wv
 {
-    public static class wv
+    public partial class wv
     {
 	public static void assert(bool b)
 	{

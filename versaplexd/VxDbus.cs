@@ -6,7 +6,9 @@ using Wv;
 namespace versabanq.Versaplex.Dbus {
 
 public static class VxDbus {
-    static WvLog log = new WvLog("VxDbus");
+    static WvLog log = new WvLog("VxDbus", WvLog.Level.Debug1);
+    static WvLog smalldump = log.split(WvLog.Level.Debug4);
+    static WvLog fulldump = log.split(WvLog.Level.Debug5);
     
     public static Message CreateError(string type, string msg, Message cause)
     {
@@ -58,104 +60,54 @@ public static class VxDbus {
         return reply;
     }
 
-    public static void MessageDump(Message msg)
+    public static void MessageDump(string prefix, Message msg)
     {
         Header hdr = msg.Header;
-
-        log.print("Message dump:\n");
-        log.print(" endianness={0} ", hdr.Endianness);
-        log.print(" t={0} ", hdr.MessageType);
-        log.print(" ver={0} ", hdr.MajorVersion);
-        log.print(" blen={0} ", hdr.Length);
-        log.print(" ser={0}\n", hdr.Serial);
-        log.print(" flags={0}\n", hdr.Flags);
 	
-        log.print(" Fields\n");
+	if (hdr.Fields.ContainsKey(FieldCode.ReplySerial))
+	    log.print("{0} REPLY#{1}\n",
+			prefix,
+			hdr.Fields[FieldCode.ReplySerial]);
+	else
+	    log.print("{0} #{1} {2}.{3}\n",
+			prefix,
+			hdr.Serial,
+			hdr.Fields[FieldCode.Interface],
+			hdr.Fields[FieldCode.Member]);
+
+        smalldump.print("Message dump:\n");
+        smalldump.print(" endianness={0} ", hdr.Endianness);
+        smalldump.print(" t={0} ", hdr.MessageType);
+        smalldump.print(" ver={0} ", hdr.MajorVersion);
+        smalldump.print(" blen={0} ", hdr.Length);
+        smalldump.print(" ser={0}\n", hdr.Serial);
+        smalldump.print(" flags={0}\n", hdr.Flags);
+	
+        smalldump.print(" Fields\n");
         foreach (KeyValuePair<FieldCode,object> kvp in hdr.Fields) {
-            log.print("  - {0}: {1}\n", kvp.Key, kvp.Value);
+            smalldump.print("  - {0}: {1}\n", kvp.Key, kvp.Value);
         }
 
         int hdrlen = 0;
         if (msg.HeaderData != null) {
-            log.print("Header data:\n");
-            HexDump(msg.HeaderData);
+            smalldump.print("Header data:\n");
+	    smalldump.print(wv.hexdump(msg.HeaderData));
             hdrlen = msg.HeaderData.Length;
         } else {
-            log.print("No header data encoded\n");
+            smalldump.print("No header data encoded\n");
         }
 
         if (msg.Body != null) {
-            log.print("Body data:\n");
-	    // HexDump(msg.Body, hdrlen);
-	    log.print("  [skipped]\n");
-        } else {
-            log.print("No header data encoded\n");
-        }
-    }
-
-    public static void HexDump(byte[] data)
-    {
-        HexDump(data, 0);
-    }
-
-    public static void HexDump(byte[] data, int startoffset)
-    {
-        // This is overly complicated so that the body and header can be printed
-        // separately yet still show the proper alignment
- 
-	int length = data.Length > 4096 ? 4096 : data.Length;
-        int rowoffset = startoffset & (~0xf);
-        int coloffset = startoffset & 0xf;
-
-        int cnt = rowoffset;
-        for (int i=0; i < length; cnt += 16) {
-            log.print("{0} ", cnt.ToString("x4"));
-
-            int co=0;
-            if (coloffset > 0 && i == 0) {
-                for (int j=0; j < coloffset; j++)
-                    log.print("   ");
-
-                co=coloffset;
-            }
-
-            // Print out the hex digits
-            for (int j=0; j < 8-co && i+j < length; j++)
-                log.print("{0} ", data[i+j].ToString("x2"));
-
-            log.print(" ");
-
-            for (int j=8-co; j < 16-co && i+j < length; j++)
-                log.print("{0} ", data[i+j].ToString("x2"));
-
-            // extra space if incomplete line
-            if (i + 16-co > length) {
-                for (int j = length - i; j < 16-co; j++)
-                    log.print("   ");
-            }
-
-            if (co > 0) {
-                for (int j=0; j < co; j++)
-                    log.print(" ");
-            }
-
-            for (int j=0; j < 16-co && i+j < length; j++) {
-                if (31 < data[i+j] && data[i+j] < 127) {
-                    log.print((char)data[i+j]);
-                } else {
-                    log.print('.');
-                }
-            }
-
-            log.print("\n");
-
-            i += 16-co;
+            fulldump.print("Body data:\n");
+	    fulldump.print(wv.hexdump(msg.Body, hdrlen, msg.Body.Length));
+	} else {
+            smalldump.print("No body data encoded\n");
         }
     }
 }
 
 public class VxMethodCallRouter {
-    WvLog log = new WvLog("VxMethodCallRouter");
+    WvLog log = new WvLog("VxMethodCallRouter", WvLog.Level.Debug3);
     
     private IDictionary<string,VxInterfaceRouter> interfaces
         = new Dictionary<string,VxInterfaceRouter>();

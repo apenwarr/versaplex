@@ -12,7 +12,7 @@ using Wv;
 namespace versabanq.Versaplex.Dbus.Db {
 
 internal static class VxDb {
-    static WvLog log = new WvLog("VxDb");
+    static WvLog log = new WvLog("VxDb", WvLog.Level.Debug2);
     internal static void Test(string connid)
     {
         log.print("Test\n");
@@ -21,7 +21,7 @@ internal static class VxDb {
 
     internal static void ExecNoResult(string connid, string query)
     {
-        log.print("ExecNoResult {0}\n", query);
+        log.print(WvLog.Level.Debug3, "ExecNoResult {0}\n", query);
 
         SqlConnection conn = null;
         try {
@@ -42,7 +42,7 @@ internal static class VxDb {
     internal static void ExecScalar(string connid, string query, 
         out object result)
     {
-        log.print("ExecScalar {0}\n", query);
+        log.print(WvLog.Level.Debug3, "ExecScalar {0}\n", query);
 
         SqlConnection conn = null;
         try {
@@ -71,7 +71,7 @@ internal static class VxDb {
 	    query = String.Format("exec sp_columns @table_name='{0}'",
 				  query.Substring(13));
 
-        log.print("ExecRecordset {0}\n", query);
+        log.print(WvLog.Level.Debug3, "ExecRecordset {0}\n", query);
 	
         SqlConnection conn = null;
         try {
@@ -166,7 +166,7 @@ internal static class VxDb {
 
                 data = rows.ToArray();
                 nullity = rownulls.ToArray();
-		log.print("({0} rows)\n", data.Length);
+		log.print(WvLog.Level.Debug4, "({0} rows)\n", data.Length);
 		wv.assert(nullity.Length == data.Length);
             }
         } catch (SqlException e) {
@@ -187,10 +187,11 @@ internal static class VxDb {
         using (DataTable schema = reader.GetSchemaTable()) {
             foreach (DataRowView col in schema.DefaultView) {
                 foreach (DataColumn c in schema.Columns) {
-                    log.print("{0}:'{1}'  ", c.ColumnName,
-                            col[c.ColumnName]);
+                    log.print(WvLog.Level.Debug4,
+			      "{0}:'{1}'  ", c.ColumnName,
+			      col[c.ColumnName]);
                 }
-		log.print("\n\n");
+		log.print(WvLog.Level.Debug4, "\n\n");
 
                 System.Type type = (System.Type)col["DataType"];
 
@@ -302,15 +303,33 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         {
 	    try
 	    {
+		// FIXME: This system call isn't actually standard
+		// FIXME: we should be using VersaMain.conn here,
+		//   not the session bus!!
 		username = Bus.Session.GetUnixUserName(sender);
 	    }
 	    catch
 	    {
-		username = "*"; // use default connection, if any
+		try
+		{
+		    // FIXME: This system call is standard, but not useful
+		    //   on Windows.
+		    // FIXME: we should be using VersaMain.conn here,
+		    //   not the session bus!!
+		    username = Bus.Session.GetUnixUser(sender).ToString();
+		}
+		catch
+		{
+		    username = "*"; // use default connection, if any
+		}
 	    }
 	    
             // Remember the result, so we don't have to ask DBus all the time
             usernames[sender] = username;
+	    
+	    log.print(WvLog.Level.Info,
+		      "New connection '{0}' is user '{1}'\n",
+		      sender, username);
         }
 
         return username;
@@ -471,7 +490,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 
         // For debugging
         reply.WriteHeader();
-        VxDbus.MessageDump(reply);
+        VxDbus.MessageDump(" >> ", reply);
     }
 
     private static Signature VxColumnInfoToArraySignature(VxColumnInfo[] vxci)

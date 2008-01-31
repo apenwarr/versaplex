@@ -7,7 +7,9 @@ all: wv.dll streams
 
 PKGS += /r:System.Data /r:System.Web
 
-wv.dll: wvutils.cs wvtest.cs wvweb.cs wvdbi.cs wvini.cs assemblyinfo.cs
+wv.dll: assemblyinfo.cs \
+	wvutils.cs wvtest.cs wvweb.cs wvdbi.cs wvini.cs \
+	ndesk-options.cs
 
 test: t/test
 
