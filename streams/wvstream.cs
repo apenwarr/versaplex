@@ -111,16 +111,16 @@ namespace Wv
 	    return true; // no buffer
 	}
 
-	// FIXME: assumes the write will succeed!  Should only be available
-	// on streams with an outbuf.
+	// FIXME: these all assume the write will succeed!  Should only be
+	// available on streams with an outbuf.
 	public void print(string fmt, params object[] args)
 	{
 	    write(string.Format(fmt, args).ToUTF8());
 	}
 
-	public void print(string fmt)
+	public void print(string s)
 	{
-	    write(fmt.ToUTF8());
+	    write(s.ToUTF8());
 	}
 	
 	public void print(object o)

@@ -7,7 +7,7 @@ using System.Diagnostics;
 
 namespace Wv.Utils
 {
-    public class wv
+    public partial class wv
     {
 	public static string shift(ref string[] array, int index)
 	{
