@@ -283,7 +283,7 @@ public static class VxEventLoop {
         }
 
         // Set up events
-        int waittime = -1;
+        int waittime = Int32.MaxValue;
         if (events.Count > 0) {
             DateTime next = NextEventTime;
 
