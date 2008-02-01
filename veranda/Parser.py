@@ -132,6 +132,12 @@ class Parser:
 			list.append(str)
 		return list
 
+	#------------------
+	def getTable(self):
+	#------------------
+		"""Returns the body of the table"""
+		return self.table
+
 	#--------------------------	
 	def getTableIterator(self):
 	#--------------------------

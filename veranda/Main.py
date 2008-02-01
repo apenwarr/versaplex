@@ -143,9 +143,6 @@ class MainUI:
 	#-------------------------------------	
 	def showOutput(self,topEditor,result):
 	#-------------------------------------
-		print "------------------------------------------------------"
-		print 					      result
-		print "------------------------------------------------------"
 		parser = Parser(result)
 		resulter = Resulter(parser)
 		
@@ -221,8 +218,8 @@ class MainUI:
 		buttonClose.connect("clicked",self.closeTab,editor)
 
 		self.notebookTop.append_page(editor,hbox)
-		# FIXME Why doesn't below work?
 		self.notebookTop.set_tab_reorderable(editor,True) 
+		# FIXME why doesn't it set?
 		self.notebookTop.set_current_page(self.notebookTop.page_num(editor))
 
 		label.show()
@@ -231,25 +228,49 @@ class MainUI:
 		editor.show()
 
 	#------------------------------	
-	def closeTab(self,widget,data): #FIXME just bloody fix me
+	def closeTab(self,sourceWidget,targetWidget):
 	#------------------------------
 		"""Close a tab. Data is the contents of a notebook you want killed."""
-		index = self.notebookTop.page_num(data)
+		# Ok. The reason this method is so strange is that it handles both the
+		# top and bottom notebooks as well as their relationship. I'll explain.
+		# 1) Try to get to get the index if the target is a top notebook widget
+		try :
+			index = self.notebookTop.page_num(targetWidget)
+		# 2) But if it's not there, then lets move on to the bottom notebook
+		except :
+			index = -1
+
 		if index != -1:
-			self.removeNumber(data,self.notebookTop)
+			# 1-a) So if it is, delete it
 			self.notebookTop.remove_page(index)
-			del self.topToBottom[data]
+
+			# 1-b) and try to sever the link between the top tabs and the 
+			# bottom ones... but if you can't, dont worry about it. (Something
+			# already did it for us then.)
+			try :
+				del self.topToBottom[targetWidget]
+				self.removeNumber(targetWidget,self.notebookTop)
+			except : 
+				pass
+
 			return
 		
-		index = self.notebookBottom.page_num(data)
+		# 2) So if it's not a top tab, it must be a bottom tab.
+		index = self.notebookBottom.page_num(targetWidget.getCurrentView())
 		if index != -1:
+			# 2-a) Try to find the link and delete it. 
+			# However, if you can't find it
+			# don't worry about it. The top probably already severed.
 			entry = ""
 			for x,y in self.topToBottom.iteritems(): 
-				if y is data.get_buffer():
+				if y is targetWidget: 
 					entry = x
-			del self.topToBottom[entry]
+			if entry != "":
+				del self.topToBottom[entry]
+				self.removeNumber(targetWidget.getCurrentView(),
+						          self.notebookBottom)
 
-			self.removeNumber(data,self.notebookBottom)
+			# 2-b) Remove the page
 			self.notebookBottom.remove_page(index)
 
 			return
@@ -257,10 +278,18 @@ class MainUI:
 		if index == -1:
 			print "Worse Than Failure: Lost The Tab!"
 
-	#--------------------------------	
-	def changeMode(self,widget,data):
-	#--------------------------------
-		eh, stuff
+	#------------------------------------
+	def changeMode(self,widget,resulter):
+	#------------------------------------
+		"""After a change button is clicked, this makes the notebook tab
+		scroll through the different view modes in a fixed pattern"""
+		pageIndex = self.notebookBottom.page_num(resulter.getCurrentView())
+		hbox = self.notebookBottom.get_tab_label(resulter.getCurrentView())
+		self.notebookBottom.remove_page(pageIndex)
+		self.notebookBottom.insert_page(resulter.getNextView(),hbox,pageIndex)
+		self.notebookBottom.set_tab_reorderable(resulter.getCurrentView(),True)
+		# FIXME why doesn't it set?
+		self.notebookBottom.set_current_page(pageIndex)
 
 	#------------------------------------	
 	def hidePanel(self,widget,data=None):

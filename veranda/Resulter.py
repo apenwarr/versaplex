@@ -97,22 +97,66 @@ class Resulter:
 		self.textView.set_editable(False)
 		self.textView.set_wrap_mode(gtk.WRAP_NONE)
 
-		# FIXME the output is messy and I am lazy
-		output = ""
-		iterator = self.parser.getTableIterator()
-		for title in self.titles:
-			output += "\t%s\t" % title
-		output+="\n" # FIXME not windows compliant, use os.linesep
-
-		while iterator.hasNext():
-			entry = iterator.getNext()
-			for part in entry:
-				output += "\t%s\t" % part
-			output += "\n"
-
-		self.textBuffer.set_text(output)
+		self.textBuffer.set_text(self.__formatTextTable__())
 
 		self.textView.show()
+
+	#-----------------------------
+	def __formatTextTable__(self):
+	#-----------------------------
+		"""Formats the textual table to look nice"""
+		output = "" 							# Final Output to send back
+		numColumns = self.parser.numColumns() 	# Number of columns in table
+		numRows = self.parser.numRows() 		# Number of rows in the table
+		maxColWidth = 20 						# Max width of 1 column
+		padding = "   "							# The space between columns
+		table = self.parser.getTable() 			# the full table of values
+		iterator = self.parser.getTableIterator() 	# iterator for the rows
+
+		# 1) Get max widths of the columns
+		widths = []
+		for y in range(numColumns):
+			max = len(self.titles[y])
+			for x in range(numRows):
+				if len(table[x][y]) > max:
+					max = len(table[x][y])
+					if max > maxColWidth:
+						max = maxColWidth
+			widths.append(max)
+
+		# 2) Print Titles
+		line = ""
+		x = 0
+		for title in self.titles:
+			if title != self.titles[len(self.titles)-1]:
+				line += title[:maxColWidth]+" "*(widths[x]-len(
+					                            title[:maxColWidth]))+padding
+			else :
+				line += title[:maxColWidth]
+			x += 1
+		output += line+"\n" 			#not suitable for Windows; os.linesep
+
+		# 3) Print divider
+		totalWidth = 0
+		for width in widths:totalWidth += width
+		totalWidth += len(padding*(numColumns-1))
+		output += "-"*totalWidth+"\n" 	#not suitable for Windows; os.linesep
+
+		# 4) Output the table
+		while iterator.hasNext():
+			line = ""
+			entries = iterator.getNext()
+			x = 0
+			for entry in entries:
+				if entry != entries[len(entries)-1]:
+					line += entry[:maxColWidth]+" "*(widths[x]-len(
+											   entry[:maxColWidth]))+padding
+				else:
+					line += entry[:maxColWidth]
+				x += 1
+			output += line + "\n" 		#not suitable for Windows; os.linesep	
+
+		return output
 
 	#---------------------------
 	def update(self,parser):
@@ -153,7 +197,9 @@ class Resulter:
 	def getNextView(self):
 	#---------------------
 		"""Returns the next view that is on the self.viewOrder list"""
-		return self.viewOrder[(self.viewOrder.index(self.getCurrentView)+1)%3]
+		self.currentView = self.viewOrder[(self.viewOrder
+			                              .index(self.getCurrentView())+1)%3]
+		return self.currentView
 
 	#----------------------
 	def getTableView(self):
