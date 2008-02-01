@@ -70,6 +70,11 @@ class MainUI:
 		runImage.show()
 		self.buttonRun.add(runImage)
 
+		newTabImage = gtk.Image()
+		newTabImage.set_from_file("new.svg")
+		newTabImage.show()
+		self.buttonNewTab.add(newTabImage)
+
 		self.initSidebar()
 
 		# Open a first tab (comes with configured editor)

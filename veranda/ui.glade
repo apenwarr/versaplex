@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE glade-interface SYSTEM "glade-2.0.dtd">
-<!--Generated with glade3 3.4.0 on Fri Feb  1 12:13:36 2008 -->
+<!--Generated with glade3 3.4.0 on Fri Feb  1 16:16:38 2008 -->
 <glade-interface>
   <widget class="GtkWindow" id="window">
     <property name="width_request">1000</property>
@@ -23,9 +23,10 @@
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
                 <property name="events">GDK_POINTER_MOTION_MASK | GDK_POINTER_MOTION_HINT_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK</property>
-                <property name="label" translatable="yes">New Tab
-</property>
                 <property name="response_id">0</property>
+                <child>
+                  <placeholder/>
+                </child>
               </widget>
               <packing>
                 <property name="expand">False</property>
