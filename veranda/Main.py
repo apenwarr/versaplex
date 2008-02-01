@@ -64,6 +64,14 @@ class MainUI:
 		self.treeview = self.gladeTree.get_widget("treeview")
 		self.resulter = Resulter()
 
+		# Misc Initializations
+		runImage = gtk.Image()
+		runImage.set_from_file("run.svg")
+		runImage.show()
+		self.buttonRun.add(runImage)
+
+		self.initSidebar()
+
 		# Open a first tab (comes with configured editor)
 		self.newTab()
 
@@ -82,9 +90,6 @@ class MainUI:
 		self.rArrow.show()
 		self.lArrow.show()
 		self.window.show()
-
-		# Misc Initializations
-		self.initSidebar()
 	
 	#-----------------
 	def initSidebar(self):
@@ -132,13 +137,13 @@ class MainUI:
 		hbox.pack_start(label)
 		
 		changeIcon = gtk.Image()
-		changeIcon.set_from_file("cycle.png")
+		changeIcon.set_from_file("cycle.svg")
 		buttonMode = gtk.Button(None)
 		buttonMode.add(changeIcon)
 		hbox.pack_start(buttonMode,False,False,1)
 
 		closeIcon = gtk.Image()
-		closeIcon.set_from_file("close.png")
+		closeIcon.set_from_file("close.svg")
 		buttonClose = gtk.Button(None)
 		buttonClose.add(closeIcon)
 		hbox.pack_start(buttonClose,False,False,1) 
@@ -239,7 +244,7 @@ class MainUI:
 		hbox.pack_start(label)
 
 		closeIcon = gtk.Image()
-		closeIcon.set_from_file("close.png")
+		closeIcon.set_from_file("close.svg")
 		buttonClose = gtk.Button(None)
 		buttonClose.add(closeIcon)
 		hbox.pack_start(buttonClose,False,False,1) 
