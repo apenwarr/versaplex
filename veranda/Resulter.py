@@ -35,6 +35,7 @@ class Resulter:
 		self.titles = self.parser.getColumnTitles()
 		self.message = parser.getOriginalMessage()
 		self.dbusMessages = time.ctime(time.time())+"\n\n"+ str(self.message)
+		self.textTables = ""
 
 		# Set up these objects
 		self.__initTableView__()
@@ -44,8 +45,8 @@ class Resulter:
 		# Reorganize this if you want the program to change through the views
 		# in a different order
 		self.viewOrder = [self.getTableView(), 
-						  self.getDbusView(),
-						  self.getTextView()]
+						  self.getTextView(),
+						  self.getDbusView()]
 		self.currentView = self.viewOrder[0]
 
 	#------------------
@@ -54,6 +55,7 @@ class Resulter:
 		"""Initializes a blank resulter with no... results. This construct
 		would be used with later calls to the update method."""
 		self.dbusMessages = ""	
+		self.textTables = ""
 
 	#---------------------------	
 	def __initTableView__(self):
@@ -165,9 +167,13 @@ class Resulter:
 				x += 1
 			output += line + "\n" 		#not suitable for Windows; os.linesep	
 
-		return output
+		self.textTables = output + "\n\n\n~-~-~-~-~-~-~-~-~-~-~-~-~-~-~\n\n\n" + self.textTables
 
+		return self.textTables
+
+	#-------------------------
 	def __makeScrolls__(self):
+	#-------------------------
 		"""Generates scroll bars for widgets that want them"""
 		scrolls = gtk.ScrolledWindow(gtk.Adjustment(),gtk.Adjustment())
 		scrolls.set_policy(gtk.POLICY_AUTOMATIC,gtk.POLICY_AUTOMATIC)
@@ -196,8 +202,8 @@ class Resulter:
 
 		#set up viewing
 		self.viewOrder = [self.getTableView(), 
-						  self.getDbusView(),
-						  self.getTextView()]
+						  self.getTextView(),
+						  self.getDbusView()]
 		self.currentView = self.viewOrder[0]
 
 	#-------------------------------------------

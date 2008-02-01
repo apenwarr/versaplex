@@ -82,7 +82,16 @@ class MainUI:
 		self.rArrow.show()
 		self.lArrow.show()
 		self.window.show()
+
+		# Misc Initializations
+		self.initSidebar()
 	
+	#-----------------
+	def initSidebar(self):
+	#-----------------
+		""" Initializes the sidebar with the tables list and configures it"""
+		pass
+
 	#-----------------------	
 	def getNewNumber(self):	
 	#-----------------------
@@ -282,7 +291,7 @@ class MainUI:
 	def changeMode(self,widget,resulter):
 	#------------------------------------
 		"""After a change button is clicked, this makes the notebook tab
-		scroll through the different view modes in a fixed pattern"""
+	osscroll through the different view modes in a fixed pattern"""
 		pageIndex = self.notebookBottom.page_num(resulter.getCurrentView())
 		hbox = self.notebookBottom.get_tab_label(resulter.getCurrentView())
 		self.notebookBottom.remove_page(pageIndex)
