@@ -19,6 +19,7 @@ import pygtk
 import gtk
 import gtksourceview2 as gtksourceview
 import time
+import pango
 #------------------------------------------------------------------------------
 class Resulter:
 #------------------------------------------------------------------------------
@@ -96,6 +97,7 @@ class Resulter:
 		self.configureEditor(self.textView,self.textBuffer)
 		self.textView.set_editable(False)
 		self.textView.set_wrap_mode(gtk.WRAP_NONE)
+		self.textView.modify_font(pango.FontDescription("monospace 10"))
 
 		self.textBuffer.set_text(self.__formatTextTable__())
 
@@ -109,7 +111,7 @@ class Resulter:
 		numColumns = self.parser.numColumns() 	# Number of columns in table
 		numRows = self.parser.numRows() 		# Number of rows in the table
 		maxColWidth = 20 						# Max width of 1 column
-		padding = "   "							# The space between columns
+		padding = " | "							# The space between columns
 		table = self.parser.getTable() 			# the full table of values
 		iterator = self.parser.getTableIterator() 	# iterator for the rows
 
