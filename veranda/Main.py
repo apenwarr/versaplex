@@ -200,8 +200,9 @@ class MainUI:
 		To send the query that is in the current window"""
 		#inner call returns index, outer returns child
 		#FIXME what if there is no current page?
-		editor = self.notebookTop.get_nth_page(self.notebookTop.
+		scrolls = self.notebookTop.get_nth_page(self.notebookTop.
 												get_current_page()) 
+		editor = scrolls.get_children()[0]
 		buffer = editor.get_buffer()
 		 #get all text, not including hidden chars
 		query = buffer.get_text(buffer.get_start_iter(),
@@ -214,7 +215,11 @@ class MainUI:
 	#--------------------------------------	
 	def newTab(self,widget=None,data=None):
 	#--------------------------------------
-		"""Open a new editor tab"""
+		"""Open a new editor tab (top)"""
+
+		scrolls = gtk.ScrolledWindow(gtk.Adjustment(),gtk.Adjustment())
+		scrolls.set_policy(gtk.POLICY_AUTOMATIC,gtk.POLICY_AUTOMATIC)
+		
 		textbuffer = gtksourceview.Buffer()
 		editor = gtksourceview.View(textbuffer)
 
@@ -230,13 +235,15 @@ class MainUI:
 		buttonClose.add(closeIcon)
 		hbox.pack_start(buttonClose,False,False,1) 
 
-		buttonClose.connect("clicked",self.closeTab,editor)
+		buttonClose.connect("clicked",self.closeTab,scrolls)
 
-		self.notebookTop.append_page(editor,hbox)
-		self.notebookTop.set_tab_reorderable(editor,True) 
+		scrolls.add(editor)
+		self.notebookTop.append_page(scrolls,hbox)
+		self.notebookTop.set_tab_reorderable(scrolls,True) 
 		# FIXME why doesn't it set?
-		self.notebookTop.set_current_page(self.notebookTop.page_num(editor))
+		self.notebookTop.set_current_page(self.notebookTop.page_num(scrolls))
 
+		scrolls.show()
 		closeIcon.show()
 		label.show()
 		buttonClose.show()

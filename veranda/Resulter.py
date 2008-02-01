@@ -167,6 +167,13 @@ class Resulter:
 
 		return output
 
+	def __makeScrolls__(self):
+		"""Generates scroll bars for widgets that want them"""
+		scrolls = gtk.ScrolledWindow(gtk.Adjustment(),gtk.Adjustment())
+		scrolls.set_policy(gtk.POLICY_AUTOMATIC,gtk.POLICY_AUTOMATIC)
+		scrolls.show()
+		return scrolls
+
 	#---------------------------
 	def update(self,parser):
 	#---------------------------
@@ -221,19 +228,25 @@ class Resulter:
 	def getTableView(self):
 	#----------------------
 		"""Returns self.tableView widget"""
-		self.currentView = self.tableView
-		return self.tableView
+		scrolls = self.__makeScrolls__()
+		scrolls.add(self.tableView)
+		self.currentView = scrolls
+		return scrolls
 
 	#---------------------
 	def getDbusView(self):
 	#---------------------
 		"""Returns self.dbusView widget"""
-		self.currentView = self.dbusView
-		return self.dbusView
+		scrolls = self.__makeScrolls__()
+		scrolls.add(self.dbusView)
+		self.currentView = scrolls
+		return scrolls
 
 	#---------------------
 	def getTextView(self):
 	#---------------------
 		"""Returns self.textView widget"""
-		self.currentView = self.textView
-		return self.textView
+		scrolls = self.__makeScrolls__()
+		scrolls.add(self.textView)
+		self.currentView = scrolls
+		return scrolls
