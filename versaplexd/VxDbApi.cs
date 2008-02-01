@@ -65,9 +65,10 @@ internal static class VxDb {
             out byte[][] nullity)
     {
 	// XXX this is fishy
-	if (query == "LIST TABLES")
+	
+	if (String.Compare(query.Substring(0,11),"list tables", true) == 0)
 	    query = "exec sp_tables";
-	else if (query.StartsWith("LIST COLUMNS "))
+	else if(String.Compare(query.Substring(0,13), "list columns ", true) == 0)
 	    query = String.Format("exec sp_columns @table_name='{0}'",
 				  query.Substring(13));
 
