@@ -35,7 +35,7 @@ class Resulter:
 		self.titles = self.parser.getColumnTitles()
 		self.message = parser.getOriginalMessage()
 		self.dbusMessages = time.ctime(time.time())+"\n\n"+ str(self.message)
-		self.textTables = ""
+		self.dbusMessages = self.__formatDbusMessage__(self.dbusMessage,100)
 
 		# Set up these objects
 		self.__initTableView__()
@@ -55,7 +55,6 @@ class Resulter:
 		"""Initializes a blank resulter with no... results. This construct
 		would be used with later calls to the update method."""
 		self.dbusMessages = ""	
-		self.textTables = ""
 
 	#---------------------------	
 	def __initTableView__(self):
@@ -123,6 +122,7 @@ class Resulter:
 		padding = " | "							# The space between columns
 		table = self.parser.getTable() 			# the full table of values
 		iterator = self.parser.getTableIterator() 	# iterator for the rows
+		format = ""
 
 		# 1) Get max widths of the columns
 		widths = []
@@ -135,41 +135,41 @@ class Resulter:
 						max = maxColWidth
 			widths.append(max)
 
-		# 2) Print Titles
-		line = ""
-		x = 0
-		for title in self.titles:
-			if title != self.titles[len(self.titles)-1]:
-				line += title[:maxColWidth]+" "*(widths[x]-len(
-					                            title[:maxColWidth]))+padding
-			else :
-				line += title[:maxColWidth]
-			x += 1
-		output += line+"\n" 			#not suitable for Windows; os.linesep
+		# 2) Generate format string
+		for width in widths:
+			if width != widths[len(widths)-1]:
+				format += r"%-"+str(width)+r"."+str(width)+r"s"+padding
+			else:
+				format += r"%-"+str(width)+r"."+str(width)+r"s"
 
-		# 3) Print divider
+		# 3) Print a table
+		output += format % tuple(self.titles)+"\n" # not for Windows; os.linesep
+
+		# 4) Print a divider
 		totalWidth = 0
 		for width in widths:totalWidth += width
 		totalWidth += len(padding*(numColumns-1))
 		output += "-"*totalWidth+"\n" 	#not suitable for Windows; os.linesep
 
-		# 4) Output the table
+		# 5) Print the body
 		while iterator.hasNext():
-			line = ""
-			entries = iterator.getNext()
-			x = 0
-			for entry in entries:
-				if entry != entries[len(entries)-1]:
-					line += entry[:maxColWidth]+" "*(widths[x]-len(
-											   entry[:maxColWidth]))+padding
-				else:
-					line += entry[:maxColWidth]
-				x += 1
-			output += line + "\n" 		#not suitable for Windows; os.linesep	
-
-		self.textTables = output + "\n\n\n~-~-~-~-~-~-~-~-~-~-~-~-~-~-~\n\n\n" + self.textTables
-
-		return self.textTables
+			output += format % tuple(iterator.getNext()) + "\n"
+		
+		return output
+	
+	#-------------------------------
+	def __formatDbusMessage__(self,text,width):
+	#-------------------------------
+		"""Slices up the Dbus Message so that hopefully gtksourceview doesn't"""
+		return reduce(lambda line, word, width=width: '%s%s%s' %
+				(line,
+					' \n'[(len(line)-line.rfind('\n')-1
+					+ len (word.split('\n',1)[0]
+						) >= width)],
+					word),
+				text.split(' ')
+				)
+		
 
 	#-------------------------
 	def __makeScrolls__(self):
@@ -193,7 +193,8 @@ class Resulter:
 		self.titles = self.parser.getColumnTitles()
 		self.message = parser.getOriginalMessage()
 		#FIXME \n\n is not windows compatible, use os.linesep
-		self.dbusMessages = time.ctime(time.time()) + "\n\n" + str(self.message) + "\n\n~-~-~-~-~-~-~-~-~-~-~-~-~-~-~\n\n" + self.dbusMessages
+		self.dbusMessages = time.ctime(time.time())+ "\n\n"+ str(self.message)
+		self.dbusMessages = self.__formatDbusMessage__(self.dbusMessages,100)
 
 		# Set up these objects
 		self.__initTableView__()
