@@ -39,11 +39,11 @@ class MainUI:
 	#------------------
 		"""Initialize all the UI stuff"""
 		# Define some instance variables
-		self.name = "Veranda"
-		self.version = "0.8"
-		self.newNumbers = [] # for naming new tabs
-		self.database = DBusSql()
-		self.topToBottom = {} #Links the top editors with bottom buffers
+		self.name = "Veranda" 			# App name
+		self.version = "0.8" 			# Version
+		self.newNumbers = [] 			# for naming new tabs
+		self.database = DBusSql() 		# SQL Access driver
+		self.bottomState = False 		# False: notebookBottom closed
 
 		# Import Glade's XML and load it
 		self.gladeTree = gtk.glade.XML("ui.glade")
@@ -62,6 +62,7 @@ class MainUI:
 		self.tbuttonHidePanel = self.gladeTree.get_widget("tbutton-hidepanel")
 		self.entrySearch = self.gladeTree.get_widget("entry-search")
 		self.treeview = self.gladeTree.get_widget("treeview")
+		self.resulter = Resulter()
 
 		# Open a first tab (comes with configured editor)
 		self.newTab()
@@ -121,18 +122,23 @@ class MainUI:
 		label = gtk.Label(r"   "+str(number)+r"   ")
 		hbox.pack_start(label)
 		
-		dArrow = gtk.Arrow(gtk.ARROW_DOWN,gtk.SHADOW_IN) #TODO use image instead
+		changeIcon = gtk.Image()
+		changeIcon.set_from_file("cycle.png")
 		buttonMode = gtk.Button(None)
-
-		buttonMode.add(dArrow)
+		buttonMode.add(changeIcon)
 		hbox.pack_start(buttonMode,False,False,1)
-		buttonClose = gtk.Button(" X ") 				#TODO put image here
+
+		closeIcon = gtk.Image()
+		closeIcon.set_from_file("close.png")
+		buttonClose = gtk.Button(None)
+		buttonClose.add(closeIcon)
 		hbox.pack_start(buttonClose,False,False,1) 
 
 		buttonClose.connect("clicked",self.closeTab,resulter)
 		buttonMode.connect("clicked",self.changeMode,resulter)
 
-		dArrow.show()
+		changeIcon.show()
+		closeIcon.show()
 		buttonMode.show()
 		label.show()
 		buttonClose.show()
@@ -144,21 +150,26 @@ class MainUI:
 	def showOutput(self,topEditor,result):
 	#-------------------------------------
 		parser = Parser(result)
-		resulter = Resulter(parser)
 		
-		if self.topToBottom == {}:
+		if self.bottomState == False:
+			self.resulter.update(parser)
 			self.notebookBottom.show()
+			hbox = self.makeBottomTabMenu("Results", self.resulter)
+			self.newTabBottom(self.resulter.getCurrentView(),hbox)
+			self.bottomState = True
 
-		if topEditor not in self.topToBottom:
-			hbox = self.makeBottomTabMenu(self.getLabelText(
-										  topEditor,self.notebookTop),resulter)
-			self.newTabBottom(resulter.getCurrentView(),hbox)
-			self.topToBottom[topEditor] = resulter
-
-		else:
-			resulter = self.topToBottom[topEditor]
-			resulter.update(parser)
-
+		else :
+			index = self.notebookBottom.page_num(self.resulter.getCurrentView())
+			hbox = self.notebookBottom.get_tab_label(
+											self.resulter.getCurrentView())
+			self.resulter.update(parser)
+			self.notebookBottom.remove_page(index)
+			self.notebookBottom.insert_page(self.resulter.getCurrentView(),
+											hbox,index)
+			self.notebookBottom.set_tab_reorderable(
+										self.resulter.getCurrentView(),True)
+			self.notebookBottom.set_current_page(index)
+			
 	#----------------------------------
 	def newTabBottom(self,widget,hbox):
 	#----------------------------------
@@ -212,7 +223,11 @@ class MainUI:
 		hbox = gtk.HBox()
 		label = gtk.Label(self.getNewNumber())
 		hbox.pack_start(label)
-		buttonClose = gtk.Button(" X ") #TODO put image here
+
+		closeIcon = gtk.Image()
+		closeIcon.set_from_file("close.png")
+		buttonClose = gtk.Button(None)
+		buttonClose.add(closeIcon)
 		hbox.pack_start(buttonClose,False,False,1) 
 
 		buttonClose.connect("clicked",self.closeTab,editor)
@@ -222,57 +237,35 @@ class MainUI:
 		# FIXME why doesn't it set?
 		self.notebookTop.set_current_page(self.notebookTop.page_num(editor))
 
+		closeIcon.show()
 		label.show()
 		buttonClose.show()
 		hbox.show()
 		editor.show()
 
-	#------------------------------	
+	#--------------------------------------------
 	def closeTab(self,sourceWidget,targetWidget):
-	#------------------------------
+	#--------------------------------------------
+		# TODO if bottom tab is closed, set bottomState = False
 		"""Close a tab. Data is the contents of a notebook you want killed."""
 		# Ok. The reason this method is so strange is that it handles both the
 		# top and bottom notebooks as well as their relationship. I'll explain.
-		# 1) Try to get to get the index if the target is a top notebook widget
-		try :
-			index = self.notebookTop.page_num(targetWidget)
-		# 2) But if it's not there, then lets move on to the bottom notebook
-		except :
-			index = -1
-
-		if index != -1:
-			# 1-a) So if it is, delete it
-			self.notebookTop.remove_page(index)
-
-			# 1-b) and try to sever the link between the top tabs and the 
-			# bottom ones... but if you can't, dont worry about it. (Something
-			# already did it for us then.)
-			try :
-				del self.topToBottom[targetWidget]
-				self.removeNumber(targetWidget,self.notebookTop)
-			except : 
-				pass
-
-			return
 		
-		# 2) So if it's not a top tab, it must be a bottom tab.
+		index = -1
+		try:
+			index = self.notebookTop.page_num(targetWidget)
+		except TypeError:
+			pass
+		if index != -1:
+			self.newNumbers.remove(self.getLabelText(targetWidget, 
+														self.notebookTop))
+			self.notebookTop.remove_page(index)
+			return
+
 		index = self.notebookBottom.page_num(targetWidget.getCurrentView())
 		if index != -1:
-			# 2-a) Try to find the link and delete it. 
-			# However, if you can't find it
-			# don't worry about it. The top probably already severed.
-			entry = ""
-			for x,y in self.topToBottom.iteritems(): 
-				if y is targetWidget: 
-					entry = x
-			if entry != "":
-				del self.topToBottom[entry]
-				self.removeNumber(targetWidget.getCurrentView(),
-						          self.notebookBottom)
-
-			# 2-b) Remove the page
 			self.notebookBottom.remove_page(index)
-
+			self.bottomState = False
 			return
 
 		if index == -1:

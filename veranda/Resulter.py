@@ -48,6 +48,13 @@ class Resulter:
 						  self.getTextView()]
 		self.currentView = self.viewOrder[0]
 
+	#------------------
+	def __init__(self):
+	#------------------
+		"""Initializes a blank resulter with no... results. This construct
+		would be used with later calls to the update method."""
+		self.dbusMessages = ""	
+
 	#---------------------------	
 	def __initTableView__(self):
 	#---------------------------
@@ -166,7 +173,8 @@ class Resulter:
 		"""Updates widgets with a new dbus message.
 		 * TableView replaces its old content
 		 * DbusView appends text to its old content
-		 * TextView replaces its old content"""
+		 * TextView replaces its old content
+		Note: this will create new objects. The old won't update."""
 		self.parser = parser
 		self.iterator = self.parser.getTableIterator()
 		self.titles = self.parser.getColumnTitles()
@@ -178,6 +186,12 @@ class Resulter:
 		self.__initTableView__()
 		self.__initDbusView__()
 		self.__initTextView__()
+
+		#set up viewing
+		self.viewOrder = [self.getTableView(), 
+						  self.getDbusView(),
+						  self.getTextView()]
+		self.currentView = self.viewOrder[0]
 
 	#-------------------------------------------
 	def configureEditor(self,editor,textbuffer):
