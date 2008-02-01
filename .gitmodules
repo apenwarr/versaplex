@@ -1,0 +1,3 @@
+[submodule "wv"]
+	path = wv
+	url = /home/garoth/Coding/wv/.git
