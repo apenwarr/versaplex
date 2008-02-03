@@ -626,9 +626,11 @@ public class VersaplexTest
             
         string uname = Mono.Unix.UnixUserInfo.GetRealUser().UserName;
         string dbname = cfg["User Map"][uname];
+	if (dbname == null)
+	    dbname = cfg["User Map"]["*"];
         if (dbname == null)
             throw new Exception(String.Format(
-                "User '{0}' missing from config.", uname));
+                "User '{0}' (and '*') missing from config.", uname));
 
         string cfgval = cfg["Connections"][dbname];
         if (cfgval == null)

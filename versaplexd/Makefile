@@ -5,10 +5,10 @@ all: versaplexd
 
 PKGS += /r:System.Data
 
-test: all test/test
+test: all t/test
 	$(MAKE) -C t $@
 	
-tests: all test/all
+tests: all t/all
 
 versaplexd.exe: versaplexd.cs \
     PriorityQueue.cs VxBufferStream.cs \
