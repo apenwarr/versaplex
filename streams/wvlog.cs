@@ -1,8 +1,27 @@
 using System;
 using System.IO;
+using System.Threading;
+using Wv.Extensions;
 
 namespace Wv
 {
+    public partial class wv
+    {
+	public static void sleep(int msec_delay)
+	{
+	    if (msec_delay < 0)
+		Thread.Sleep(Int32.MaxValue);
+	    else
+		Thread.Sleep(msec_delay * 1000);
+	}
+	
+	public static void assert(bool b)
+	{
+	    if (!b)
+		throw new Exception("assertion failure");
+	}
+    }
+
     public class WvDelayedString
     {
 	Func<string> a;
