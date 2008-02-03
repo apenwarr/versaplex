@@ -1,17 +1,7 @@
 using System;
 using System.Collections;
 using Wv;
-
-public static class ExceptionHelper
-{
-    public static string Short(this Exception e)
-    {
-	if (e == null)
-	    return "Success";
-	else
-	    return e.Message;
-    }
-}
+using Wv.Extensions;
 
 public class FooTest
 {

@@ -2,17 +2,19 @@ using System;
 using System.Collections;
 using System.Text;
 
-namespace Wv
+namespace Wv.Extensions
 {
-    public partial class wv
+    public static class ExceptionHelper
     {
-	public static void assert(bool b)
+	public static string Short(this Exception e)
 	{
-	    if (!b)
-		throw new Exception("assertion failure");
+	    if (e == null)
+		return "Success";
+	    else
+		return e.Message;
 	}
     }
-
+    
     public static class WvContExtensions
     {
 	public static Action ToAction(this IEnumerator ie)
