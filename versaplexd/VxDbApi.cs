@@ -64,13 +64,27 @@ internal static class VxDb {
             out VxColumnInfo[] colinfo, out object[][] data,
             out byte[][] nullity)
     {
-	// XXX this is fishy
-	
-	if (String.Compare(query.Substring(0,11),"list tables", true) == 0)
-	    query = "exec sp_tables";
-	else if(String.Compare(query.Substring(0,13), "list columns ", true) == 0)
-	    query = String.Format("exec sp_columns @table_name='{0}'",
-				  query.Substring(13));
+		// XXX this is fishy
+		
+		if (query.ToLower().StartsWith("list tables") == true)
+			query = "exec sp_tables";
+		else if (query.ToLower().StartsWith("list columns ") == true)
+			query = String.Format("exec sp_columns @table_name='{0}'",
+					  query.Substring(13));
+		else if (query.ToLower().StartsWith("list all table") == true)
+			query = "select distinct cast(Name as varchar(max)) Name"
+					+ " from sysobjects "
+					+ " where objectproperty(id,'IsTable')=1 "
+					+ " and xtype='U' "
+					+ " order by Name ";
+		else if (query.ToLower().StartsWith("list all") == true)
+			query = String.Format(
+					"select distinct id, "
+					+ " cast (object_name(id) as varchar(256)) Name "
+					+ " from syscomments "
+					+ " where objectproperty(id,'Is{0}') = 1 "
+					+ " order by Name ",
+					query.Split(' ')[2].Trim());
 
         log.print(WvLog.Level.Debug3, "ExecRecordset {0}\n", query);
 	
