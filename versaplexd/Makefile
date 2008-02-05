@@ -11,11 +11,11 @@ test: all t/test
 tests: all t/all
 
 versaplexd.exe: versaplexd.cs \
-    PriorityQueue.cs VxBufferStream.cs \
-    VxDbApi.cs VxDbus.cs VxEvent.cs \
-    VxEventLoop.cs VxNotifySocket.cs \
-    VxSocket.cs \
-    VxSqlPool.cs \
+    PriorityQueue.cs vxbufferstream.cs \
+    vxapi.cs vxdbus.cs vxevent.cs \
+    vxeventloop.cs vxnotifysocket.cs \
+    vxsocket.cs \
+    vxsqlpool.cs \
     ../dbus-sharp/src/NDesk.DBus.dll \
     ../wvdotnet/wv.dll
 
