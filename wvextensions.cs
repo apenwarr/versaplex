@@ -1,9 +1,18 @@
 using System;
 using System.Collections;
 using System.Text;
+using System.IO;
 
 namespace Wv.Extensions
 {
+    public static class StreamHelper
+    {
+	public static void Write(this Stream s, byte[] buffer)
+	{
+	    s.Write(buffer, 0, buffer.Length);
+	}
+    }
+    
     public static class ExceptionHelper
     {
 	public static string Short(this Exception e)

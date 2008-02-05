@@ -3,16 +3,15 @@ using System.IO;
 using System.Collections;
 using System.Collections.Specialized;
 
-namespace Wv.Utils
+namespace Wv
 {
     /// Well, it's not exactly UniConf, but...
-    public class Ini
+    public class WvIni
     {
 	Hashtable sections 
-	    = new Hashtable(10, new CaseInsensitiveHashCodeProvider(),
-			    new CaseInsensitiveComparer());
+	    = new Hashtable(10, StringComparer.OrdinalIgnoreCase);
 	
-	public Ini(string filename)
+	public WvIni(string filename)
 	{
 	    StreamReader r;
 	    

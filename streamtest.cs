@@ -20,6 +20,9 @@ public class FooTest
     public static void Main()
     {
 	{
+	    Console.WriteLine("stdout works.");
+	    Console.OpenStandardError().Write("stderr works.\n".ToUTF8());
+	    
 	    WvLog log = new WvLog("main");
 	    log.print("Hello");
 	    log.print(" world!\n");

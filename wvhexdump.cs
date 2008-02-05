@@ -1,27 +1,8 @@
 using System;
-using System.IO;
-using System.Threading;
-using Wv.Extensions;
+using System.Linq;
 
 namespace Wv
 {
-    public partial class wv
-    {
-	public static void sleep(int msec_delay)
-	{
-	    if (msec_delay < 0)
-		Thread.Sleep(Int32.MaxValue);
-	    else
-		Thread.Sleep(msec_delay * 1000);
-	}
-	
-	public static void assert(bool b)
-	{
-	    if (!b)
-		throw new Exception("assertion failure");
-	}
-    }
-
     public class WvDelayedString
     {
 	Func<string> a;
@@ -113,77 +94,4 @@ namespace Wv
 	    return hexdump(data, 0, data.Length);
 	}
     }
-    
-    
-    public class WvLog: WvStream
-    {
-	public enum Level {
-	    Critical = 0,
-	    Error,
-	    Warning,
-	    Notice,
-	    Info,
-	    Debug, Debug1=Debug,
-	    Debug2,
-	    Debug3,
-	    Debug4,
-	    Debug5,
-	};
-	
-	public static Level maxlevel { get; set; }
-	static Stream outstr = Console.OpenStandardError();
-	
-	WvBuf outbuf = new WvBuf();
-	byte[] header;
-	Level level;
-	
-	private WvLog(byte[] header, Level level)
-	{
-	    this.header = header;
-	    this.level = level;
-	}
-	
-	public WvLog(string name, Level level)
-	    : this(String.Format("<{0}> ", name).ToUTF8(), level)
-	    { }
-	
-	public WvLog(string name)
-	    : this(name, Level.Info)
-	    { }
-
-	public override int write(byte[] buf, int offset, int len)
-	{
-	    if (level > maxlevel)
-		return len; // pretend it's written
-	    
-	    outbuf.put(buf, (uint)offset, (uint)len);
-	    uint i;
-	    while ((i = outbuf.strchr('\n')) > 0)
-	    {
-		outstr.Write(header, 0, header.Length);
-		byte[] b = outbuf.get(i);
-		outstr.Write(b, 0, b.Length);
-	    }
-	    return len;
-	}
-	
-	public void print(Level level, string s)
-	{
-	    Level old = this.level;
-	    this.level = level;
-	    print(s);
-	    this.level = old;
-	}
-	
-	public void print(Level level, string fmt, params object[] args)
-	{
-	    print(level, String.Format(fmt, args));
-	}
-	
-	public WvLog split(Level level)
-	{
-	    return new WvLog(header, level);
-	}
-    }
 }
-

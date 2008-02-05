@@ -3,7 +3,7 @@
 using System;
 using System.Collections;
 using Wv.Test;
-using Wv.Utils;
+using Wv;
 
 [TestFixture]
 public class WvTests
@@ -24,7 +24,7 @@ public class WvTests
     
     [Test] [Category("ini")] public void ini_test()
     {
-	Ini ini = new Ini("test.ini");
+	WvIni ini = new WvIni("test.ini");
 	WVPASSEQ(ini[""].Count, 2);
 	WVPASSEQ(ini[""]["global item"], "i");
 	WVPASSEQ(ini[""]["global 2"], "i2");

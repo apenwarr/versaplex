@@ -4,11 +4,20 @@
 using System;
 using System.Collections;
 using System.Diagnostics;
+using System.Threading;
 
-namespace Wv.Utils
+namespace Wv
 {
     public partial class wv
     {
+	public static void sleep(int msec_delay)
+	{
+	    if (msec_delay < 0)
+		Thread.Sleep(Int32.MaxValue);
+	    else
+		Thread.Sleep(msec_delay * 1000);
+	}
+
 	public static string shift(ref string[] array, int index)
 	{
 	    string s = array[index];
@@ -125,7 +134,10 @@ namespace Wv.Utils
 	    return a;
 	}
     }
-    
+}
+
+namespace Wv.Obsolete
+{
     public class Log
     {
 	protected string logname;

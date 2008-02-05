@@ -3,7 +3,7 @@ using System.IO;
 using System.Collections;
 using System.Collections.Specialized;
 using System.Web;
-using Wv.Utils;
+using Wv;
 
 namespace Wv.Web
 {
