@@ -9,7 +9,7 @@ using Wv;
 namespace versabanq.Versaplex.Server {
 
 public static class VxEventLoop {
-    static WvLog log = new WvLog("VxEventLoop", WvLog.Level.Debug3);
+    static WvLog log = new WvLog("VxEventLoop", WvLog.L.Debug3);
     // Public members
     public static void Run()
     {

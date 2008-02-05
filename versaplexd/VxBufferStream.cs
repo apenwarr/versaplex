@@ -9,7 +9,7 @@ namespace versabanq.Versaplex.Server {
 
 public class VxBufferStream : Stream
 {
-    static WvLog log = new WvLog("VxBufferStream", WvLog.Level.Debug4);
+    static WvLog log = new WvLog("VxBufferStream", WvLog.L.Debug4);
     private static int streamcount = 0;
     public readonly int streamno = System.Threading.Interlocked.Increment(ref streamcount);
 

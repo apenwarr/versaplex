@@ -4,15 +4,14 @@ using System.Collections.Generic;
 using System;
 // For the exception types
 using versabanq.Versaplex.Dbus.Db;
-using Wv.Utils;
 using Wv;
 
 namespace versabanq.Versaplex.Server {
 
 public static class VxSqlPool
 {
-    static WvLog log = new WvLog("VxSqlPool", WvLog.Level.Debug2);
-    private static Ini inifile = new Ini("versaplexd.ini");
+    static WvLog log = new WvLog("VxSqlPool", WvLog.L.Debug2);
+    private static WvIni inifile = new WvIni("versaplexd.ini");
 
     private static SqlConnectionStringBuilder GetConnInfoFromConnId(
         string connid)

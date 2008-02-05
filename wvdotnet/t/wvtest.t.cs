@@ -70,7 +70,7 @@ public class WvTestTest
 		WVEXCEPT(throw_exception());
 	    } catch (Wv.Test.WvAssertionFailure e) {
 		throw e;
-	    } catch (System.Exception e) {
+	    } catch (System.Exception) {
 		caught = true;
 	    }
 
@@ -81,7 +81,7 @@ public class WvTestTest
 	    System.Console.WriteLine("Ignore next failure: it is expected");
 	    try {
 		WVEXCEPT(no_throw_exception());
-	    } catch (Wv.Test.WvAssertionFailure e) {
+	    } catch (Wv.Test.WvAssertionFailure) {
 		caught = true;
 	    }
 

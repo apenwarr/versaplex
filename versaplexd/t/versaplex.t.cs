@@ -10,7 +10,7 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using Wv.Test;
-using Wv.Utils;
+using Wv;
 using NDesk.DBus;
 
 // Several mono bugs worked around in this test fixture are filed as mono bug
@@ -622,7 +622,7 @@ public class VersaplexTest
         if (cfgfile == null)
             throw new Exception("Cannot locate versaplexd.ini.");
 
-        Ini cfg = new Ini(cfgfile);
+        WvIni cfg = new WvIni(cfgfile);
             
         string uname = Mono.Unix.UnixUserInfo.GetRealUser().UserName;
         string dbname = cfg["User Map"][uname];

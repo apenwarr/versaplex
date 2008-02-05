@@ -8,11 +8,12 @@ using NDesk.DBus;
 using versabanq.Versaplex.Server;
 using versabanq.Versaplex.Dbus;
 using Wv;
+using Wv.Extensions;
 
 namespace versabanq.Versaplex.Dbus.Db {
 
 internal static class VxDb {
-    static WvLog log = new WvLog("VxDb", WvLog.Level.Debug2);
+    static WvLog log = new WvLog("VxDb", WvLog.L.Debug2);
     internal static void Test(string connid)
     {
         log.print("Test\n");
@@ -21,7 +22,7 @@ internal static class VxDb {
 
     internal static void ExecNoResult(string connid, string query)
     {
-        log.print(WvLog.Level.Debug3, "ExecNoResult {0}\n", query);
+        log.print(WvLog.L.Debug3, "ExecNoResult {0}\n", query);
 
         SqlConnection conn = null;
         try {
@@ -42,7 +43,7 @@ internal static class VxDb {
     internal static void ExecScalar(string connid, string query, 
         out object result)
     {
-        log.print(WvLog.Level.Debug3, "ExecScalar {0}\n", query);
+        log.print(WvLog.L.Debug3, "ExecScalar {0}\n", query);
 
         SqlConnection conn = null;
         try {
@@ -86,7 +87,7 @@ internal static class VxDb {
 					+ " order by Name ",
 					query.Split(' ')[2].Trim());
 
-        log.print(WvLog.Level.Debug3, "ExecRecordset {0}\n", query);
+        log.print(WvLog.L.Debug3, "ExecRecordset {0}\n", query);
 	
         SqlConnection conn = null;
         try {
@@ -181,7 +182,7 @@ internal static class VxDb {
 
                 data = rows.ToArray();
                 nullity = rownulls.ToArray();
-		log.print(WvLog.Level.Debug4, "({0} rows)\n", data.Length);
+		log.print(WvLog.L.Debug4, "({0} rows)\n", data.Length);
 		wv.assert(nullity.Length == data.Length);
             }
         } catch (SqlException e) {
@@ -202,11 +203,11 @@ internal static class VxDb {
         using (DataTable schema = reader.GetSchemaTable()) {
             foreach (DataRowView col in schema.DefaultView) {
                 foreach (DataColumn c in schema.Columns) {
-                    log.print(WvLog.Level.Debug4,
+                    log.print(WvLog.L.Debug4,
 			      "{0}:'{1}'  ", c.ColumnName,
 			      col[c.ColumnName]);
                 }
-		log.print(WvLog.Level.Debug4, "\n\n");
+		log.print(WvLog.L.Debug4, "\n\n");
 
                 System.Type type = (System.Type)col["DataType"];
 
@@ -293,7 +294,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             processor(call, out reply);
         } catch (VxRequestException e) {
             reply = VxDbus.CreateError(e.DBusErrorType, e.Message, call);
-            log.print("{0}\n", e.ToString());
+            log.print("SQL result: {0}\n", e.Short());
         } catch (Exception e) {
             reply = VxDbus.CreateError(
                     "com.versabanq.versaplex.exception", 
@@ -342,7 +343,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             // Remember the result, so we don't have to ask DBus all the time
             usernames[sender] = username;
 	    
-	    log.print(WvLog.Level.Info,
+	    log.print(WvLog.L.Info,
 		      "New connection '{0}' is user '{1}'\n",
 		      sender, username);
         }

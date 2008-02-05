@@ -1,17 +1,21 @@
 include ../rules.mk
 include ../monorules.mk
 
-streams: FORCE
-
-all: wv.dll streams
+all: wv.dll streamtest servtest
 
 PKGS += /r:System.Data /r:System.Web
 
+servtest.exe: PKGS += /r:System.ServiceProcess /r:System.Configuration.Install
+
+streamtest.exe servtest.exe: wv.dll
+
 wv.dll: assemblyinfo.cs \
 	wvutils.cs wvtest.cs wvweb.cs wvdbi.cs wvini.cs \
+	wveventer.cs wvbuf.cs wvstream.cs wvlog.cs wvhexdump.cs \
+	wvextensions.cs \
 	ndesk-options.cs
 
-test: t/test
+test: all t/test
 
 clean::
 	rm -f *.pass

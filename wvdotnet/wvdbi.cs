@@ -2,14 +2,14 @@ using System;
 using System.Data;
 using System.Data.Odbc;
 using System.Collections.Specialized;
-using Wv.Utils;
+using Wv;
 
 namespace Wv.Dbi
 {
     public class Db
     {
 	IDbConnection db;
-	static Ini settings = new Ini("wvodbc.ini");
+	static WvIni settings = new WvIni("wvodbc.ini");
 	
 	public Db(string odbcstr)
 	{

@@ -56,7 +56,7 @@ public static class VersaMain
         // FIXME: This should really queue things to be run from the thread
         // pool and then the response would be sent back through the action
         // queue
-        log.print(WvLog.Level.Debug4, "MessageReady\n");
+        log.print(WvLog.L.Debug4, "MessageReady\n");
 
         VxDbus.MessageDump("<<  ", msg);
 
@@ -94,7 +94,7 @@ public static class VersaMain
 
     public static int Main(string[] args)
     {
-	WvLog.Level verbose = WvLog.Level.Info;
+	WvLog.L verbose = WvLog.L.Info;
 	string bus = null;
 	new OptionSet()
 	    .Add("v|verbose", delegate(string v) { ++verbose; })
@@ -102,7 +102,7 @@ public static class VersaMain
 	    .Add("?|h|help", delegate(string v) { ShowHelp(); })
 	    .Parse(args);
 	
-	WvLog.maxlevel = (WvLog.Level)verbose;
+	WvLog.maxlevel = (WvLog.L)verbose;
 	
         msgrouter.AddInterface(VxDbInterfaceRouter.Instance);
 

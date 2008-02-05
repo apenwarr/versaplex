@@ -130,7 +130,7 @@ namespace Wv
 	}
     }
 
-    public class WvSockStream: WvStream
+    public class WvSockStream : WvStream
     {
 	IWvEventer ev;
 	Socket _sock;
@@ -255,7 +255,7 @@ namespace Wv
 	}
     }
 
-    public class WvTcp: WvSockStream
+    public class WvTcp : WvSockStream
     {
         public WvTcp(IWvEventer ev, string remote) : base(ev, null)
 	{

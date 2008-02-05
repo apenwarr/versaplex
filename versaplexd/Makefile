@@ -17,7 +17,7 @@ versaplexd.exe: versaplexd.cs \
     VxSocket.cs \
     VxSqlPool.cs \
     ../dbus-sharp/src/NDesk.DBus.dll \
-    ../wvdotnet/wv.dll ../wvdotnet/streams/wvstreams.dll
+    ../wvdotnet/wv.dll
 
 clean:: t/clean
 	rm -f versaplexd
