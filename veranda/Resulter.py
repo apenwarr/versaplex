@@ -60,6 +60,7 @@ class Resulter:
 	def __initTableView__(self):
 	#---------------------------
 		"""Generates a gtk.TreeView based table"""
+		# FIXME: STUPID PANGO MARKDOWN WTH
 		self.tableViewModel = gtk.ListStore(*self.parser.
 												getColumnTypesAsString())
 

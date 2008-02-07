@@ -16,7 +16,7 @@
 # Notes:
 #   Indentation: I use tabs only, 4 spaces per tab.
 #------------------------------------------------------------------------------
-
+import time
 #------------------------------------------------------------------------------
 class Parser:
 #------------------------------------------------------------------------------
@@ -40,9 +40,12 @@ class Parser:
 	#------------------------------
 		"""Extracts the types of the columns from self.message and puts them
 		into the list self.types"""
+		# When doIgnore is set to a character, the parser will ignore
+		# all characters up to and including the given one
+		doIgnore = False
 		segmentOne = self.message[1]
 		signature = str(segmentOne.signature)
-		signature = signature.strip("()")
+		signature = signature[1:len(signature)-1]
 
 		# The signature lists what each column's type is. The following
 		# maps the signature characters to Python types.
@@ -53,10 +56,40 @@ class Parser:
 				"d":float
 				}
 
+		x = -1
 		for char in signature:
+			x += 1
+			if doIgnore:
+				if char != doIgnore:
+					continue
+				else :
+					doIgnore = False
+					continue
+				
+			if char == "a":
+			# Handle the complex array stuff
+				if signature[x+1] == "(":
+				# Array type. ex: a(ss)
+					self.types.append(list)
+					doIgnore = ")"
+				elif signature[x+1] == "{":
+				# Dictionary type. ex: a{sn}
+					self.types.append(dict)
+					doIgnore = "}"
+				else :
+				# Simple array type. ex: as
+					self.types.append(list)
+					doIgnore = signature[x+1]
+				continue
+			elif char == "(":
+			# Struct. ex: (si)
+				self.types.append(tuple)
+				doIgnore = ")"
+				continue
+				
 			if char in types:
 				self.types.append(types[char])
-			else:
+			else :
 				print "Column Type unknown, defaulting to string."
 				self.types.append(str) 
 
@@ -74,13 +107,21 @@ class Parser:
 	#----------------------------
 		"""Extracts the table rows from self.message and puts them into 
 		self.table"""
+		# Fill the table
 		segmentOne = self.message[1]
 		for struct in segmentOne:
 			row = []
 			for x in range(self.numColumns()):
-				row.append(str(struct[x]))
+				colType = self.types[x]
+				if colType == tuple:
+					# If it's a tuple, try to convert to time format
+					row.append(str(time.strftime("%Y/%m/%d %H:%M:%S",
+									time.localtime(struct[x][0]))))
+				else:
+					row.append(str(struct[x]))
 			self.table.append(row)
 			
+		# Remove any nulls by comparing against another table
 		segmentTwo = self.message[2]
 		y = 0
 		for struct in segmentTwo:

@@ -27,9 +27,10 @@ import gtk
 import gtk.glade
 import gtksourceview2 as gtksourceview
 import dbus
-import time
+import re
 from Parser import Parser
 from Resulter import Resulter
+#from Searcher import Searcher
 #------------------------------------------------------------------------------
 class MainUI:
 #------------------------------------------------------------------------------
@@ -44,6 +45,9 @@ class MainUI:
 		self.newNumbers = [] 			# for naming new tabs
 		self.database = DBusSql() 		# SQL Access driver
 		self.bottomState = False 		# False: notebookBottom closed
+		self.getObject = "get object" 	# Versaplex command for get object
+		self.listAll = "list all" 		# Versaplex command for list all
+		#self.searcher = "" 				# Becomes a searcher object later
 
 		# Import Glade's XML and load it
 		self.gladeTree = gtk.glade.XML("ui.glade")
@@ -100,9 +104,11 @@ class MainUI:
 	def initSidebar(self):
 	#---------------------
 		""" Initializes the sidebar with the tables list and configures it"""
-		keyword = "list all"
 		toList = ["table","view","procedure",
 				"trigger","scalarfunction","tablefunction"]
+
+		scrolls = gtk.ScrolledWindow(gtk.Adjustment(),gtk.Adjustment())
+		scrolls.set_policy(gtk.POLICY_AUTOMATIC,gtk.POLICY_AUTOMATIC)
 
 		treestore = gtk.TreeStore(str)
 		treeview = gtk.TreeView(treestore)
@@ -110,15 +116,26 @@ class MainUI:
 		column = gtk.TreeViewColumn("Database Objects",cell,text=0)
 		treeview.append_column(column)
 
+		masterTable = []
+
 		for item in toList:
-			result = self.database.query(keyword+" "+item)
+			result = self.database.query(self.listAll+" "+item)
 			parser = Parser(result)
+			table = parser.getTable()[:] #the [:] makes a clone
+			table.insert(0,item)
+			masterTable.append(table)
 			rows = parser.getTableIterator()
 			iter = treestore.append(None,[item.title()])
 			while rows.hasNext():
 				treestore.append(iter, [str(rows.getNext()[0])])
 
-		self.vpanedPanel.add(treeview)
+		#self.searcher = Searcher(masterTable)
+
+		treeview.connect("row-activated", self.rowClicked, masterTable)
+
+		scrolls.add(treeview)
+		self.vpanedPanel.add(scrolls)
+		scrolls.show()
 		treeview.show()
 
 	#-----------------------	
@@ -276,8 +293,6 @@ class MainUI:
 		scrolls.add(editor)
 		self.notebookTop.append_page(scrolls,hbox)
 		self.notebookTop.set_tab_reorderable(scrolls,True) 
-		# FIXME why doesn't it set?
-		self.notebookTop.set_current_page(self.notebookTop.page_num(scrolls))
 
 		scrolls.show()
 		closeIcon.show()
@@ -285,6 +300,11 @@ class MainUI:
 		buttonClose.show()
 		hbox.show()
 		editor.show()
+
+		# KEEP THIS LINE AT THE END OR ELSE! (hours of frustration...)
+		self.notebookTop.set_current_page(-1)
+
+		return editor
 
 	#--------------------------------------------
 	def closeTab(self,sourceWidget,targetWidget):
@@ -327,9 +347,9 @@ class MainUI:
 		# FIXME why doesn't it set?
 		self.notebookBottom.set_current_page(pageIndex)
 
-	#------------------------------------	
-	def hidePanel(self,widget,data=None):
-	#------------------------------------
+	#--------------------------------------
+	def hidePanel(self, widget, data=None):
+	#--------------------------------------
 		"""Hide/show the side panel"""
 		#means it's been pressed and is toggled down
 		if widget.get_active() == True: 
@@ -343,6 +363,50 @@ class MainUI:
 			self.entrySearch.show()
 			widget.remove(self.rArrow)
 			widget.add(self.lArrow)
+
+	#-------------------------------------------------------------
+	def rowClicked(self, treeview, position, column, masterTable):
+	#-------------------------------------------------------------
+		""" 
+		Given the position coordinates and the master table (a 
+		list of all data that is in the sidebar), this method opens
+		a new editor tab which has code in it. The code is the source
+		code to the object that was double clicked on in the sidebar.
+		If the item is a table, the code is just a select statement.
+		"""
+		try:
+			type = masterTable[position[0]][0]
+			name = masterTable[position[0]][position[1]+1][0]
+		except IndexError:
+			print "Can't do anything when a category title is clicked"
+			return
+
+		if type == "table":
+			query = "select top 100 * from [%s]" % name
+			result = self.database.query(query)
+
+			editor = self.newTab()
+			buffer = editor.get_buffer()
+			buffer.set_text(query)
+
+			self.showOutput(editor,result)
+		else:
+			query = self.getObject + " " + type + " " + name
+			result = self.database.query(query)
+			parser = Parser(result)
+			data = parser.getTable()
+			commands = data[0][0]
+
+			com2 = commands[:]
+			pattern1 = re.compile(r"^create",re.I)
+			commands = re.sub(pattern1,r"ALTER",commands,1)
+			if commands == com2:
+				pattern2 = re.compile(r"\ncreate",re.I)
+				commands = re.sub(pattern2,r"\nALTER",commands,1)
+
+			editor = self.newTab()
+			buffer = editor.get_buffer()
+			buffer.set_text(commands)
 	
 	#--------------------------#
 	#-- END CALLBACK METHODS --#
