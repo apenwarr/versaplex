@@ -96,11 +96,30 @@ class MainUI:
 		self.lArrow.show()
 		self.window.show()
 	
-	#-----------------
+	#---------------------
 	def initSidebar(self):
-	#-----------------
+	#---------------------
 		""" Initializes the sidebar with the tables list and configures it"""
-		pass
+		keyword = "list all"
+		toList = ["table","view","procedure",
+				"trigger","scalarfunction","tablefunction"]
+
+		treestore = gtk.TreeStore(str)
+		treeview = gtk.TreeView(treestore)
+		cell = gtk.CellRendererText()
+		column = gtk.TreeViewColumn("Database Objects",cell,text=0)
+		treeview.append_column(column)
+
+		for item in toList:
+			result = self.database.query(keyword+" "+item)
+			parser = Parser(result)
+			rows = parser.getTableIterator()
+			iter = treestore.append(None,[item.title()])
+			while rows.hasNext():
+				treestore.append(iter, [str(rows.getNext()[0])])
+
+		self.vpanedPanel.add(treeview)
+		treeview.show()
 
 	#-----------------------	
 	def getNewNumber(self):	
@@ -226,8 +245,6 @@ class MainUI:
 		 #get all text, not including hidden chars
 		query = buffer.get_text(buffer.get_start_iter(),
 								buffer.get_end_iter(),False)
-
-		print "Running Query:",query
 
 		self.showOutput(editor,self.database.query(query))
 	
@@ -362,6 +379,8 @@ class DBusSql:
 	#---------------------	
 	def query(self,query):
 	#---------------------
+		print "Running Query:",query
+
 		return self.versaplexI.ExecRecordset(query)
 
 mainUI=MainUI()
