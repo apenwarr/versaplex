@@ -79,6 +79,8 @@ internal static class VxDb {
 					+ " and xtype='U' "
 					+ " order by Name ";
 		else if (query.ToLower().StartsWith("list all") == true)
+		// Format: list all {view|trigger|procedure|scalarfunction|tablefunction}
+		// Returns: a list of all of whatever
 			query = String.Format(
 					"select distinct "
 					+ " cast (object_name(id) as varchar(256)) Name "
@@ -86,6 +88,18 @@ internal static class VxDb {
 					+ " where objectproperty(id,'Is{0}') = 1 "
 					+ " order by Name ",
 					query.Split(' ')[2].Trim());
+		else if (query.ToLower().StartsWith("get object") == true)
+		// Format: 
+		// get object {view|trigger|procedure|scalarfunction|tablefunction} name
+		// Returns: the "source code" to the object
+			query = String.Format(
+            "select cast(text as varchar(max)) text "
+               + "from syscomments "
+               + "where objectproperty(id, 'Is{0}') = 1 "
+               + "and object_name(id) = '{1}' "
+               + "order by number, colid ",
+               query.Split(' ')[2].Trim(), 
+			   query.Split(' ')[3].Trim());
 
         log.print(WvLog.L.Debug3, "ExecRecordset {0}\n", query);
 	
