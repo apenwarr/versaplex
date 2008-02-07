@@ -80,7 +80,7 @@ internal static class VxDb {
 					+ " order by Name ";
 		else if (query.ToLower().StartsWith("list all") == true)
 			query = String.Format(
-					"select distinct id, "
+					"select distinct "
 					+ " cast (object_name(id) as varchar(256)) Name "
 					+ " from syscomments "
 					+ " where objectproperty(id,'Is{0}') = 1 "
