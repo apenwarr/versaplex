@@ -23,7 +23,7 @@ class Parser:
 	""" An abstraction layer for DBus-SQL messages. This module makes it easy
 	to extract data from messages that Versaplex replies with over dbus."""
 	#---------------------------	
-	def __init__(self,message):	
+	def __init__(self, message):	
 	#---------------------------
 		"""Constructor: get the message, control the workflow"""
 		self.message = message 		# The original message
@@ -107,6 +107,10 @@ class Parser:
 	#----------------------------
 		"""Extracts the table rows from self.message and puts them into 
 		self.table"""
+		# NOTE: this will make a table of _rows_. Sometimes, there will be
+		#       only one element in the row (see sidebar). However, this 
+		#       is the correct behavior. Do not "fix" it.
+
 		# Fill the table
 		segmentOne = self.message[1]
 		for struct in segmentOne:
@@ -189,16 +193,16 @@ class Parser:
 class Iterator:
 #------------------------------------------------------------------------------
 	"""A simple iterator made for returning one table row at a time"""
-	#------------------------	
-	def __init__(self,table):
-	#------------------------
+	#-------------------------
+	def __init__(self, table):
+	#-------------------------
 		"""Starts up the instance variables"""
 		self.table = table 		# The data
 		self.currentRow = -1 	# The location of the iterator by row number
 
-	#---------------------------	
-	def setCurrent(self,number):
-	#---------------------------
+	#----------------------------
+	def setCurrent(self, number):
+	#----------------------------
 		"""Lets you set the row that the iterator is currently on. Remember,
 		though that getNext() will return the next element, not the current"""
 		self.currentRow = number

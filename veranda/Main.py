@@ -30,7 +30,7 @@ import dbus
 import re
 from Parser import Parser
 from Resulter import Resulter
-#from Searcher import Searcher
+from Searcher import Searcher
 #------------------------------------------------------------------------------
 class MainUI:
 #------------------------------------------------------------------------------
@@ -65,7 +65,7 @@ class MainUI:
 		self.buttonNewTab = self.gladeTree.get_widget("button-newtab")
 		self.tbuttonHidePanel = self.gladeTree.get_widget("tbutton-hidepanel")
 		self.entrySearch = self.gladeTree.get_widget("entry-search")
-		self.treeview = self.gladeTree.get_widget("treeview")
+		self.sidebar = ""
 		self.resulter = Resulter()
 
 		# Misc Initializations
@@ -85,15 +85,16 @@ class MainUI:
 		self.newTab()
 
 		# Set up the hide/show button
-		self.rArrow = gtk.Arrow(gtk.ARROW_RIGHT,gtk.SHADOW_IN)
-		self.lArrow = gtk.Arrow(gtk.ARROW_LEFT,gtk.SHADOW_IN)
+		self.rArrow = gtk.Arrow(gtk.ARROW_RIGHT, gtk.SHADOW_IN)
+		self.lArrow = gtk.Arrow(gtk.ARROW_LEFT, gtk.SHADOW_IN)
 		self.tbuttonHidePanel.add(self.lArrow)
 
 		# Connect events
-		self.window.connect("delete_event",gtk.main_quit)
-		self.tbuttonHidePanel.connect("toggled",self.hidePanel)
-		self.buttonRun.connect("clicked",self.runQuery)
-		self.buttonNewTab.connect("clicked",self.newTab)
+		self.window.connect("delete_event", gtk.main_quit)
+		self.tbuttonHidePanel.connect("toggled", self.hidePanel)
+		self.buttonRun.connect("clicked", self.runQuery)
+		self.buttonNewTab.connect("clicked", self.newTab)
+		self.entrySearch.connect("key-release-event", self.search)
 
 		# Show things
 		self.rArrow.show()
@@ -104,17 +105,17 @@ class MainUI:
 	def initSidebar(self):
 	#---------------------
 		""" Initializes the sidebar with the tables list and configures it"""
-		toList = ["table","view","procedure",
-				"trigger","scalarfunction","tablefunction"]
+		toList = ["table", "view", "procedure",
+				"trigger", "scalarfunction", "tablefunction"]
 
-		scrolls = gtk.ScrolledWindow(gtk.Adjustment(),gtk.Adjustment())
-		scrolls.set_policy(gtk.POLICY_AUTOMATIC,gtk.POLICY_AUTOMATIC)
+		scrolls = gtk.ScrolledWindow(gtk.Adjustment(), gtk.Adjustment())
+		scrolls.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
 
 		treestore = gtk.TreeStore(str)
-		treeview = gtk.TreeView(treestore)
+		self.sidebar = gtk.TreeView(treestore)
 		cell = gtk.CellRendererText()
-		column = gtk.TreeViewColumn("Database Objects",cell,text=0)
-		treeview.append_column(column)
+		column = gtk.TreeViewColumn("Database Objects", cell, text=0)
+		self.sidebar.append_column(column)
 
 		masterTable = []
 
@@ -122,21 +123,21 @@ class MainUI:
 			result = self.database.query(self.listAll+" "+item)
 			parser = Parser(result)
 			table = parser.getTable()[:] #the [:] makes a clone
-			table.insert(0,item)
+			table.insert(0, [item])
 			masterTable.append(table)
 			rows = parser.getTableIterator()
-			iter = treestore.append(None,[item.title()])
+			iter = treestore.append(None, [item.title()])
 			while rows.hasNext():
 				treestore.append(iter, [str(rows.getNext()[0])])
 
-		#self.searcher = Searcher(masterTable)
+		self.searcher = Searcher(masterTable)
 
-		treeview.connect("row-activated", self.rowClicked, masterTable)
+		self.sidebar.connect("row-activated", self.rowClicked, masterTable)
 
-		scrolls.add(treeview)
+		scrolls.add(self.sidebar)
 		self.vpanedPanel.add(scrolls)
 		scrolls.show()
-		treeview.show()
+		self.sidebar.show()
 
 	#-----------------------	
 	def getNewNumber(self):	
@@ -150,17 +151,17 @@ class MainUI:
 				self.newNumbers.append(x)
 				return r"   "+str(x)+r"   "
 	
-	#--------------------------------------	
-	def removeNumber(self,editor,notebook):
-	#--------------------------------------
+	#----------------------------------------
+	def removeNumber(self, editor, notebook):
+	#----------------------------------------
 		""" If a given page has a label with an automatic
 		number, remove that number from the list of numbers so that
 		it can be reassigned to a new fresh tab in the future"""
-		self.newNumbers.remove(self.getLabelText(editor,notebook))
+		self.newNumbers.remove(self.getLabelText(editor, notebook))
 	
-	#-----------------------------------------------	
-	def configureEditor(self,editor,textbuffer):
-	#-----------------------------------------------
+	#---------------------------------------------
+	def configureEditor(self, editor, textbuffer):
+	#---------------------------------------------
 		"""Sets up a gtksourceview with the common options I want."""
 		languagemanager = gtksourceview.LanguageManager()
 		textbuffer.set_language(languagemanager.get_language("sql"))
@@ -168,9 +169,9 @@ class MainUI:
 		editor.set_show_line_numbers(True)
 		editor.set_wrap_mode(gtk.WRAP_WORD_CHAR)
 
-	#-------------------------------------------
-	def makeBottomTabMenu(self,number,resulter):
-	#-------------------------------------------
+	#---------------------------------------------
+	def makeBottomTabMenu(self, number, resulter):
+	#---------------------------------------------
 		"""Returns an hbox with the title, change button, and close button
 		to be put in a tab"""
 		hbox = gtk.HBox()
@@ -181,16 +182,16 @@ class MainUI:
 		changeIcon.set_from_file("cycle.svg")
 		buttonMode = gtk.Button(None)
 		buttonMode.add(changeIcon)
-		hbox.pack_start(buttonMode,False,False,1)
+		hbox.pack_start(buttonMode, False, False, 1)
 
 		closeIcon = gtk.Image()
 		closeIcon.set_from_file("close.svg")
 		buttonClose = gtk.Button(None)
 		buttonClose.add(closeIcon)
-		hbox.pack_start(buttonClose,False,False,1) 
+		hbox.pack_start(buttonClose, False, False, 1) 
 
-		buttonClose.connect("clicked",self.closeTab,resulter)
-		buttonMode.connect("clicked",self.changeMode,resulter)
+		buttonClose.connect("clicked", self.closeTab, resulter)
+		buttonMode.connect("clicked", self.changeMode, resulter)
 
 		changeIcon.show()
 		closeIcon.show()
@@ -201,16 +202,16 @@ class MainUI:
 
 		return hbox
 
-	#-------------------------------------	
-	def showOutput(self,topEditor,result):
-	#-------------------------------------
+	#---------------------------------------
+	def showOutput(self, topEditor, result):
+	#---------------------------------------
 		parser = Parser(result)
 		
 		if self.bottomState == False:
 			self.resulter.update(parser)
 			self.notebookBottom.show()
 			hbox = self.makeBottomTabMenu("Results", self.resulter)
-			self.newTabBottom(self.resulter.getCurrentView(),hbox)
+			self.newTabBottom(self.resulter.getCurrentView(), hbox)
 			self.bottomState = True
 
 		else :
@@ -220,21 +221,21 @@ class MainUI:
 			self.resulter.update(parser)
 			self.notebookBottom.remove_page(index)
 			self.notebookBottom.insert_page(self.resulter.getCurrentView(),
-											hbox,index)
+											hbox, index)
 			self.notebookBottom.set_tab_reorderable(
-										self.resulter.getCurrentView(),True)
+										self.resulter.getCurrentView(), True)
 			self.notebookBottom.set_current_page(index)
 			
-	#----------------------------------
-	def newTabBottom(self,widget,hbox):
-	#----------------------------------
+	#------------------------------------
+	def newTabBottom(self, widget, hbox):
+	#------------------------------------
 		"""Creates a new tab on the bottom notebook, with "widget" in the tab
 		and "hbox" as the label (not actually a gtk label)"""
-		self.notebookBottom.append_page(widget,hbox)
+		self.notebookBottom.append_page(widget, hbox)
 	
-	#--------------------------------------	
-	def getLabelText(self,editor,notebook):
-	#--------------------------------------
+	#----------------------------------------
+	def getLabelText(self, editor, notebook):
+	#----------------------------------------
 		"""Retrieves the label number from notebook with a page which contains 
 		the given editor"""
 		# FIXME make sure that it can be any child instead of editor
@@ -244,39 +245,60 @@ class MainUI:
 		labelText = labelText.strip(' ')
 		return int(labelText)
 
+	#------------------------------------
+	def updateSidebar(self, sidebarList):
+	#------------------------------------
+		"""Given a new list, this will change the contents of the sidebar"""
+		treestore = gtk.TreeStore(str)
+
+		for section in sidebarList:		
+			iter = treestore.append(None,[section[0][0]])
+			for element in section[1:]:
+				treestore.append(iter,[element[0]])
+
+		self.sidebar.set_model(treestore)
+
 	#----------------------#
 	#-- CALLBACK METHODS --#
 	#----------------------#
 
-	#-----------------------------------	
-	def runQuery(self,widget,data=None):
-	#-----------------------------------
+	#-------------------------------------
+	def runQuery(self, widget, data=None):
+	#-------------------------------------
 		"""Uses the database abstraction (initially Dbus)
 		To send the query that is in the current window"""
-		#inner call returns index, outer returns child
 		#FIXME what if there is no current page?
 		scrolls = self.notebookTop.get_nth_page(self.notebookTop.
 												get_current_page()) 
 		editor = scrolls.get_children()[0]
 		buffer = editor.get_buffer()
-		 #get all text, not including hidden chars
+		#get all text, not including hidden chars
 		query = buffer.get_text(buffer.get_start_iter(),
-								buffer.get_end_iter(),False)
+								buffer.get_end_iter(), False)
 
-		self.showOutput(editor,self.database.query(query))
+		self.showOutput(editor, self.database.query(query))
+
+	#-----------------------------------
+	def search(self, widget, data=None):
+	#-----------------------------------
+		"""Incremental search callback. As the user types, this method
+		notices and modifies the sidebar"""
+		text = widget.get_text()
+		sidebarList = self.searcher.find(text)
+		self.updateSidebar(sidebarList)
 	
 	#--------------------------------------	
-	def newTab(self,widget=None,data=None):
+	def newTab(self, widget=None, data=None):
 	#--------------------------------------
 		"""Open a new editor tab (top)"""
 
-		scrolls = gtk.ScrolledWindow(gtk.Adjustment(),gtk.Adjustment())
-		scrolls.set_policy(gtk.POLICY_AUTOMATIC,gtk.POLICY_AUTOMATIC)
+		scrolls = gtk.ScrolledWindow(gtk.Adjustment(), gtk.Adjustment())
+		scrolls.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
 		
 		textbuffer = gtksourceview.Buffer()
 		editor = gtksourceview.View(textbuffer)
 
-		self.configureEditor(editor,textbuffer)
+		self.configureEditor(editor, textbuffer)
 
 		hbox = gtk.HBox()
 		label = gtk.Label(self.getNewNumber())
@@ -286,13 +308,13 @@ class MainUI:
 		closeIcon.set_from_file("close.svg")
 		buttonClose = gtk.Button(None)
 		buttonClose.add(closeIcon)
-		hbox.pack_start(buttonClose,False,False,1) 
+		hbox.pack_start(buttonClose, False, False, 1) 
 
-		buttonClose.connect("clicked",self.closeTab,scrolls)
+		buttonClose.connect("clicked", self.closeTab, scrolls)
 
 		scrolls.add(editor)
-		self.notebookTop.append_page(scrolls,hbox)
-		self.notebookTop.set_tab_reorderable(scrolls,True) 
+		self.notebookTop.append_page(scrolls, hbox)
+		self.notebookTop.set_tab_reorderable(scrolls, True) 
 
 		scrolls.show()
 		closeIcon.show()
@@ -307,7 +329,7 @@ class MainUI:
 		return editor
 
 	#--------------------------------------------
-	def closeTab(self,sourceWidget,targetWidget):
+	def closeTab(self, sourceWidget, targetWidget):
 	#--------------------------------------------
 		# TODO if bottom tab is closed, set bottomState = False
 		"""Close a tab. Data is the contents of a notebook you want killed."""
@@ -335,15 +357,15 @@ class MainUI:
 			print "Worse Than Failure: Lost The Tab!"
 
 	#------------------------------------
-	def changeMode(self,widget,resulter):
+	def changeMode(self, widget, resulter):
 	#------------------------------------
 		"""After a change button is clicked, this makes the notebook tab
 	osscroll through the different view modes in a fixed pattern"""
 		pageIndex = self.notebookBottom.page_num(resulter.getCurrentView())
 		hbox = self.notebookBottom.get_tab_label(resulter.getCurrentView())
 		self.notebookBottom.remove_page(pageIndex)
-		self.notebookBottom.insert_page(resulter.getNextView(),hbox,pageIndex)
-		self.notebookBottom.set_tab_reorderable(resulter.getCurrentView(),True)
+		self.notebookBottom.insert_page(resulter.getNextView(), hbox, pageIndex)
+		self.notebookBottom.set_tab_reorderable(resulter.getCurrentView(), True)
 		# FIXME why doesn't it set?
 		self.notebookBottom.set_current_page(pageIndex)
 
@@ -375,7 +397,7 @@ class MainUI:
 		If the item is a table, the code is just a select statement.
 		"""
 		try:
-			type = masterTable[position[0]][0]
+			type = masterTable[position[0]][0][0]
 			name = masterTable[position[0]][position[1]+1][0]
 		except IndexError:
 			print "Can't do anything when a category title is clicked"
@@ -389,7 +411,7 @@ class MainUI:
 			buffer = editor.get_buffer()
 			buffer.set_text(query)
 
-			self.showOutput(editor,result)
+			self.showOutput(editor, result)
 		else:
 			query = self.getObject + " " + type + " " + name
 			result = self.database.query(query)
@@ -398,11 +420,11 @@ class MainUI:
 			commands = data[0][0]
 
 			com2 = commands[:]
-			pattern1 = re.compile(r"^create",re.I)
-			commands = re.sub(pattern1,r"ALTER",commands,1)
+			pattern1 = re.compile(r"^create", re.I)
+			commands = re.sub(pattern1, r"ALTER", commands, 1)
 			if commands == com2:
-				pattern2 = re.compile(r"\ncreate",re.I)
-				commands = re.sub(pattern2,r"\nALTER",commands,1)
+				pattern2 = re.compile(r"\ncreate", re.I)
+				commands = re.sub(pattern2, r"\nALTER", commands, 1)
 
 			editor = self.newTab()
 			buffer = editor.get_buffer()
@@ -437,13 +459,13 @@ class DBusSql:
 		# FIXME put most of this stuff in a config file
 		self.versaplex = self.bus.get_object("com.versabanq.versaplex",
 				                 "/com/versabanq/versaplex/db") 
-		self.versaplexI = dbus.Interface(self.versaplex,dbus_interface=
+		self.versaplexI = dbus.Interface(self.versaplex, dbus_interface=
 				                 "com.versabanq.versaplex.db") 
 
-	#---------------------	
-	def query(self,query):
-	#---------------------
-		print "Running Query:",query
+	#----------------------
+	def query(self, query):
+	#----------------------
+		print "Running Query:", query
 
 		return self.versaplexI.ExecRecordset(query)
 

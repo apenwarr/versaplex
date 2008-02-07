@@ -23,9 +23,9 @@ import pango
 #------------------------------------------------------------------------------
 class Resulter:
 #------------------------------------------------------------------------------
-	#-------------------------	
-	def __init__(self,parser):
-	#-------------------------
+	#--------------------------
+	def __init__(self, parser):
+	#--------------------------
 		"""Initializes the instance variables (and as such, the various 
 		gtk widgets that would be used)"""
 		# Given parser, set up with the dbus info
@@ -35,7 +35,7 @@ class Resulter:
 		self.titles = self.parser.getColumnTitles()
 		self.message = parser.getOriginalMessage()
 		self.dbusMessages = time.ctime(time.time())+"\n\n"+ str(self.message)
-		self.dbusMessages = self.__formatDbusMessage__(self.dbusMessage,100)
+		self.dbusMessages = self.__formatDbusMessage__(self.dbusMessage, 100)
 
 		# Set up these objects
 		self.__initTableView__()
@@ -73,7 +73,7 @@ class Resulter:
 
 		x = 0
 		for title in self.titles:
-			treeviewcolumn = gtk.TreeViewColumn(title, self.cellRenderer,text=x)
+			treeviewcolumn = gtk.TreeViewColumn(title, self.cellRenderer, text=x)
 			treeviewcolumn.set_resizable(True)
 			self.tableView.append_column(treeviewcolumn)
 			x += 1
@@ -87,7 +87,7 @@ class Resulter:
 		self.dbusBuffer = gtksourceview.Buffer()
 		self.dbusView = gtksourceview.View(self.dbusBuffer)
 
-		self.configureEditor(self.dbusView,self.dbusBuffer)
+		self.configureEditor(self.dbusView, self.dbusBuffer)
 		self.dbusView.set_editable(False)
 
 		self.dbusBuffer.set_text(self.dbusMessages)
@@ -103,7 +103,7 @@ class Resulter:
 		self.textBuffer = gtksourceview.Buffer()
 		self.textView = gtksourceview.View(self.textBuffer)
 
-		self.configureEditor(self.textView,self.textBuffer)
+		self.configureEditor(self.textView, self.textBuffer)
 		self.textView.set_editable(False)
 		self.textView.set_wrap_mode(gtk.WRAP_NONE)
 		self.textView.modify_font(pango.FontDescription("monospace 10"))
@@ -158,14 +158,14 @@ class Resulter:
 		
 		return output
 	
-	#-------------------------------
-	def __formatDbusMessage__(self,text,width):
-	#-------------------------------
+	#--------------------------------------------
+	def __formatDbusMessage__(self, text, width):
+	#--------------------------------------------
 		"""Slices up the Dbus Message so that hopefully gtksourceview doesn't"""
 		return reduce(lambda line, word, width=width: '%s%s%s' %
 				(line,
 					' \n'[(len(line)-line.rfind('\n')-1
-					+ len (word.split('\n',1)[0]
+					+ len (word.split('\n', 1)[0]
 						) >= width)],
 					word),
 				text.split(' ')
@@ -176,14 +176,14 @@ class Resulter:
 	def __makeScrolls__(self):
 	#-------------------------
 		"""Generates scroll bars for widgets that want them"""
-		scrolls = gtk.ScrolledWindow(gtk.Adjustment(),gtk.Adjustment())
-		scrolls.set_policy(gtk.POLICY_AUTOMATIC,gtk.POLICY_AUTOMATIC)
+		scrolls = gtk.ScrolledWindow(gtk.Adjustment(), gtk.Adjustment())
+		scrolls.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
 		scrolls.show()
 		return scrolls
 
-	#---------------------------
-	def update(self,parser):
-	#---------------------------
+	#------------------------
+	def update(self, parser):
+	#------------------------
 		"""Updates widgets with a new dbus message.
 		 * TableView replaces its old content
 		 * DbusView appends text to its old content
@@ -195,7 +195,7 @@ class Resulter:
 		self.message = parser.getOriginalMessage()
 		#FIXME \n\n is not windows compatible, use os.linesep
 		self.dbusMessages = time.ctime(time.time())+ "\n\n"+ str(self.message)
-		self.dbusMessages = self.__formatDbusMessage__(self.dbusMessages,100)
+		self.dbusMessages = self.__formatDbusMessage__(self.dbusMessages, 100)
 
 		# Set up these objects
 		self.__initTableView__()
@@ -208,9 +208,9 @@ class Resulter:
 						  self.getDbusView()]
 		self.currentView = self.viewOrder[0]
 
-	#-------------------------------------------
-	def configureEditor(self,editor,textbuffer):
-	#-------------------------------------------
+	#---------------------------------------------
+	def configureEditor(self, editor, textbuffer):
+	#---------------------------------------------
 		"""Sets up a gtksourceview with the common options I want."""
 		languagemanager = gtksourceview.LanguageManager()
 		textbuffer.set_language(languagemanager.get_language("sql"))

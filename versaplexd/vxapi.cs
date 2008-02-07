@@ -67,18 +67,19 @@ internal static class VxDb {
     {
 		// XXX this is fishy
 		
-		if (query.ToLower().StartsWith("list tables") == true)
+		if (query.ToLower().StartsWith("list tables"))
 			query = "exec sp_tables";
-		else if (query.ToLower().StartsWith("list columns ") == true)
+		else if (query.ToLower().StartsWith("list columns "))
 			query = String.Format("exec sp_columns @table_name='{0}'",
 					  query.Substring(13));
-		else if (query.ToLower().StartsWith("list all table") == true)
+		else if (query.ToLower().StartsWith("list all table") &&
+				query.ToLower().StartsWith("list all tablefunction") == false)
 			query = "select distinct cast(Name as varchar(max)) Name"
 					+ " from sysobjects "
 					+ " where objectproperty(id,'IsTable')=1 "
 					+ " and xtype='U' "
 					+ " order by Name ";
-		else if (query.ToLower().StartsWith("list all") == true)
+		else if (query.ToLower().StartsWith("list all"))
 		// Format: list all {view|trigger|procedure|scalarfunction|tablefunction}
 		// Returns: a list of all of whatever
 			query = String.Format(
@@ -88,7 +89,7 @@ internal static class VxDb {
 					+ " where objectproperty(id,'Is{0}') = 1 "
 					+ " order by Name ",
 					query.Split(' ')[2].Trim());
-		else if (query.ToLower().StartsWith("get object") == true)
+		else if (query.ToLower().StartsWith("get object"))
 		// Format: 
 		// get object {view|trigger|procedure|scalarfunction|tablefunction} name
 		// Returns: the "source code" to the object
