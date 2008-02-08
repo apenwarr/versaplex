@@ -41,13 +41,14 @@ class MainUI:
 		"""Initialize all the UI stuff"""
 		# Define some instance variables
 		self.name = "Veranda" 			# App name
-		self.version = "0.8" 			# Version
+		self.version = "0.9" 			# Version
 		self.newNumbers = [] 			# for naming new tabs
 		self.database = DBusSql() 		# SQL Access driver
 		self.bottomState = False 		# False: notebookBottom closed
 		self.getObject = "get object" 	# Versaplex command for get object
 		self.listAll = "list all" 		# Versaplex command for list all
-		#self.searcher = "" 				# Becomes a searcher object later
+		self.searcher = "" 				# Becomes a searcher object later
+		self.exposeEventID = 0 			# Used to disconnect a signal
 
 		# Import Glade's XML and load it
 		self.gladeTree = gtk.glade.XML("ui.glade")
@@ -55,6 +56,8 @@ class MainUI:
 		self.gladeTree.signal_autoconnect(dic)
 
 		# Grab some of the widgets for easy access
+		self.sidebar = ""
+		self.resulter = Resulter()
 		self.window = self.gladeTree.get_widget("window")
 		self.vboxMain = self.gladeTree.get_widget("vbox-main")
 		self.vpanedEditor = self.gladeTree.get_widget("vpaned-editor")
@@ -63,50 +66,62 @@ class MainUI:
 		self.notebookBottom = self.gladeTree.get_widget("notebook-bottom")
 		self.buttonRun = self.gladeTree.get_widget("button-run")
 		self.buttonNewTab = self.gladeTree.get_widget("button-newtab")
-		self.tbuttonHidePanel = self.gladeTree.get_widget("tbutton-hidepanel")
 		self.entrySearch = self.gladeTree.get_widget("entry-search")
-		self.sidebar = ""
-		self.resulter = Resulter()
+		self.statusbar = self.gladeTree.get_widget("statusbar")
 
 		# Misc Initializations
+		hbox = gtk.HBox()
+		hbox.show()
 		runImage = gtk.Image()
 		runImage.set_from_file("run.svg")
 		runImage.show()
-		self.buttonRun.add(runImage)
+		hbox.pack_start(runImage)
+		label = gtk.Label("Run")
+		label.show()
+		hbox.pack_start(label)
+		self.buttonRun.add(hbox)
 
+		hbox = gtk.HBox()
+		hbox.show()
 		newTabImage = gtk.Image()
 		newTabImage.set_from_file("new.svg")
 		newTabImage.show()
-		self.buttonNewTab.add(newTabImage)
-
-		self.initSidebar()
+		hbox.pack_start(newTabImage)
+		label = gtk.Label("New Tab")
+		label.show()
+		hbox.pack_start(label)
+		self.buttonNewTab.add(hbox)
 
 		# Open a first tab (comes with configured editor)
 		self.newTab()
 
-		# Set up the hide/show button
-		self.rArrow = gtk.Arrow(gtk.ARROW_RIGHT, gtk.SHADOW_IN)
-		self.lArrow = gtk.Arrow(gtk.ARROW_LEFT, gtk.SHADOW_IN)
-		self.tbuttonHidePanel.add(self.lArrow)
-
 		# Connect events
 		self.window.connect("delete_event", gtk.main_quit)
-		self.tbuttonHidePanel.connect("toggled", self.hidePanel)
 		self.buttonRun.connect("clicked", self.runQuery)
 		self.buttonNewTab.connect("clicked", self.newTab)
 		self.entrySearch.connect("key-release-event", self.search)
+		self.exposeEventID = self.window.connect("expose-event", 
+												self.postStartInit)
+
+		# Create Keyboard Accelerators
+		accel_group = gtk.AccelGroup()
+		self.window.add_accel_group(accel_group)
+
+		#save_item.add_accelerator("activate", accel_group, ord("S"),
+		#						  gtk.gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
 
 		# Show things
-		self.rArrow.show()
-		self.lArrow.show()
 		self.window.show()
-	
+
 	#---------------------
 	def initSidebar(self):
 	#---------------------
 		""" Initializes the sidebar with the tables list and configures it"""
 		toList = ["table", "view", "procedure",
 				"trigger", "scalarfunction", "tablefunction"]
+
+		statusID = self.statusbar.get_context_id("sidebar")
+		self.statusbar.push(statusID, "Initializing Sidebar")
 
 		scrolls = gtk.ScrolledWindow(gtk.Adjustment(), gtk.Adjustment())
 		scrolls.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
@@ -138,6 +153,8 @@ class MainUI:
 		self.vpanedPanel.add(scrolls)
 		scrolls.show()
 		self.sidebar.show()
+
+		self.statusbar.push(statusID, "Sidebar Loaded")
 
 	#-----------------------	
 	def getNewNumber(self):	
@@ -245,6 +262,20 @@ class MainUI:
 		labelText = labelText.strip(' ')
 		return int(labelText)
 
+	#---------------------------------
+	def expandSidebar(self, sidebarList):
+	#---------------------------------
+		"""Will expand some of the sidebar elements to make better use
+		of space"""
+		expandMax = 18
+		usedSoFar = 0
+		for section in sidebarList:
+			if len(section) + usedSoFar > expandMax:
+				break
+			else:
+				usedSoFar += len(section)
+				self.sidebar.expand_to_path((sidebarList.index(section),1))
+
 	#------------------------------------
 	def updateSidebar(self, sidebarList):
 	#------------------------------------
@@ -258,25 +289,41 @@ class MainUI:
 
 		self.sidebar.set_model(treestore)
 
+		self.expandSidebar(sidebarList)
+
 	#----------------------#
 	#-- CALLBACK METHODS --#
 	#----------------------#
 
+	#------------------------------------------
+	def postStartInit(self, widget, data=None):
+	#------------------------------------------
+		""" Initializes all the stuff that should only happen after the window
+		is already on screen"""
+		self.initSidebar()
+		widget.disconnect(self.exposeEventID)
+	
 	#-------------------------------------
 	def runQuery(self, widget, data=None):
 	#-------------------------------------
 		"""Uses the database abstraction (initially Dbus)
 		To send the query that is in the current window"""
-		#FIXME what if there is no current page?
 		scrolls = self.notebookTop.get_nth_page(self.notebookTop.
 												get_current_page()) 
-		editor = scrolls.get_children()[0]
-		buffer = editor.get_buffer()
-		#get all text, not including hidden chars
-		query = buffer.get_text(buffer.get_start_iter(),
-								buffer.get_end_iter(), False)
+		if scrolls != None:
+			editor = scrolls.get_children()[0]
+			buffer = editor.get_buffer()
+			#get all text, not including hidden chars
+			query = buffer.get_text(buffer.get_start_iter(),
+									buffer.get_end_iter(), False)
 
-		self.showOutput(editor, self.database.query(query))
+			contextID = self.statusbar.get_context_id("run query")
+			self.statusbar.push(contextID, "Running query: "+query)
+
+			self.showOutput(editor, self.database.query(query))
+		else:
+			contextID = self.statusbar.get_context_id("error")
+			self.statusbar.push(contextID, "No query to run.")
 
 	#-----------------------------------
 	def search(self, widget, data=None):
@@ -351,6 +398,8 @@ class MainUI:
 		if index != -1:
 			self.notebookBottom.remove_page(index)
 			self.bottomState = False
+			self.notebookBottom.queue_resize()
+			self.notebookTop.queue_resize()
 			return
 
 		if index == -1:
@@ -369,23 +418,6 @@ class MainUI:
 		# FIXME why doesn't it set?
 		self.notebookBottom.set_current_page(pageIndex)
 
-	#--------------------------------------
-	def hidePanel(self, widget, data=None):
-	#--------------------------------------
-		"""Hide/show the side panel"""
-		#means it's been pressed and is toggled down
-		if widget.get_active() == True: 
-			self.treeview.hide()
-			self.entrySearch.hide()
-			widget.remove(self.lArrow)
-			widget.add(self.rArrow)
-			#FIXME add resize so it doesn't just waste space
-		else:
-			self.treeview.show()
-			self.entrySearch.show()
-			widget.remove(self.rArrow)
-			widget.add(self.lArrow)
-
 	#-------------------------------------------------------------
 	def rowClicked(self, treeview, position, column, masterTable):
 	#-------------------------------------------------------------
@@ -400,11 +432,19 @@ class MainUI:
 			type = masterTable[position[0]][0][0]
 			name = masterTable[position[0]][position[1]+1][0]
 		except IndexError:
+			contextID = self.statusbar.get_context_id("error")
+			self.statusbar.push(contextID, 
+					"Can't do anything with a category title")
+
 			print "Can't do anything when a category title is clicked"
 			return
 
 		if type == "table":
 			query = "select top 100 * from [%s]" % name
+
+			contextID = self.statusbar.get_context_id("run query")
+			self.statusbar.push(contextID, "Running query: "+query)
+
 			result = self.database.query(query)
 
 			editor = self.newTab()
@@ -414,6 +454,10 @@ class MainUI:
 			self.showOutput(editor, result)
 		else:
 			query = self.getObject + " " + type + " " + name
+
+			contextID = self.statusbar.get_context_id("run query")
+			self.statusbar.push(contextID, "Running query: "+query)
+
 			result = self.database.query(query)
 			parser = Parser(result)
 			data = parser.getTable()
@@ -465,8 +509,10 @@ class DBusSql:
 	#----------------------
 	def query(self, query):
 	#----------------------
-		print "Running Query:", query
+		""" Runs given query over dbus """
 
+		# TODO a) report failure & success. b) catch versaplex errors
+		print "Running Query:", query
 		return self.versaplexI.ExecRecordset(query)
 
 mainUI=MainUI()
