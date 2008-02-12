@@ -8,8 +8,12 @@
 # Original Author: Andrei "Garoth" Thorp <garoth@gmail.com>
 #
 # Description: This module makes handling of my multi-widget result viewer
-#              easier. By wrapping the various widgets together and having them 
-#              keep information about themselves.
+#              easier. What this class does is track a set of widgets and keeps
+#              them all updated. At any point, the main method can ask the
+#              resulter to return a specific widget so that main can display it.
+#              The Resulter is not a frame or box of any kind that can be 
+#              displayed -- it only holds pointers to the objects that it 
+#              manages. 
 #
 # Notes:
 #   Indentation: I use tabs only, 4 spaces per tab.
@@ -20,6 +24,7 @@ import gtk
 import gtksourceview2 as gtksourceview
 import time
 import pango
+import os
 #------------------------------------------------------------------------------
 class Resulter:
 #------------------------------------------------------------------------------
@@ -106,7 +111,6 @@ class Resulter:
 		self.configureEditor(self.textView, self.textBuffer)
 		self.textView.set_editable(False)
 		self.textView.set_wrap_mode(gtk.WRAP_NONE)
-		self.textView.modify_font(pango.FontDescription("monospace 10"))
 
 		self.textBuffer.set_text(self.__formatTextTable__())
 
@@ -139,22 +143,22 @@ class Resulter:
 		# 2) Generate format string
 		for width in widths:
 			if width != widths[len(widths)-1]:
-				format += r"%-"+str(width)+r"."+str(width)+r"s"+padding
+				format += r"%-" + str(width) + r"." + str(width) + r"s"+padding
 			else:
-				format += r"%-"+str(width)+r"."+str(width)+r"s"
+				format += r"%-" + str(width) + r"." + str(width) + r"s"
 
 		# 3) Print a table
-		output += format % tuple(self.titles)+"\n" # not for Windows; os.linesep
+		output += format % tuple(self.titles) + os.linesep
 
 		# 4) Print a divider
 		totalWidth = 0
 		for width in widths:totalWidth += width
-		totalWidth += len(padding*(numColumns-1))
-		output += "-"*totalWidth+"\n" 	#not suitable for Windows; os.linesep
+		totalWidth += len(padding * (numColumns - 1))
+		output += "-" * totalWidth + os.linesep
 
 		# 5) Print the body
 		while iterator.hasNext():
-			output += format % tuple(iterator.getNext()) + "\n"
+			output += format % tuple(iterator.getNext()) + os.linesep
 		
 		return output
 	
@@ -193,8 +197,8 @@ class Resulter:
 		self.iterator = self.parser.getTableIterator()
 		self.titles = self.parser.getColumnTitles()
 		self.message = parser.getOriginalMessage()
-		#FIXME \n\n is not windows compatible, use os.linesep
-		self.dbusMessages = time.ctime(time.time())+ "\n\n"+ str(self.message)
+		self.dbusMessages = time.ctime(time.time())+ os.linesep + os.linesep + \
+														str(self.message)
 		self.dbusMessages = self.__formatDbusMessage__(self.dbusMessages, 100)
 
 		# Set up these objects
@@ -217,6 +221,7 @@ class Resulter:
 		textbuffer.set_highlight_syntax(True)
 		editor.set_show_line_numbers(True)
 		editor.set_wrap_mode(gtk.WRAP_WORD_CHAR)
+		editor.modify_font(pango.FontDescription("monospace 10"))
 
 	#------------------------
 	def getCurrentView(self):

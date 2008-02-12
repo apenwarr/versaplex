@@ -11,10 +11,23 @@
 #              sidebar). The concept of the search bar goes as follows:
 #                * As you type, it narrows down the list
 #                * It will expand the categories, but only if there are few 
-#                  matches there
+#                  matches there (this is done in Main, actually.)
 #                * The format of each entry is category/entry (so while the
 #                  text says "table_name" it will actually be Table/table_name)
 #                * All search queries will be regular expressions.
+#
+# Examples: Basic Usage: stuff
+#               Returns: Everything that has the word "stuff"
+#                        in it, such as sp_get_stuff.
+#           Regex Usage: ..uff
+#               Returns: Everything that matches the regex pattern. For example,
+#                        sp_useless_fluff would match, as well as sp_get_stuff.
+#            Type Usage: table/.*stuff
+#               Returns: All tables that have the word stuff in their names.
+#         Complex Usage: table.*/.*.?.?uff[0-9]?
+#               Returns: All tables and tablefunctions that match the pattern
+#                        "maybe 2 characters, then uff, then maybe a digit".
+#                        Example: fluff9 or stuff6
 #
 # Notes:
 #   Indentation: I use tabs only, 4 spaces per tab.
@@ -29,8 +42,18 @@ class Searcher:
 		"""
 		Initializes instance variables
 		"""
-		self.firstSearchTable = searchTable
-		self.types = []
+		self.firstSearchTable = searchTable 		# Original Table
+		self.caseInsensitive = True 				# Case sens search?
+
+	#--------------------------------
+	def __fix_capitals__(self, list):
+	#--------------------------------
+		"""
+		Fixes the capitalization of the column headings.
+		"""
+		for section in list:
+			section[0][0] = section[0][0].title()
+		return list
 
 	#----------------------------------
 	def __get_regex_ready_list__(self):
@@ -91,7 +114,14 @@ class Searcher:
 		Builds a list that contains only the items that match the pattern
 		"""
 		searchTable = self.__get_regex_ready_list__()
-		regex = re.compile(pattern)
+
+		try:
+			if self.caseInsensitive:
+				regex = re.compile(pattern, re.I)
+			else:
+				regex = re.compile(pattern)
+		except:
+			regex = re.compile("")
 
 		newList = []
 		for section in searchTable:
@@ -112,8 +142,11 @@ class Searcher:
 		Takes a search pattern (a regex) and returns a new list that has only
 		the elements that match that pattern.
 		"""
-		list = self.__refine_list__(pattern)
-		return list
+		if pattern != "":
+			list = self.__refine_list__(pattern)
+			return list
+		else:
+			return self.__fix_capitals__(self.firstSearchTable)
 
 	#--------------------------
 	def getOriginalTable(self):

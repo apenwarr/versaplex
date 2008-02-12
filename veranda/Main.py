@@ -28,6 +28,7 @@ import gtk.glade
 import gtksourceview2 as gtksourceview
 import dbus
 import re
+import pango
 from Parser import Parser
 from Resulter import Resulter
 from Searcher import Searcher
@@ -38,7 +39,7 @@ class MainUI:
 	#------------------	
 	def __init__(self):
 	#------------------
-		"""Initialize all the UI stuff"""
+		"""Initialize the program & ui"""
 		# Define some instance variables
 		self.name = "Veranda" 			# App name
 		self.version = "0.9" 			# Version
@@ -49,6 +50,7 @@ class MainUI:
 		self.listAll = "list all" 		# Versaplex command for list all
 		self.searcher = "" 				# Becomes a searcher object later
 		self.exposeEventID = 0 			# Used to disconnect a signal
+		self.bindings = gtk.AccelGroup()# Keyboard bindings group
 
 		# Import Glade's XML and load it
 		self.gladeTree = gtk.glade.XML("ui.glade")
@@ -95,7 +97,7 @@ class MainUI:
 		# Open a first tab (comes with configured editor)
 		self.newTab()
 
-		# Connect events
+		# Connect events & key strokes
 		self.window.connect("delete_event", gtk.main_quit)
 		self.buttonRun.connect("clicked", self.runQuery)
 		self.buttonNewTab.connect("clicked", self.newTab)
@@ -103,12 +105,13 @@ class MainUI:
 		self.exposeEventID = self.window.connect("expose-event", 
 												self.postStartInit)
 
-		# Create Keyboard Accelerators
-		accel_group = gtk.AccelGroup()
-		self.window.add_accel_group(accel_group)
-
-		#save_item.add_accelerator("activate", accel_group, ord("S"),
-		#						  gtk.gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
+		self.window.add_accel_group(self.bindings)
+		self.buttonRun.add_accelerator("clicked", self.bindings,
+							ord("r"), gtk.gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
+		self.buttonNewTab.add_accelerator("clicked", self.bindings,
+							ord("t"), gtk.gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
+		self.buttonNewTab.add_accelerator("clicked", self.bindings,
+							ord("n"), gtk.gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
 
 		# Show things
 		self.window.show()
@@ -136,14 +139,18 @@ class MainUI:
 
 		for item in toList:
 			result = self.database.query(self.listAll+" "+item)
-			parser = Parser(result)
-			table = parser.getTable()[:] #the [:] makes a clone
-			table.insert(0, [item])
-			masterTable.append(table)
-			rows = parser.getTableIterator()
-			iter = treestore.append(None, [item.title()])
-			while rows.hasNext():
-				treestore.append(iter, [str(rows.getNext()[0])])
+			if "Error" not in result:
+				parser = Parser(result)
+				table = parser.getTable()[:] #the [:] makes a clone
+				table.insert(0, [item])
+				masterTable.append(table)
+				rows = parser.getTableIterator()
+				iter = treestore.append(None, [item.title()])
+				while rows.hasNext():
+					treestore.append(iter, [str(rows.getNext()[0])])
+			else:
+				statusID = self.statusbar.get_context_id("error")
+				self.statusbar.push(statusID, result)
 
 		self.searcher = Searcher(masterTable)
 
@@ -174,7 +181,9 @@ class MainUI:
 		""" If a given page has a label with an automatic
 		number, remove that number from the list of numbers so that
 		it can be reassigned to a new fresh tab in the future"""
-		self.newNumbers.remove(self.getLabelText(editor, notebook))
+		label = self.getLabelText(editor, notebook)
+		label = label.split(" ")
+		self.newNumbers.remove(int(label[0]))
 	
 	#---------------------------------------------
 	def configureEditor(self, editor, textbuffer):
@@ -185,6 +194,7 @@ class MainUI:
 		textbuffer.set_highlight_syntax(True)
 		editor.set_show_line_numbers(True)
 		editor.set_wrap_mode(gtk.WRAP_WORD_CHAR)
+		editor.modify_font(pango.FontDescription("monospace 10"))
 
 	#---------------------------------------------
 	def makeBottomTabMenu(self, number, resulter):
@@ -255,12 +265,11 @@ class MainUI:
 	#----------------------------------------
 		"""Retrieves the label number from notebook with a page which contains 
 		the given editor"""
-		# FIXME make sure that it can be any child instead of editor
 		hbox = notebook.get_tab_label(editor)
 		children = hbox.get_children()
 		labelText = children[0].get_text()
 		labelText = labelText.strip(' ')
-		return int(labelText)
+		return str(labelText)
 
 	#---------------------------------
 	def expandSidebar(self, sidebarList):
@@ -320,7 +329,12 @@ class MainUI:
 			contextID = self.statusbar.get_context_id("run query")
 			self.statusbar.push(contextID, "Running query: "+query)
 
-			self.showOutput(editor, self.database.query(query))
+			result = self.database.query(query)
+			if "Error" not in result:
+				self.showOutput(editor, result)
+			else:
+				statusID = self.statusbar.get_context_id("error")
+				self.statusbar.push(statusID, result)
 		else:
 			contextID = self.statusbar.get_context_id("error")
 			self.statusbar.push(contextID, "No query to run.")
@@ -337,7 +351,7 @@ class MainUI:
 	#--------------------------------------	
 	def newTab(self, widget=None, data=None):
 	#--------------------------------------
-		"""Open a new editor tab (top)"""
+		"""Open a new editor tab (top). Data is an optional title for the tab."""
 
 		scrolls = gtk.ScrolledWindow(gtk.Adjustment(), gtk.Adjustment())
 		scrolls.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
@@ -348,7 +362,10 @@ class MainUI:
 		self.configureEditor(editor, textbuffer)
 
 		hbox = gtk.HBox()
-		label = gtk.Label(self.getNewNumber())
+		if data == None:
+			label = gtk.Label(self.getNewNumber())
+		else:
+			label = gtk.Label(self.getNewNumber()+str(data)+"  ")
 		hbox.pack_start(label)
 
 		closeIcon = gtk.Image()
@@ -378,10 +395,8 @@ class MainUI:
 	#--------------------------------------------
 	def closeTab(self, sourceWidget, targetWidget):
 	#--------------------------------------------
-		# TODO if bottom tab is closed, set bottomState = False
-		"""Close a tab. Data is the contents of a notebook you want killed."""
-		# Ok. The reason this method is so strange is that it handles both the
-		# top and bottom notebooks as well as their relationship. I'll explain.
+		"""Close a tab. targetWidget points to the contents of the notebook
+		tab that you want closed."""
 		
 		index = -1
 		try:
@@ -389,8 +404,7 @@ class MainUI:
 		except TypeError:
 			pass
 		if index != -1:
-			self.newNumbers.remove(self.getLabelText(targetWidget, 
-														self.notebookTop))
+			self.removeNumber(targetWidget, self.notebookTop)
 			self.notebookTop.remove_page(index)
 			return
 
@@ -447,11 +461,16 @@ class MainUI:
 
 			result = self.database.query(query)
 
-			editor = self.newTab()
-			buffer = editor.get_buffer()
-			buffer.set_text(query)
+			if "Error" not in result:
+				editor = self.newTab(None, name)
+				buffer = editor.get_buffer()
+				buffer.set_text(query)
 
-			self.showOutput(editor, result)
+				self.showOutput(editor, result)
+			else:
+				statusID = self.statusbar.get_context_id("error")
+				self.statusbar.push(statusID, result)
+
 		else:
 			query = self.getObject + " " + type + " " + name
 
@@ -459,6 +478,12 @@ class MainUI:
 			self.statusbar.push(contextID, "Running query: "+query)
 
 			result = self.database.query(query)
+
+			if "Error" in result:
+				statusID = self.statusbar.get_context_id("error")
+				self.statusbar.push(statusID, result)
+				return
+
 			parser = Parser(result)
 			data = parser.getTable()
 			commands = data[0][0]
@@ -470,7 +495,7 @@ class MainUI:
 				pattern2 = re.compile(r"\ncreate", re.I)
 				commands = re.sub(pattern2, r"\nALTER", commands, 1)
 
-			editor = self.newTab()
+			editor = self.newTab(None, name)
 			buffer = editor.get_buffer()
 			buffer.set_text(commands)
 	
@@ -513,7 +538,13 @@ class DBusSql:
 
 		# TODO a) report failure & success. b) catch versaplex errors
 		print "Running Query:", query
-		return self.versaplexI.ExecRecordset(query)
+		try:
+			result = self.versaplexI.ExecRecordset(query)
+		except dbus.exceptions.DBusException:
+			# the string Error will be parsed to recognize the error.
+			result = "Error: " + str(sys.exc_info()[1])
+			print result
+		return result
 
 mainUI=MainUI()
 gtk.main()
