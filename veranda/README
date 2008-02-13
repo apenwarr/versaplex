@@ -1,0 +1,20 @@
+#-----------
+INSTALLATION
+#-----------
+No installation needed at the moment.
+
+#----
+USAGE
+#----
+0) Set up Versaplex and WvDbus
+1) Export DBUS_SESSION_BUS_ADDRESS to point at WvDbus
+2) Run "python Main.py"
+
+#-----------
+KEY BINDINGS
+#-----------
+
+<Control-n>                New Tab
+<Control-t>                New Tab
+<Control-w>                Close Current Tab
+<Control-r>                Run Current Query

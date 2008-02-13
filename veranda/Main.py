@@ -42,7 +42,7 @@ class MainUI:
 		"""Initialize the program & ui"""
 		# Define some instance variables
 		self.name = "Veranda" 			# App name
-		self.version = "0.9" 			# Version
+		self.version = "1.0.0" 			# Version
 		self.newNumbers = [] 			# for naming new tabs
 		self.database = DBusSql() 		# SQL Access driver
 		self.bottomState = False 		# False: notebookBottom closed
@@ -68,6 +68,7 @@ class MainUI:
 		self.notebookBottom = self.gladeTree.get_widget("notebook-bottom")
 		self.buttonRun = self.gladeTree.get_widget("button-run")
 		self.buttonNewTab = self.gladeTree.get_widget("button-newtab")
+		self.buttonClose = self.gladeTree.get_widget("button-closetab")
 		self.entrySearch = self.gladeTree.get_widget("entry-search")
 		self.statusbar = self.gladeTree.get_widget("statusbar")
 
@@ -94,6 +95,17 @@ class MainUI:
 		hbox.pack_start(label)
 		self.buttonNewTab.add(hbox)
 
+		hbox = gtk.HBox()
+		hbox.show()
+		newTabImage = gtk.Image()
+		newTabImage.set_from_file("close.svg")
+		newTabImage.show()
+		hbox.pack_start(newTabImage)
+		label = gtk.Label("Close Current Tab")
+		label.show()
+		hbox.pack_start(label)
+		self.buttonClose.add(hbox)
+
 		# Open a first tab (comes with configured editor)
 		self.newTab()
 
@@ -101,6 +113,7 @@ class MainUI:
 		self.window.connect("delete_event", gtk.main_quit)
 		self.buttonRun.connect("clicked", self.runQuery)
 		self.buttonNewTab.connect("clicked", self.newTab)
+		self.buttonClose.connect("clicked", self.closeCurrentTab)
 		self.entrySearch.connect("key-release-event", self.search)
 		self.exposeEventID = self.window.connect("expose-event", 
 												self.postStartInit)
@@ -112,6 +125,8 @@ class MainUI:
 							ord("t"), gtk.gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
 		self.buttonNewTab.add_accelerator("clicked", self.bindings,
 							ord("n"), gtk.gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
+		self.buttonClose.add_accelerator("clicked", self.bindings,
+							ord("w"), gtk.gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
 
 		# Show things
 		self.window.show()
@@ -418,6 +433,13 @@ class MainUI:
 
 		if index == -1:
 			print "Worse Than Failure: Lost The Tab!"
+
+	#--------------------------------------------
+	def closeCurrentTab(self, widget, data=None):
+	#--------------------------------------------
+		"""Closes the current tab in the top editor section"""
+		index = self.notebookTop.get_current_page()
+		self.notebookTop.remove_page(index)
 
 	#------------------------------------
 	def changeMode(self, widget, resulter):
