@@ -88,7 +88,8 @@ public static class VersaMain
     static void ShowHelp()
     {
 	Console.Error.WriteLine
-	    ("Usage: versaplexd [-v] [-b dbus-moniker]");
+	    ("Usage: versaplexd [-v] [-b dbus-moniker]" + Environment.NewLine +
+		 "                  [-c config-file]");
 	Environment.Exit(1);
     }
 
@@ -96,20 +97,37 @@ public static class VersaMain
     {
 	WvLog.L verbose = WvLog.L.Info;
 	string bus = null;
+	string cfgfile = "versaplexd.ini";
 	new OptionSet()
 	    .Add("v|verbose", delegate(string v) { ++verbose; })
 	    .Add("b=|bus=", delegate(string v) { bus = v; })
+		.Add("c=|config=", delegate(string v) { cfgfile = v; })
 	    .Add("?|h|help", delegate(string v) { ShowHelp(); })
 	    .Parse(args);
 	
 	WvLog.maxlevel = (WvLog.L)verbose;
-	
-        msgrouter.AddInterface(VxDbInterfaceRouter.Instance);
 
-        string cfgfile = "versaplexd.ini";
-        if (!System.IO.File.Exists(cfgfile))
-            throw new Exception(String.Format(
-                "Could not find config file '{0}'.", cfgfile));
+	msgrouter.AddInterface(VxDbInterfaceRouter.Instance);
+
+	bool cfgfound = false;
+
+	if (System.IO.File.Exists(cfgfile)) {
+		cfgfound = true;
+	} else if (System.IO.File.Exists("/etc/versaplexd.ini")) {
+        log.print("Using /etc/versaplexd.ini for configuration." + 
+				                              Environment.NewLine);
+		cfgfound = true;
+		cfgfile = "/etc/versaplexd.ini";
+	}
+
+	if (cfgfound == true) {
+		VxSqlPool.SetIniFile(cfgfile);
+	} else {
+		throw new Exception(String.Format(
+			"Could not find config file '{0},'" +
+			Environment.NewLine + 
+			"and /etc/versaplexd.ini does not exist", cfgfile));
+	}
 	
 	if (bus == null)
 	    bus = Address.Session;

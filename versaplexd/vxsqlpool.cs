@@ -11,7 +11,12 @@ namespace versabanq.Versaplex.Server {
 public static class VxSqlPool
 {
     static WvLog log = new WvLog("VxSqlPool", WvLog.L.Debug2);
-    private static WvIni inifile = new WvIni("versaplexd.ini");
+    private static WvIni inifile;
+
+	public static void SetIniFile(string filepath)
+	{
+		inifile = new WvIni(filepath);
+	}
 
     private static SqlConnectionStringBuilder GetConnInfoFromConnId(
         string connid)
