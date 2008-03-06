@@ -2,10 +2,12 @@ using System;
 using System.IO;
 using System.Collections;
 using System.Collections.Specialized;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 using System.Web;
 using Wv;
+using Wv.Extensions;
 
 namespace Wv.Web
 {
@@ -228,14 +230,22 @@ namespace Wv.Web
     {
 	string s = "";
 	
-	public Attr(params object[] sa)
+	public Attr(Attr parent, params object[] sa)
 	{
 	    wv.assert((sa.Length % 2) == 0);
+	    
+	    if (parent != null)
+		s = parent.ToString();
 	    
 	    for (int i = 0; i < sa.Length; i += 2)
 		s += String.Format(" {0}=\"{1}\"",
 		   HttpUtility.HtmlAttributeEncode(sa[i].ToString()),
 		   HttpUtility.HtmlAttributeEncode(sa[i+1].ToString()));
+	}
+	
+	public Attr(params object[] sa)
+	    : this(null, sa)
+	{
 	}
 	
 	public override string ToString()
@@ -248,13 +258,14 @@ namespace Wv.Web
     
     public class HtmlGen
     {
-	TextWriter stream = Console.Out;
+	Stream stream;
 	
 	Context context = Context.Headers;
 	NameValueCollection headers = new NameValueCollection();
 	
-	public HtmlGen()
+	public HtmlGen(Stream stream)
 	{
+	    this.stream = stream;
 	    header("Content-Type", "text/html");
 	}
 	
@@ -285,6 +296,8 @@ namespace Wv.Web
 		    foreach (string k in headers.Keys)
 			_send(fmt("{0}: {1}\n", k, headers[k]));
 		    _send("\n");
+		    _send("<!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 4.01//EN\" "
+			  + "\"http://www.w3.org/TR/html4/strict.dtd\">\n");
 		    _send("<html><head>");
 		    break;
 		    
@@ -306,7 +319,7 @@ namespace Wv.Web
 	
 	public void _send(string s)
 	{
-	    stream.Write(s);
+	    stream.Write(s.ToUTF8());
 	}
 	
 	public void send(params Html[] ha)
@@ -316,6 +329,12 @@ namespace Wv.Web
 		go(h.context);
 		_send(h.ToString());
 	    }
+	}
+	
+	public void send(IEnumerable<Html> ha)
+	{
+	    foreach (Html h in ha)
+		send(h);
 	}
 	
 	public Html[] htmlarray(ICollection keys)
@@ -332,22 +351,22 @@ namespace Wv.Web
 	    return String.Format(fmt, args);
 	}
 	
-	Html head_v(string s)
+	public Html head_v(string s)
 	{
 	    return new Html(Context.Head, s);
 	}
 	
-	Html head_v(params object[] ha)
+	public Html head_v(params object[] ha)
 	{
 	    return new Html(Context.Head, ha);
 	}
 	
-	Html head_vfmt(string format, params object[] args)
+	public Html head_vfmt(string format, params object[] args)
 	{
 	    return head_v(fmt(format, args));
 	}
 	
-	Html v(string s)
+	public Html v(string s)
 	{
 	    return new Html(Context.Body, s);
 	}
@@ -392,6 +411,15 @@ namespace Wv.Web
 	    return head_vfmt("<script{0}></script>",
 			     new Attr("src", name,
 				      "type", "text/javascript"));
+	}
+	
+	public Html include_css(string name, string media)
+	{
+	    return head_vfmt("<link{0}>",
+			     new Attr("rel", "stylesheet",
+				      "href", name,
+				      "type", "text/css",
+				      "media", media));
 	}
 	
 	public Html include_css(string name)
@@ -443,41 +471,76 @@ namespace Wv.Web
 	    return vfmt("<h3>{0}</h3>\n", text(s));
 	}
 	
-	public Html start_ul(Attr at)
+	public Html h4(string s)
+	{
+	    return vfmt("<h4>{0}</h4>\n", text(s));
+	}
+	
+	public Html div_start(Attr at)
+	{
+	    return vfmt("<div{0}>", at);
+	}
+	
+	public Html div_start()
+	{
+	    return ul_start(Attr.none);
+	}
+	    
+	public Html div_end()
+	{
+	    return v("</div>");
+	}
+	
+	public Html div(Attr at, params Html[] ha)
+	{
+	    return v(div_start(at), ha, div_end());
+	}
+	
+	public Html div(params Html[] ha)
+	{
+	    return div(Attr.none, ha);
+	}
+	
+	public Html ul_start(Attr at)
 	{
 	    return vfmt("<ul{0}>", at);
 	}
 	
-	public Html start_ul()
+	public Html ul_start()
 	{
-	    return start_ul(Attr.none);
+	    return ul_start(Attr.none);
 	}
 	    
-	public Html end_ul()
+	public Html ul_end()
 	{
 	    return v("</ul>");
 	}
 	
-	public Html ul(params Html[] ha)
+	public Html ul(Attr at, params Html[] ha)
 	{
-	    return v(start_ul(), ha, end_ul());
+	    return v(ul_start(at), ha, ul_end());
 	}
 	
-	public Html start_li()
+	public Html ul(params Html[] ha)
+	{
+	    return ul(Attr.none, ha);
+	}
+	
+	public Html li_start()
 	{
 	    return v("<li>");
 	}
 	
-	public Html end_li()
+	public Html li_end()
 	{
 	    return v("</li>\n");
 	}
 	
 	public Html li(params Html[] ha)
 	{
-	    return v(start_li(),
+	    return v(li_start(),
 		     ha,
-		     end_li());
+		     li_end());
 	}
 	
 	public Html li(string s)
@@ -485,34 +548,34 @@ namespace Wv.Web
 	    return li(text(s));
 	}
 	
-	public Html start_table(Attr at)
+	public Html table_start(Attr at)
 	{
 	    return vfmt("<table{0}>", at);
 	}
 	
-	public Html start_table()
+	public Html table_start()
 	{
-	    return start_table(Attr.none);
+	    return table_start(Attr.none);
 	}
 	    
-	public Html end_table()
+	public Html table_end()
 	{
 	    return v("</table>");
 	}
 	
 	public Html table(params Html[] ha)
 	{
-	    return v(start_table(),
+	    return v(table_start(),
 		     ha,
-		     end_table());
+		     table_end());
 	}
 	
 	public Html tr(Attr at, params Html[] ha)
 	{
 	    return new Html(Context.Body,
-			    start_tr(at),
+			    tr_start(at),
 			    ha,
-			    end_tr());
+			    tr_end());
 	}
 	
 	public Html tr(params Html[] ha)
@@ -520,17 +583,17 @@ namespace Wv.Web
 	    return tr(Attr.none, ha);
 	}
 	
-	public Html start_tr(Attr at)
+	public Html tr_start(Attr at)
 	{
 	    return new Html(Context.Body, vfmt("<tr{0}>", at));
 	}
 	
-	public Html start_tr()
+	public Html tr_start()
 	{
-	    return start_tr(Attr.none);
+	    return tr_start(Attr.none);
 	}
 	
-	public Html end_tr()
+	public Html tr_end()
 	{
 	    return new Html(Context.Body, vfmt("</tr>\n"));
 	}
@@ -547,9 +610,9 @@ namespace Wv.Web
 	
 	public Html td(Attr at, params Html[] ha)
 	{
-	    return v(start_td(at),
+	    return v(td_start(at),
 		     ha,
-		     end_td());
+		     td_end());
 	}
 	
 	public Html td(params Html[] ha)
@@ -557,17 +620,17 @@ namespace Wv.Web
 	    return td(Attr.none, ha);
 	}
 	
-	public Html start_td(Attr at)
+	public Html td_start(Attr at)
 	{
 	    return vfmt("<td{0}>", at);
 	}
 	
-	public Html start_td()
+	public Html td_start()
 	{
-	    return start_td(Attr.none);
+	    return td_start(Attr.none);
 	}
 	
-	public Html end_td()
+	public Html td_end()
 	{
 	    return v("</td>");
 	}
@@ -592,19 +655,29 @@ namespace Wv.Web
 	    return th(Attr.none, ha);
 	}
 	
-	public Html start_form(Attr at, params Html[] ha)
+	public Html form_start(Attr at)
 	{
 	    return vfmt("<form{0}>", at);
 	}
 	
-	public Html start_form(params Html[] ha)
+	public Html form_start()
 	{
-	    return start_form(Attr.none, ha);
+	    return form_start(Attr.none);
 	}
 	
-	public Html end_form()
+	public Html form_end()
 	{
 	    return v("</form>");
+	}
+	
+	public Html form(Attr at, params Html[] ha)
+	{
+	    return v(form_start(at), ha, form_end());
+	}
+	
+	public Html form(params Html[] ha)
+	{
+	    return v(form_start(), ha, form_end());
 	}
 	
 	public Html submit(string id)
@@ -615,9 +688,14 @@ namespace Wv.Web
 				  "value", id));
 	}
 	
+	public Html input(Attr at, string id, params Html[] ha)
+	{
+	    return vfmt("<input{0}></input>", new Attr(at, "name", id));
+	}
+	
 	public Html input(string id)
 	{
-	    return vfmt("<input{0}></input>", new Attr("name", id));
+	    return input(Attr.none, id);
 	}
 	
 	public Html editinplace(string id, string type,
@@ -678,17 +756,30 @@ namespace Wv.Web
 	{
 	    return v(vfmt("<p{0}>", at),
 		     ha,
-		     v("</p>"));
+		     v("</p>\n"));
 	}
 	
-	public Html p(string s)
+	public Html p(params Html[] ha)
 	{
-	    return p(Attr.none, text(s));
+	    return p(Attr.none, ha);
+	}
+	
+	public Html p(params string[] sa)
+	{
+	    List<Html> l = new List<Html>();
+	    foreach (string s in sa)
+		l.Add(text(s));
+	    return p(l.ToArray());
 	}
 	
 	public Html p()
 	{
 	    return p(Attr.none);
+	}
+	
+	public Html br()
+	{
+	    return v("<br />");
 	}
 	
 	public Html sup(string s)
@@ -704,6 +795,63 @@ namespace Wv.Web
 	public Html img(string src)
 	{
 	    return vfmt("<img{0}>", new Attr("src", src));
+	}
+	
+	
+	/* bp_* are for the "blueprint css" premade css formatting library */
+	
+	public Html bp_init()
+	{
+	    return head_v
+		(include_css("css/blueprint/screen.css",
+			     "screen, projection"),
+		 include_css("css/blueprint/print.css",
+			     "print"),
+		 head_v("<!--[if IE]><link rel='stylesheet' "
+			+ "href='css/blueprint/ie.css' "
+			+ "type='text/css' media='screen, projection'>"
+			+ "<![endif]-->"));
+	}
+	
+	public Html bp_container_start()
+	{
+	    return div_start(new Attr("class", "container"));
+	}
+	
+	public Html bp_container_end()
+	{
+	    return div_end();
+	}
+	
+	public Html bp_container(params Html[] ha)
+	{
+	    return v(bp_container_start(),
+		     ha,
+		     bp_container_end());
+	}
+	
+	public Html bp_span_start(int span, bool last)
+	{
+	    return div_start(new Attr("class",
+				      wv.fmt("span-{0}{1}", span,
+					     last ? " last" : "")));
+	}
+	
+	public Html bp_span_end()
+	{
+	    return div_end();
+	}
+	
+	public Html bp_span(int span, bool last, params Html[] ha)
+	{
+	    if (ha.Length > 0)
+		return v(bp_span_start(span, last),
+			 ha,
+			 bp_span_end());
+	    else
+		return v(bp_span_start(span, last),
+			 v("&nbsp;"),
+			 bp_span_end());
 	}
     }
 }

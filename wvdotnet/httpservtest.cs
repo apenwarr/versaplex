@@ -2,14 +2,13 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using Wv;
-using Wv.HttpServer;
 
 class HttpServTest
 {
     static void do_request(WvHttpRequest req, Stream s)
     {
-	WvLog log = new WvLog("do_request", WvLog.L.Info);
-	log.print("Handling...");
+	WvLog log = new WvLog("do_request");
+	log.print("Handling...\n");
 	foreach (KeyValuePair<string,string> p in req.headers)
 	    log.print("Header: '{0}' = '{1}'", p.Key, p.Value);
 	
@@ -27,7 +26,6 @@ class HttpServTest
     public static void Main()
     {
 	WvHttpServer serv = new WvHttpServer(8001, do_request);
-
 	while (true)
 	    serv.runonce();
     }

@@ -2,10 +2,78 @@ using System;
 using System.IO;
 using System.Net.Sockets;
 using System.Collections.Generic;
+using System.Data;
+using System.Web;
 using Wv;
+using Wv.Extensions;
 
-namespace Wv.HttpServer
+namespace Wv
 {
+    public class WvHttpSession : Dictionary<string,string>
+    {
+	WvLog log = new WvLog("session");
+	WvDbi dbi;
+	string _sessid;
+	public string sessid { get { return _sessid; } }
+	
+	public WvHttpSession(WvDbi dbi, string sessid)
+	{
+	    this.dbi = dbi;
+	    this._sessid = sessid;
+	    load();
+	}
+	
+        public WvHttpSession(WvDbi dbi)
+	{
+	    this.dbi = dbi;
+	    this._sessid = new_sessid();
+	    dbi.execute("insert into Session (ixSession, dtSaved, bData) "
+			+ "values (?, ?, ?) ", sessid, DateTime.Now, "");
+	}
+	
+	static string new_sessid()
+	{
+	    return wv.randombytes(20).ToHex();
+	}
+	
+	void load()
+	{
+	    log.print("Loading session '{0}'\n", sessid);
+	    
+	    // There should actually be only one row
+	    foreach (IDataRecord r in 
+		     dbi.select("select dtSaved, bData from Session "
+				+ "where ixSession=? ",
+				sessid))
+	    {
+		DateTime dt = r.GetDateTime(0);
+		if (dt + TimeSpan.FromSeconds(10*60) >= DateTime.Now)
+		    wv.urlsplit(this, r.GetString(1));
+	    }
+	}
+	
+	public void save()
+	{
+	    List<string> l = new List<string>();
+	    foreach (string k in Keys)
+		l.Add(HttpUtility.UrlEncode(k)
+		      + "="
+		      + HttpUtility.UrlEncode(this[k]));
+	    string data = String.Join("&", l.ToArray());
+	    
+	    try
+	    {
+		dbi.execute("insert into Session (ixSession, dtSaved, bData) "
+			    + "values (?, ?, ?)",
+			    sessid, DateTime.Now, "");
+	    }
+	    catch { }
+	    
+	    dbi.execute("update Session set bData=?, dtSaved=? "
+			+ "where ixSession=?", data, DateTime.Now, sessid);
+	}
+    }
+
     public class WvHttpRequest
     {
 	public string request_uri;
@@ -31,6 +99,11 @@ namespace Wv.HttpServer
 	    = new Dictionary<string,string>();
 
 	public WvHttpRequest() { }
+	
+	public WvHttpRequest(string s)
+	{
+	    parse_request(wv.fmt("GET {0} HTTP/1.0", s));
+	}
 
 	public void parse_request(string s)
 	{
@@ -67,36 +140,37 @@ namespace Wv.HttpServer
 	public WvHttpServer(int port, Responder responder)
 	{
 	    this.responder = responder;
-	    log.print("World's dumbest http server initializing.");
-	    log.print("Listening on port {0}.", port);
+	    log.print("World's dumbest http server initializing. (and how!)\n");
+	    log.print("Trying port {0}.\n", port);
 	    server = new TcpListener(port);
 	    server.Start();
+	    log.print("Listening on {0}\n", server.LocalEndpoint);
 	}
 
 	public void runonce()
 	{
 	    TcpClient client = server.AcceptTcpClient();
-	    log.print("Incoming connection.");
+	    log.print("Incoming connection.\n");
 
 	    NetworkStream stream = client.GetStream();
 	    StreamReader r = new StreamReader(stream);
 
 	    WvHttpRequest req = new WvHttpRequest();
 	    string s = r.ReadLine();
-	    log.print("Got request line: '{0}'", s);
+	    log.print("Got request line: '{0}'\n", s);
 	    req.parse_request(s);
-	    log.print("Path is: '{0}'", req.request_uri);
+	    log.print("Path is: '{0}'\n", req.request_uri);
 	    do
 	    {
 		s = r.ReadLine();
-		log.print("Got header line: '{0}'", s);
+		log.print("Got header line: '{0}'\n", s);
 		req.parse_header(s);
 	    }
 	    while (s != "");
 
 	    responder(req, stream);
 
-	    log.print("Closing connection.");
+	    log.print("Closing connection.\n");
 	    client.Close();
 	}
     }

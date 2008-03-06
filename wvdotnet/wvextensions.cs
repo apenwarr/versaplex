@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Text;
 using System.IO;
 
@@ -55,6 +56,44 @@ namespace Wv.Extensions
 	public static string FromUTF8(this byte[] bytes)
 	{
 	    return Encoding.UTF8.GetString(bytes);
+	}
+	
+	public static string ToHex(this byte[] bytes)
+	{
+	    StringBuilder sb = new StringBuilder();
+	    foreach (byte b in bytes)
+		sb.Append(b.ToString("X2"));
+	    return sb.ToString();
+	}
+    }
+    
+    public static class DictExtensions
+    {
+	public static string getstr<T1,T2>(this Dictionary<T1,T2> dict,
+					   T1 key)
+	{
+	    if (dict.ContainsKey(key))
+		return dict[key].ToString();
+	    else
+		return "";
+	}
+    }
+    
+    public static class DataExtensions
+    {
+	public static IEnumerable<T2> map<T1,T2>(this IEnumerable<T1> list,
+					  Func<T1,T2> f)
+	{
+	    foreach (T1 t in list)
+		yield return f(t);
+	}
+	
+	public static string[] ToStringArray<T>(this IEnumerable<T> l)
+	{
+	    List<string> tmp = new List<string>();
+	    foreach (T t in l)
+		tmp.Add(t.ToString());
+	    return tmp.ToArray();
 	}
     }
 }
