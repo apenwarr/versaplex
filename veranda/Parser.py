@@ -17,6 +17,7 @@
 #   Indentation: I use tabs only, 4 spaces per tab.
 #------------------------------------------------------------------------------
 import time
+import sys
 #------------------------------------------------------------------------------
 class Parser:
 #------------------------------------------------------------------------------
@@ -38,60 +39,11 @@ class Parser:
 	#------------------------------	
 	def __parseColumnTypes__(self):
 	#------------------------------
-		"""Extracts the types of the columns from self.message and puts them
-		into the list self.types"""
-		# When doIgnore is set to a character, the parser will ignore
-		# all characters up to and including the given one
-		doIgnore = False
-		segmentOne = self.message[1]
-		signature = str(segmentOne.signature)
-		signature = signature[1:len(signature)-1]
+		"""Puts in as many strings into a list as there are columns"""
+		segmentZero = self.message[0]
 
-		# The signature lists what each column's type is. The following
-		# maps the signature characters to Python types.
-		types = {
-				"s":str, 	"b":bool, 	"o":object,
-				"n":int, 	"i":int, 	"x":long,
-				"q":int, 	"u":int, 	"t":long,
-				"d":float
-				}
-
-		x = -1
-		for char in signature:
-			x += 1
-			if doIgnore:
-				if char != doIgnore:
-					continue
-				else :
-					doIgnore = False
-					continue
-				
-			if char == "a":
-			# Handle the complex array stuff
-				if signature[x+1] == "(":
-				# Array type. ex: a(ss)
-					self.types.append(list)
-					doIgnore = ")"
-				elif signature[x+1] == "{":
-				# Dictionary type. ex: a{sn}
-					self.types.append(dict)
-					doIgnore = "}"
-				else :
-				# Simple array type. ex: as
-					self.types.append(list)
-					doIgnore = signature[x+1]
-				continue
-			elif char == "(":
-			# Struct. ex: (si)
-				self.types.append(tuple)
-				doIgnore = ")"
-				continue
-				
-			if char in types:
-				self.types.append(types[char])
-			else :
-				print "Column Type unknown, defaulting to string."
-				self.types.append(str) 
+		for struct in segmentZero:
+			self.types.append(str(struct[2]))
 
 	#-------------------------------	
 	def __parseColumnTitles__(self):
@@ -117,7 +69,7 @@ class Parser:
 			row = []
 			for x in range(self.numColumns()):
 				colType = self.types[x]
-				if colType == tuple:
+				if colType == "DateTime":
 					# If it's a tuple, try to convert to time format
 					row.append(str(time.strftime("%Y/%m/%d %H:%M:%S",
 									time.localtime(struct[x][0]))))
@@ -166,16 +118,16 @@ class Parser:
 		"str" or "int")"""
 		return self.types
 
-	#--------------------------------
-	def getColumnTypesAsString(self):
-	#--------------------------------
-		"""This returns a list of "str" types with the number of elements equal
-		to the number of columns in the table. This is useful for declaring a
-		gtk.TreeView where every column will display text."""
-		list = []
-		for x in range(self.numColumns()):
-			list.append(str)
-		return list
+	#---------------------------------
+	def getColumnTypesAsStrings(self):
+	#---------------------------------
+		"""Returns the same amount of strings as there are types in the 
+		self.types list. This is useful for displaying data in a table
+		with gtk.ListStore."""
+		builder = []
+		for type in self.types:
+			builder.append(str)
+		return builder
 
 	#------------------
 	def getTable(self):

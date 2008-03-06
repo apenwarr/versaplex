@@ -42,7 +42,7 @@ class MainUI:
 		"""Initialize the program & ui"""
 		# Define some instance variables
 		self.name = "Veranda" 			# App name
-		self.version = "1.0.0" 			# Version
+		self.version = "0.1.0" 			# Version
 		self.newNumbers = [] 			# for naming new tabs
 		self.database = DBusSql() 		# SQL Access driver
 		self.bottomState = False 		# False: notebookBottom closed
@@ -71,6 +71,10 @@ class MainUI:
 		self.buttonClose = self.gladeTree.get_widget("button-closetab")
 		self.entrySearch = self.gladeTree.get_widget("entry-search")
 		self.statusbar = self.gladeTree.get_widget("statusbar")
+		                 # Statusbar context ids: * "sidebar"
+						 #                        * "run query"
+						 #                        * "error"
+						 #                        * "success"
 
 		# Misc Initializations
 		hbox = gtk.HBox()
@@ -212,12 +216,12 @@ class MainUI:
 		editor.modify_font(pango.FontDescription("monospace 10"))
 
 	#---------------------------------------------
-	def makeBottomTabMenu(self, number, resulter):
+	def makeBottomTabMenu(self, label, resulter):
 	#---------------------------------------------
 		"""Returns an hbox with the title, change button, and close button
 		to be put in a tab"""
 		hbox = gtk.HBox()
-		label = gtk.Label(r"   "+str(number)+r"   ")
+		label = gtk.Label(r"   "+str(label)+r"   ")
 		hbox.pack_start(label)
 		
 		changeIcon = gtk.Image()
@@ -347,6 +351,8 @@ class MainUI:
 			result = self.database.query(query)
 			if "Error" not in result:
 				self.showOutput(editor, result)
+				statusID = self.statusbar.get_context_id("success")
+				self.statusbar.push(statusID, "Success.")
 			else:
 				statusID = self.statusbar.get_context_id("error")
 				self.statusbar.push(statusID, result)
@@ -441,9 +447,9 @@ class MainUI:
 		index = self.notebookTop.get_current_page()
 		self.notebookTop.remove_page(index)
 
-	#------------------------------------
+	#--------------------------------------
 	def changeMode(self, widget, resulter):
-	#------------------------------------
+	#--------------------------------------
 		"""After a change button is clicked, this makes the notebook tab
 	osscroll through the different view modes in a fixed pattern"""
 		pageIndex = self.notebookBottom.page_num(resulter.getCurrentView())
@@ -558,7 +564,6 @@ class DBusSql:
 	#----------------------
 		""" Runs given query over dbus """
 
-		# TODO a) report failure & success. b) catch versaplex errors
 		print "Running Query:", query
 		try:
 			result = self.versaplexI.ExecRecordset(query)
@@ -566,6 +571,8 @@ class DBusSql:
 			# the string Error will be parsed to recognize the error.
 			result = "Error: " + str(sys.exc_info()[1])
 			print result
+
+		print "Done."
 		return result
 
 mainUI=MainUI()

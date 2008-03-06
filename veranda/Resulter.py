@@ -66,8 +66,9 @@ class Resulter:
 	#---------------------------
 		"""Generates a gtk.TreeView based table"""
 		# FIXME: STUPID PANGO MARKDOWN WTH
-		self.tableViewModel = gtk.ListStore(*self.parser.
-												getColumnTypesAsString())
+		if len(self.parser.getColumnTitles()) >= 1:
+			self.tableViewModel = gtk.ListStore(*self.parser
+					                            .getColumnTypesAsStrings())
 
 		while self.iterator.hasNext():
 			item = self.iterator.getNext()
