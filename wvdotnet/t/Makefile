@@ -1,4 +1,4 @@
-include ../../monorules.mk
+include ../monorules.mk
 
 all: test
 
