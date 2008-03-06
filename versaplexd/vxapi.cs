@@ -107,17 +107,15 @@ internal static class VxDb {
         SqlConnection conn = null;
         try {
             conn = VxSqlPool.TakeConnection(connid);
+			List<object[]> rows = new List<object[]>();
+			List<byte[]> rownulls = new List<byte[]>();
 
             using (SqlCommand cmd = new SqlCommand(query, conn))
             using (SqlDataReader reader = cmd.ExecuteReader()) {
                 if (reader.FieldCount <= 0) {
-                    throw new VxBadSchemaException("No columns in record set");
+            		log.print("No columns in resulting data set.");
                 }
-
-                ProcessSchema(reader, out colinfo);
-
-                List<object[]> rows = new List<object[]>();
-                List<byte[]> rownulls = new List<byte[]>();
+               	ProcessSchema(reader, out colinfo);
 
                 while (reader.Read()) {
                     object[] row = new object[reader.FieldCount];
@@ -195,10 +193,10 @@ internal static class VxDb {
                     rownulls.Add(rownull);
                 }
 
-                data = rows.ToArray();
-                nullity = rownulls.ToArray();
-		log.print(WvLog.L.Debug4, "({0} rows)\n", data.Length);
-		wv.assert(nullity.Length == data.Length);
+				data = rows.ToArray();
+				nullity = rownulls.ToArray();
+				log.print(WvLog.L.Debug4, "({0} rows)\n", data.Length);
+				wv.assert(nullity.Length == data.Length);
             }
         } catch (SqlException e) {
             throw new VxSqlException(e.Message, e);
@@ -213,6 +211,10 @@ internal static class VxDb {
     {
         colinfo = new VxColumnInfo[reader.FieldCount];
 
+		if (reader.FieldCount <= 0) {
+			return;
+		}
+
         int i = 0;
 
         using (DataTable schema = reader.GetSchemaTable()) {
@@ -222,7 +224,7 @@ internal static class VxDb {
 			      "{0}:'{1}'  ", c.ColumnName,
 			      col[c.ColumnName]);
                 }
-		log.print(WvLog.L.Debug4, "\n\n");
+				log.print(WvLog.L.Debug4, "\n\n");
 
                 System.Type type = (System.Type)col["DataType"];
 
@@ -234,8 +236,6 @@ internal static class VxDb {
 
                 VxColumnType coltype;
 
-                // FIXME: There must be *some* way to turn this into a
-                // switch...
                 if (type == typeof(Int64)) {
                     coltype = VxColumnType.Int64;
                 } else if (type == typeof(Int32)) {
@@ -253,9 +253,6 @@ internal static class VxDb {
                 } else if (type == typeof(Byte[])) {
                     coltype = VxColumnType.Binary;
                 } else if (type == typeof(string)) {
-                    // || type == typeof(Xml)
-                    // FIXME: Maybe? But the above doesn't work... and just
-                    // testing for string does work. Heh.
                     coltype = VxColumnType.String;
                 } else if (type == typeof(DateTime)) {
                     coltype = VxColumnType.DateTime;
@@ -282,8 +279,8 @@ internal static class VxDb {
     }
 }
 
-public class VxDbInterfaceRouter : VxInterfaceRouter
-{
+public class VxDbInterfaceRouter : VxInterfaceRouter {
+
     static WvLog log = new WvLog("VxDbInterfaceRouter");
     static readonly VxDbInterfaceRouter instance;
     public static VxDbInterfaceRouter Instance {
@@ -510,12 +507,18 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         // FIXME: Add com.versabanq.versaplex.toomuchdata error
         MessageWriter writer =
                 new MessageWriter(Connection.NativeEndianness);
-        writer.Write(typeof(VxColumnInfo[]), colinfo);
-        writer.Write(typeof(Signature), VxColumnInfoToArraySignature(colinfo));
-        writer.WriteDelegatePrependSize(delegate(MessageWriter w) {
-                    WriteStructArray(w, VxColumnInfoToType(colinfo), data);
-                }, 8);
-        writer.Write(typeof(byte[][]), nullity);
+
+		writer.Write(typeof(VxColumnInfo[]), colinfo);
+		if (colinfo.Length <= 0) {
+			writer.Write(typeof(Signature), new Signature("a(i)"));
+		} else {
+			writer.Write(typeof(Signature), 
+                        VxColumnInfoToArraySignature(colinfo));
+		}
+		writer.WriteDelegatePrependSize(delegate(MessageWriter w) {
+					WriteStructArray(w, VxColumnInfoToType(colinfo), data);
+				}, 8);
+		writer.Write(typeof(byte[][]), nullity);
 
         reply = VxDbus.CreateReply(call, "a(issnny)vaay", writer);
 
