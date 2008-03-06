@@ -1,0 +1,7 @@
+*~
+*.o
+.*.d
+config.mk
+*.mdb
+*.exe
+*.dll
