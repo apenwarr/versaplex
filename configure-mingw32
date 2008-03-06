@@ -1,5 +1,5 @@
-#!/bin/sh -e
-
+#!/bin/sh -x
+set -e
 ./get-git-modules
 
 rm -f config.mk
@@ -7,4 +7,4 @@ cat >config.mk <<EOF
 	BUILD_TARGET=win32
 EOF
 
-(cd wv && ./configure-mingw32)
+(cd wv && ./configure-mingw32) || exit $?

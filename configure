@@ -1,5 +1,5 @@
-#!/bin/sh -e
-
+#!/bin/sh -x
+set -e
 ./get-git-modules
 
 rm -f config.mk
@@ -7,5 +7,5 @@ cat >config.mk <<EOF
 	BUILD_TARGET=`uname`
 EOF
 
-(cd wv && ./configure)
-(cd vxodbc && make configure && ./configure)
+(cd wv && ./configure) || exit $?
+(cd vxodbc && make configure && ./configure) || exit $?
