@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using Wv.Extensions;
@@ -51,8 +52,14 @@ namespace Wv
 	{
 	    return 0;
 	}
+	
+	public virtual int read(byte[] buf)
+	{
+	    return read(buf, 0, buf.Length);
+	}
 
-	// for convenience
+	// for convenience.  Note: always returns non-null, but the returned
+	// array size might be zero.
 	public byte[] read(int len)
 	{
 	    byte[] bytes = new byte[len];
@@ -127,6 +134,35 @@ namespace Wv
 	public void print(object o)
 	{
 	    write(o.ToUTF8());
+	}
+    }
+    
+    public class WvFile : WvStream
+    {
+	FileStream fs;
+	
+	public WvFile(string filename)
+	{
+	    fs = new FileStream(filename, FileMode.Open, FileAccess.Read);
+	}
+	
+	public override void close()
+	{
+	    fs.Close();
+	    fs.Dispose();
+	    fs = null;
+	    base.close();
+	}
+	
+	public override int read(byte[] buf, int offset, int len)
+	{
+	    return fs.Read(buf, offset, len);
+	}
+	
+	public override int write(byte[] buf, int offset, int len)
+	{
+	    fs.Write(buf, offset, len);
+	    return len;
 	}
     }
 

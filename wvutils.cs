@@ -3,8 +3,11 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Threading;
+using System.Web;
 
 namespace Wv
 {
@@ -44,11 +47,11 @@ namespace Wv
 	    assert(false);
 	}
 	
-	public static DateTime date(string s)
+	public static DateTime date(object s)
 	{
 	    try
 	    {
-		return DateTime.Parse(s);
+		return DateTime.Parse(s.ToString());
 	    }
 	    catch (FormatException)
 	    {
@@ -56,11 +59,11 @@ namespace Wv
 	    }
 	}
 	
-	public static double atod(string s)
+	public static double atod(object s)
 	{
 	    try
 	    {
-		return Double.Parse(s);
+		return Double.Parse(s.ToString());
 	    }
 	    catch (FormatException)
 	    {
@@ -68,11 +71,11 @@ namespace Wv
 	    }
 	}
 	
-	public static int atoi(string s)
+	public static int atoi(object s)
 	{
 	    try
 	    {
-		return Int32.Parse(s);
+		return Int32.Parse(s.ToString());
 	    }
 	    catch (FormatException)
 	    {
@@ -132,6 +135,57 @@ namespace Wv
 	    foreach (object o in keys)
 		a[i++] = o.ToString();
 	    return a;
+	}
+
+    	public static string urldecode(string s)
+	{
+	    return HttpUtility.UrlDecode(s);
+	}
+	
+	public static string urlencode(string s)
+	{
+	    return HttpUtility.UrlEncode(s);
+	}
+	
+	public static void urlsplit(Dictionary<string,string> d, string query)
+	{
+	    // Multiple values separated by & signs, as in URLs
+	    foreach (string ent in query.Split('&'))
+	    {
+		string[] kv = ent.Split("=".ToCharArray(), 2);
+		string k = HttpUtility.UrlDecode(kv[0]);
+		string v = 
+		    kv.Length>1 ? HttpUtility.UrlDecode(kv[1]) : "1";
+		d.Remove(k);
+		d.Add(k, v);
+	    }
+	}
+	
+	public static void cookiesplit(Dictionary<string,string> d,
+				       string query)
+	{
+	    // Multiple values separated by & signs, as in URLs
+	    foreach (string ent in query.Split(';'))
+	    {
+		string[] kv = ent.Split("=".ToCharArray(), 2);
+		string k = wv.urldecode(kv[0].Trim());
+		string v = kv.Length>1 ? wv.urldecode(kv[1]) : "1";
+		d.Remove(k);
+		d.Add(k, v);
+	    }
+	}
+	
+	static RandomNumberGenerator randserv = null;
+	public static byte[] randombytes(int num)
+	{
+	    // lazy initialization, since it might be expensive.  But we'll
+	    // keep it around to ensure "maximum randomness"
+	    if (randserv == null)
+		randserv = new RNGCryptoServiceProvider();
+	    
+	    byte[] b = new byte[num];
+	    randserv.GetBytes(b);
+	    return b;
 	}
     }
 }

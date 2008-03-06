@@ -3,18 +3,19 @@ using System.Data;
 using System.Data.Odbc;
 using System.Data.SqlClient;
 using System.Collections.Specialized;
+using System.Collections.Generic;
 using Wv;
 
-namespace Wv.Dbi
+namespace Wv
 {
-    public class Db
+    public class WvDbi
     {
 	static WvIni settings = new WvIni("wvodbc.ini");
 	IDbConnection db;
 	WvLog log = new WvLog("WvDbi");
 	bool fake_bind = false;
 	
-	public Db(string odbcstr)
+	public WvDbi(string odbcstr)
 	{
 	    string real;
 	    bool use_mssql = false;
@@ -34,12 +35,12 @@ namespace Wv.Dbi
 				  sect["user"], sect["password"]);
 		}
 		else
-		    real = wv.fmt("driver={{{0}}};server={1};database={2};"
+		    real = wv.fmt("driver={0};server={1};database={2};"
 				  + "uid={3};pwd={4};",
 				  sect["driver"], sect["server"],
 				  sect["database"],
 				  sect["user"], sect["password"]);
-		log.print("Generated ODBC string: {0}", real);
+		log.print("Generated ODBC string: {0}\n", real);
 	    }
 	    else if (String.Compare(odbcstr, 0, "dsn=", 0, 4, true) == 0)
 		real = odbcstr;
@@ -73,6 +74,7 @@ namespace Wv.Dbi
 		object[] list = new object[args.Length];
 		for (int i = 0; i < args.Length; i++)
 		{
+		    // FIXME!!!  This doesn't escape SQL strings!!
 		    if (args[i] == null)
 			list[i] = "null";
 		    else if (args[i] is int)
@@ -81,12 +83,14 @@ namespace Wv.Dbi
 			list[i] = wv.fmt("'{0}'", args[i].ToString());
 		}
 		cmd.CommandText = wv.fmt(cmd.CommandText, list);
-		log.print("fake_bind: '{0}'", cmd.CommandText);
+		log.print("fake_bind: '{0}'\n", cmd.CommandText);
 		return;
 	    }
 	    
 	    bool need_add = (cmd.Parameters.Count < args.Length);
 	    
+	    // This is the safe one, because we use normal bind() and thus
+	    // the database layer does our escaping for us.
 	    for (int i = 0; i < args.Length; i++)
 	    {
 		object a = args[i];
@@ -96,25 +100,57 @@ namespace Wv.Dbi
 		else
 		    param = (IDataParameter)cmd.Parameters[i];
 		if (a is DateTime)
+		{
 		    param.DbType = DbType.DateTime;
+		    param.Value = a;
+		}
 		else
-		    param.DbType = DbType.Int32; // I sure hope so...
-		param.Value = a;
+		{
+		    param.DbType = DbType.String; // I sure hope so...
+		    param.Value = a.ToString();
+		}
 	    }
 	    
 	    if (need_add)
 		cmd.Prepare();
 	}
 	
-	public IDataReader select(string sql, params object[] args)
+	public IEnumerable<IDataRecord> select(string sql,
+					       params object[] args)
 	{
 	    return select(prepare(sql, args.Length), args);
 	}
 	
-	public IDataReader select(IDbCommand cmd, params object[] args)
+	public IEnumerable<IDataRecord> select(IDbCommand cmd,
+					       params object[] args)
 	{
 	    bind(cmd, args);
-	    return cmd.ExecuteReader();
+	    using (IDataReader r = cmd.ExecuteReader())
+	    {
+		while (r.Read())
+		    yield return r;
+	    }
+	}
+	
+	public object[] select_onerow(string sql, params object[] args)
+	{
+	    // only iterates a single row, if it exists
+	    foreach (IDataRecord r in select(sql, args))
+	    {
+		object[] a = new object[r.FieldCount];
+		r.GetValues(a);
+		return a;
+	    }
+	    return null;
+	}
+	
+	public object select_one(string sql, params object[] args)
+	{
+	    object[] a = select_onerow(sql, args);
+	    if (a != null && a.Length > 0)
+		return a[0];
+	    else
+		return null;
 	}
 	
 	public int execute(string sql, params object[] args)
