@@ -69,6 +69,8 @@ class MainUI:
 		self.buttonRun = self.gladeTree.get_widget("button-run")
 		self.buttonNewTab = self.gladeTree.get_widget("button-newtab")
 		self.buttonClose = self.gladeTree.get_widget("button-closetab")
+		self.buttonNext = self.gladeTree.get_widget("button-nexttab")
+		self.buttonPrevious = self.gladeTree.get_widget("button-lasttab")
 		self.entrySearch = self.gladeTree.get_widget("entry-search")
 		self.statusbar = self.gladeTree.get_widget("statusbar")
 		                 # Statusbar context ids: * "sidebar"
@@ -83,7 +85,7 @@ class MainUI:
 		runImage.set_from_file("run.svg")
 		runImage.show()
 		hbox.pack_start(runImage)
-		label = gtk.Label("Run")
+		label = gtk.Label("  Run")
 		label.show()
 		hbox.pack_start(label)
 		self.buttonRun.add(hbox)
@@ -94,7 +96,7 @@ class MainUI:
 		newTabImage.set_from_file("new.svg")
 		newTabImage.show()
 		hbox.pack_start(newTabImage)
-		label = gtk.Label("New Tab")
+		label = gtk.Label("  New Tab")
 		label.show()
 		hbox.pack_start(label)
 		self.buttonNewTab.add(hbox)
@@ -105,10 +107,32 @@ class MainUI:
 		newTabImage.set_from_file("close.svg")
 		newTabImage.show()
 		hbox.pack_start(newTabImage)
-		label = gtk.Label("Close Current Tab")
+		label = gtk.Label("  Close Current Tab")
 		label.show()
 		hbox.pack_start(label)
 		self.buttonClose.add(hbox)
+
+		hbox = gtk.HBox()
+		hbox.show()
+		newTabImage = gtk.Image()
+		newTabImage.set_from_file("next.svg")
+		newTabImage.show()
+		hbox.pack_start(newTabImage)
+		label = gtk.Label("  Next Tab")
+		label.show()
+		hbox.pack_start(label)
+		self.buttonNext.add(hbox)
+
+		hbox = gtk.HBox()
+		hbox.show()
+		newTabImage = gtk.Image()
+		newTabImage.set_from_file("previous.svg")
+		newTabImage.show()
+		hbox.pack_start(newTabImage)
+		label = gtk.Label("  Previous Tab")
+		label.show()
+		hbox.pack_start(label)
+		self.buttonPrevious.add(hbox)
 
 		# Open a first tab (comes with configured editor)
 		self.newTab()
@@ -118,6 +142,8 @@ class MainUI:
 		self.buttonRun.connect("clicked", self.runQuery)
 		self.buttonNewTab.connect("clicked", self.newTab)
 		self.buttonClose.connect("clicked", self.closeCurrentTab)
+		self.buttonNext.connect("clicked", self.nextTab)
+		self.buttonPrevious.connect("clicked", self.lastTab)
 		self.entrySearch.connect("key-release-event", self.search)
 		self.exposeEventID = self.window.connect("expose-event", 
 												self.postStartInit)
@@ -127,8 +153,10 @@ class MainUI:
 							ord("r"), gtk.gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
 		self.buttonNewTab.add_accelerator("clicked", self.bindings,
 							ord("t"), gtk.gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
-		self.buttonNewTab.add_accelerator("clicked", self.bindings,
+		self.buttonNext.add_accelerator("clicked", self.bindings,
 							ord("n"), gtk.gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
+		self.buttonPrevious.add_accelerator("clicked", self.bindings,
+							ord("p"), gtk.gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
 		self.buttonClose.add_accelerator("clicked", self.bindings,
 							ord("w"), gtk.gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
 
@@ -447,6 +475,21 @@ class MainUI:
 		index = self.notebookTop.get_current_page()
 		self.notebookTop.remove_page(index)
 
+	#------------------------------------
+	def nextTab(self, widget, data=None):
+	#------------------------------------
+		"""Changes to the previous tab"""
+		index = self.notebookTop.get_current_page()
+		self.notebookTop.set_current_page((index+1) % \
+				                          self.notebookTop.get_n_pages())
+		
+	#------------------------------------
+	def lastTab(self, widget, data=None):
+	#------------------------------------
+		"""Changes to the next tab"""
+		index = self.notebookTop.get_current_page()
+		self.notebookTop.set_current_page(index-1)
+
 	#--------------------------------------
 	def changeMode(self, widget, resulter):
 	#--------------------------------------
@@ -457,8 +500,6 @@ class MainUI:
 		self.notebookBottom.remove_page(pageIndex)
 		self.notebookBottom.insert_page(resulter.getNextView(), hbox, pageIndex)
 		self.notebookBottom.set_tab_reorderable(resulter.getCurrentView(), True)
-		# FIXME why doesn't it set?
-		self.notebookBottom.set_current_page(pageIndex)
 
 	#-------------------------------------------------------------
 	def rowClicked(self, treeview, position, column, masterTable):

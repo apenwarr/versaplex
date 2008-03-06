@@ -14,7 +14,8 @@ USAGE
 KEY BINDINGS
 #-----------
 
-<Control-n>                New Tab
 <Control-t>                New Tab
 <Control-w>                Close Current Tab
+<Control-n>                Next Tab
+<Control-p>                Previous Tab
 <Control-r>                Run Current Query
