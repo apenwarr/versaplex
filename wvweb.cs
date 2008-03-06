@@ -2,11 +2,55 @@ using System;
 using System.IO;
 using System.Collections;
 using System.Collections.Specialized;
+using System.Diagnostics;
+using System.Text;
 using System.Web;
 using Wv;
 
 namespace Wv.Web
 {
+    public class CgiTraceListener : TraceListener
+    {
+	StringBuilder all = new StringBuilder();
+	
+        public CgiTraceListener() : base()
+	{
+	    Trace.Listeners.Add(this);
+	}
+	
+	public override void Write(string message)
+	{
+	    all.Append(message);
+	}
+	
+	public override void WriteLine(string message)
+	{
+	    all.Append(message + "\n");
+	}
+	
+	public string get()
+	{
+	    return all.ToString();
+	}
+	
+	public void dump(Exception e, Stream s)
+	{
+	    using (TextWriter w = new StreamWriter(s))
+	    {
+		w.Write("\n\n\n</html><pre>\n");
+		w.Write(get());
+		w.Write("\n\n");
+		if (e != null)
+		    w.Write(e.ToString());
+	    }
+	}
+	
+	public void flush()
+	{
+	    all = new StringBuilder();
+	}
+    }
+	
     public class Cgi
     {
 	public NameValueCollection cgivars = new NameValueCollection();
@@ -37,6 +81,11 @@ namespace Wv.Web
 	}
 	
 	public Cgi()
+	    : this(Environment.GetEnvironmentVariables())
+	{
+	}
+	
+	public Cgi(IDictionary env)
 	{
 	    string[] wanted = {
 		    "REQUEST_URI",
@@ -71,7 +120,7 @@ namespace Wv.Web
 		    "SERVER_ADMIN",
 	    };
 	    
-	    IDictionary env = Environment.GetEnvironmentVariables();
+	    // IDictionary env = Environment.GetEnvironmentVariables();
 	    foreach (string key in wanted)
 	    {
 		if (env.Contains(key))
@@ -113,6 +162,21 @@ namespace Wv.Web
 		    = a.Length > 1 ? HttpUtility.UrlDecode(a[1]) : "1";
 		request.Add(key, value);
 	    }
+	}
+	
+	public string hostbase()
+	{
+	    return "http://" + cgivars["HTTP_HOST"];
+	}
+	
+	public string uribase()
+	{
+	    string s = cgivars["REQUEST_URI"];
+	    int idx = s.IndexOf("?");
+	    if (idx >= 0)
+		return s.Substring(0, idx);
+	    else
+		return s;
 	}
     }
     
