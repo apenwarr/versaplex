@@ -605,6 +605,12 @@ class DBusSql:
 	#----------------------
 		""" Runs given query over dbus """
 
+		if query.lower() == "test":
+			print "Running a test..."
+			result = self.versaplexI.Test()
+			print "Done."
+			return result
+
 		print "Running Query:", query
 		try:
 			result = self.versaplexI.ExecRecordset(query)

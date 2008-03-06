@@ -16,28 +16,6 @@ internal static class VxDb {
     static WvLog log = new WvLog("VxDb", WvLog.L.Debug2);
     internal static void Test(string connid)
     {
-        log.print("Test\n");
-	ExecNoResult(connid, "select 1");
-    }
-
-    internal static void ExecNoResult(string connid, string query)
-    {
-        log.print(WvLog.L.Debug3, "ExecNoResult {0}\n", query);
-
-        SqlConnection conn = null;
-        try {
-            conn = VxSqlPool.TakeConnection(connid);
-
-            using (SqlCommand cmd = conn.CreateCommand()) {
-                cmd.CommandText = query;
-                cmd.ExecuteNonQuery();
-            }
-        } catch (SqlException e) {
-            throw new VxSqlException(e.Message, e);
-        } finally {
-            if (conn != null)
-                VxSqlPool.ReleaseConnection(conn);
-        }
     }
 
     internal static void ExecScalar(string connid, string query, 
@@ -294,7 +272,6 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
     private VxDbInterfaceRouter() : base("com.versabanq.versaplex.db")
     {
         methods.Add("Test", CallTest);
-        methods.Add("ExecNoResult", CallExecNoResult);
         methods.Add("ExecScalar", CallExecScalar);
         methods.Add("ExecRecordset", CallExecRecordset);
     }
@@ -383,45 +360,24 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
             return;
         }
 
-        VxDb.Test(clientid);
-        reply = VxDbus.CreateReply(call);
-    }
+        VxColumnInfo[] colinfo;
+        object[][] data;
+        byte[][] nullity;
+        VxDb.ExecRecordset(clientid, "select 'Works! :D'", 
+            out colinfo, out data, out nullity);
 
-    private static void CallExecNoResult(Message call, out Message reply)
-    {
-        if (call.Signature.ToString() != "s") {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.UnknownMethod",
-                    String.Format(
-                        "No overload of ExecNoResult has signature '{0}'",
-                        call.Signature), call);
-            return;
-        }
+        // FIXME: Add com.versabanq.versaplex.toomuchdata error
+        MessageWriter writer =
+                new MessageWriter(Connection.NativeEndianness);
 
-        if (call.Body == null) {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.InvalidSignature",
-                    "Signature provided but no body received", call);
-            return;
-        }
+		writer.Write(typeof(VxColumnInfo[]), colinfo);
+		writer.Write(typeof(Signature), VxColumnInfoToArraySignature(colinfo));
+		writer.WriteDelegatePrependSize(delegate(MessageWriter w) {
+					WriteStructArray(w, VxColumnInfoToType(colinfo), data);
+				}, 8);
+		writer.Write(typeof(byte[][]), nullity);
 
-        string clientid = GetClientId(call);
-        if (clientid == null)
-        {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.Failed",
-                    "Could not identify the client", call);
-            return;
-        }
-
-        MessageReader reader = new MessageReader(call);
-
-        object query;
-        reader.GetValue(typeof(string), out query);
-
-        VxDb.ExecNoResult(clientid, (string)query);
-
-        reply = VxDbus.CreateReply(call);
+        reply = VxDbus.CreateReply(call, "a(issnny)vaay", writer);
     }
 
     private static void CallExecScalar(Message call, out Message reply)
