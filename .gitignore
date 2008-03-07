@@ -5,3 +5,6 @@ config.mk
 *.mdb
 *.exe
 *.dll
+*.swp
+*.pyc
+*.vim

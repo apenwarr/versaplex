@@ -159,6 +159,8 @@ class MainUI:
 							ord("p"), gtk.gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
 		self.buttonClose.add_accelerator("clicked", self.bindings,
 							ord("w"), gtk.gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
+		self.buttonClose.add_accelerator("clicked", self.bindings,
+							ord("c"), gtk.gdk.CONTROL_MASK, gtk.ACCEL_VISIBLE)
 
 		# Show things
 		self.window.show()
@@ -187,6 +189,8 @@ class MainUI:
 		for item in toList:
 			result = self.database.query(self.listAll+" "+item)
 			if "Error" not in result:
+				statusID = self.statusbar.get_context_id("success")
+				self.statusbar.push(statusID, "Success.")
 				parser = Parser(result)
 				table = parser.getTable()[:] #the [:] makes a clone
 				table.insert(0, [item])
@@ -374,7 +378,7 @@ class MainUI:
 									buffer.get_end_iter(), False)
 
 			contextID = self.statusbar.get_context_id("run query")
-			self.statusbar.push(contextID, "Running query: "+query)
+			self.statusbar.push(contextID, "Ran query: "+query)
 
 			result = self.database.query(query)
 			if "Error" not in result:
@@ -526,7 +530,7 @@ class MainUI:
 			query = "select top 100 * from [%s]" % name
 
 			contextID = self.statusbar.get_context_id("run query")
-			self.statusbar.push(contextID, "Running query: "+query)
+			self.statusbar.push(contextID, "Ran query: "+query)
 
 			result = self.database.query(query)
 
@@ -534,6 +538,8 @@ class MainUI:
 				editor = self.newTab(None, name)
 				buffer = editor.get_buffer()
 				buffer.set_text(query)
+				statusID = self.statusbar.get_context_id("success")
+				self.statusbar.push(statusID, "Success.")
 
 				self.showOutput(editor, result)
 			else:
@@ -544,7 +550,7 @@ class MainUI:
 			query = self.getObject + " " + type + " " + name
 
 			contextID = self.statusbar.get_context_id("run query")
-			self.statusbar.push(contextID, "Running query: "+query)
+			self.statusbar.push(contextID, "Ran query: "+query)
 
 			result = self.database.query(query)
 
@@ -552,6 +558,9 @@ class MainUI:
 				statusID = self.statusbar.get_context_id("error")
 				self.statusbar.push(statusID, result)
 				return
+			else:
+				statusID = self.statusbar.get_context_id("success")
+				self.statusbar.push(statusID, "Success.")
 
 			parser = Parser(result)
 			data = parser.getTable()
@@ -605,13 +614,13 @@ class DBusSql:
 	#----------------------
 		""" Runs given query over dbus """
 
-		if query.lower() == "test":
+		if query.lower().strip() == "test":
 			print "Running a test..."
 			result = self.versaplexI.Test()
 			print "Done."
 			return result
 
-		print "Running Query:", query
+		print "Ran Query:", query
 		try:
 			result = self.versaplexI.ExecRecordset(query)
 		except dbus.exceptions.DBusException:

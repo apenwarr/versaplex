@@ -14,9 +14,6 @@ namespace versabanq.Versaplex.Dbus.Db {
 
 internal static class VxDb {
     static WvLog log = new WvLog("VxDb", WvLog.L.Debug2);
-    internal static void Test(string connid)
-    {
-    }
 
     internal static void ExecScalar(string connid, string query, 
         out object result)
