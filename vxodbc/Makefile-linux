@@ -32,6 +32,8 @@ wvdbusd.so: wvdbusd.o
  		-Wl,-z,defs,--version-script=wvdbusd.link \
 		$(LIBS)
 
+$(OBJS): configure config.h 
+
 vxodbc.so: $(OBJS)
 	@echo Linking $@...
 	@$(CXX) -shared -o $@ \

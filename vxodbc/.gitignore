@@ -8,3 +8,5 @@ libtool
 stamp-h1
 *.so
 linker-test
+*.a
+*.map

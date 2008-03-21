@@ -44,8 +44,6 @@ distclean: clean
 	rm -f $(CONFIGUREFILES)
 	rm -rf autom4te.cache
 
-$(OBJS): configure config.h 
-
 clean:
 	rm -f *.o *.so *~ *.res *.dll *.a .*.d *.d 
 	$(MAKE) -C t $@
