@@ -204,9 +204,9 @@ typedef double SDOUBLE;
 
 /* Driver stuff */
 
-#define DRIVERNAME				"Versabanq PLEXUS ODBC"
+#define DRIVERNAME				"Versaplex ODBC"
 #define DRIVER_ODBC_VER				"03.51"
-#define DBMS_NAME				"Versabanq PLEXUS"
+#define DBMS_NAME				"Versaplex"
 
 #ifdef WIN32
 #define DRIVER_FILE_NAME			"VXODBC.DLL"

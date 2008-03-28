@@ -36,7 +36,7 @@ extern "C" {
 
 #define	ODBC_DATASOURCES	"ODBC Data Sources"
 
-#define INI_DSN				"VxDSN"
+#define INI_DSN			"" /* Initial DSN name in Create dialog */
 
 //#define INI_KDESC			"Description"	/* Data source
 //							 * description */
