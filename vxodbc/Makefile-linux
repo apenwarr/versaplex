@@ -21,7 +21,16 @@ DYNLIBS=\
 	-L$(WVSTREAMS) -lwvstreams -lwvdbus -lodbc
 LDFLAGS=-g
 
-all: vxodbc.so vxodbc-test.so test-linker
+all: wvdbusd.so vxodbc.so vxodbc-test.so test-linker
+
+wvdbusd.so: wvdbusd.o
+	@echo Linking $@...
+	@$(CXX) -shared -o $@ \
+		$(LDFLAGS) \
+		$^ \
+		-Wl,--soname,$@ \
+ 		-Wl,-z,defs,--version-script=wvdbusd.link \
+		$(LIBS)
 
 vxodbc.so: $(OBJS)
 	@echo Linking $@...

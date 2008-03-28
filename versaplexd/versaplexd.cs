@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
 using Mono.Unix;
 using NDesk.DBus;
 using org.freedesktop.DBus;
@@ -15,6 +18,9 @@ public static class VersaMain
     static WvLog log = new WvLog("Versaplex");
     static Connection.MessageHandler oldhandler = null;
     static VxMethodCallRouter msgrouter = new VxMethodCallRouter();
+    static WvDBusServer dbusserver;
+    static Thread dbusserver_thread = null;
+    static bool want_to_die = false;
     
     public static Bus conn;
 
@@ -85,48 +91,78 @@ public static class VersaMain
         oldhandler(msg);
     }
     
+    static void _StartDBusServerThread(string[] monikers)
+    {
+	using (dbusserver = new WvDBusServer())
+	{
+	    foreach (string m in monikers)
+		dbusserver.listen(m);
+	    while (!want_to_die)
+		dbusserver.runonce();
+	}
+    }
+    
+    static void StartDBusServerThread(string[] monikers)
+    {
+	if (monikers.Length == 0) return;
+	dbusserver_thread = new Thread(() => _StartDBusServerThread(monikers));
+	dbusserver_thread.Start();
+    }
+    
+    static void StopDBusServerThread()
+    {
+	want_to_die = true;
+	if (dbusserver_thread != null)
+	    dbusserver_thread.Join();
+    }
+    
     static void ShowHelp()
     {
 	Console.Error.WriteLine
-	    ("Usage: versaplexd [-v] [-b dbus-moniker]" + Environment.NewLine +
-		 "                  [-c config-file]");
+	    ("Usage: versaplexd [-v] [-b dbus-moniker]\n" +
+	     "                  [-l listen-moniker]\n" +
+	     "                  [-c config-file]");
 	Environment.Exit(1);
     }
-
+    
     public static int Main(string[] args)
     {
 	WvLog.L verbose = WvLog.L.Info;
 	string bus = null;
 	string cfgfile = "versaplexd.ini";
+	var listeners = new List<string>();
 	new OptionSet()
 	    .Add("v|verbose", delegate(string v) { ++verbose; })
 	    .Add("b=|bus=", delegate(string v) { bus = v; })
 		.Add("c=|config=", delegate(string v) { cfgfile = v; })
+	    .Add("l=|listen=", delegate(string v) { listeners.Add(v); })
 	    .Add("?|h|help", delegate(string v) { ShowHelp(); })
 	    .Parse(args);
 	
 	WvLog.maxlevel = (WvLog.L)verbose;
+	
+	StartDBusServerThread(listeners.ToArray());
 
 	msgrouter.AddInterface(VxDbInterfaceRouter.Instance);
 
 	bool cfgfound = false;
 
-	if (System.IO.File.Exists(cfgfile)) {
+	if (File.Exists(cfgfile))
 		cfgfound = true;
-	} else if (System.IO.File.Exists("/etc/versaplexd.ini")) {
-        log.print("Using /etc/versaplexd.ini for configuration." + 
-				                              Environment.NewLine);
-		cfgfound = true;
-		cfgfile = "/etc/versaplexd.ini";
+        else if (File.Exists("/etc/versaplexd.ini"))
+	{
+	    log.print("Using /etc/versaplexd.ini for configuration.\n");
+	    cfgfound = true;
+	    cfgfile = "/etc/versaplexd.ini";
 	}
 
 	if (cfgfound == true) {
 		VxSqlPool.SetIniFile(cfgfile);
 	} else {
-		throw new Exception(String.Format(
-			"Could not find config file '{0},'" +
-			Environment.NewLine + 
-			"and /etc/versaplexd.ini does not exist", cfgfile));
+		throw new Exception(wv.fmt(
+			"Could not find config file '{0}',\n" +
+			"and /etc/versaplexd.ini does not exist",
+					   cfgfile));
 	}
 	
 	if (bus == null)
@@ -173,6 +209,7 @@ public static class VersaMain
 
         VxEventLoop.Run();
 
+	StopDBusServerThread();
         log.print("Done!\n");
 	return 0;
     }

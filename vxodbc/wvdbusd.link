@@ -1,0 +1,9 @@
+{
+    global:
+	wvdbusd_start;
+	wvdbusd_stop;
+	wvdbusd_listen;
+	wvdbusd_runonce;
+    local:
+	*;
+};

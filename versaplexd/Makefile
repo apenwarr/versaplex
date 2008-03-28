@@ -3,7 +3,7 @@ include ../monorules.mk
 
 all: versaplexd
 
-PKGS += /r:System.Data
+PKGS += /unsafe /r:System.Data
 
 test: all t/test
 	$(MAKE) -C t $@
@@ -15,9 +15,14 @@ versaplexd.exe: versaplexd.cs \
     vxapi.cs vxdbus.cs vxevent.cs \
     vxeventloop.cs vxnotifysocket.cs \
     vxsocket.cs \
-    vxsqlpool.cs \
+    vxsqlpool.cs wvdbusserver.cs \
     ../dbus-sharp/src/NDesk.DBus.dll \
     ../wvdotnet/wv.dll
+
+nativecall.exe: nativecall.cs wvdbusserver.cs ../wvdotnet/wv.dll
+
+nativelib.so: nativelib.c
+	gcc -shared -Wall -o $@ $^
 
 clean:: t/clean
 	rm -f versaplexd
