@@ -103,8 +103,8 @@ class DodgyTransport : NDesk.DBus.Transports.Transport
 [TestFixture]
 public class VersaplexTest
 {
-    private const string DbusConnName = "com.versabanq.versaplex";
-    private const string DbusInterface = "com.versabanq.versaplex.db";
+    private const string DbusConnName = "vx.versaplexd";
+    private const string DbusInterface = "vx.db";
     private static readonly ObjectPath DbusObjPath;
     
     static VersaplexTest() {

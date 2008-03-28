@@ -604,10 +604,10 @@ class DBusSql:
 		# DBUS_SESSION_BUS_ADDRESS
 		self.bus = dbus.SessionBus()
 		# FIXME put most of this stuff in a config file
-		self.versaplex = self.bus.get_object("com.versabanq.versaplex",
-				                 "/com/versabanq/versaplex/db") 
+		self.versaplex = self.bus.get_object("vx.versaplexd",
+				                 "/db") 
 		self.versaplexI = dbus.Interface(self.versaplex, dbus_interface=
-				                 "com.versabanq.versaplex.db") 
+				                 "vx.db") 
 
 	#----------------------
 	def query(self, query):

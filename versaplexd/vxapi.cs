@@ -262,7 +262,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         instance = new VxDbInterfaceRouter();
     }
 
-    private VxDbInterfaceRouter() : base("com.versabanq.versaplex.db")
+    private VxDbInterfaceRouter() : base("vx.db")
     {
         methods.Add("Test", CallTest);
         methods.Add("ExecScalar", CallExecScalar);
@@ -279,7 +279,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
             log.print("SQL result: {0}\n", e.Short());
         } catch (Exception e) {
             reply = VxDbus.CreateError(
-                    "com.versabanq.versaplex.exception", 
+                    "vx.db.exception", 
                     "An internal error occurred.", call);
             log.print("{0}\n", e.ToString());
         }
@@ -359,7 +359,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         VxDb.ExecRecordset(clientid, "select 'Works! :D'", 
             out colinfo, out data, out nullity);
 
-        // FIXME: Add com.versabanq.versaplex.toomuchdata error
+        // FIXME: Add vx.db.toomuchdata error
         MessageWriter writer =
                 new MessageWriter(Connection.NativeEndianness);
 
@@ -453,7 +453,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         VxDb.ExecRecordset(clientid, (string)query, 
             out colinfo, out data, out nullity);
 
-        // FIXME: Add com.versabanq.versaplex.toomuchdata error
+        // FIXME: Add vx.db.toomuchdata error
         MessageWriter writer =
                 new MessageWriter(Connection.NativeEndianness);
 
@@ -620,88 +620,88 @@ class VxRequestException : Exception {
 
 class VxSqlException : VxRequestException {
     public VxSqlException()
-        : base("com.versabanq.versaplex.sqlerror")
+        : base("vx.db.sqlerror")
     {
     }
     
     public VxSqlException(string msg)
-        : base("com.versabanq.versaplex.sqlerror", msg)
+        : base("vx.db.sqlerror", msg)
     {
     }
 
     public VxSqlException(SerializationInfo si, StreamingContext sc)
-        : base("com.versabanq.versaplex.sqlerror", si, sc)
+        : base("vx.db.sqlerror", si, sc)
     {
     }
 
     public VxSqlException(string msg, Exception inner)
-        : base("com.versabanq.versaplex.sqlerror", msg, inner)
+        : base("vx.db.sqlerror", msg, inner)
     {
     }
 }
 
 class VxTooMuchDataException : VxRequestException {
     public VxTooMuchDataException()
-        : base("com.versabanq.versaplex.toomuchdata")
+        : base("vx.db.toomuchdata")
     {
     }
     
     public VxTooMuchDataException(string msg)
-        : base("com.versabanq.versaplex.toomuchdata", msg)
+        : base("vx.db.toomuchdata", msg)
     {
     }
 
     public VxTooMuchDataException(SerializationInfo si, StreamingContext sc)
-        : base("com.versabanq.versaplex.toomuchdata", si, sc)
+        : base("vx.db.toomuchdata", si, sc)
     {
     }
 
     public VxTooMuchDataException(string msg, Exception inner)
-        : base("com.versabanq.versaplex.toomuchdata", msg, inner)
+        : base("vx.db.toomuchdata", msg, inner)
     {
     }
 }
 
 class VxBadSchemaException : VxRequestException {
     public VxBadSchemaException()
-        : base("com.versabanq.versaplex.badschema")
+        : base("vx.db.badschema")
     {
     }
     
     public VxBadSchemaException(string msg)
-        : base("com.versabanq.versaplex.badschema", msg)
+        : base("vx.db.badschema", msg)
     {
     }
 
     public VxBadSchemaException(SerializationInfo si, StreamingContext sc)
-        : base("com.versabanq.versaplex.badschema", si, sc)
+        : base("vx.db.badschema", si, sc)
     {
     }
 
     public VxBadSchemaException(string msg, Exception inner)
-        : base("com.versabanq.versaplex.badschema", msg, inner)
+        : base("vx.db.badschema", msg, inner)
     {
     }
 }
 
 class VxConfigException : VxRequestException {
     public VxConfigException()
-        : base("com.versabanq.versaplex.configerror")
+        : base("vx.db.configerror")
     {
     }
     
     public VxConfigException(string msg)
-        : base("com.versabanq.versaplex.configerror", msg)
+        : base("vx.db.configerror", msg)
     {
     }
 
     public VxConfigException(SerializationInfo si, StreamingContext sc)
-        : base("com.versabanq.versaplex.configerror", si, sc)
+        : base("vx.db.configerror", si, sc)
     {
     }
 
     public VxConfigException(string msg, Exception inner)
-        : base("com.versabanq.versaplex.configerror", msg, inner)
+        : base("vx.db.configerror", msg, inner)
     {
     }
 }

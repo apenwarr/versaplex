@@ -180,7 +180,7 @@ public static class VersaMain
 
         conn = new Bus(trans);
 
-        string myNameReq = "com.versabanq.versaplex";
+        string myNameReq = "vx.versaplexd";
         RequestNameReply rnr = conn.RequestName(myNameReq,
                 NameFlag.DoNotQueue);
 

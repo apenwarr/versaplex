@@ -200,7 +200,7 @@ public abstract class VxInterfaceRouter {
             processor(call, out reply);
         } catch (Exception e) {
             reply = VxDbus.CreateError(
-                    "com.versabanq.versaplex.exception",
+                    "vx.db.exception",
                     e.ToString(), call);
         }
     }
