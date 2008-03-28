@@ -6,6 +6,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Web;
 
@@ -36,10 +37,15 @@ namespace Wv
 	    return shift(ref array, 0);
 	}
 	
-	public static void assert(bool b)
+	public static void assert(bool b, string msg)
 	{
 	    if (!b)
-		throw new System.ArgumentException("assertion failure");
+		throw new System.ArgumentException(msg);
+	}
+	
+	public static void assert(bool b)
+	{
+	    assert(b, "Assertion Failure");
 	}
 	
 	public static void assert()
@@ -59,11 +65,38 @@ namespace Wv
 	    }
 	}
 	
-	public static double atod(object s)
+	public static string httpdate(DateTime d)
+	{
+	    return d.ToUniversalTime()
+		.ToString("ddd, dd MMM yyyy HH:mm:ss") + " GMT";
+	}
+	
+	public static double atod(object o)
 	{
 	    try
 	    {
-		return Double.Parse(s.ToString());
+		// All this nonsense is to make it so that we can parse
+		// strings a little more liberally.  Double.Parse() would
+		// give up in case of invalid characters; we just ignore
+		// anything after that point instead, like C would do.
+		string s = o.ToString();
+		char[] ca = s.ToCharArray();
+		int i = 0;
+		if (ca.Length > 0 && ca[0] == '-')
+		    i++;
+		bool saw_dot = false;
+		for (; i < ca.Length; i++)
+		{
+		    if (ca[i] == '.')
+		    {
+			if (saw_dot)
+			    break;
+			saw_dot = true;
+		    }
+		    if ("0123456789.".IndexOf(ca[i]) < 0)
+			break;
+		}
+		return Double.Parse(s.Substring(0, i).ToString());
 	    }
 	    catch (FormatException)
 	    {
@@ -187,6 +220,32 @@ namespace Wv
 	    randserv.GetBytes(b);
 	    return b;
 	}
+
+        public static string add_breaks_to_newlines(string orig)
+        {
+            StringBuilder retval = new StringBuilder();
+            // Add a bit of space, since we expect to get a few newlines.
+            retval.EnsureCapacity(orig.Length + 32);
+            string[] split = orig.Split('\n');
+            for (int i = 0; i < split.Length; i++)
+            {
+                string s = split[i];
+                retval.Append(s);
+                // Don't do anything to the very end of the string
+                if (i != split.Length - 1)
+                {
+                    string trimmed = s.Trim();
+                    if (!trimmed.EndsWith("<br>") && !trimmed.EndsWith("<br/>")
+                        && !trimmed.EndsWith("<br />"))
+                    {
+                        retval.Append("<br/>\n");
+                    }
+                    else
+                        retval.Append("\n");
+                }
+            }
+            return retval.ToString();
+        }
     }
 }
 

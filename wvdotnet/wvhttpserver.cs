@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Net.Sockets;
+using System.Collections.Specialized;
 using System.Collections.Generic;
 using System.Data;
 using System.Web;
@@ -41,14 +42,14 @@ namespace Wv
 	    log.print("Loading session '{0}'\n", sessid);
 	    
 	    // There should actually be only one row
-	    foreach (IDataRecord r in 
+	    foreach (var r in 
 		     dbi.select("select dtSaved, bData from Session "
 				+ "where ixSession=? ",
 				sessid))
 	    {
-		DateTime dt = r.GetDateTime(0);
-		if (dt + TimeSpan.FromSeconds(10*60) >= DateTime.Now)
-		    wv.urlsplit(this, r.GetString(1));
+		DateTime dt = r[0];
+		if (dt + TimeSpan.FromSeconds(60*60) >= DateTime.Now)
+		    wv.urlsplit(this, r[1]);
 	    }
 	}
 	
@@ -74,9 +75,32 @@ namespace Wv
 	}
     }
 
-    public class WvHttpRequest
+    public interface IWvHttpRequest
     {
-	public string request_uri;
+        string request_uri { get; }
+        Web.Cgi.Method request_method { get; }
+        string path { get; }
+        string query_string { get; }
+        Dictionary<string,string> headers { get; }
+        // FIXME: This sucks, it should really be a Dictionary<string,string>
+        // to match the headers, but Wv.Cgi already has this as a
+        // NameValueCollection 
+        NameValueCollection request { get; }
+    }
+
+    public class WvHttpRequest : IWvHttpRequest
+    {
+	public string _request_uri;
+        public string request_uri 
+        { 
+            get { return _request_uri; } 
+            set { _request_uri = value; } 
+        }
+
+        public Web.Cgi.Method request_method
+        {
+            get { return Web.Cgi.Method.Get; }
+        }
 
 	public string path
 	{
@@ -95,8 +119,17 @@ namespace Wv
 	    }
 	}
 
-	public Dictionary<string,string> headers
+	public Dictionary<string,string> _headers
 	    = new Dictionary<string,string>();
+        public Dictionary<string,string> headers
+        {
+            get { return _headers; }
+        }
+
+        public NameValueCollection request
+        {
+            get { return null; }
+        }
 
 	public WvHttpRequest() { }
 	
@@ -121,12 +154,66 @@ namespace Wv
 
 	    string[] parts = s.Split(new char[] {':'}, 2,
 				     StringSplitOptions.None);
-	    headers.Remove(parts[0]);
+            string key = parts[0].ToLower();
+	    headers.Remove(key);
 	    if (parts.Length < 2)
-		headers.Add(parts[0], "");
+		headers.Add(key, "");
 	    else
-		headers.Add(parts[0], parts[1].Trim());
+		headers.Add(key, parts[1].Trim());
 	}
+    }
+
+    public class WvHttpCgiRequest : IWvHttpRequest
+    {
+        Web.Cgi cgi;
+
+        public string request_uri
+        {
+            get { return cgi.cgivars["REQUEST_URI"]; }
+        }
+
+        public Web.Cgi.Method request_method
+        {
+            get { return cgi.method; }
+        }
+
+        public string path
+        {
+            get { return cgi.script_name; }
+        }
+
+        public string query_string
+        {
+            get { return cgi.query_string; }
+        }
+
+        public Dictionary<string,string> _headers 
+            = new Dictionary<string,string>();
+        public Dictionary<string,string> headers
+        {
+            get { return _headers; }
+        }
+
+        public NameValueCollection request
+        {
+            get { return cgi.request; }
+        }
+
+        public WvHttpCgiRequest() 
+        {
+            cgi = new Web.Cgi();
+
+            foreach (string key in cgi.cgivars)
+            {
+                if (key.StartsWith("HTTP_"))
+                {
+                    // Turn "HTTP_HEADER_NAME" into "header-name"
+                    headers.Add(
+                        key.Substring(5).ToLower().Replace('_', '-'), 
+                        cgi.cgivars[key]);
+                }
+            }
+        }
     }
 
     public class WvHttpServer

@@ -33,12 +33,28 @@ public class WvTests
 	WVPASSEQ(ini["nonexistent"].Count, 0);
     }
 
+    [Test] [Category("add_breaks_to_newlines")] 
+    public void test_add_breaks()
+    {
+        WVPASSEQ(wv.add_breaks_to_newlines(""), "");
+        WVPASSEQ(wv.add_breaks_to_newlines("\n"), "<br/>\n");
+        WVPASSEQ(wv.add_breaks_to_newlines("<br/>\n"), "<br/>\n");
+        WVPASSEQ(wv.add_breaks_to_newlines("<br />\n"), "<br />\n");
+        WVPASSEQ(wv.add_breaks_to_newlines("<br></br>\n"), "<br></br><br/>\n");
+        WVPASSEQ(wv.add_breaks_to_newlines("\n\n"), "<br/>\n<br/>\n");
+        WVPASSEQ(wv.add_breaks_to_newlines("foo\n\n"), "foo<br/>\n<br/>\n");
+        WVPASSEQ(wv.add_breaks_to_newlines("\nfoo\n"), "<br/>\nfoo<br/>\n");
+        WVPASSEQ(wv.add_breaks_to_newlines("foo\nfoo\n"), "foo<br/>\nfoo<br/>\n");
+        WVPASSEQ(wv.add_breaks_to_newlines("foo\nfoo"), "foo<br/>\nfoo");
+    }
+
     public static void Main()
     {
             WvTests tests = new WvTests();
             WvTest tester = new WvTest();
             tester.RegisterTest("shift_test", tests.shift_test);
             tester.RegisterTest("ini_test", tests.ini_test);
+            tester.RegisterTest("add_breaks_to_newlines", tests.test_add_breaks);
 
             tester.Run();
 
