@@ -5,12 +5,8 @@ using System.Data.SqlClient;
 using System.Runtime.Serialization;
 using System.Collections.Generic;
 using NDesk.DBus;
-using versabanq.Versaplex.Server;
-using versabanq.Versaplex.Dbus;
 using Wv;
 using Wv.Extensions;
-
-namespace versabanq.Versaplex.Dbus.Db {
 
 internal static class VxDb {
     static WvLog log = new WvLog("VxDb", WvLog.L.Debug2);
@@ -827,6 +823,4 @@ enum VxColumnType {
     String,
     DateTime,
     Decimal
-}
-
 }

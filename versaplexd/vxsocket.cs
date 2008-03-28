@@ -1,7 +1,5 @@
 using System.Net.Sockets;
 
-namespace versabanq.Versaplex.Server {
-
 public abstract class VxSocket : Socket
 {
     public VxSocket(AddressFamily addressFamily,
@@ -25,6 +23,4 @@ public abstract class VxSocket : Socket
     {
         return false;
     }
-}
-
 }

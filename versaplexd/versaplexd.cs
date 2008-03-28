@@ -7,9 +7,6 @@ using System.Threading;
 using Mono.Unix;
 using NDesk.DBus;
 using org.freedesktop.DBus;
-using versabanq.Versaplex.Server;
-using versabanq.Versaplex.Dbus;
-using versabanq.Versaplex.Dbus.Db;
 using Wv;
 using Wv.NDesk.Options;
 

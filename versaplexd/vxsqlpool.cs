@@ -2,21 +2,17 @@ using System.Data.SqlClient;
 using System.Collections;
 using System.Collections.Generic;
 using System;
-// For the exception types
-using versabanq.Versaplex.Dbus.Db;
 using Wv;
-
-namespace versabanq.Versaplex.Server {
 
 public static class VxSqlPool
 {
     static WvLog log = new WvLog("VxSqlPool", WvLog.L.Debug2);
     private static WvIni inifile;
 
-	public static void SetIniFile(string filepath)
-	{
-		inifile = new WvIni(filepath);
-	}
+    public static void SetIniFile(string filepath)
+    {
+	inifile = new WvIni(filepath);
+    }
 
     private static SqlConnectionStringBuilder GetConnInfoFromConnId(
         string connid)
@@ -74,6 +70,4 @@ public static class VxSqlPool
     {
         c.Close();
     }
-}
-
 }

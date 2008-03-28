@@ -5,8 +5,6 @@ using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using Wv;
 
-namespace versabanq.Versaplex.Server {
-
 public class VxBufferStream : Stream
 {
     static WvLog log = new WvLog("VxBufferStream", WvLog.L.Debug4);
@@ -522,6 +520,4 @@ public class VxBufferStream : Stream
             buf_start = 0;
         }
     }
-}
-
 }

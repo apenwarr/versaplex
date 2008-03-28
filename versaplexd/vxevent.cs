@@ -1,7 +1,5 @@
 using System;
 
-namespace versabanq.Versaplex.Server {
-
 public enum EventContext {
     MainThread,
     ThreadPool
@@ -118,6 +116,4 @@ public class ArgFutureVxEvent : ArgVxEvent, IFutureVxEvent {
         IFutureVxEvent o = (IFutureVxEvent)other;
         return when.CompareTo(o.When);
     }
-}
-
 }

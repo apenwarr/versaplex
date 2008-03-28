@@ -6,8 +6,6 @@ using System.Collections;
 using System.Collections.Generic;
 using Wv;
 
-namespace versabanq.Versaplex.Server {
-
 public static class VxEventLoop {
     static WvLog log = new WvLog("VxEventLoop", WvLog.L.Debug3);
     // Public members
@@ -505,6 +503,4 @@ public static class VxEventLoop {
             }
         }
     }
-}
-
 }

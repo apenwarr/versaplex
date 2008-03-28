@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using NDesk.DBus;
 using Wv;
 
-namespace versabanq.Versaplex.Dbus {
-
 public static class VxDbus {
     static WvLog log = new WvLog("VxDbus", WvLog.L.Debug1);
     static WvLog smalldump = log.split(WvLog.L.Debug4);
@@ -206,6 +204,4 @@ public abstract class VxInterfaceRouter {
                     e.ToString(), call);
         }
     }
-}
-
 }

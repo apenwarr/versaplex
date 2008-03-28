@@ -1,8 +1,6 @@
 using System;
 using System.Net.Sockets;
 
-namespace versabanq.Versaplex.Server {
-
 public class VxNotifySocket : VxSocket
 {
     public VxNotifySocket(AddressFamily addressFamily,
@@ -36,6 +34,4 @@ public class VxNotifySocket : VxSocket
 
         throw new InvalidOperationException("No writable handler is registered");
     }
-}
-
 }
