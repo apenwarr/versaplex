@@ -2,9 +2,11 @@
 #include "wvassert.h"
 #include "wvlinkerhack.h"
 
-WV_LINK_TO(WvTCPListener);
-WV_LINK_TO(WvUnixListener);
 WV_LINK_TO(WvSSLStream);
+WV_LINK_TO(WvTCPListener);
+#ifndef __WIN32
+WV_LINK_TO(WvUnixListener);
+#endif
 
 static WvDBusServer *s;
 

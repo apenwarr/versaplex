@@ -34,10 +34,22 @@ OBJS+=\
 	vxodbc.def
 
 
-all: vxodbc.dll	
+all: wvdbusd.dll vxodbc.dll	
 
 %.res.o: %.rc
 	$(WINDRES) $< $@
+
+wvdbusd.dll: wvdbusd.o wvdbusd.def
+	@echo Linking $@...
+	@$(CXX) \
+		-o $@ \
+		-shared \
+		$(LDFLAGS) \
+		$^ \
+		-Wl,--out-implib,wvdbusd.a \
+		-Wl,-Map,wvdbusd.map \
+		$(LIBS) \
+		2>&1 | grep -v '^Warning: resolving .* by linking to' >&2
 
 vxodbc.dll: $(OBJS)
 	@echo Linking $@...
