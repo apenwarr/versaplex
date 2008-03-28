@@ -101,6 +101,7 @@ namespace Wv.Web
 		    "SCRIPT_FILENAME",
 		    "DOCUMENT_ROOT",
 		    
+		    "HTTP_COOKIE",
 		    "HTTP_USER_AGENT", 
 		    "HTTP_REFERER",
 		    "HTTP_CACHE_CONTROL",
@@ -109,6 +110,7 @@ namespace Wv.Web
 		    "HTTP_ACCEPT_LANGUAGE",
 		    "HTTP_ACCEPT_ENCODING",
 		    "HTTP_ACCEPT_CHARSET",
+                    "HTTP_X_REQUESTED_WITH", 
 		    
 		    "REMOTE_ADDR",
 		    "REMOTE_PORT",
@@ -267,6 +269,11 @@ namespace Wv.Web
 	{
 	    this.stream = stream;
 	    header("Content-Type", "text/html");
+	}
+	
+	public HtmlGen()
+	    : this(null)
+	{
 	}
 	
 	~HtmlGen()

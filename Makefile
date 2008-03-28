@@ -1,21 +1,23 @@
 include rules.mk
 include monorules.mk
 
-all: wv.dll streamtest servtest httpservtest
+all: wv.dll 
+
+tests: all streamtest servtest httpservtest htmlgentest
 
 PKGS += /r:System.Data /r:System.Web
 
 servtest.exe: PKGS += /r:System.ServiceProcess /r:System.Configuration.Install
 
-streamtest.exe servtest.exe httpservtest.exe: wv.dll
+streamtest.exe servtest.exe httpservtest.exe htmlgentest.exe: wv.dll
 
 wv.dll: assemblyinfo.cs \
-	wvutils.cs wvtest.cs wvweb.cs wvdbi.cs wvini.cs \
+	wvutils.cs wvtest.cs wvdata.cs wvdbi.cs wvini.cs \
 	wveventer.cs wvbuf.cs wvstream.cs wvlog.cs wvhexdump.cs \
-	wvextensions.cs wvhttpserver.cs \
+	wvextensions.cs wvweb.cs wvhtml.cs wvhttpserver.cs \
 	ndesk-options.cs
 
-test: all t/test
+test: tests t/test
 
 clean:: t/clean
-	rm -f *.pass servtest streamtest httpservtest
+	rm -f *.pass servtest streamtest httpservtest htmlgentest

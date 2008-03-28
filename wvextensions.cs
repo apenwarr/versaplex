@@ -1,8 +1,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Text;
+using System.Data;
 using System.IO;
+using System.Text;
 
 namespace Wv.Extensions
 {
@@ -77,6 +78,12 @@ namespace Wv.Extensions
 	    else
 		return "";
 	}
+	
+	public static bool has<T1,T2>(this Dictionary<T1,T2> dict,
+					   T1 key)
+	{
+	    return dict.ContainsKey(key);
+	}
     }
     
     public static class DataExtensions
@@ -94,6 +101,45 @@ namespace Wv.Extensions
 	    foreach (T t in l)
 		tmp.Add(t.ToString());
 	    return tmp.ToArray();
+	}
+	
+	public static T only<T>(this IEnumerable<T> l)
+	    where T: class
+	{
+	    foreach (T t in l)
+		return t;
+	    return (T)null;
+	}
+	
+	public static int atoi(this object o)
+	{
+	    return wv.atoi(o);
+	}
+
+	public static double atod(this object o)
+	{
+	    return wv.atod(o);
+	}
+	
+	public static WvAutoCast[] ToWvAutoCasts(this IDataRecord r)
+	{
+	    int max = r.FieldCount;
+	    
+	    object[] oa = new object[max];
+	    r.GetValues(oa);
+	    
+	    WvAutoCast[] a = new WvAutoCast[max];
+	    for (int i = 0; i < max; i++)
+		a[i] = new WvAutoCast(oa[i]);
+	    
+	    return a;
+	}
+
+	public static IEnumerable<WvAutoCast[]>
+	    ToWvAutoReader(this IDataReader e)
+	{
+	    while (e.Read())
+		yield return e.ToWvAutoCasts();
 	}
     }
 }

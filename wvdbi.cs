@@ -4,11 +4,13 @@ using System.Data.Odbc;
 using System.Data.SqlClient;
 using System.Collections.Specialized;
 using System.Collections.Generic;
+using System.Linq;
 using Wv;
+using Wv.Extensions;
 
 namespace Wv
 {
-    public class WvDbi
+    public class WvDbi: IDisposable
     {
 	static WvIni settings = new WvIni("wvodbc.ini");
 	IDbConnection db;
@@ -65,6 +67,13 @@ namespace Wv
 	    return cmd;
 	}
 	
+	// Implement IDisposable.
+	public void Dispose() 
+	{
+	    db.Dispose();
+	    GC.SuppressFinalize(this); 
+	}
+	
 	// FIXME: if fake_bind, this only works the first time for a given
 	// IDBCommand object!  Don't try to recycle them.
 	void bind(IDbCommand cmd, params object[] args)
@@ -115,42 +124,34 @@ namespace Wv
 		cmd.Prepare();
 	}
 	
-	public IEnumerable<IDataRecord> select(string sql,
+	public IEnumerable<WvAutoCast[]> select(string sql,
 					       params object[] args)
 	{
 	    return select(prepare(sql, args.Length), args);
 	}
 	
-	public IEnumerable<IDataRecord> select(IDbCommand cmd,
-					       params object[] args)
+	public IEnumerable<WvAutoCast[]> select(IDbCommand cmd,
+						params object[] args)
 	{
 	    bind(cmd, args);
-	    using (IDataReader r = cmd.ExecuteReader())
-	    {
-		while (r.Read())
-		    yield return r;
-	    }
+	    return cmd.ExecuteReader().ToWvAutoReader();
 	}
 	
-	public object[] select_onerow(string sql, params object[] args)
+	public WvAutoCast[] select_onerow(string sql, params object[] args)
 	{
 	    // only iterates a single row, if it exists
-	    foreach (IDataRecord r in select(sql, args))
-	    {
-		object[] a = new object[r.FieldCount];
-		r.GetValues(a);
-		return a;
-	    }
+	    foreach (WvAutoCast[] r in select(sql, args))
+		return r; // only return the first one
 	    return null;
 	}
 	
-	public object select_one(string sql, params object[] args)
+	public WvAutoCast select_one(string sql, params object[] args)
 	{
-	    object[] a = select_onerow(sql, args);
+	    var a = select_onerow(sql, args);
 	    if (a != null && a.Length > 0)
 		return a[0];
 	    else
-		return null;
+		return WvAutoCast._null;
 	}
 	
 	public int execute(string sql, params object[] args)
