@@ -392,7 +392,7 @@ BOOL CALLBACK dconn_FDriverConnectProc(HWND hdlg, UINT wMsg,
 	ci = (ConnInfo *) lParam;
 
 	/* Change the caption for the setup dialog */
-	SetWindowText(hdlg, "Versabanq PLEXUS Connection");
+	SetWindowText(hdlg, "Versaplex Connection");
 
 	/* Hide the DSN and description fields */
 	ShowWindow(GetDlgItem(hdlg, IDC_DSNAMETEXT), SW_HIDE);

@@ -30,7 +30,7 @@ LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 DLG_CONFIG DIALOG DISCARDABLE  65, 43, 305, 142
 STYLE DS_MODALFRAME | DS_3DLOOK | DS_CENTER | WS_POPUP | WS_VISIBLE | 
     WS_CAPTION | WS_SYSMENU
-CAPTION "Versabanq PLEXUS ODBC Setup (" __DATE__ " " __TIME__ ")"
+CAPTION "Versaplex VxODBC Setup (" __DATE__ " " __TIME__ ")"
 FONT 8, "MS Sans Serif"
 BEGIN
     RTEXT           "&Data Source",IDC_DSNAMETEXT,3,25,50,12,NOT WS_GROUP
@@ -69,16 +69,16 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "Comments", "Versabanq PLEXUS ODBC driver\0"
+            VALUE "Comments", "Versaplex ODBC driver\0"
             VALUE "CompanyName", "Versabanq Innovations Inc.\0"
-            VALUE "FileDescription", "Versabanq PLEXUS ODBC Driver (English)\0"
+            VALUE "FileDescription", "Versaplex ODBC Driver (English)\0"
             VALUE "FileVersion", VXODBC_RESOURCE_VERSION
             VALUE "InternalName", "vxodbc\0"
             VALUE "LegalCopyright", "Copyright \0"
             VALUE "LegalTrademarks", "Versabanq(TM) is a trademark of Versabanq Innovations Inc.  ODBC(TM) is a trademark of Microsoft Corporation.  Microsoft? is a registered trademark of Microsoft Corporation. Windows(TM) is a trademark of Microsoft Corporation.\0"
             VALUE "OriginalFilename", "vxodbc.dll\0"
             VALUE "PrivateBuild", "\0"
-            VALUE "ProductName", "Versabanq PLEXUS\0"
+            VALUE "ProductName", "Versaplex\0"
             VALUE "ProductVersion", VXODBC_RESOURCE_VERSION
             VALUE "SpecialBuild", "\0"
         END
