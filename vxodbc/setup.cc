@@ -191,7 +191,7 @@ BOOL CALLBACK ConfigDlgProc(HWND hdlg, UINT wMsg,
 	ci = &lpsetupdlg->ci;
 
 	/* Hide the driver connect message */
-	ShowWindow(GetDlgItem(hdlg, DRV_MSG_LABEL), SW_HIDE);
+	//ShowWindow(GetDlgItem(hdlg, DRV_MSG_LABEL), SW_HIDE);
 	LoadString(s_hModule, IDS_ADVANCE_SAVE, strbuf, sizeof(strbuf));
 	SetWindowText(GetDlgItem(hdlg, IDOK), strbuf);
 
@@ -213,7 +213,7 @@ BOOL CALLBACK ConfigDlgProc(HWND hdlg, UINT wMsg,
 	/* Initialize dialog fields */
 	SetDlgStuff(hdlg, ci);
 
-	if (lpsetupdlg->fDefault)
+	if (0 && lpsetupdlg->fDefault)
 	{
 	    EnableWindow(GetDlgItem(hdlg, IDC_DSNAME), FALSE);
 	    EnableWindow(GetDlgItem(hdlg, IDC_DSNAMETEXT), FALSE);
