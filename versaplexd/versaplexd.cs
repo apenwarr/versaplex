@@ -17,7 +17,7 @@ public static class VersaMain
     static VxMethodCallRouter msgrouter = new VxMethodCallRouter();
     static WvDBusServer dbusserver;
     static Thread dbusserver_thread = null;
-    static bool want_to_die = false;
+    public static bool want_to_die = false;
     
     public static Bus conn;
 

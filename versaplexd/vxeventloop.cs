@@ -27,7 +27,7 @@ public static class VxEventLoop {
             eventloop_running = true;
             keep_going = true;
 
-            while (keep_going)
+            while (keep_going && !VersaMain.want_to_die)
                 SinglePass();
 
             // One final chance to clear everything out

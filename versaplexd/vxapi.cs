@@ -265,6 +265,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
     private VxDbInterfaceRouter() : base("vx.db")
     {
         methods.Add("Test", CallTest);
+        methods.Add("Quit", CallQuit);
         methods.Add("ExecScalar", CallExecScalar);
         methods.Add("ExecRecordset", CallExecRecordset);
     }
@@ -371,6 +372,16 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
 		writer.Write(typeof(byte[][]), nullity);
 
         reply = VxDbus.CreateReply(call, "a(issnny)vaay", writer);
+    }
+
+    private static void CallQuit(Message call, out Message reply)
+    {
+	// FIXME: Check permissions here
+        MessageWriter writer =
+                new MessageWriter(Connection.NativeEndianness);
+	writer.Write(typeof(string), "Quit");
+        reply = VxDbus.CreateReply(call, "s", writer);
+	VersaMain.want_to_die = true;
     }
 
     private static void CallExecScalar(Message call, out Message reply)
