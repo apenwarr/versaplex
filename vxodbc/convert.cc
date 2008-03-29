@@ -622,10 +622,17 @@ copy_and_convert_field(StatementClass * stmt, OID field_type,
 	case VX_TYPE_DATETIME:
 	    len = 19;
 	    if (cbValueMax > len)
-		sprintf(rgbValueBindRow,
+	    {
+	        if (!std_time.hh && !std_time.mm &&!std_time.ss)
+  		    sprintf(rgbValueBindRow,
+			"%.4d-%.2d-%.2d", std_time.y,
+			std_time.m, std_time.d);
+                else
+		    sprintf(rgbValueBindRow,
 			"%.4d-%.2d-%.2d %.2d:%.2d:%.2d", std_time.y,
 			std_time.m, std_time.d, std_time.hh,
 			std_time.mm, std_time.ss);
+            }
 	    break;
 
 	case PG_TYPE_BOOL:
