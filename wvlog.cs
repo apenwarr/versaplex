@@ -61,7 +61,7 @@ namespace Wv
 	    return len;
 	}
 	
-	public void print(L level, string s)
+	public void print(L level, object s)
 	{
 	    L old = this.level;
 	    this.level = level;
@@ -71,9 +71,16 @@ namespace Wv
 	
 	public void print(L level, string fmt, params object[] args)
 	{
-	    print(level, String.Format(fmt, args));
+	    print(level, (object)String.Format(fmt, args));
 	}
 	
+	public override void print(object o)
+	{
+	    if (level > maxlevel)
+		return;
+	    base.print(o);
+	}
+
 	public WvLog split(L level)
 	{
 	    return new WvLog(header, level);

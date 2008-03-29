@@ -10,7 +10,6 @@ namespace Wv
 	public WvDelayedString(Func<string> a)
 	{
 	    this.a = a;
-	    a.ToString();
 	}
 	
 	public override string ToString()
