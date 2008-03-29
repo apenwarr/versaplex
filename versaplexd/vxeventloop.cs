@@ -222,8 +222,13 @@ public static class VxEventLoop {
 #endif
 
                 // Make the connection simplex
-                socks[0].Shutdown(SocketShutdown.Receive);
-                socks[1].Shutdown(SocketShutdown.Send);
+                // FIXME: Doing this makes the connection close itself after
+                // a couple minutes of inactivity on win32.  Perhaps it's
+                // some kind of weird garbage collector bug in MS .NET.
+                // In any case, leaving both directions open is pretty 
+                // harmless.
+                //socks[0].Shutdown(SocketShutdown.Receive);
+                //socks[1].Shutdown(SocketShutdown.Send);
             } catch (Exception e) {
                 socks[1].Close();
                 throw e;
