@@ -105,7 +105,7 @@ public class VersaplexTest: IDisposable
     private static readonly ObjectPath DbusObjPath;
     
     static VersaplexTest() {
-        DbusObjPath = new ObjectPath("/com/versabanq/versaplex/db");
+        DbusObjPath = new ObjectPath("/db");
     }
 
     // A file full of "lorem ipsum dolor" text
@@ -708,7 +708,7 @@ public class VersaplexTest: IDisposable
 	} catch (Wv.Test.WvAssertionFailure e) {
 	    throw e;
 	} catch (System.Exception e) {
-            // FIXME: This should check for a com.versabanq.versaplex.sqlerror
+            // FIXME: This should check for a vx.db.sqlerror
             // rather than any dbus error
 	    WVPASS(e is DbusError);
 	}

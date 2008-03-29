@@ -35,8 +35,8 @@ VxOdbcTester::VxOdbcTester(bool always_create_server) :
     {
         WvIStreamList::globallist.append(&vxserver_conn, false);
 
-        log("*** Registering com.versabanq.versaplex\n");
-        vxserver_conn.request_name("com.versabanq.versaplex", &name_request_cb);
+        log("*** Registering vx.versaplexd\n");
+        vxserver_conn.request_name("vx.versaplexd", &name_request_cb);
         while (num_names_registered < 1)
             WvIStreamList::globallist.runonce();
 
@@ -67,13 +67,13 @@ VxOdbcTester::~VxOdbcTester()
 
 bool VxOdbcTester::msg_received(WvDBusMsg &msg)
 {
-    if (msg.get_dest() != "com.versabanq.versaplex")
+    if (msg.get_dest() != "vx.versaplexd")
         return false;
 
-    if (msg.get_path() != "/com/versabanq/versaplex/db") 
+    if (msg.get_path() != "/db") 
         return false;
 
-    if (msg.get_interface() != "com.versabanq.versaplex.db") 
+    if (msg.get_interface() != "vx.db") 
         return false;
 
     // The message was for us

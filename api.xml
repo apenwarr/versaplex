@@ -1,6 +1,6 @@
 <!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN" "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
-<node name="/com/versabanq/versaplex/db">
-    <interface name="com.versabanq.versaplex.db">
+<node name="/db">
+    <interface name="vx.db">
         <method name="ExecNoResult">
             <arg name="query" type="s" direction="in"/>
         </method>
@@ -31,16 +31,16 @@
         </method>
 
         <!-- Any of these can throw:
-             com.versabanq.versaplex.sqlerror - SQL statement error (text
+             vx.db.sqlerror - SQL statement error (text
                      parameter will include actual error)
-             com.versabanq.versaplex.toomuchdata - Scalar or Recordset result
+             vx.db.toomuchdata - Scalar or Recordset result
                      is too large to transmit in a single d-bus message. Will
                      need to use a different API (not yet defined). text
                      parameter will indicate what the problem is
-             com.versabanq.versaplex.badschema - Schema returned by the query
+             vx.db.badschema - Schema returned by the query
                      contains features not supported (such as sql_variant).
                      text parameter will indicate what the problem is
-             com.versabanq.versaplex.exception - Method threw an exception
+             vx.db.exception - Method threw an exception
                      other than those listed above. Text parameter will contain
                      the normal .NET exception description and backtrace
         -->

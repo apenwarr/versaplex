@@ -261,8 +261,7 @@ PGAPI_DriverConnect(HDBC hdbc,
     conn->dbus = new WvDBusConn(ci->dbus_moniker);
     
     WvDBusMsg reply = conn->dbus->send_and_wait
-	(WvDBusMsg("com.versabanq.versaplex", "/com/versabanq/versaplex",
-		   "com.versabanq.versaplex.db", "Test"),
+	(WvDBusMsg("vx.versaplexd", "/db", "vx.db", "Test"),
 	 15000);
     
     if (!conn->dbus->isok())

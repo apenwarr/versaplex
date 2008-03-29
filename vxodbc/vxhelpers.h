@@ -71,10 +71,7 @@ public:
     
     void runquery(WvDBusConn &conn, const char *func, const char *query)
     {
-	WvDBusMsg msg("com.versabanq.versaplex",
-		      "/com/versabanq/versaplex/db",
-		      "com.versabanq.versaplex.db",
-		      func);
+	WvDBusMsg msg("vx.versaplexd", "/db", "vx.db", func);
 	msg.append(query);
 	WvDBusMsg reply = conn.send_and_wait(msg, 50000);
 	
