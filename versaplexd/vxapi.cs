@@ -364,13 +364,14 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         MessageWriter writer =
                 new MessageWriter(Connection.NativeEndianness);
 
-		writer.Write(typeof(VxColumnInfo[]), colinfo);
-		writer.Write(typeof(Signature), VxColumnInfoToArraySignature(colinfo));
-		writer.WriteDelegatePrependSize(delegate(MessageWriter w) {
-					WriteStructArray(w, VxColumnInfoToType(colinfo), data);
-				}, 8);
-		writer.Write(typeof(byte[][]), nullity);
-
+	WriteColInfo(writer, colinfo);
+	writer.Write(typeof(Signature), VxColumnInfoToArraySignature(colinfo));
+	writer.WriteDelegatePrependSize(delegate(MessageWriter w) 
+	    {
+		WriteStructArray(w, VxColumnInfoToType(colinfo), data);
+	    }, 8);
+	writer.Write(typeof(byte[][]), nullity);
+	
         reply = VxDbus.CreateReply(call, "a(issnny)vaay", writer);
     }
 
@@ -425,6 +426,23 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
 
         reply = VxDbus.CreateReply(call, "v", writer);
     }
+    
+    private static void _WriteColInfo(MessageWriter w,
+				      VxColumnInfo[] colinfo)
+    {
+	// a(issnny)
+	foreach (VxColumnInfo c in colinfo)
+	    c.Write(w);
+    }
+    
+    private static void WriteColInfo(MessageWriter writer, 
+				     VxColumnInfo[] colinfo)
+    {
+	writer.WriteDelegatePrependSize(delegate(MessageWriter w) 
+	    {
+		_WriteColInfo(w, colinfo);
+	    }, 8);
+    }
 
     private static void CallExecRecordset(Message call, out Message reply)
     {
@@ -468,18 +486,21 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         MessageWriter writer =
                 new MessageWriter(Connection.NativeEndianness);
 
-		writer.Write(typeof(VxColumnInfo[]), colinfo);
-		if (colinfo.Length <= 0) {
-			writer.Write(typeof(Signature), new Signature("a(i)"));
-		} else {
-			writer.Write(typeof(Signature), 
-                        VxColumnInfoToArraySignature(colinfo));
-		}
-		writer.WriteDelegatePrependSize(delegate(MessageWriter w) {
-					WriteStructArray(w, VxColumnInfoToType(colinfo), data);
-				}, 8);
-		writer.Write(typeof(byte[][]), nullity);
-
+	WriteColInfo(writer, colinfo);
+	if (colinfo.Length <= 0) {
+	    // Some clients can't parse a() (empty struct) properly, so
+	    // we'll have an empty array of (i) instead.
+	    writer.Write(typeof(Signature), new Signature("a(i)"));
+	} else {
+	    writer.Write(typeof(Signature), 
+			 VxColumnInfoToArraySignature(colinfo));
+	}
+	writer.WriteDelegatePrependSize(delegate(MessageWriter w)
+	    {
+		WriteStructArray(w, VxColumnInfoToType(colinfo), data);
+	    }, 8);
+	writer.Write(typeof(byte[][]), nullity);
+	
         reply = VxDbus.CreateReply(call, "a(issnny)vaay", writer);
 
         // For debugging
@@ -750,7 +771,7 @@ struct VxDbusDateTime {
 struct VxColumnInfo {
     private int size;
     private string colname;
-    private string coltype;
+    private VxColumnType coltype;
     private short precision;
     private short scale;
     private byte nullable;
@@ -760,16 +781,13 @@ struct VxColumnInfo {
         set { colname = value; }
     }
 
-    // XXX: Eww. But keeping this as a string makes the dbus-sharp magic do the
-    // right thing when this struct is sent through the MessageWriter
     public VxColumnType VxColumnType {
-        get { return (VxColumnType)Enum.Parse(
-                typeof(VxColumnType), coltype, true); }
-        set { coltype = value.ToString(); }
+	get { return coltype; }
+	set { coltype = value; }
     }
 
     public string ColumnType {
-        get { return coltype; }
+        get { return coltype.ToString(); }
     }
 
     public bool Nullable {
@@ -819,6 +837,18 @@ struct VxColumnInfo {
         Size = size;
         Precision = precision;
         Scale = scale;
+    }
+    
+    public void Write(MessageWriter w)
+    {
+	// (issnny)
+	w.WritePad(8); //offset for structs, right?
+	w.Write(typeof(Int32),  size);
+	w.Write(typeof(string), colname);
+	w.Write(typeof(string), coltype.ToString());
+	w.Write(typeof(Int16),  precision);
+	w.Write(typeof(Int16),  scale);
+	w.Write(typeof(Byte),   nullable);
     }
 }
 
