@@ -16,9 +16,6 @@ using NDesk.DBus;
 // Several mono bugs worked around in this test fixture are filed as mono bug
 // #81940
 
-namespace Versaplex.Test
-{
-
 // Versaplex now needs DBus clients to provide their Unix UID to the bus.
 // FIXME: This is mostly duplicated from Main.cs, as it's a bit tricky to share
 // classes between Versaplex and the tests.
@@ -101,7 +98,7 @@ class DodgyTransport : NDesk.DBus.Transports.Transport
 }
 
 [TestFixture]
-public class VersaplexTest
+public class VersaplexTest: IDisposable
 {
     private const string DbusConnName = "vx.versaplexd";
     private const string DbusInterface = "vx.db";
@@ -123,6 +120,70 @@ public class VersaplexTest
     SqlConnection con;
     SqlCommand cmd;
     Bus bus;
+
+    public VersaplexTest()
+    {
+        // Places to look for the config file.
+        string [] searchfiles = 
+        { 
+            "versaplexd.ini", 
+            Path.Combine("..", "versaplexd.ini") 
+        };
+
+        string cfgfile = null;
+        foreach (string searchfile in searchfiles)
+            if (File.Exists(searchfile))
+                cfgfile = searchfile;
+
+        if (cfgfile == null)
+            throw new Exception("Cannot locate versaplexd.ini.");
+
+        WvIni cfg = new WvIni(cfgfile);
+            
+        string uname = Mono.Unix.UnixUserInfo.GetRealUser().UserName;
+        string dbname = cfg["User Map"][uname];
+	if (dbname == null)
+	    dbname = cfg["User Map"]["*"];
+        if (dbname == null)
+            throw new Exception(String.Format(
+                "User '{0}' (and '*') missing from config.", uname));
+
+        string cfgval = cfg["Connections"][dbname];
+        if (cfgval == null)
+            throw new Exception(String.Format(
+                "Connection string for '{0}' missing from config.", dbname));
+
+        string mssql_moniker = "mssql:";
+        if (cfgval.IndexOf(mssql_moniker) == 0)
+            con = new SqlConnection(cfgval.Substring(mssql_moniker.Length));
+        else
+            throw new Exception(String.Format(
+                "Malformed connection string '{0}'.", cfgval));
+
+	WVASSERT(Connect(con));
+
+	cmd = con.CreateCommand();
+
+        if (Address.Session == null)
+            throw new Exception ("DBUS_SESSION_BUS_ADDRESS not set");
+        AddressEntry aent = AddressEntry.Parse(Address.Session);
+        DodgyTransport trans = new DodgyTransport();
+        trans.Open(aent);
+        bus = new Bus(trans);
+    }
+
+    public void Dispose()
+    {
+        bus = null;
+
+	if (cmd != null)
+	    cmd.Dispose();
+	cmd = null;
+
+	if (con != null)
+	    con.Dispose();
+	con = null;
+    }
 
     bool Connect(SqlConnection connection)
     {
@@ -602,72 +663,6 @@ public class VersaplexTest
 
             return -1;
         }
-    }
-
-    [SetUp]
-    public void init()
-    {
-        // Places to look for the config file.
-        string [] searchfiles = 
-        { 
-            "versaplexd.ini", 
-            Path.Combine("..", "versaplexd.ini") 
-        };
-
-        string cfgfile = null;
-        foreach (string searchfile in searchfiles)
-            if (File.Exists(searchfile))
-                cfgfile = searchfile;
-
-        if (cfgfile == null)
-            throw new Exception("Cannot locate versaplexd.ini.");
-
-        WvIni cfg = new WvIni(cfgfile);
-            
-        string uname = Mono.Unix.UnixUserInfo.GetRealUser().UserName;
-        string dbname = cfg["User Map"][uname];
-	if (dbname == null)
-	    dbname = cfg["User Map"]["*"];
-        if (dbname == null)
-            throw new Exception(String.Format(
-                "User '{0}' (and '*') missing from config.", uname));
-
-        string cfgval = cfg["Connections"][dbname];
-        if (cfgval == null)
-            throw new Exception(String.Format(
-                "Connection string for '{0}' missing from config.", dbname));
-
-        string mssql_moniker = "mssql:";
-        if (cfgval.IndexOf(mssql_moniker) == 0)
-            con = new SqlConnection(cfgval.Substring(mssql_moniker.Length));
-        else
-            throw new Exception(String.Format(
-                "Malformed connection string '{0}'.", cfgval));
-
-	WVASSERT(Connect(con));
-
-	cmd = con.CreateCommand();
-
-        if (Address.Session == null)
-            throw new Exception ("DBUS_SESSION_BUS_ADDRESS not set");
-        AddressEntry aent = AddressEntry.Parse(Address.Session);
-        DodgyTransport trans = new DodgyTransport();
-        trans.Open(aent);
-        bus = new Bus(trans);
-    }
-
-    [TearDown]
-    public void cleanup()
-    {
-        bus = null;
-
-	if (cmd != null)
-	    cmd.Dispose();
-	cmd = null;
-
-	if (con != null)
-	    con.Dispose();
-	con = null;
     }
 
     [Test, Category("Data"), Category("Sanity")]
@@ -1900,38 +1895,6 @@ public class VersaplexTest
 
     public static void Main()
     {
-        VersaplexTest tests = new VersaplexTest();
-        WvTest tester = new WvTest();
-
-        tester.RegisterTest("EmptyTable", tests.EmptyTable);
-        tester.RegisterTest("NonexistantTable", tests.NonexistantTable);
-        tester.RegisterTest("ColumnTypes", tests.ColumnTypes);
-        tester.RegisterTest("EmptyColumnName", tests.EmptyColumnName);
-        tester.RegisterTest("RowOrdering", tests.RowOrdering);
-        tester.RegisterTest("ColumnOrdering", tests.ColumnOrdering);
-        tester.RegisterTest("VerifyIntegers", tests.VerifyIntegers);
-        tester.RegisterTest("VerifyBinary", tests.VerifyBinary);
-        tester.RegisterTest("VerifyBit", tests.VerifyBit);
-        tester.RegisterTest("VerifyChar", tests.VerifyChar);
-        tester.RegisterTest("VerifyDateTime", tests.VerifyDateTime);
-        tester.RegisterTest("VerifyDecimal", tests.VerifyDecimal);
-        tester.RegisterTest("VerifyFloat", tests.VerifyFloat);
-        tester.RegisterTest("VerifyMoney", tests.VerifyMoney);
-        tester.RegisterTest("VerifyTimestamp", tests.VerifyTimestamp);
-        tester.RegisterTest("VerifyUniqueIdentifier",
-                tests.VerifyUniqueIdentifier);
-        tester.RegisterTest("VerifyVarBinaryMax", tests.VerifyVarBinaryMax);
-        tester.RegisterTest("VerifyXML", tests.VerifyXML);
-        tester.RegisterTest("Unicode", tests.Unicode);
-
-        tester.RegisterInit(tests.init);
-        tester.RegisterCleanup(tests.cleanup);
-
-        tester.Run();
-
-        Environment.Exit(tester.Failures > 0 ? 1 : 0);
+	WvTest.DoMain();
     }
 }
-
-}
-
