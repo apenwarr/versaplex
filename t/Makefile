@@ -7,7 +7,7 @@ CPPFLAGS += -I..
 
 wvtest.t.exe: wv.t.cs.E wvtest.t.cs.E ../wv.dll
 
-wv.t.exe: wv.t.cs.E wvutils.t.cs.E ../wv.dll
+wv.t.exe: wv.t.cs.E wvutils.t.cs.E wvlog.t.cs.E ../wv.dll
 
 wvhttpserver.t.exe: wv.t.cs.E wvhttpserver.t.cs.E ../wv.dll
 
