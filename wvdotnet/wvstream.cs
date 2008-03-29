@@ -123,15 +123,10 @@ namespace Wv
 	// available on streams with an outbuf.
 	public void print(string fmt, params object[] args)
 	{
-	    write(string.Format(fmt, args).ToUTF8());
+	    print((object)wv.fmt(fmt, args));
 	}
 
-	public void print(string s)
-	{
-	    write(s.ToUTF8());
-	}
-	
-	public void print(object o)
+	public virtual void print(object o)
 	{
 	    write(o.ToUTF8());
 	}
