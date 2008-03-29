@@ -1,5 +1,5 @@
 #include "wvdbusserver.h"
-#include "wvlogrcv.h"
+#include "wvlogstream.h"
 #include "wvassert.h"
 #include "wvlinkerhack.h"
 
@@ -9,20 +9,21 @@ WV_LINK_TO(WvTCPListener);
 WV_LINK_TO(WvUnixListener);
 #endif
 
-static WvLogConsole *logr;
+static WvLogStream *logr;
 static WvDBusServer *s;
 
 extern "C" void wvdbusd_start()
 {
     wvassert(!s);
-    logr = new WvLogConsole(2, WvLog::Info);
+    wverr->addRef();
+    logr = new WvLogStream(wverr, WvLog::Info);
     s = new WvDBusServer();
 }
 
 extern "C" void wvdbusd_stop()
 {
     WVRELEASE(s);
-    WVRELEASE(logr);
+    delete logr;
     s = NULL;
     logr = NULL;
 }
