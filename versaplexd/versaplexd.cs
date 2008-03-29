@@ -17,6 +17,7 @@ public static class VersaMain
     static VxMethodCallRouter msgrouter = new VxMethodCallRouter();
     static WvDBusServer dbusserver;
     static Thread dbusserver_thread = null;
+    static ManualResetEvent thread_ready = new ManualResetEvent(false);
     public static bool want_to_die = false;
     
     public static Bus conn;
@@ -94,6 +95,7 @@ public static class VersaMain
 	{
 	    foreach (string m in monikers)
 		dbusserver.listen(m);
+	    thread_ready.Set();
 	    while (!want_to_die)
 		dbusserver.runonce();
 	}
@@ -102,8 +104,10 @@ public static class VersaMain
     static void StartDBusServerThread(string[] monikers)
     {
 	if (monikers.Length == 0) return;
+	thread_ready.Reset();
 	dbusserver_thread = new Thread(() => _StartDBusServerThread(monikers));
 	dbusserver_thread.Start();
+	thread_ready.WaitOne();
     }
     
     static void StopDBusServerThread()
