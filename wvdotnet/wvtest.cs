@@ -1,61 +1,87 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Runtime.Serialization;
 
 namespace Wv.Test
 {
     public class WvTest
     {
-        public delegate void EmptyCallback();
+	struct TestInfo
+	{
+	    public string name;
+	    public Action cb;
+	    
+	    public TestInfo(string name, Action cb)
+	        { this.name = name; this.cb = cb; }
+	}
+        List<TestInfo> tests = new List<TestInfo>();
 
-        protected EmptyCallback inits;
-        protected List<KeyValuePair<string,EmptyCallback>> tests
-            = new List<KeyValuePair<string,EmptyCallback>>();
-        protected EmptyCallback cleanups;
+        public int failures { get; private set; }
+	
+	public WvTest()
+	{
+	    foreach (Assembly a in AppDomain.CurrentDomain.GetAssemblies())
+	    {
+		foreach (Type t in a.GetTypes())
+		{
+		    if (t.IsDefined(typeof(TestFixtureAttribute), false))
+		    {
+			foreach (MethodInfo m in t.GetMethods())
+			{
+			    if (m.IsDefined(typeof(TestAttribute), false))
+			    {
+				// The new t2, m2 are needed so that each
+				// delegate gets its own copy of the
+				// variable.
+				Type t2 = t;
+				MethodInfo m2 = m;
+				RegisterTest(wv.fmt("{0}/{1}", t.Name, m.Name),
+				     delegate() {
+					 m2.Invoke(Activator.CreateInstance(t2),
+						   null); 
+				     });
+			    }
+			}
+		    }
+		}
+	    }
+	}
 
-        protected int failures = 0;
-        public int Failures {
-            get { return failures; }
+        public void RegisterTest(string name, Action tc)
+        {
+            tests.Add(new TestInfo(name, tc));
         }
 
-        public virtual void RegisterTest(string name, EmptyCallback tc)
-        {
-            tests.Add(new KeyValuePair<string,EmptyCallback>(name, tc));
-        }
+	public static void DoMain()
+	{
+	    // Enough to run an entire test
+	    Environment.Exit(new WvTest().Run());
+	}
 
-        public virtual void RegisterInit(EmptyCallback cb)
+        public int Run()
         {
-            inits += cb;
-        }
+            Console.WriteLine("WvTest: Running all tests");
 
-        public virtual void RegisterCleanup(EmptyCallback cb)
-        {
-            cleanups += cb;
-        }
-
-        public virtual void Run()
-        {
-            System.Console.Out.WriteLine("WvTest: Running all tests");
-
-            foreach (KeyValuePair<string,EmptyCallback> test in tests) {
-                System.Console.Out.WriteLine("Testing \"{0}\":", test.Key);
+            foreach (TestInfo test in tests)
+	    {
+                Console.WriteLine("Testing \"{0}\":", test.name);
 
                 try {
-                    if (inits != null)
-                        inits();
-
-                    test.Value();
+		    test.cb();
                 } catch (WvAssertionFailure) {
                     failures++;
                 } catch (Exception e) {
-                    System.Console.Out.WriteLine("! WvTest Exception received FAIL");
-                    System.Console.Out.WriteLine(e.ToString());
+                    Console.WriteLine("! WvTest Exception received FAIL");
+                    Console.WriteLine(e.ToString());
                     failures++;
-                } finally {
-                    if (cleanups != null)
-                        cleanups();
                 }
             }
+	    
+	    Console.Out.WriteLine("Result: {0} failures.", failures);
+	    
+	    // Return a safe unix exit code
+	    return failures > 0 ? 1 : 0;
         }
 
 	public static bool booleanize(bool x)
@@ -80,10 +106,10 @@ namespace Wv.Test
 	
 	public static bool test(bool cond, string file, int line, string s)
 	{
-	    System.Console.Out.WriteLine("! {0}:{1,-5} {2,-40} {3}",
+	    Console.WriteLine("! {0}:{1,-5} {2,-40} {3}",
 					 file, line, s,
 					 cond ? "ok" : "FAIL");
-	    System.Console.Out.Flush();
+	    Console.Out.Flush();
 
             if (!cond)
 	        throw new WvAssertionFailure(String.Format("{0}:{1} {2}", file, line, s));
@@ -93,9 +119,9 @@ namespace Wv.Test
 
 	public static void test_exception(string file, int line, string s)
 	{
-	    System.Console.Out.WriteLine("! {0}:{1,-5} {2,-40} {3}",
+	    Console.WriteLine("! {0}:{1,-5} {2,-40} {3}",
 					 file, line, s, "EXCEPTION");
-            System.Console.Out.Flush();
+            Console.Out.Flush();
 	}
 	
 	public static bool test_eq(long cond1, long cond2,
@@ -216,16 +242,6 @@ namespace Wv.Test
 
         public WvAssertionFailure(string msg)
             : base(msg)
-        {
-        }
-
-        public WvAssertionFailure(SerializationInfo si, StreamingContext sc)
-            : base(si, sc)
-        {
-        }
-
-        public WvAssertionFailure(string msg, Exception inner)
-            : base(msg, inner)
         {
         }
     }

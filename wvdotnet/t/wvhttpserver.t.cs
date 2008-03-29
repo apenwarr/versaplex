@@ -43,17 +43,4 @@ public class WvHttpTests
         WVPASSEQ(t.query_string, query);
         WVPASSEQ(t.headers["user-agent"], "asdf");
     }
-
-    public static void Main()
-    {
-        WvHttpTests tests = new WvHttpTests();
-        WvTest tester = new WvTest();
-        tester.RegisterTest("http_request_tests", tests.http_request_tests);
-        tester.RegisterTest("http_cgi_request_tests", 
-            tests.http_cgi_request_tests);
-
-        tester.Run();
-
-        System.Environment.Exit(tester.Failures);
-    }
 }
