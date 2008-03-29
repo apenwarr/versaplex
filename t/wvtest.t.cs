@@ -3,6 +3,7 @@
 using System;
 using Wv.Test;
 
+[TestFixture]
 public class WvTestTest
 {
  	[Test] public void test_wvtest()
@@ -87,17 +88,4 @@ public class WvTestTest
 
 	    WVPASS(caught);
 	}
-
-        public static void Main()
-        {
-            WvTestTest tests = new WvTestTest();
-            WvTest tester = new WvTest();
-            tester.RegisterTest("test_wvtest", tests.test_wvtest);
-            tester.RegisterTest("test_dates_and_spans", tests.test_dates_and_spans);
-            tester.RegisterTest("test_exceptions", tests.test_dates_and_spans);
-
-            tester.Run();
-
-            System.Environment.Exit(tester.Failures);
-        }
 }
