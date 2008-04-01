@@ -65,7 +65,7 @@ namespace Wv.Test
 
             foreach (TestInfo test in tests)
 	    {
-                Console.WriteLine("Testing \"{0}\":", test.name);
+                Console.WriteLine("\nTesting \"{0}\":", test.name);
 
                 try {
 		    test.cb();
