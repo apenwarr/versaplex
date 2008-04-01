@@ -38,8 +38,12 @@ namespace Wv.Test
 				MethodInfo m2 = m;
 				RegisterTest(wv.fmt("{0}/{1}", t.Name, m.Name),
 				     delegate() {
-					 m2.Invoke(Activator.CreateInstance(t2),
-						   null); 
+					 try {
+					     m2.Invoke(Activator.CreateInstance(t2),
+						       null); 
+					 } catch (TargetInvocationException e) {
+					     throw e.InnerException;
+					 }
 				     });
 			    }
 			}
@@ -259,11 +263,5 @@ namespace Wv.Test
         public CategoryAttribute(string x)
         {
         }
-    }
-    public class SetUpAttribute : Attribute
-    {
-    }
-    public class TearDownAttribute : Attribute
-    {
     }
 }
