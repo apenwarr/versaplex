@@ -71,59 +71,59 @@ namespace Wv
 		.ToString("ddd, dd MMM yyyy HH:mm:ss") + " GMT";
 	}
 	
+	static string intclean(object o, bool allow_dot)
+	{
+	    if (o == null) return "0";
+	    
+	    // All this nonsense is to make it so that we can parse
+	    // strings a little more liberally.  Double.Parse() would
+	    // give up in case of invalid characters; we just ignore
+	    // anything after that point instead, like C would do.
+	    string s = o.ToString();
+	    
+	    char[] ca = s.ToCharArray();
+	    int i = 0;
+	    if (ca.Length > 0 && ca[0] == '-')
+		i++;
+	    bool saw_dot = false;
+	    for (; i < ca.Length; i++)
+	    {
+		if (ca[i] == '.')
+		{
+		    if (saw_dot || !allow_dot)
+			break;
+		    saw_dot = true;
+		}
+		if ("0123456789.".IndexOf(ca[i]) < 0)
+		    break;
+	    }
+	    
+	    return s.Substring(0, i);
+	}
+	
 	public static double atod(object o)
 	{
-	    try
-	    {
-		// All this nonsense is to make it so that we can parse
-		// strings a little more liberally.  Double.Parse() would
-		// give up in case of invalid characters; we just ignore
-		// anything after that point instead, like C would do.
-		string s = o.ToString();
-		char[] ca = s.ToCharArray();
-		int i = 0;
-		if (ca.Length > 0 && ca[0] == '-')
-		    i++;
-		bool saw_dot = false;
-		for (; i < ca.Length; i++)
-		{
-		    if (ca[i] == '.')
-		    {
-			if (saw_dot)
-			    break;
-			saw_dot = true;
-		    }
-		    if ("0123456789.".IndexOf(ca[i]) < 0)
-			break;
-		}
-		return Double.Parse(s.Substring(0, i).ToString());
-	    }
-	    catch (FormatException)
-	    {
+	    try {
+		return Double.Parse(intclean(o, true));
+	    } catch (FormatException) {
 		return 0.0;
 	    }
 	}
 	
-	public static int atoi(object s)
+	public static int atoi(object o)
 	{
-	    try
-	    {
-		return Int32.Parse(s.ToString());
-	    }
-	    catch (FormatException)
-	    {
+	    try {
+		return Int32.Parse(intclean(o, false));
+	    } catch (FormatException) {
 		return 0;
 	    }
 	}
 	
-	public static long atol(string s)
+	public static long atol(object o)
 	{
-	    try
-	    {
-		return Int64.Parse(s);
-	    }
-	    catch (FormatException)
-	    {
+	    try {
+		return Int64.Parse(intclean(o, false));
+	    } catch (FormatException) {
 		return 0;
 	    }
 	}
