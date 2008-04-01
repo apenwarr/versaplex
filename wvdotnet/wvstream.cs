@@ -6,12 +6,57 @@ using Wv.Extensions;
 
 namespace Wv
 {
-    public class WvStream
+    public interface IWvStream
+    {
+	bool isok { get; }
+	Exception err { get; }
+	EndPoint localaddr();
+	EndPoint remoteaddr();
+	
+	int read(byte[] buf, int offset, int len);
+	int write(byte[] buf, int offset, int len);
+	bool flush(int msec_timeout);
+	
+	event Action onreadable;
+	event Action onwritable;
+	event Action onclose;
+	
+	void close();
+	void noread();
+	void nowrite();
+    }
+    
+    public class WvStream : IWvStream
     {
 	public WvStream()
 	{
 	}
 
+	event Action _onreadable, _onwritable, _onclose;
+	
+	protected bool can_readable { get { return _onreadable != null; } }
+	protected bool can_writable { get { return _onwritable != null; } }
+	
+	protected void do_readable() 
+	    { if (can_readable) _onreadable(); }
+	protected void do_writable() 
+	    { if (can_writable) _onwritable(); }
+	protected void do_close()
+	    { if (_onclose != null) _onclose(); }
+	
+	public virtual event Action onreadable { 
+	    add    { _onreadable += value; }
+	    remove { _onreadable -= value; }
+	}
+	public virtual event Action onwritable { 
+	    add    { _onwritable += value; }
+	    remove { _onwritable -= value; }
+	}
+	public virtual event Action onclose { 
+	    add    { _onclose += value; }
+	    remove { _onclose -= value; }
+	}
+	
 	bool isopen = true;
 	public virtual bool isok { get { return isopen; } }
 
@@ -33,9 +78,11 @@ namespace Wv
 	{
 	    flush(-1);
 	    canread = canwrite = false;
-	    isopen = false;
-	    onreadable(null);
-	    onwritable(null);
+	    if (isopen)
+	    {
+		isopen = false;
+		if (_onclose != null) _onclose();
+	    }
 	}
 
 	public virtual EndPoint localaddr()
@@ -53,7 +100,7 @@ namespace Wv
 	    return 0;
 	}
 	
-	public virtual int read(byte[] buf)
+	public int read(byte[] buf)
 	{
 	    return read(buf, 0, buf.Length);
 	}
@@ -82,16 +129,6 @@ namespace Wv
 	public int write(byte[] buf)
 	{
 	    return write(buf, 0, buf.Length);
-	}
-
-	public virtual void onreadable(Action a)
-	{
-	    // never readable
-	}
-
-	public virtual void onwritable(Action a)
-	{
-	    // never writable
 	}
 
 	bool canread = true, canwrite = true;
@@ -134,7 +171,6 @@ namespace Wv
 	    int n = write(b);
 	    wv.assert(n == b.Length,
 		      "Don't use print() on an unbuffered WvStream!");
-		
 	}
     }
     
@@ -242,15 +278,19 @@ namespace Wv
 	    else
 		return ret;
 	}
-
-	public override void onreadable(Action a)
-	{
-	    ev.onreadable(sock, a);
+	
+	public override event Action onreadable {
+	    add { base.onreadable += value;
+		  ev.onreadable(sock, do_readable); }
+	    remove { base.onreadable -= value;
+		     if (can_readable) ev.onreadable(sock, null); }
 	}
 
-	public override void onwritable(Action a)
-	{
-	    ev.onwritable(sock, a);
+	public override event Action onwritable {
+	    add { base.onwritable += value;
+		  ev.onwritable(sock, do_writable); }
+	    remove { base.onwritable -= value;
+		     if (can_writable) ev.onwritable(sock, null); }
 	}
 
 	void tryshutdown(SocketShutdown sd)
@@ -270,6 +310,7 @@ namespace Wv
 	    base.noread();
 	    if (sock != null)
 		tryshutdown(SocketShutdown.Receive);
+	    ev.onreadable(sock, null);
 	}
 
 	public override void nowrite()
@@ -277,6 +318,7 @@ namespace Wv
 	    base.nowrite();
 	    if (sock != null)
 		tryshutdown(SocketShutdown.Send);
+	    ev.onwritable(sock, null);
 	}
 
 	public override void close()
