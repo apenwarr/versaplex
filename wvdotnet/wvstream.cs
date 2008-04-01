@@ -119,16 +119,22 @@ namespace Wv
 	    return true; // no buffer
 	}
 
-	// FIXME: these all assume the write will succeed!  Should only be
-	// available on streams with an outbuf.
+	// WARNING: assumes the write() will succeed!  Use only on WvStreams
+	// with a write buffer.
 	public void print(string fmt, params object[] args)
 	{
 	    print((object)wv.fmt(fmt, args));
 	}
 
+	// WARNING: assumes the write() will succeed!  Use only on WvStreams
+	// with a write buffer.
 	public virtual void print(object o)
 	{
-	    write(o.ToUTF8());
+	    byte[] b = o.ToUTF8();
+	    int n = write(b);
+	    wv.assert(n == b.Length,
+		      "Don't use print() on an unbuffered WvStream!");
+		
 	}
     }
     
