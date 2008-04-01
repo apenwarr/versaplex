@@ -29,7 +29,7 @@ namespace Wv
 	}
 	
 	public bool IsNull { get { return v == null; } }
-
+	
 	public static implicit operator string(WvAutoCast o)
 	{
 	    return o.ToString();
@@ -38,7 +38,7 @@ namespace Wv
 	public override string ToString()
 	{
 	    if (v == null)
-		return null;
+		return "(nil)"; // shouldn't return null since this != null
 	    else
 		return v.ToString();
 	}
