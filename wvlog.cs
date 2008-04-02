@@ -31,7 +31,7 @@ namespace Wv
 		open_header = null;
 	    }
 	    
-	    uint i;
+	    int i;
 	    while ((i = outbuf.strchr('\n')) > 0)
 	    {
 		if (open_header == null)
@@ -112,7 +112,7 @@ namespace Wv
 		return len; // pretend it's written
 	    
 	    WvBuf outbuf = new WvBuf();
-	    outbuf.put(buf, (uint)offset, (uint)len);
+	    outbuf.put(buf, offset, len);
 	    recv.writelines(wv.fmt("{0}<{1}>: ", name, levelstr(level)),
 			    outbuf);
 	    return len;

@@ -1,8 +1,5 @@
 #include "wvtest.cs.h"
-
 using System;
-using System.Collections;
-using System.Reflection;
 using Wv.Test;
 using Wv;
 

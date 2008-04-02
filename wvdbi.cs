@@ -58,6 +58,11 @@ namespace Wv
 	    db.Open();
 	}
 	
+	~WvDbi()
+	{
+	    wv.assert(false, "A WvDbi object was not Dispose()d");
+	}
+	
 	IDbCommand prepare(string sql, int nargs)
 	{
 	    IDbCommand cmd = db.CreateCommand();
