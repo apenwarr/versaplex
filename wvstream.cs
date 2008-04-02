@@ -28,9 +28,14 @@ namespace Wv
     {
 	public static IWvEventer ev = new WvEventer();
 	
-	public static void run()
+	public static void runonce()
 	{
-	    ev.run();
+	    ev.runonce();
+	}
+	
+	public static void runonce(int msec_timeout)
+	{
+	    ev.runonce(msec_timeout);
 	}
 	
 	public WvStream()
@@ -47,24 +52,56 @@ namespace Wv
 	    close();
 	}
 
+	bool is_readable = false, is_writable = false;
 	event Action _onreadable, _onwritable, _onclose;
 	
-	protected bool can_readable { get { return _onreadable != null; } }
-	protected bool can_writable { get { return _onwritable != null; } }
+	protected bool can_onreadable { get { return _onreadable != null; } }
+	protected bool can_onwritable { get { return _onwritable != null; } }
 	
 	protected void do_readable() 
-	    { if (can_readable) _onreadable(); }
+	{
+	    if (can_onreadable)
+	    {
+		is_readable = false;
+		_onreadable(); 
+	    }
+	}
+	
 	protected void do_writable() 
-	    { if (can_writable) _onwritable(); }
+	{
+	    if (can_onwritable)
+	    {
+		is_writable = false;
+		_onwritable();
+	    }
+	}
+	
 	protected void do_close()
-	    { if (_onclose != null) _onclose(); }
+	{
+	    if (_onclose != null)
+		_onclose(); 
+	}
+	
+	object pr_obj = new object();
+	protected void post_readable()
+	{
+	    is_readable = true;
+	    ev.addpending(pr_obj, do_readable);
+	}
+	
+	object pw_obj = new object();
+	protected void post_writable()
+	{
+	    is_writable = true;
+	    ev.addpending(pw_obj, do_writable);
+	}
 	
 	public virtual event Action onreadable { 
-	    add    { _onreadable += value; }
+	    add    { _onreadable += value; if (is_readable) post_readable(); }
 	    remove { _onreadable -= value; }
 	}
 	public virtual event Action onwritable { 
-	    add    { _onwritable += value; }
+	    add    { _onwritable += value; if (is_writable) post_writable(); }
 	    remove { _onwritable -= value; }
 	}
 	public virtual event Action onclose { 
@@ -73,7 +110,7 @@ namespace Wv
 	}
 	
 	bool isopen = true;
-	public virtual bool isok { get { return isopen; } }
+	public virtual bool isok { get { return isopen && err == null; } }
 
 	Exception _err;
 	public virtual Exception err {
@@ -98,6 +135,8 @@ namespace Wv
 		isopen = false;
 		if (_onclose != null) _onclose();
 	    }
+	    ev.delpending(pr_obj);
+	    ev.delpending(pw_obj);
 	    GC.SuppressFinalize(this);
 	}
 
@@ -214,8 +253,8 @@ namespace Wv
 		this.inner = inner;
 		if (hasinner)
 		{
-		    if (can_readable) this.inner.onreadable += do_readable;
-		    if (can_writable) this.inner.onwritable += do_writable;
+		    if (can_onreadable) this.inner.onreadable += do_readable;
+		    if (can_onwritable) this.inner.onwritable += do_writable;
 		    this.inner.onclose += do_close;
 		}
 	    }
@@ -260,6 +299,20 @@ namespace Wv
 		return 0; // 0 bytes written
 	}
 	
+	public override void noread()
+	{
+	    base.noread();
+	    if (hasinner)
+		inner.noread();
+	}
+
+	public override void nowrite()
+	{
+	    base.nowrite();
+	    if (hasinner)
+		inner.nowrite();
+	}
+
 	public override bool flush(int msec_timeout)
 	{
 	    if (hasinner)
@@ -273,16 +326,16 @@ namespace Wv
 	// might start listening for read when we don't have any readable
 	// handlers, resulting in it spinning forever.
 	public override event Action onreadable {
-	    add { if (!can_readable) inner.onreadable += do_readable;
-		  onreadable += value; }
-	    remove { onreadable -= value;
-		     if (!can_readable) inner.onreadable -= do_readable; }
+	    add { if (!can_onreadable) inner.onreadable += do_readable;
+		  base.onreadable += value; }
+	    remove { base.onreadable -= value;
+		     if (!can_onreadable) inner.onreadable -= do_readable; }
 	}
 	public override event Action onwritable {
-	    add { if (!can_writable) inner.onwritable += do_writable;
-		  onwritable += value; }
-	    remove { onwritable -= value;
-		     if (!can_writable) inner.onwritable -= do_writable; }
+	    add { if (!can_onwritable) inner.onwritable += do_writable;
+		  base.onwritable += value; }
+	    remove { base.onwritable -= value;
+		     if (!can_onwritable) inner.onwritable -= do_writable; }
 	}
 	
     }
@@ -301,7 +354,8 @@ namespace Wv
 	    if (inbuf.used > 0)
 	    {
 		int max = inbuf.used > len ? len : inbuf.used;
-		Array.Copy(inbuf.get(max), 0, buf, offset, len);
+		Array.Copy(inbuf.get(max), 0, buf, offset, max);
+		post_readable();
 		return max;
 	    }
 	    else
@@ -310,15 +364,17 @@ namespace Wv
 	
 	public string getline(char splitchar)
 	{
-	    while (inbuf.strchr(splitchar) <= 0)
+	    while (isok && inbuf.strchr(splitchar) <= 0)
 	    {
-		byte[] b = read(4096);
-		if (b == null)
+		byte[] b = inner.read(4096);
+		// Console.WriteLine("got {0} bytes", b.Length);
+		if (b.Length == 0)
 		    return null;
 		inbuf.put(b);
 	    }
 	    
 	    // if we get here, there's a splitchar in the buffer
+	    post_readable(); // not stalled yet!
 	    return inbuf.get(inbuf.strchr(splitchar)).FromUTF8();
 	}
     }

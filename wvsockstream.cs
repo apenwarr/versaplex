@@ -88,14 +88,14 @@ namespace Wv
 	    add { base.onreadable += value;
 		  ev.onreadable(sock, do_readable); }
 	    remove { base.onreadable -= value;
-		     if (can_readable) ev.onreadable(sock, null); }
+		     if (can_onreadable) ev.onreadable(sock, null); }
 	}
 
 	public override event Action onwritable {
 	    add { base.onwritable += value;
 		  ev.onwritable(sock, do_writable); }
 	    remove { base.onwritable -= value;
-		     if (can_writable) ev.onwritable(sock, null); }
+		     if (can_onwritable) ev.onwritable(sock, null); }
 	}
 
 	void tryshutdown(SocketShutdown sd)

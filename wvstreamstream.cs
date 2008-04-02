@@ -15,8 +15,14 @@ namespace Wv
 	    {
 		if (!inner.CanWrite)
 		    nowrite();
+		else
+		    post_writable();
 		if (!inner.CanRead)
 		    noread();
+		else
+		{
+		    lock(readlock) start_reading();
+		}
 	    }
 	}
 	
@@ -29,8 +35,41 @@ namespace Wv
 	int in_ofs = 0, in_left = 0;
 	bool got_eof = false;
 	
+	void start_reading()
+	{
+	    //Console.WriteLine("starting...");
+	    if (got_eof)
+	    {
+		//Console.WriteLine("eof close!");
+		noread();
+		nowrite();
+		return;
+	    }
+	    
+	    in_ofs = 0;
+	    in_left = 0;
+	    try {
+		inner.BeginRead(inbuf, 0, inbuf.Length,
+				delegate(IAsyncResult ar) {
+				    lock (readlock)
+				    {
+					in_ofs = 0;
+					in_left = inner.EndRead(ar);
+					//Console.WriteLine("ending... {0}", in_left);
+					if (in_left == 0)
+					    got_eof = true;
+					post_readable();
+				    }
+				},
+				null);
+	    } finally {} /* catch (Exception e) {
+		err = e;
+	    }*/
+	}
+	
 	public override int read(byte[] buf, int offset, int len)
 	{
+	    //Console.WriteLine("read() request");
 	    lock (readlock)
 	    {
 		if (in_left > 0)
@@ -39,36 +78,16 @@ namespace Wv
 		    Array.Copy(inbuf, in_ofs, buf, offset, max);
 		    in_ofs += max;
 		    in_left -= max;
+		    //Console.WriteLine("left: {0}", in_left);
+		    if (in_left > 0)
+			post_readable();
+		    else
+			start_reading();
 		    return max;
 		}
-		else // start a read for next time
+		else
 		{
-		    if (got_eof)
-		    {
-			noread();
-			nowrite();
-			return 0;
-		    }
-		    
-		    in_ofs = 0;
-		    in_left = 0;
-		    try {
-			inner.BeginRead(inbuf, 0, inbuf.Length,
-					delegate(IAsyncResult ar) {
-					    lock (readlock)
-					    {
-						wv.assert(inbuf == null);
-						in_ofs = 0;
-						in_left = inner.EndRead(ar);
-						if (in_left == 0)
-						    got_eof = true;
-					    }
-					},
-					null);
-		    } catch (Exception e) {
-			err = e;
-		    }
-		    
+		    start_reading();
 		    return 0;
 		}
 	    }
@@ -81,6 +100,7 @@ namespace Wv
 		inner.BeginWrite(buf, offset, len,
 				 delegate(IAsyncResult ar) {
 				     inner.EndWrite(ar);
+				     post_writable();
 				 },
 				 null);
 	    } catch (Exception e) {
