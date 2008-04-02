@@ -7,15 +7,22 @@ using System.Threading;
 
 public interface IWvEventer
 {
-    void run();
+    void runonce(int msec_timeout);
+    void runonce();
     void onreadable(Socket s, Action a);
     void onwritable(Socket s, Action a);
+    void addpending(Object cookie, Action a);
+    void delpending(Object cookie);
     void addtimeout(Object cookie, DateTime t, Action a);
     void deltimeout(Object cookie);
 }
 
 public class WvEventer : IWvEventer
 {
+    // CAREFUL! The 'pending' structure might be accessed from other threads!
+    Dictionary<object, Action> 
+	pending = new Dictionary<object, Action>();
+    
     Dictionary<Socket, Action> 
 	r = new Dictionary<Socket, Action>(),
         w = new Dictionary<Socket, Action>();
@@ -60,20 +67,49 @@ public class WvEventer : IWvEventer
 	if (a != null)
 	    ta.Add(cookie, new TimeAction(t, a));
     }
+    
+    // NOTE: 
+    // This is the only kind of event you can enqueue from a thread other
+    // than the one doing runonce()!
+    public void addpending(Object cookie, Action a)
+    {
+	lock(pending)
+	{
+	    pending.Remove(cookie);
+	    pending.Add(cookie, a);
+	}
+    }
+    
+    public void delpending(Object cookie)
+    {
+	lock(pending)
+	{
+	    pending.Remove(cookie);
+	}
+    }
 	
     public void deltimeout(Object cookie)
     {
 	ta.Remove(cookie);
     }
     
-    public void run()
+    public void runonce()
     {
+	runonce(-1);
+    }
+    
+    public void runonce(int msec_timeout)
+    {
+	// Console.WriteLine("Pending: {0}", pending.Count);
+	
 	IList<Socket> rlist = r.Keys.ToList();
 	IList<Socket> wlist = w.Keys.ToList();
 	IList<TimeAction> talist = ta.Values.ToList();
+	if (msec_timeout < 0)
+	    msec_timeout = 1000000;
 	TimeAction first 
 	    = new TimeAction(DateTime.Now
-			     + TimeSpan.FromMilliseconds(1000000), null);
+			     + TimeSpan.FromMilliseconds(msec_timeout), null);
 	
 	foreach (TimeAction t in talist)
 	    if (t.t < first.t)
@@ -82,6 +118,12 @@ public class WvEventer : IWvEventer
 	TimeSpan timeout = first.t - DateTime.Now;
 	if (timeout < TimeSpan.Zero)
 	    timeout = TimeSpan.Zero;
+	
+	lock(pending)
+	{
+	    if (pending.Count > 0)
+		timeout = TimeSpan.Zero;
+	}
 	
 	if (rlist.Count == 0 && wlist.Count == 0)
 	{
@@ -94,21 +136,32 @@ public class WvEventer : IWvEventer
 	{
 	    Socket.Select((IList)rlist, (IList)wlist, null,
 			  (int)timeout.TotalMilliseconds * 1000);
-	    DateTime now = DateTime.Now;
-	    foreach (Socket s in rlist)
-		r[s]();
-	    foreach (Socket s in wlist)
-		w[s]();
-	    foreach (Object cookie in ta.Keys)
+	}
+	
+	DateTime now = DateTime.Now;
+	foreach (Socket s in rlist)
+	    r[s]();
+	foreach (Socket s in wlist)
+	    w[s]();
+	foreach (Object cookie in ta.Keys)
+	{
+	    TimeAction t = ta[cookie];
+	    if (t.t <= now)
 	    {
-		TimeAction t = ta[cookie];
-		if (t.t <= now)
-		{
-		    t.a();
-		    ta.Remove(cookie);
-		}
+		t.a();
+		ta.Remove(cookie);
 	    }
 	}
+	
+	Action[] nowpending;
+	lock(pending)
+	{
+	    nowpending = pending.Values.ToArray();
+	    pending.Clear();
+	}
+	// Console.WriteLine("NowPending: {0}", nowpending.Length);
+	foreach (Action a in nowpending)
+	    a();
     }
 }
 

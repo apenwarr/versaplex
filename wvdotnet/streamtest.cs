@@ -34,7 +34,7 @@ public class FooTest
 	    s1.print("GET / HTTP/1.0\r\n\r\n");
 	    s2.print("FOO / HTTP/1.0\r\n\r\n");
 	    while (s1.isok || s2.isok)
-		WvStream.run();
+		WvStream.runonce();
 	    log.print("\n");
 	    log.print("s1 err: {0}\n", s1.err.Short());
 	    log.print("s2 err: {0}\n", s2.err.Short());
