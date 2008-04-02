@@ -7,6 +7,7 @@ using System.Threading;
 
 public interface IWvEventer
 {
+    void run();
     void onreadable(Socket s, Action a);
     void onwritable(Socket s, Action a);
     void addtimeout(Object cookie, DateTime t, Action a);

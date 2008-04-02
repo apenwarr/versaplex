@@ -1,17 +1,15 @@
 using System;
-using System.IO;
 using System.Net;
-using System.Net.Sockets;
 using Wv.Extensions;
 
 namespace Wv
 {
-    public interface IWvStream
+    public interface IWvStream: IDisposable
     {
 	bool isok { get; }
 	Exception err { get; }
-	EndPoint localaddr();
-	EndPoint remoteaddr();
+	EndPoint localaddr { get; }
+	EndPoint remoteaddr { get; }
 	
 	int read(byte[] buf, int offset, int len);
 	int write(byte[] buf, int offset, int len);
@@ -28,8 +26,25 @@ namespace Wv
     
     public class WvStream : IWvStream
     {
+	public static IWvEventer ev = new WvEventer();
+	
+	public static void run()
+	{
+	    ev.run();
+	}
+	
 	public WvStream()
 	{
+	}
+	
+	~WvStream()
+	{
+	    wv.assert(false, "A WvStream was not close()d/Dispose()d.");
+	}
+	
+	public void Dispose()
+	{
+	    close();
 	}
 
 	event Action _onreadable, _onwritable, _onclose;
@@ -61,11 +76,11 @@ namespace Wv
 	public virtual bool isok { get { return isopen; } }
 
 	Exception _err;
-	public Exception err {
+	public virtual Exception err {
 	    get {
 		return _err;
 	    }
-	    protected set {
+	    set {
 		if (_err == null) // remember the *first* error
 		{
 		    _err = value;
@@ -83,16 +98,15 @@ namespace Wv
 		isopen = false;
 		if (_onclose != null) _onclose();
 	    }
+	    GC.SuppressFinalize(this);
 	}
 
-	public virtual EndPoint localaddr()
-	{
-	    return null;
+	public virtual EndPoint localaddr {
+	    get { return null; }
 	}
 
-	public virtual EndPoint remoteaddr()
-	{
-	    return null;
+	public virtual EndPoint remoteaddr {
+	    get { return null; }
 	}
 
 	public virtual int read(byte[] buf, int offset, int len)
@@ -174,184 +188,139 @@ namespace Wv
 	}
     }
     
-    public class WvFile : WvStream
+    // Wraps a WvStream in another WvStream, allowing us to override some
+    // behaviour.  By default, a WvStreamClone just passes everything through
+    // to the inner stream.
+    public class WvStreamClone : WvStream
     {
-	FileStream fs;
+	protected WvStream inner = null;
+	bool hasinner { get { return inner != null; } }
 	
-	public WvFile(string filename)
+	public WvStreamClone(WvStream inner)
 	{
-	    fs = new FileStream(filename, FileMode.Open, FileAccess.Read);
-	}
-	
-	public override void close()
-	{
-	    fs.Close();
-	    fs.Dispose();
-	    fs = null;
-	    base.close();
+	    setinner(inner);
 	}
 	
-	public override int read(byte[] buf, int offset, int len)
+	public void setinner(WvStream inner)
 	{
-	    return fs.Read(buf, offset, len);
-	}
-	
-	public override int write(byte[] buf, int offset, int len)
-	{
-	    fs.Write(buf, offset, len);
-	    return len;
-	}
-    }
-
-    public class WvSockStream : WvStream
-    {
-	IWvEventer ev;
-	Socket _sock;
-	protected Socket sock {
-	    get {
-		return _sock;
-	    }
-	    set {
-		_sock = value;
-		if (_sock != null)
-		    _sock.Blocking = false;
-	    }
-	}
-
-	public override bool isok { get { return (sock != null) && base.isok; } }
-
-	public WvSockStream(IWvEventer ev, Socket sock)
-	{
-	    this.ev = ev;
-	    this.sock = sock;
-	}
-
-	public override EndPoint localaddr()
-	{
-	    if (!!isok)
-		return null;
-
-	    return sock.LocalEndPoint;
-	}
-
-	public override EndPoint remoteaddr()
-	{
-	    return sock.RemoteEndPoint;
-	}
-
-	public override int read(byte[] buf, int offset, int len)
-	{
-	    if (!isok)
-		return 0;
-
-	    try
+	    if (inner != this.inner)
 	    {
-		int ret = sock.Receive(buf, offset, len, 0);
-		if (ret <= 0) // EOF
+		if (hasinner)
 		{
-		    nowrite();
-		    noread();
-		    return 0;
+		    this.inner.onreadable -= do_readable;
+		    this.inner.onwritable -= do_writable;
+		    this.inner.onclose -= do_close;
 		}
-		else
-		    return ret;
-	    }
-	    catch (SocketException e)
-	    {
-		if (e.ErrorCode != 10004) // EINTR is normal when non-blocking
-		    err = e;
-		return 0; // non-blocking, so interruptions are normal
+		this.inner = inner;
+		if (hasinner)
+		{
+		    if (can_readable) this.inner.onreadable += do_readable;
+		    if (can_writable) this.inner.onwritable += do_writable;
+		    this.inner.onclose += do_close;
+		}
 	    }
 	}
-
+	
+	public override bool isok { 
+	    get { return base.isok && hasinner && inner.isok; }
+	}
+	
+	public override Exception err {
+	    get { 
+		return hasinner ? inner.err : base.err;
+	    }
+	    set { 
+		if (hasinner)
+		    inner.err = value; 
+		else 
+		    base.err = value;
+	    }
+	}
+	
+	public override EndPoint localaddr {
+	    get { return hasinner ? inner.localaddr : base.localaddr; }
+	}
+	public override EndPoint remoteaddr {
+	    get { return hasinner ? inner.localaddr : base.localaddr; }
+	}
+	
+	public override int read(byte[] buf, int offset, int len)
+	{
+	    if (hasinner)
+		return inner.read(buf, offset, len);
+	    else
+		return 0; // 0 bytes read
+	}
+	
 	public override int write(byte[] buf, int offset, int len)
 	{
-	    if (!isok)
-		return 0;
-
-	    int ret = sock.Send(buf, offset, len, 0);
-	    if (ret < 0) // Error
+	    if (hasinner)
+		return inner.write(buf, offset, len);
+	    else
+		return 0; // 0 bytes written
+	}
+	
+	public override bool flush(int msec_timeout)
+	{
+	    if (hasinner)
+		return inner.flush(msec_timeout);
+	    else
+		return true;
+	}
+	
+	// We only want to register our callback with the inner stream if
+	// we *have* a callback, and then only once.  Otherwise the stream
+	// might start listening for read when we don't have any readable
+	// handlers, resulting in it spinning forever.
+	public override event Action onreadable {
+	    add { if (!can_readable) inner.onreadable += do_readable;
+		  onreadable += value; }
+	    remove { onreadable -= value;
+		     if (!can_readable) inner.onreadable -= do_readable; }
+	}
+	public override event Action onwritable {
+	    add { if (!can_writable) inner.onwritable += do_writable;
+		  onwritable += value; }
+	    remove { onwritable -= value;
+		     if (!can_writable) inner.onwritable -= do_writable; }
+	}
+	
+    }
+    
+    // Adds an input buffer to a WvStream.
+    public class WvInBufStream : WvStreamClone
+    {
+	WvBuf inbuf = new WvBuf();
+	
+	public WvInBufStream(WvStream inner) : base(inner)
+	{
+	}
+	
+	public override int read(byte[] buf, int offset, int len)
+	{
+	    if (inbuf.used > 0)
 	    {
-		err = new Exception("Write error"); // FIXME
-		return 0;
+		int max = inbuf.used > len ? len : inbuf.used;
+		Array.Copy(inbuf.get(max), 0, buf, offset, len);
+		return max;
 	    }
 	    else
-		return ret;
+		return base.read(buf, offset, len);
 	}
 	
-	public override event Action onreadable {
-	    add { base.onreadable += value;
-		  ev.onreadable(sock, do_readable); }
-	    remove { base.onreadable -= value;
-		     if (can_readable) ev.onreadable(sock, null); }
-	}
-
-	public override event Action onwritable {
-	    add { base.onwritable += value;
-		  ev.onwritable(sock, do_writable); }
-	    remove { base.onwritable -= value;
-		     if (can_writable) ev.onwritable(sock, null); }
-	}
-
-	void tryshutdown(SocketShutdown sd)
+	public string getline(char splitchar)
 	{
-	    try
+	    while (inbuf.strchr(splitchar) <= 0)
 	    {
-		sock.Shutdown(sd);
+		byte[] b = read(4096);
+		if (b == null)
+		    return null;
+		inbuf.put(b);
 	    }
-	    catch (SocketException)
-	    {
-		// ignore
-	    }
-	}
-
-	public override void noread()
-	{
-	    base.noread();
-	    if (sock != null)
-		tryshutdown(SocketShutdown.Receive);
-	    ev.onreadable(sock, null);
-	}
-
-	public override void nowrite()
-	{
-	    base.nowrite();
-	    if (sock != null)
-		tryshutdown(SocketShutdown.Send);
-	    ev.onwritable(sock, null);
-	}
-
-	public override void close()
-	{
-	    base.close();
-	    if (sock != null)
-	    {
-		tryshutdown(SocketShutdown.Both);
-		sock.Close();
-		((IDisposable)sock).Dispose();
-		sock = null;
-	    }
+	    
+	    // if we get here, there's a splitchar in the buffer
+	    return inbuf.get(inbuf.strchr(splitchar)).FromUTF8();
 	}
     }
-
-    public class WvTcp : WvSockStream
-    {
-        public WvTcp(IWvEventer ev, string remote) : base(ev, null)
-	{
-	    try
-	    {
-		IPHostEntry ipe = Dns.GetHostEntry(remote);
-		IPEndPoint ipep = new IPEndPoint(ipe.AddressList[0], 80);
-		Socket sock = new Socket(AddressFamily.InterNetwork,
-					 SocketType.Stream,
-					 ProtocolType.Tcp);
-		sock.Connect(ipep);
-		this.sock = sock;
-	    }
-	    catch (Exception e)
-	    {
-		err = e;
-	    }
-	}
-    }
+    
 }

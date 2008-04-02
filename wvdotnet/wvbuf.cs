@@ -8,22 +8,22 @@ namespace Wv
     public class WvMiniBuf
     {
 	byte[] bytes;
-	uint first, next;
+	int first, next;
 
-	public WvMiniBuf(uint size)
+	public WvMiniBuf(int size)
 	{
 	    bytes = new byte[size];
 	    first = 0;
 	    next = 0;
 	}
 
-	public uint size { get { return (uint)bytes.Length; } }
+	public int size { get { return (int)bytes.Length; } }
 
-	public uint used { get { return next-first; } }
+	public int used { get { return next-first; } }
 
-	public uint avail { get { return (uint)bytes.Length-next; } }
+	public int avail { get { return (int)bytes.Length-next; } }
 
-	public void put(byte[] bytes, uint offset, uint len)
+	public void put(byte[] bytes, int offset, int len)
 	{
 	    wv.assert(len <= avail);
 	    Array.Copy(bytes, offset, this.bytes, next, len);
@@ -32,10 +32,10 @@ namespace Wv
 
 	public void put(byte[] bytes)
 	{
-	    put(bytes, 0, (uint)bytes.Length);
+	    put(bytes, 0, (int)bytes.Length);
 	}
 
-	public byte[] peek(uint len)
+	public byte[] peek(int len)
 	{
 	    wv.assert(len <= used);
 	    byte[] ret = new byte[len];
@@ -43,14 +43,14 @@ namespace Wv
 	    return ret;
 	}
 
-	public byte[] get(uint len)
+	public byte[] get(int len)
 	{
 	    byte[] ret = peek(len);
 	    first += len;
 	    return ret;
 	}
 
-	public void unget(uint len)
+	public void unget(int len)
 	{
 	    wv.assert(first >= len);
 	    first -= len;
@@ -58,9 +58,9 @@ namespace Wv
 
 	// Returns the number of bytes that would have to be read in order to
 	// get the first instance of 'b', or 0 if 'b' is not in the buffer.
-	public uint strchr(byte b)
+	public int strchr(byte b)
 	{
-	    for (uint i = first; i < next; i++)
+	    for (int i = first; i < next; i++)
 		if (bytes[i] == b)
 		    return i-first+1;
 	    return 0;
@@ -76,9 +76,9 @@ namespace Wv
 	    zap();
 	}
 
-	public uint used {
+	public int used {
 	    get {
-		return (uint)list.Select(b => (long)b.used).Sum();
+		return (int)list.Select(b => (long)b.used).Sum();
 	    }
 	}
 
@@ -90,15 +90,15 @@ namespace Wv
 	    list.Add(new WvMiniBuf(10));
 	}
 
-	void addbuf(uint len)
+	void addbuf(int len)
 	{
-	    uint s = last.size;
+	    int s = last.size;
 	    while (s < len*2)
 		s *= 2;
 	    list.Add(new WvMiniBuf(s));
 	}
 
-	public void put(byte[] bytes, uint offset, uint len)
+	public void put(byte[] bytes, int offset, int len)
 	{
 	    if (last.avail < len)
 		addbuf(len);
@@ -107,7 +107,7 @@ namespace Wv
 	
 	public void put(byte[] bytes)
 	{
-	    put(bytes, 0, (uint)bytes.Length);
+	    put(bytes, 0, (int)bytes.Length);
 	}
 	
 	public void put(char c)
@@ -125,19 +125,19 @@ namespace Wv
 	    put(String.Format(fmt, args));
 	}
 
-	uint min(uint a, uint b)
+	int min(int a, int b)
 	{
 	    return (a < b) ? a : b;
 	}
 
-	void coagulate(uint len)
+	void coagulate(int len)
 	{
 	    if (list[0].used < len)
 	    {
 		WvMiniBuf n = new WvMiniBuf(len);
 		while (len > 0)
 		{
-		    uint got = min(len, list[0].used);
+		    int got = min(len, list[0].used);
 		    n.put(list[0].get(got));
 		    len -= got;
 		    if (list[0].used == 0)
@@ -147,14 +147,14 @@ namespace Wv
 	    }
 	}
 
-	public byte[] peek(uint len)
+	public byte[] peek(int len)
 	{
 	    wv.assert(used >= len);
 	    coagulate(len);
 	    return list[0].peek(len);
 	}
 
-	public byte[] get(uint len)
+	public byte[] get(int len)
 	{
 	    wv.assert(used >= len);
 	    coagulate(len);
@@ -171,19 +171,19 @@ namespace Wv
 	    return getall().FromUTF8();
 	}
 
-	public void unget(uint len)
+	public void unget(int len)
 	{
 	    list[0].unget(len);
 	}
 
 	// Returns the number of bytes that would have to be read in order to
 	// get the first instance of 'b', or 0 if 'b' is not in the buffer.
-	public uint strchr(byte b)
+	public int strchr(byte b)
 	{
-	    uint i = 0;
+	    int i = 0;
 	    foreach (WvMiniBuf mb in list)
 	    {
-		uint r = mb.strchr(b);
+		int r = mb.strchr(b);
 		if (r > 0)
 		    return i + r;
 		else
@@ -192,7 +192,7 @@ namespace Wv
 	    return 0;
 	}
 
-	public uint strchr(char b)
+	public int strchr(char b)
 	{
 	    return strchr(Convert.ToByte(b));
 	}
