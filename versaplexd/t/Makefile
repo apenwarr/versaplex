@@ -12,4 +12,5 @@ $(addsuffix .pass,$(TESTS)): %.pass: %
 	touch $@
 	
 versaplex.t.exe: versaplex.t.cs.E VxDbInterface.cs.E \
+	../dodgytransport.cs ../vxnotifysocket.cs ../vxsocket.cs \
 	../wv.dll ../NDesk.DBus.dll
