@@ -252,7 +252,7 @@ public class VersaplexTest: IDisposable
 	Console.WriteLine(" + VxExec SQL Query: {0}", query);
 
         Message call = CreateMethodCall(DbusConnName, DbusObjPath,
-                DbusInterface, "ExecNoResult", "s");
+                DbusInterface, "ExecRecordset", "s");
 
         MessageWriter mw = new MessageWriter(Connection.NativeEndianness);
         mw.Write(typeof(string), query);
