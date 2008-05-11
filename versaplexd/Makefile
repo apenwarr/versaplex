@@ -12,8 +12,8 @@ tests: all t/all
 
 versaplexd.exe: versaplexd.cs \
     dodgytransport.cs PriorityQueue.cs vxbufferstream.cs \
-    vxapi.cs vxdbus.cs vxevent.cs \
-    vxeventloop.cs vxnotifysocket.cs \
+    vxapi.cs vxdbus.cs vxdbusdatetime.cs \
+    vxevent.cs vxeventloop.cs vxnotifysocket.cs \
     vxsocket.cs \
     vxsqlpool.cs wvdbusserver.cs \
     ../dbus-sharp/src/NDesk.DBus.dll \

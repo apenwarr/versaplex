@@ -13,4 +13,5 @@ $(addsuffix .pass,$(TESTS)): %.pass: %
 	
 versaplex.t.exe: versaplex.t.cs.E VxDbInterface.cs.E \
 	../dodgytransport.cs ../vxnotifysocket.cs ../vxsocket.cs \
+	../vxdbusdatetime.cs \
 	../wv.dll ../NDesk.DBus.dll
