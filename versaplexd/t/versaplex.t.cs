@@ -265,6 +265,36 @@ public class VersaplexTest: IDisposable
         }
     }
 
+    // Read the standard issnny signature for column information.  We can't
+    // just read a VxColumnInfo[] straight from the reader any more, as the
+    // format of VxColumnInfo differs from the format on the wire.
+    VxColumnInfo ReadColInfo(MessageReader reader)
+    {
+        int size;
+        string colname;
+        string coltype_str;
+        short precision;
+        short scale;
+        byte nullable;
+
+        reader.GetValue(out size);
+        reader.GetValue(out colname);
+        reader.GetValue(out coltype_str);
+        reader.GetValue(out precision);
+        reader.GetValue(out scale);
+        reader.GetValue(out nullable);
+
+        VxColumnType coltype = (VxColumnType)Enum.Parse(
+            typeof(VxColumnType), coltype_str, true);
+
+        Console.WriteLine("Read colname={0}, coltype={1}, nullable={2}, " + 
+            "size={3}, precision={4}, scale={5}", 
+            colname, coltype.ToString(), nullable, size, precision, scale);
+
+        return new VxColumnInfo(colname, coltype, nullable > 0,
+            size, precision, scale);
+    }
+
     bool VxRecordset(string query, out VxColumnInfo[] colinfo,
             out object[][] data, out bool[][] nullity)
     {
@@ -292,9 +322,19 @@ public class VersaplexTest: IDisposable
                 throw new Exception("D-Bus reply had invalid signature");
 
             MessageReader reader = new MessageReader(reply);
-            Array ci;
-            reader.GetValue(typeof(VxColumnInfo[]), out ci);
-            colinfo = (VxColumnInfo[])ci;
+
+            // Read the column information
+            int colinfosize;
+            List<VxColumnInfo> colinfolist = new List<VxColumnInfo>();
+
+            reader.GetValue(out colinfosize);
+            int endpos = reader.Position + colinfosize;
+            while (reader.Position < endpos)
+            {
+                reader.ReadPad(8);
+                colinfolist.Add(ReadColInfo(reader));
+            }
+            colinfo = colinfolist.ToArray();
 
             Signature sig;
             reader.GetValue(out sig);
@@ -307,7 +347,7 @@ public class VersaplexTest: IDisposable
 
             // The header is 8-byte aligned
             reader.ReadPad(8);
-            int endpos = reader.Position + arraysz;;
+            endpos = reader.Position + arraysz;;
 
             List<object[]> results = new List<object[]>();
             while (reader.Position < endpos) {
