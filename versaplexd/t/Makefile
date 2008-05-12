@@ -11,7 +11,7 @@ $(addsuffix .pass,$(TESTS)): %.pass: %
 	./$<
 	touch $@
 	
-versaplex.t.exe: versaplex.t.cs.E VxDbInterface.cs.E \
+versaplex.t.exe: versaplex.t.cs.E dbuserror.cs.E \
 	../dodgytransport.cs ../vxnotifysocket.cs ../vxsocket.cs \
 	../vxcolumninfo.cs ../vxdbusdatetime.cs \
 	../wv.dll ../NDesk.DBus.dll

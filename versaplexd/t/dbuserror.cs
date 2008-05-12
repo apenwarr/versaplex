@@ -1,9 +1,6 @@
 using System;
 using System.Runtime.Serialization;
 
-// FIXME: This should go in an assembly rather than being pasted from
-// Versaplex/server/VxDbus.cs
-
 class DbusError : Exception {
     public DbusError()
         : base()
