@@ -138,7 +138,16 @@ public class VersaplexTester: IDisposable
 	return true;
     }
 
-    Message CreateMethodCall(string destination, ObjectPath path,
+    // Create a method call using the default connection, object path, and
+    // interface; this lets subclasses call new methods without access to
+    // those private variables.
+    protected Message CreateMethodCall(string member, string signature)
+    {
+        return CreateMethodCall(DbusConnName, DbusObjPath, 
+            DbusInterface, member, signature);
+    }
+
+    protected Message CreateMethodCall(string destination, ObjectPath path,
             string iface, string member, string signature)
     {
         Message msg = new Message();
@@ -164,8 +173,7 @@ public class VersaplexTester: IDisposable
     {
 	Console.WriteLine(" + VxExec SQL Query: {0}", query);
 
-        Message call = CreateMethodCall(DbusConnName, DbusObjPath,
-                DbusInterface, "ExecRecordset", "s");
+        Message call = CreateMethodCall("ExecRecordset", "s");
 
         MessageWriter mw = new MessageWriter(Connection.NativeEndianness);
         mw.Write(typeof(string), query);
@@ -207,8 +215,7 @@ public class VersaplexTester: IDisposable
     {
 	Console.WriteLine(" + VxScalar SQL Query: {0}", query);
 
-        Message call = CreateMethodCall(DbusConnName, DbusObjPath,
-                DbusInterface, "ExecScalar", "s");
+        Message call = CreateMethodCall("ExecScalar", "s");
 
         MessageWriter mw = new MessageWriter(Connection.NativeEndianness);
         mw.Write(typeof(string), query);
@@ -262,7 +269,7 @@ public class VersaplexTester: IDisposable
     // Read the standard issnny signature for column information.  We can't
     // just read a VxColumnInfo[] straight from the reader any more, as the
     // format of VxColumnInfo differs from the format on the wire.
-    VxColumnInfo ReadColInfo(MessageReader reader)
+    internal VxColumnInfo[] ReadColInfo(MessageReader reader)
     {
         int size;
         string colname;
@@ -271,22 +278,33 @@ public class VersaplexTester: IDisposable
         short scale;
         byte nullable;
 
-        reader.GetValue(out size);
-        reader.GetValue(out colname);
-        reader.GetValue(out coltype_str);
-        reader.GetValue(out precision);
-        reader.GetValue(out scale);
-        reader.GetValue(out nullable);
+        int colinfosize;
+        List<VxColumnInfo> colinfolist = new List<VxColumnInfo>();
 
-        VxColumnType coltype = (VxColumnType)Enum.Parse(
-            typeof(VxColumnType), coltype_str, true);
+        reader.GetValue(out colinfosize);
+        int endpos = reader.Position + colinfosize;
+        while (reader.Position < endpos)
+        {
+            reader.ReadPad(8);
+            reader.GetValue(out size);
+            reader.GetValue(out colname);
+            reader.GetValue(out coltype_str);
+            reader.GetValue(out precision);
+            reader.GetValue(out scale);
+            reader.GetValue(out nullable);
 
-        Console.WriteLine("Read colname={0}, coltype={1}, nullable={2}, " + 
-            "size={3}, precision={4}, scale={5}", 
-            colname, coltype.ToString(), nullable, size, precision, scale);
+            VxColumnType coltype = (VxColumnType)Enum.Parse(
+                typeof(VxColumnType), coltype_str, true);
 
-        return new VxColumnInfo(colname, coltype, nullable > 0,
-            size, precision, scale);
+            Console.WriteLine("Read colname={0}, coltype={1}, nullable={2}, " + 
+                "size={3}, precision={4}, scale={5}", 
+                colname, coltype.ToString(), nullable, size, precision, scale);
+
+            colinfolist.Add(new VxColumnInfo(colname, coltype, nullable > 0,
+                size, precision, scale));
+        }
+
+        return colinfolist.ToArray();
     }
 
     internal bool VxRecordset(string query, out VxColumnInfo[] colinfo,
@@ -294,8 +312,7 @@ public class VersaplexTester: IDisposable
     {
 	Console.WriteLine(" + VxReader SQL Query: {0}", query);
 
-        Message call = CreateMethodCall(DbusConnName, DbusObjPath,
-                DbusInterface, "ExecRecordset", "s");
+        Message call = CreateMethodCall("ExecRecordset", "s");
 
         MessageWriter mw = new MessageWriter(Connection.NativeEndianness);
         mw.Write(typeof(string), query);
@@ -318,17 +335,7 @@ public class VersaplexTester: IDisposable
             MessageReader reader = new MessageReader(reply);
 
             // Read the column information
-            int colinfosize;
-            List<VxColumnInfo> colinfolist = new List<VxColumnInfo>();
-
-            reader.GetValue(out colinfosize);
-            int endpos = reader.Position + colinfosize;
-            while (reader.Position < endpos)
-            {
-                reader.ReadPad(8);
-                colinfolist.Add(ReadColInfo(reader));
-            }
-            colinfo = colinfolist.ToArray();
+            colinfo = ReadColInfo(reader);
 
             Signature sig;
             reader.GetValue(out sig);
@@ -341,7 +348,7 @@ public class VersaplexTester: IDisposable
 
             // The header is 8-byte aligned
             reader.ReadPad(8);
-            endpos = reader.Position + arraysz;;
+            int endpos = reader.Position + arraysz;
 
             List<object[]> results = new List<object[]>();
             while (reader.Position < endpos) {
