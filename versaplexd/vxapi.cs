@@ -268,6 +268,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         methods.Add("Quit", CallQuit);
         methods.Add("ExecScalar", CallExecScalar);
         methods.Add("ExecRecordset", CallExecRecordset);
+        methods.Add("GetSchemaChecksums", CallGetSchemaChecksums);
     }
 
     protected override void ExecuteCall(MethodCallProcessor processor,
@@ -618,6 +619,166 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
                 writer.Write(types[i], row[i]);
             }
         }
+    }
+
+    private static void GetProcChecksums(ref VxSchemaChecksums sums, 
+            string clientid, string type, int encrypted)
+    {
+        string encrypt_str = encrypted > 0 ? "-Encrypted" : "";
+
+        log.print("Indexing: {0}{1}\n", type, encrypt_str);
+
+        string query = @"
+            select convert(varchar(128), object_name(id)) name,
+                     convert(int, colid) colid,
+                     convert(varchar(3900), text) text
+                into #checksum_calc
+                from syscomments
+                where objectproperty(id, 'Is" + type + @"') = 1
+                    and encrypted = " + encrypted + @"
+                    and object_name(id) like '%'
+            select name, convert(varbinary(8), getchecksum(text))
+                from #checksum_calc
+                order by name, colid
+            drop table #checksum_calc";
+
+        VxColumnInfo[] colinfo;
+        object[][] data;
+        byte[][] nullity;
+        
+        VxDb.ExecRecordset(clientid, (string)query, 
+            out colinfo, out data, out nullity);
+
+        log.print("GetProcChecksums: Got results\n");
+        log.print("Column 0 is {0}\n", colinfo[0].ColumnType);
+        log.print("Column 1 is {0}\n", colinfo[1].ColumnType);
+        
+        foreach (object[] row in data)
+        {
+            string name = (string)row[0];
+            //byte[] checksum = (byte[])row[1];
+            int checksum = 0;
+            log.print("Checksum length: {0}\n", ((byte[])row[1]).Length);
+            foreach (byte b in (byte[])row[1])
+            {
+                log.print("Adding byte {0} to existing sum {1}\n", b, checksum);
+                checksum <<= 8;
+                checksum |= b;
+            }
+            log.print("Checksum is {0}\n", checksum);
+
+            // Ignore dt_* functions and sys* views
+            if (name.StartsWith("dt_") || name.StartsWith("sys"))
+                continue;
+
+            // Fix characters not allowed in filenames
+            name.Replace('/', '!');
+            name.Replace('\n', '!');
+            string key = String.Format("{0}{1}/{2}", type, encrypt_str, name);
+
+            log.print("name={0}, checksum={1}, key={2}\n", name, checksum, key);
+            sums.Add(key, checksum);
+        }
+        log.print("Total {0} checksums.\n", sums.Count);
+    }
+
+    private static void GetTableChecksums()
+    {
+    }
+
+    private static void GetIndexChecksums()
+    {
+    }
+
+    private static void GetXmlSchemaChecksums()
+    {
+    }
+
+    private static void CallGetSchemaChecksums(Message call, out Message reply)
+    {
+        if (call.Signature.ToString() != "") {
+            reply = VxDbus.CreateError(
+                    "org.freedesktop.DBus.Error.UnknownMethod",
+                    String.Format(
+                        "No overload of GetSchemaChecksums has signature '{0}'",
+                        call.Signature), call);
+            return;
+        }
+
+        string clientid = GetClientId(call);
+        if (clientid == null)
+        {
+            reply = VxDbus.CreateError(
+                    "org.freedesktop.DBus.Error.Failed",
+                    "Could not identify the client", call);
+            return;
+        }
+
+        
+        string[] types = new string[] { 
+//            "CheckCnst", 
+//            "Constraint",
+//            "Default",
+//            "DefaultCnst",
+//            "Executed",
+            "ScalarFunction",
+            "TableFunction",
+//            "InlineFunction",
+//            "ExtendedProc",
+//            "ForeignKey",
+//            "MSShipped",
+//            "PrimaryKey",
+            "Procedure",
+            "ReplProc",
+//            "Rule",
+//            "SystemTable",
+//            "Table",
+            "Trigger",
+//            "UniqueCnst",
+            "View",
+//            "OwnerId"
+        };
+
+        VxSchemaChecksums sums = new VxSchemaChecksums();
+
+        foreach (string type in types)
+        {
+            if (type == "Procedure")
+            {
+                // FIXME: Set up self test
+            }
+
+            GetProcChecksums(ref sums, clientid, type, 0);
+
+            if (type == "Procedure")
+            {
+                // FIXME: Validate self test and clean up
+            }
+
+            GetProcChecksums(ref sums, clientid, type, 1);
+        }
+
+        // Do tables separately
+        GetTableChecksums();
+
+        // Do indexes separately
+        GetIndexChecksums();
+
+        // Do XML schema collections separately (FIXME: only if SQL2005)
+        GetXmlSchemaChecksums();
+
+        // FIXME: Add vx.db.toomuchdata error
+        MessageWriter writer =
+                new MessageWriter(Connection.NativeEndianness);
+
+        sums.WriteChecksums(writer);
+
+        reply = VxDbus.CreateReply(call, 
+            VxSchemaChecksums.GetSignature(), writer);
+
+        // For debugging
+        reply.WriteHeader();
+        VxDbus.MessageDump(" >> ", reply);
     }
 }
 

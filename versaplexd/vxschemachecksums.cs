@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using NDesk.DBus;
+using Wv;
 
 // FIXME: Have separate type member?
 internal struct VxSchemaChecksum
