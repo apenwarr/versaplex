@@ -15,13 +15,6 @@ class SchemamaticTests : VersaplexTester
 	Console.WriteLine(" + VxGetSchemaChecksums");
 
         Message call = CreateMethodCall("GetSchemaChecksums", "");
-        //Message call = CreateMethodCall("GetRecordSet", "s");
-
-/*
-        MessageWriter mw = new MessageWriter(Connection.NativeEndianness);
-
-        call.Body = mw.ToArray();
-        */
 
         Message reply = call.Connection.SendWithReplyAndBlock(call);
         Console.WriteLine("Got reply");
@@ -101,13 +94,46 @@ class SchemamaticTests : VersaplexTester
     public void TestProcedureChecksums()
     {
         try { VxExec("drop procedure Func1"); } catch { }
+        try { VxExec("drop procedure Func2"); } catch { }
 
-        WVASSERT(VxExec("create procedure Func1 as " +
-            "select 'Hello, world, this is Func1!'"));
+        VxSchemaChecksums sums;
+// FIXME: Either dbus-sharp or wvdbusd doesn't properly send back empty
+// replies
+#if 0
+        sums = VxGetSchemaChecksums();
+        WVPASSEQ(sums.Count, 0);
+#endif
 
-        VxSchemaChecksums sums = VxGetSchemaChecksums();
+        string msg1 = "Hello, world, this is Func1!";
+        string msg2 = "Hello, world, this is Func2!";
+        object outmsg;
+        WVASSERT(VxExec("create procedure Func1 as select '" + msg1 + "'"));
+        WVASSERT(VxScalar("exec Func1", out outmsg));
+        WVPASSEQ(msg1, (string)outmsg);
+
+        sums = VxGetSchemaChecksums();
 
         WVASSERT(sums.ContainsKey("Procedure/Func1"));
+        WVPASSEQ(sums["Procedure/Func1"].checksum, 0x55F9D9E3);
+
+        WVASSERT(VxExec("create procedure Func2 as select '" + msg2 + "'"));
+
+        WVASSERT(VxScalar("exec Func2", out outmsg));
+        WVPASSEQ(msg2, (string)outmsg);
+
+        sums = VxGetSchemaChecksums();
+
+        WVASSERT(sums.ContainsKey("Procedure/Func1"));
+        WVASSERT(sums.ContainsKey("Procedure/Func2"));
+        WVPASSEQ(sums["Procedure/Func1"].checksum, 0x55F9D9E3);
+        WVPASSEQ(sums["Procedure/Func2"].checksum, 0x25AA9C37);
+
+        try { VxExec("drop procedure Func2"); } catch { }
+
+        sums = VxGetSchemaChecksums();
+
+        WVASSERT(sums.ContainsKey("Procedure/Func1"));
+        WVFAIL(sums.ContainsKey("Procedure/Func2"));
         WVPASSEQ(sums["Procedure/Func1"].checksum, 0x55F9D9E3);
     }
 
