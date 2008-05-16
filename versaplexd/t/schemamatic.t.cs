@@ -31,37 +31,8 @@ class SchemamaticTests : VersaplexTester
                 throw new Exception("D-Bus reply had invalid signature: " +
                     replysig);
 
-            Console.WriteLine("Got valid signature");
-
             MessageReader reader = new MessageReader(reply);
-
-            int arraysz;
-            reader.GetValue(out arraysz);
-            Console.WriteLine("Arraysz is {0}", arraysz);
-
-            // The header is 8-byte aligned
-            reader.ReadPad(8);
-            int endpos = reader.Position + arraysz;
-            Console.WriteLine("Endpos is {0}", endpos);
-
-            string key;
-            int checksum;
-
-            VxSchemaChecksums sums = new VxSchemaChecksums();
-            while (reader.Position < endpos) {
-                // Each structure element is 8-byte aligned
-                reader.ReadPad(8);
-
-                reader.GetValue(out key);
-                reader.GetValue(out checksum);
-                Console.WriteLine("Read checksum {0}={1}", key, checksum);
-                sums.Add(key, checksum);
-            }
-
-            WVPASSEQ(reader.Position, endpos);
-            if (reader.Position != endpos)
-                throw new Exception("Position mismatch after reading data");
- 
+            VxSchemaChecksums sums = new VxSchemaChecksums(reader);
             return sums;
         }
         case MessageType.Error:
