@@ -98,6 +98,11 @@ namespace Wv.Test
 	    return x != 0;
 	}
 	
+	public static bool booleanize(ulong x)
+	{
+	    return x != 0;
+	}
+	
 	public static bool booleanize(string s)
 	{
 	    return s != null && s != "";
@@ -129,6 +134,15 @@ namespace Wv.Test
 	}
 	
 	public static bool test_eq(long cond1, long cond2,
+				   string file, int line,
+				   string s1, string s2)
+	{
+	    return test(cond1 == cond2, file, line,
+		String.Format("[{0}] == [{1}] ({{{2}}} == {{{3}}})",
+			      cond1, cond2, s1, s2));
+	}
+	
+	public static bool test_eq(ulong cond1, ulong cond2,
 				   string file, int line,
 				   string s1, string s2)
 	{
@@ -184,6 +198,15 @@ namespace Wv.Test
 	}
 
 	public static bool test_ne(long cond1, long cond2,
+				   string file, int line,
+				   string s1, string s2)
+	{
+	    return test(cond1 != cond2, file, line,
+		String.Format("[{0}] != [{1}] ({{{2}}} != {{{3}}})",
+			      cond1, cond2, s1, s2));
+	}
+	
+	public static bool test_ne(ulong cond1, ulong cond2,
 				   string file, int line,
 				   string s1, string s2)
 	{
