@@ -11,12 +11,12 @@ internal struct VxSchemaChecksum
         get { return _name; }
     }
 
-    int _checksum;
-    public int checksum {
+    ulong _checksum;
+    public ulong checksum {
         get { return _checksum; }
     }
 
-    public VxSchemaChecksum(string newname, int newchecksum)
+    public VxSchemaChecksum(string newname, ulong newchecksum)
     {
         _name = newname;
         _checksum = newchecksum;
@@ -31,12 +31,12 @@ internal struct VxSchemaChecksum
     public void Write(MessageWriter writer)
     {
         writer.Write(typeof(string), name);
-        writer.Write(typeof(int), checksum);
+        writer.Write(typeof(ulong), _checksum);
     }
 
     public static string GetSignature()
     {
-        return "si";
+        return "st";
     }
 }
 
@@ -65,7 +65,7 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
             p.Value.Write(writer);
     }
 
-    // Write the list of checksums to DBus in a(si) format
+    // Write the list of checksums to DBus in a(st) format
     public void WriteChecksums(MessageWriter writer)
     {
         writer.WriteDelegatePrependSize(delegate(MessageWriter w)
@@ -74,7 +74,7 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
             }, 8);
     }
 
-    public void Add(string name, int checksum)
+    public void Add(string name, ulong checksum)
     {
         this.Add(name, new VxSchemaChecksum(name, checksum));
     }

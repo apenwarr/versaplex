@@ -27,7 +27,7 @@ class SchemamaticTests : VersaplexTester
                         out replysig))
                 throw new Exception("D-Bus reply had no signature");
 
-            if (replysig == null || replysig.ToString() != "a(si)")
+            if (replysig == null || replysig.ToString() != "a(st)")
                 throw new Exception("D-Bus reply had invalid signature: " +
                     replysig);
 

@@ -656,16 +656,13 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         foreach (object[] row in data)
         {
             string name = (string)row[0];
-            //byte[] checksum = (byte[])row[1];
-            int checksum = 0;
+            ulong checksum = 0;
             log.print("Checksum length: {0}\n", ((byte[])row[1]).Length);
             foreach (byte b in (byte[])row[1])
             {
-                log.print("Adding byte {0} to existing sum {1}\n", b, checksum);
                 checksum <<= 8;
                 checksum |= b;
             }
-            log.print("Checksum is {0}\n", checksum);
 
             // Ignore dt_* functions and sys* views
             if (name.StartsWith("dt_") || name.StartsWith("sys"))
