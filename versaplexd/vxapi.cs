@@ -742,8 +742,64 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         }
     }
 
-    private static void GetIndexChecksums()
+    private static void GetIndexChecksums(ref VxSchemaChecksums sums, 
+            string clientid)
     {
+        string query = @"
+            select 
+               convert(varchar(128), object_name(i.object_id)) tabname,
+               convert(varchar(128), i.name) idxname,
+               convert(int, i.type) idxtype,
+               convert(int, i.is_unique) idxunique,
+               convert(int, i.is_primary_key) idxprimary,
+               convert(varchar(128), c.name) colname,
+               convert(int, ic.index_column_id) colid,
+               convert(int, ic.is_descending_key) coldesc
+              into #checksum_calc
+              from sys.indexes i
+              join sys.index_columns ic
+                 on ic.object_id = i.object_id
+                 and ic.index_id = i.index_id
+              join sys.columns c
+                 on c.object_id = i.object_id
+                 and c.column_id = ic.column_id
+              where object_name(i.object_id) not like 'sys%' 
+                and object_name(i.object_id) not like 'queue_%'
+              order by i.name, i.object_id, ic.index_column_id
+              
+            select
+               tabname, idxname, colid, 
+               convert(varbinary(8), getchecksum(idxname))
+              from #checksum_calc
+            drop table #checksum_calc";
+
+        VxColumnInfo[] colinfo;
+        object[][] data;
+        byte[][] nullity;
+        
+        VxDb.ExecRecordset(clientid, (string)query, 
+            out colinfo, out data, out nullity);
+
+        log.print("Column 0 is {0}\n", colinfo[0].ColumnType);
+        log.print("Column 1 is {0}\n", colinfo[1].ColumnType);
+        
+        foreach (object[] row in data)
+        {
+            string tablename = (string)row[0];
+            string indexname = (string)row[1];
+            ulong checksum = 0;
+            foreach (byte b in (byte[])row[3])
+            {
+                checksum <<= 8;
+                checksum |= b;
+            }
+
+            string key = String.Format("Index/{0}/{1}", tablename, indexname);
+
+            log.print("tablename={0}, indexname={1}, checksum={2}, key={3}, colid={4}\n", 
+                tablename, indexname, checksum, key, (int)row[2]);
+            sums.Add(key, checksum);
+        }
     }
 
     private static void GetXmlSchemaChecksums()
@@ -818,7 +874,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         GetTableChecksums(ref sums, clientid);
 
         // Do indexes separately
-        GetIndexChecksums();
+        GetIndexChecksums(ref sums, clientid);
 
         // Do XML schema collections separately (FIXME: only if SQL2005)
         GetXmlSchemaChecksums();

@@ -131,6 +131,33 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(sums["Table/Tab1"].checksums[2], 0x279DBF24)
     }
 
+    [Test, Category("Schemamatic"), Category("GetSchemaChecksums")]
+    public void TestIndexChecksums()
+    {
+        try { VxExec("drop table Tab1"); } catch { }
+        string query = "CREATE TABLE [Tab1] (" + 
+            "[f1] [int]  NOT NULL IDENTITY(1, 1)," +
+            "[f2] [money]  NULL," + 
+            "[f3] [varchar] (80) NULL)";
+        WVASSERT(VxExec(query));
+
+        query = "CREATE INDEX [Index1] ON [Tab1] (f1)";
+        WVASSERT(VxExec(query));
+
+        query = "CREATE INDEX [Index2] ON [Tab1] (f1, f2)";
+        WVASSERT(VxExec(query));
+
+        VxSchemaChecksums sums;
+        sums = VxGetSchemaChecksums();
+
+        WVPASSEQ(sums["Index/Tab1/Index1"].checksums.Count, 1);
+        WVPASSEQ(sums["Index/Tab1/Index1"].checksums[0], 0x62781FDD);
+        // An index on two columns will include two checksums
+        WVPASSEQ(sums["Index/Tab1/Index2"].checksums.Count, 2);
+        WVPASSEQ(sums["Index/Tab1/Index2"].checksums[0], 0x603EA184);
+        WVPASSEQ(sums["Index/Tab1/Index2"].checksums[1], 0x8FD2C903);
+    }
+
     public static void Main()
     {
         WvTest.DoMain();
