@@ -27,7 +27,7 @@ class SchemamaticTests : VersaplexTester
                         out replysig))
                 throw new Exception("D-Bus reply had no signature");
 
-            if (replysig == null || replysig.ToString() != "a(st)")
+            if (replysig == null || replysig.ToString() != "a(sat)")
                 throw new Exception("D-Bus reply had invalid signature: " +
                     replysig);
 
@@ -85,7 +85,8 @@ class SchemamaticTests : VersaplexTester
         sums = VxGetSchemaChecksums();
 
         WVASSERT(sums.ContainsKey("Procedure/Func1"));
-        WVPASSEQ(sums["Procedure/Func1"].checksum, 0x55F9D9E3);
+        WVPASSEQ(sums["Procedure/Func1"].checksums.Count, 1);
+        WVPASSEQ(sums["Procedure/Func1"].checksums[0], 0x55F9D9E3);
 
         WVASSERT(VxExec("create procedure Func2 as select '" + msg2 + "'"));
 
@@ -96,8 +97,10 @@ class SchemamaticTests : VersaplexTester
 
         WVASSERT(sums.ContainsKey("Procedure/Func1"));
         WVASSERT(sums.ContainsKey("Procedure/Func2"));
-        WVPASSEQ(sums["Procedure/Func1"].checksum, 0x55F9D9E3);
-        WVPASSEQ(sums["Procedure/Func2"].checksum, 0x25AA9C37);
+        WVPASSEQ(sums["Procedure/Func1"].checksums.Count, 1);
+        WVPASSEQ(sums["Procedure/Func2"].checksums.Count, 1);
+        WVPASSEQ(sums["Procedure/Func1"].checksums[0], 0x55F9D9E3);
+        WVPASSEQ(sums["Procedure/Func2"].checksums[0], 0x25AA9C37);
 
         try { VxExec("drop procedure Func2"); } catch { }
 
@@ -105,7 +108,8 @@ class SchemamaticTests : VersaplexTester
 
         WVASSERT(sums.ContainsKey("Procedure/Func1"));
         WVFAIL(sums.ContainsKey("Procedure/Func2"));
-        WVPASSEQ(sums["Procedure/Func1"].checksum, 0x55F9D9E3);
+        WVPASSEQ(sums["Procedure/Func1"].checksums.Count, 1);
+        WVPASSEQ(sums["Procedure/Func1"].checksums[0], 0x55F9D9E3);
     }
 
     public static void Main()

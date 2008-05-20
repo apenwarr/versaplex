@@ -4,39 +4,66 @@ using NDesk.DBus;
 using Wv;
 
 // FIXME: Have separate type member?
-internal struct VxSchemaChecksum
+internal class VxSchemaChecksum
 {
     string _name;
     public string name {
         get { return _name; }
     }
 
-    ulong _checksum;
-    public ulong checksum {
-        get { return _checksum; }
+    List<ulong> _checksums;
+    public List<ulong> checksums {
+        get { return _checksums; }
     }
 
     public VxSchemaChecksum(string newname, ulong newchecksum)
     {
         _name = newname;
-        _checksum = newchecksum;
+        _checksums = new List<ulong>();
+        AddChecksum(newchecksum);
     }
 
     public VxSchemaChecksum(MessageReader reader)
     {
         reader.GetValue(out _name);
-        reader.GetValue(out _checksum);
+        _checksums = new List<ulong>();
+
+        // Fill the list
+        int size;
+        reader.GetValue(out size);
+        int endpos = reader.Position + size;
+        while (reader.Position < endpos)
+        {
+            reader.ReadPad(8);
+            ulong sum;
+            reader.GetValue(out sum);
+            AddChecksum(sum);
+        }
+    }
+
+    private void _WriteSums(MessageWriter writer)
+    {
+        foreach (ulong sum in _checksums)
+            writer.Write(sum);
     }
 
     public void Write(MessageWriter writer)
     {
         writer.Write(typeof(string), name);
-        writer.Write(typeof(ulong), _checksum);
+        writer.WriteDelegatePrependSize(delegate(MessageWriter w)
+            {
+                _WriteSums(w);
+            }, 8);
+    }
+
+    public void AddChecksum(ulong checksum)
+    {
+        _checksums.Add(checksum);
     }
 
     public static string GetSignature()
     {
-        return "st";
+        return "sat";
     }
 }
 
@@ -76,7 +103,10 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
 
     public void Add(string name, ulong checksum)
     {
-        this.Add(name, new VxSchemaChecksum(name, checksum));
+        if (this.ContainsKey(name))
+            this[name].AddChecksum(checksum);
+        else
+            this.Add(name, new VxSchemaChecksum(name, checksum));
     }
 
     public static string GetSignature()
