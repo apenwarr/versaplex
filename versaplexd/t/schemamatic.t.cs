@@ -112,6 +112,25 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(sums["Procedure/Func1"].checksums[0], 0x55F9D9E3);
     }
 
+    [Test, Category("Schemamatic"), Category("GetSchemaChecksums")]
+    public void TestTableChecksums()
+    {
+        try { VxExec("drop table Tab1"); } catch { }
+        string query = "CREATE TABLE [Tab1] (" + 
+            "[f1] [int]  NOT NULL IDENTITY(1, 1)," +
+            "[f2] [money]  NULL," + 
+            "[f3] [varchar] (80) NULL)";
+        WVASSERT(VxExec(query));
+
+        VxSchemaChecksums sums;
+        sums = VxGetSchemaChecksums();
+
+        WVPASSEQ(sums["Table/Tab1"].checksums.Count, 3);
+        WVPASSEQ(sums["Table/Tab1"].checksums[0], 0x588AEDDC)
+        WVPASSEQ(sums["Table/Tab1"].checksums[1], 0x065BBC3B)
+        WVPASSEQ(sums["Table/Tab1"].checksums[2], 0x279DBF24)
+    }
+
     public static void Main()
     {
         WvTest.DoMain();

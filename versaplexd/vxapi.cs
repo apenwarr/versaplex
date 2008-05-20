@@ -649,7 +649,6 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         VxDb.ExecRecordset(clientid, (string)query, 
             out colinfo, out data, out nullity);
 
-        log.print("GetProcChecksums: Got results\n");
         log.print("Column 0 is {0}\n", colinfo[0].ColumnType);
         log.print("Column 1 is {0}\n", colinfo[1].ColumnType);
         
@@ -657,7 +656,6 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         {
             string name = (string)row[0];
             ulong checksum = 0;
-            log.print("Checksum length: {0}\n", ((byte[])row[1]).Length);
             foreach (byte b in (byte[])row[1])
             {
                 checksum <<= 8;
@@ -676,11 +674,72 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
             log.print("name={0}, checksum={1}, key={2}\n", name, checksum, key);
             sums.Add(key, checksum);
         }
-        log.print("Total {0} checksums.\n", sums.Count);
     }
 
-    private static void GetTableChecksums()
+    private static void GetTableChecksums(ref VxSchemaChecksums sums, 
+            string clientid)
     {
+        log.print("Indexing: Tables\n");
+
+        // The weird "replace" in defval is because different versions of
+        // mssql (SQL7 vs. SQL2005, at least) add different numbers of parens
+        // around the default values.  Weird, but it messes up the checksums,
+        // so we just remove all the parens altogether.
+        string query = @"
+            select convert(varchar(128), t.name) tabname,
+               convert(varchar(128), c.name) colname,
+               convert(varchar(64), typ.name) typename,
+               convert(int, c.length) len,
+               convert(int, c.xprec) xprec,
+               convert(int, c.xscale) xscale,
+               convert(varchar(128),
+                   replace(replace(def.text, '(', ''), ')', ''))
+                   defval,
+               convert(int, c.isnullable) nullable,
+               convert(int, columnproperty(t.id, c.name, 'IsIdentity')) isident,
+               convert(int, ident_seed(t.name)) ident_seed,
+               convert(int, ident_incr(t.name)) ident_incr
+              into #checksum_calc
+              from sysobjects t
+              join syscolumns c on t.id = c.id 
+              join systypes typ on c.xtype = typ.xtype
+              left join syscomments def on def.id = c.cdefault
+              where t.xtype = 'U'
+                and typ.name <> 'sysname'
+              order by tabname, c.colorder, colname, typ.status
+           select tabname, convert(varbinary(8), getchecksum(tabname))
+               from #checksum_calc
+           drop table #checksum_calc";
+
+        VxColumnInfo[] colinfo;
+        object[][] data;
+        byte[][] nullity;
+        
+        VxDb.ExecRecordset(clientid, (string)query, 
+            out colinfo, out data, out nullity);
+
+        log.print("Column 0 is {0}\n", colinfo[0].ColumnType);
+        log.print("Column 1 is {0}\n", colinfo[1].ColumnType);
+        
+        foreach (object[] row in data)
+        {
+            string name = (string)row[0];
+            ulong checksum = 0;
+            foreach (byte b in (byte[])row[1])
+            {
+                checksum <<= 8;
+                checksum |= b;
+            }
+
+            // Tasks_#* should be ignored
+            if (name.StartsWith("Tasks_#")) 
+                continue;
+
+            string key = String.Format("Table/{0}", name);
+
+            log.print("name={0}, checksum={1}, key={2}\n", name, checksum, key);
+            sums.Add(key, checksum);
+        }
     }
 
     private static void GetIndexChecksums()
@@ -756,7 +815,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         }
 
         // Do tables separately
-        GetTableChecksums();
+        GetTableChecksums(ref sums, clientid);
 
         // Do indexes separately
         GetIndexChecksums();
