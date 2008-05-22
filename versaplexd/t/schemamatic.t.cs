@@ -69,7 +69,7 @@ class SchemamaticTests : VersaplexTester
 
         VxSchemaChecksums sums;
 // FIXME: Either dbus-sharp or wvdbusd doesn't properly send back empty
-// replies
+// replies.  See Versaplex Google Code bug 37.
 #if 0
         sums = VxGetSchemaChecksums();
         WVPASSEQ(sums.Count, 0);
@@ -125,6 +125,7 @@ class SchemamaticTests : VersaplexTester
         VxSchemaChecksums sums;
         sums = VxGetSchemaChecksums();
 
+        // Three columns gives us three checksums
         WVPASSEQ(sums["Table/Tab1"].checksums.Count, 3);
         WVPASSEQ(sums["Table/Tab1"].checksums[0], 0x588AEDDC)
         WVPASSEQ(sums["Table/Tab1"].checksums[1], 0x065BBC3B)
@@ -156,6 +157,35 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(sums["Index/Tab1/Index2"].checksums.Count, 2);
         WVPASSEQ(sums["Index/Tab1/Index2"].checksums[0], 0x603EA184);
         WVPASSEQ(sums["Index/Tab1/Index2"].checksums[1], 0x8FD2C903);
+    }
+
+    [Test, Category("Schemamatic"), Category("GetSchemaChecksums")]
+    public void TestXmlSchemaChecksums()
+    {
+        try { VxExec("drop xml schema collection TestSchema"); } catch { }
+        // To escape a double-quote within an @" string, use "".  This
+        // looks a bit hideous, but better than a normal string (esp printed).
+        string query = @"CREATE XML SCHEMA COLLECTION TestSchema AS
+            N'<xsd:schema xmlns:xsd=""http://www.w3.org/2001/XMLSchema"">
+            <xsd:element name=""Employee"">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element name=""SIN"" type=""xsd:string""/>
+                        <xsd:element name=""Name"" type=""xsd:string""/>
+                        <xsd:element name=""DateOfBirth"" type=""xsd:date""/>
+                        <xsd:element name=""EmployeeType"" type=""xsd:string""/>
+                        <xsd:element name=""Salary"" type=""xsd:long""/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+          </xsd:schema>'";
+        WVASSERT(VxExec(query));
+
+        VxSchemaChecksums sums;
+        sums = VxGetSchemaChecksums();
+
+        WVPASSEQ(sums["XMLSchema/TestSchema"].checksums.Count, 1);
+        WVPASSEQ(sums["XMLSchema/TestSchema"].checksums[0], 0xFA7736B3);
     }
 
     public static void Main()

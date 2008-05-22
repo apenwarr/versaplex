@@ -649,9 +649,6 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         VxDb.ExecRecordset(clientid, (string)query, 
             out colinfo, out data, out nullity);
 
-        log.print("Column 0 is {0}\n", colinfo[0].ColumnType);
-        log.print("Column 1 is {0}\n", colinfo[1].ColumnType);
-        
         foreach (object[] row in data)
         {
             string name = (string)row[0];
@@ -718,9 +715,6 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         VxDb.ExecRecordset(clientid, (string)query, 
             out colinfo, out data, out nullity);
 
-        log.print("Column 0 is {0}\n", colinfo[0].ColumnType);
-        log.print("Column 1 is {0}\n", colinfo[1].ColumnType);
-        
         foreach (object[] row in data)
         {
             string name = (string)row[0];
@@ -780,9 +774,6 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         VxDb.ExecRecordset(clientid, (string)query, 
             out colinfo, out data, out nullity);
 
-        log.print("Column 0 is {0}\n", colinfo[0].ColumnType);
-        log.print("Column 1 is {0}\n", colinfo[1].ColumnType);
-        
         foreach (object[] row in data)
         {
             string tablename = (string)row[0];
@@ -802,8 +793,47 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         }
     }
 
-    private static void GetXmlSchemaChecksums()
+    private static void GetXmlSchemaChecksums(ref VxSchemaChecksums sums, 
+            string clientid)
     {
+        string query = @"
+            select sch.name owner,
+               xsc.name sch,
+               cast(XML_Schema_Namespace(sch.name,xsc.name) 
+                    as varchar(max)) contents
+              into #checksum_calc
+              from sys.xml_schema_collections xsc 
+              join sys.schemas sch on xsc.schema_id = sch.schema_id
+              where sch.name <> 'sys'
+              order by sch.name, xsc.name
+
+            select sch, convert(varbinary(8), checksum(contents))
+                from #checksum_calc
+            drop table #checksum_calc";
+
+        VxColumnInfo[] colinfo;
+        object[][] data;
+        byte[][] nullity;
+        
+        VxDb.ExecRecordset(clientid, (string)query, 
+            out colinfo, out data, out nullity);
+
+        foreach (object[] row in data)
+        {
+            string schemaname = (string)row[0];
+            ulong checksum = 0;
+            foreach (byte b in (byte[])row[1])
+            {
+                checksum <<= 8;
+                checksum |= b;
+            }
+
+            string key = String.Format("XMLSchema/{0}", schemaname);
+
+            log.print("schemaname={0}, checksum={1}, key={2}\n", 
+                schemaname, checksum, key);
+            sums.Add(key, checksum);
+        }
     }
 
     private static void CallGetSchemaChecksums(Message call, out Message reply)
@@ -877,11 +907,10 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         GetIndexChecksums(ref sums, clientid);
 
         // Do XML schema collections separately (FIXME: only if SQL2005)
-        GetXmlSchemaChecksums();
+        GetXmlSchemaChecksums(ref sums, clientid);
 
         // FIXME: Add vx.db.toomuchdata error
-        MessageWriter writer =
-                new MessageWriter(Connection.NativeEndianness);
+        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
         sums.WriteChecksums(writer);
 
