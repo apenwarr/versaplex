@@ -621,7 +621,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         }
     }
 
-    private static void GetProcChecksums(ref VxSchemaChecksums sums, 
+    private static void GetProcChecksums(VxSchemaChecksums sums, 
             string clientid, string type, int encrypted)
     {
         string encrypt_str = encrypted > 0 ? "-Encrypted" : "";
@@ -673,7 +673,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         }
     }
 
-    private static void GetTableChecksums(ref VxSchemaChecksums sums, 
+    private static void GetTableChecksums(VxSchemaChecksums sums, 
             string clientid)
     {
         log.print("Indexing: Tables\n");
@@ -736,7 +736,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         }
     }
 
-    private static void GetIndexChecksums(ref VxSchemaChecksums sums, 
+    private static void GetIndexChecksums(VxSchemaChecksums sums, 
             string clientid)
     {
         string query = @"
@@ -793,7 +793,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         }
     }
 
-    private static void GetXmlSchemaChecksums(ref VxSchemaChecksums sums, 
+    private static void GetXmlSchemaChecksums(VxSchemaChecksums sums, 
             string clientid)
     {
         string query = @"
@@ -836,28 +836,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         }
     }
 
-    private static void CallGetSchemaChecksums(Message call, out Message reply)
-    {
-        if (call.Signature.ToString() != "") {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.UnknownMethod",
-                    String.Format(
-                        "No overload of GetSchemaChecksums has signature '{0}'",
-                        call.Signature), call);
-            return;
-        }
-
-        string clientid = GetClientId(call);
-        if (clientid == null)
-        {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.Failed",
-                    "Could not identify the client", call);
-            return;
-        }
-
-        
-        string[] types = new string[] { 
+    private static string[] ProcedureTypes = new string[] { 
 //            "CheckCnst", 
 //            "Constraint",
 //            "Default",
@@ -881,33 +860,53 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
 //            "OwnerId"
         };
 
+    private static void CallGetSchemaChecksums(Message call, out Message reply)
+    {
+        if (call.Signature.ToString() != "") {
+            reply = VxDbus.CreateError(
+                    "org.freedesktop.DBus.Error.UnknownMethod",
+                    String.Format(
+                        "No overload of GetSchemaChecksums has signature '{0}'",
+                        call.Signature), call);
+            return;
+        }
+
+        string clientid = GetClientId(call);
+        if (clientid == null)
+        {
+            reply = VxDbus.CreateError(
+                    "org.freedesktop.DBus.Error.Failed",
+                    "Could not identify the client", call);
+            return;
+        }
+
         VxSchemaChecksums sums = new VxSchemaChecksums();
 
-        foreach (string type in types)
+        foreach (string type in ProcedureTypes)
         {
             if (type == "Procedure")
             {
                 // FIXME: Set up self test
             }
 
-            GetProcChecksums(ref sums, clientid, type, 0);
+            GetProcChecksums(sums, clientid, type, 0);
 
             if (type == "Procedure")
             {
                 // FIXME: Validate self test and clean up
             }
 
-            GetProcChecksums(ref sums, clientid, type, 1);
+            GetProcChecksums(sums, clientid, type, 1);
         }
 
         // Do tables separately
-        GetTableChecksums(ref sums, clientid);
+        GetTableChecksums(sums, clientid);
 
         // Do indexes separately
-        GetIndexChecksums(ref sums, clientid);
+        GetIndexChecksums(sums, clientid);
 
         // Do XML schema collections separately (FIXME: only if SQL2005)
-        GetXmlSchemaChecksums(ref sums, clientid);
+        GetXmlSchemaChecksums(sums, clientid);
 
         // FIXME: Add vx.db.toomuchdata error
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
