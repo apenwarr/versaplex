@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using NDesk.DBus;
 using Wv;
 
+// The checksums for a single database element (table, procedure, etc).
+// Can have multiple checksum values - a table has one checksum per column,
+// for instance.
 // FIXME: Have separate type member?
 internal class VxSchemaChecksum
 {
@@ -23,6 +26,7 @@ internal class VxSchemaChecksum
         AddChecksum(newchecksum);
     }
 
+    // Read a set of checksums from a DBus message into a VxSchemaChecksum.
     public VxSchemaChecksum(MessageReader reader)
     {
         reader.GetValue(out _name);
@@ -47,6 +51,7 @@ internal class VxSchemaChecksum
             writer.Write(sum);
     }
 
+    // Write the checksum values to DBus
     public void Write(MessageWriter writer)
     {
         writer.Write(typeof(string), name);
@@ -67,12 +72,14 @@ internal class VxSchemaChecksum
     }
 }
 
+// The checksum values for a set of database elements
 internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
 {
     public VxSchemaChecksums()
     {
     }
 
+    // Read an array of checksums from a DBus message.
     public VxSchemaChecksums(MessageReader reader)
     {
         int size;
@@ -92,7 +99,7 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
             p.Value.Write(writer);
     }
 
-    // Write the list of checksums to DBus in a(st) format
+    // Write the list of checksums to DBus in a(sat) format.
     public void WriteChecksums(MessageWriter writer)
     {
         writer.WriteDelegatePrependSize(delegate(MessageWriter w)
