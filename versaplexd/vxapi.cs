@@ -268,6 +268,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         methods.Add("Quit", CallQuit);
         methods.Add("ExecScalar", CallExecScalar);
         methods.Add("ExecRecordset", CallExecRecordset);
+        methods.Add("GetSchema", CallGetSchema);
         methods.Add("GetSchemaChecksums", CallGetSchemaChecksums);
     }
 
@@ -646,8 +647,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         object[][] data;
         byte[][] nullity;
         
-        VxDb.ExecRecordset(clientid, (string)query, 
-            out colinfo, out data, out nullity);
+        VxDb.ExecRecordset(clientid, query, out colinfo, out data, out nullity);
 
         foreach (object[] row in data)
         {
@@ -712,8 +712,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         object[][] data;
         byte[][] nullity;
         
-        VxDb.ExecRecordset(clientid, (string)query, 
-            out colinfo, out data, out nullity);
+        VxDb.ExecRecordset(clientid, query, out colinfo, out data, out nullity);
 
         foreach (object[] row in data)
         {
@@ -771,8 +770,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         object[][] data;
         byte[][] nullity;
         
-        VxDb.ExecRecordset(clientid, (string)query, 
-            out colinfo, out data, out nullity);
+        VxDb.ExecRecordset(clientid, query, out colinfo, out data, out nullity);
 
         foreach (object[] row in data)
         {
@@ -815,8 +813,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         object[][] data;
         byte[][] nullity;
         
-        VxDb.ExecRecordset(clientid, (string)query, 
-            out colinfo, out data, out nullity);
+        VxDb.ExecRecordset(clientid, query, out colinfo, out data, out nullity);
 
         foreach (object[] row in data)
         {
@@ -920,6 +917,114 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         reply.WriteHeader();
         VxDbus.MessageDump(" >> ", reply);
     }
+
+    private static string GetSchemaQuery(string type, int encrypted, 
+        bool countonly, List<string> names)
+    {
+        string name_q = names.Count > 0 
+            ? " and object_name(id) in ('" + 
+                String.Join(",", names.ToArray()) + "')"
+            : "";
+
+        string textcol = encrypted > 0 ? "ctext" : "text";
+        string cols = countonly 
+            ? "count(*)"
+            : "object_name(id), number, colid, " + textcol + " ";
+
+        return "select " + cols + " from syscomments " + 
+            "where objectproperty(id, 'Is" + type + "') = 1 " + 
+                "and encrypted = " + encrypted + name_q;
+    }
+
+    private static void GetProcSchema(VxSchema schema, List<string> names, 
+        string clientid, string type, int encrypted)
+    {
+        string query = GetSchemaQuery(type, encrypted, false, names);
+
+        VxColumnInfo[] colinfo;
+        object[][] data;
+        byte[][] nullity;
+        
+        VxDb.ExecRecordset(clientid, query, out colinfo, out data, out nullity);
+
+        int num = 0;
+        int total = data.Length;
+        foreach (object[] row in data)
+        {
+            num++;
+            string name = (string)row[0];
+            short number = (short)row[1];
+            short colid = (short)row[2];
+            string text;
+            if (encrypted > 0)
+            {
+                byte[] bytes = (byte[])row[3];
+                if (bytes.Length == 0)
+                    bytes = new byte[] { 0, 66, 67, 68 };
+                text = System.BitConverter.ToString(bytes);
+                log.print("bytes.Length = {0}, text={1}\n", bytes.Length, text);
+            }
+            else
+                text = (string)row[3];
+
+
+            // Skip dt_* functions and sys_* views
+            if (name.StartsWith("dt_") || name.StartsWith("sys_"))
+                continue;
+
+            log.print("{0}/{1} {2}{3}/{4} #{5}\n", num, total, type, 
+                encrypted > 0 ? "-Encrypted" : "", name, colid);
+            // Fix characters not allowed in filenames
+            name.Replace('/', '!');
+            name.Replace('\n', '!');
+
+            schema.Add(name, type, encrypted > 0, text);
+        }
+        log.print("{0}/{1} {2}{3} done\n", num, total, type, 
+            encrypted > 0 ? "-Encrypted" : "");
+    }
+
+    private static void CallGetSchema(Message call, out Message reply)
+    {
+        if (call.Signature.ToString() != "") {
+            reply = VxDbus.CreateError(
+                    "org.freedesktop.DBus.Error.UnknownMethod",
+                    String.Format(
+                        "No overload of GetSchemaChecksums has signature '{0}'",
+                        call.Signature), call);
+            return;
+        }
+
+        string clientid = GetClientId(call);
+        if (clientid == null)
+        {
+            reply = VxDbus.CreateError(
+                    "org.freedesktop.DBus.Error.Failed",
+                    "Could not identify the client", call);
+            return;
+        }
+
+        // FIXME: Read list of schemas to get
+        List<string> names = new List<string>();
+
+        VxSchema schema = new VxSchema();
+
+        foreach (string type in ProcedureTypes)
+        {
+            GetProcSchema(schema, names, clientid, type, 0);
+            GetProcSchema(schema, names, clientid, type, 1);
+        }
+        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+
+        schema.WriteSchema(writer);
+
+        reply = VxDbus.CreateReply(call, VxSchema.GetSignature(), writer);
+
+        // For debugging
+        reply.WriteHeader();
+        VxDbus.MessageDump(" >> ", reply);
+    }
+
 }
 
 class VxRequestException : Exception {

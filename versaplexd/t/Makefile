@@ -25,6 +25,7 @@ verifydata.t.exe: verifydata.t.cs.E versaplextester.cs.E dbuserror.cs \
 schemamatic.t.exe: schemamatic.t.cs.E versaplextester.cs.E dbuserror.cs \
 	../dodgytransport.cs ../vxnotifysocket.cs ../vxsocket.cs \
 	../vxcolumninfo.cs ../vxdbusdatetime.cs ../vxschemachecksums.cs \
+	../vxschema.cs \
 	../wv.dll ../NDesk.DBus.dll
 
 clean::

@@ -61,6 +61,57 @@ class SchemamaticTests : VersaplexTester
         }
     }
 
+    VxSchema VxGetSchema()
+    {
+	Console.WriteLine(" + VxGetSchema");
+
+        Message call = CreateMethodCall("GetSchema", "");
+
+        Message reply = call.Connection.SendWithReplyAndBlock(call);
+        Console.WriteLine("Got reply");
+
+        switch (reply.Header.MessageType) {
+        case MessageType.MethodReturn:
+        {
+            object replysig;
+            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
+                        out replysig))
+                throw new Exception("D-Bus reply had no signature");
+
+            if (replysig == null || replysig.ToString() != "a(ssys)")
+                throw new Exception("D-Bus reply had invalid signature: " +
+                    replysig);
+
+            MessageReader reader = new MessageReader(reply);
+            VxSchema schema = new VxSchema(reader);
+            return schema;
+        }
+        case MessageType.Error:
+        {
+            object errname;
+            if (!reply.Header.Fields.TryGetValue(FieldCode.ErrorName,
+                        out errname))
+                throw new Exception("D-Bus error received but no error name "
+                        +"given");
+
+            object errsig;
+            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
+                        out errsig) || errsig.ToString() != "s")
+                throw new DbusError(errname.ToString());
+
+            MessageReader mr = new MessageReader(reply);
+
+            object errmsg;
+            mr.GetValue(typeof(string), out errmsg);
+
+            throw new DbusError(errname.ToString() + ": " + errmsg.ToString());
+        }
+        default:
+            throw new Exception("D-Bus response was not a method return or "
+                    +"error");
+        }
+    }
+
     [Test, Category("Schemamatic"), Category("GetSchemaChecksums")]
     public void TestProcedureChecksums()
     {
@@ -88,7 +139,8 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(sums["Procedure/Func1"].checksums.Count, 1);
         WVPASSEQ(sums["Procedure/Func1"].checksums[0], 0x55F9D9E3);
 
-        WVASSERT(VxExec("create procedure Func2 as select '" + msg2 + "'"));
+        WVASSERT(VxExec("create procedure Func2 with encryption as select '" + 
+            msg2 + "'"));
 
         WVASSERT(VxScalar("exec Func2", out outmsg));
         WVPASSEQ(msg2, (string)outmsg);
@@ -96,11 +148,11 @@ class SchemamaticTests : VersaplexTester
         sums = VxGetSchemaChecksums();
 
         WVASSERT(sums.ContainsKey("Procedure/Func1"));
-        WVASSERT(sums.ContainsKey("Procedure/Func2"));
+        WVASSERT(sums.ContainsKey("Procedure-Encrypted/Func2"));
         WVPASSEQ(sums["Procedure/Func1"].checksums.Count, 1);
-        WVPASSEQ(sums["Procedure/Func2"].checksums.Count, 1);
+        WVPASSEQ(sums["Procedure-Encrypted/Func2"].checksums.Count, 1);
         WVPASSEQ(sums["Procedure/Func1"].checksums[0], 0x55F9D9E3);
-        WVPASSEQ(sums["Procedure/Func2"].checksums[0], 0x25AA9C37);
+        WVPASSEQ(sums["Procedure-Encrypted/Func2"].checksums[0], 0x458D4283);
 
         try { VxExec("drop procedure Func2"); } catch { }
 
@@ -186,6 +238,28 @@ class SchemamaticTests : VersaplexTester
 
         WVPASSEQ(sums["XMLSchema/TestSchema"].checksums.Count, 1);
         WVPASSEQ(sums["XMLSchema/TestSchema"].checksums[0], 0xFA7736B3);
+    }
+
+    [Test, Category("Schemamatic"), Category("GetSchema")]
+    public void TestGetProcSchema()
+    {
+        try { VxExec("drop procedure Func1"); } catch { }
+        try { VxExec("drop procedure Func2"); } catch { }
+
+        string msg = "Hello, world, this is Func1!";
+        string fmt = "create procedure {0} as select '{1}'";
+        string query = String.Format(fmt, "Func1", msg);
+        object outmsg;
+        WVASSERT(VxExec(query));
+        WVASSERT(VxScalar("exec Func1", out outmsg));
+        WVPASSEQ(msg, (string)outmsg);
+
+        VxSchema schema = VxGetSchema();
+
+        WVPASSEQ(schema["Procedure/Func1"].name, "Func1");
+        WVPASSEQ(schema["Procedure/Func1"].type, "Procedure");
+        WVPASSEQ(schema["Procedure/Func1"].encrypted, false);
+        WVPASSEQ(schema["Procedure/Func1"].text, query);
     }
 
     public static void Main()
