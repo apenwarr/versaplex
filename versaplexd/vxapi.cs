@@ -959,8 +959,6 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
             if (encrypted > 0)
             {
                 byte[] bytes = (byte[])row[3];
-                if (bytes.Length == 0)
-                    bytes = new byte[] { 0, 66, 67, 68 };
                 text = System.BitConverter.ToString(bytes);
                 log.print("bytes.Length = {0}, text={1}\n", bytes.Length, text);
             }

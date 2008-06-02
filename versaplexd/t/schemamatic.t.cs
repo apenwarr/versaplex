@@ -250,7 +250,7 @@ class SchemamaticTests : VersaplexTester
         string msg2 = "Hello, world, this is Func2!";
         string fmt = "create procedure {0} {1} as select '{2}'";
         string query1 = String.Format(fmt, "Func1", "", msg1);
-        string query2 = String.Format(fmt, "Func2", "", msg2);
+        string query2 = String.Format(fmt, "Func2", "with encryption", msg2);
         object outmsg;
         WVASSERT(VxExec(query1));
         WVASSERT(VxScalar("exec Func1", out outmsg));
@@ -268,11 +268,12 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(schema["Procedure/Func1"].encrypted, false);
         WVPASSEQ(schema["Procedure/Func1"].text, query1);
 
-        WVASSERT(schema.ContainsKey("Procedure/Func2"));
-        WVPASSEQ(schema["Procedure/Func2"].name, "Func2");
-        WVPASSEQ(schema["Procedure/Func2"].type, "Procedure");
-        WVPASSEQ(schema["Procedure/Func2"].encrypted, false);
-        WVPASSEQ(schema["Procedure/Func2"].text, query2);
+        WVASSERT(schema.ContainsKey("Procedure-Encrypted/Func2"));
+        WVPASSEQ(schema["Procedure-Encrypted/Func2"].name, "Func2");
+        WVPASSEQ(schema["Procedure-Encrypted/Func2"].type, "Procedure");
+        WVPASSEQ(schema["Procedure-Encrypted/Func2"].encrypted, true);
+	// FIXME: Can't yet retrieve the contents of encrypted functions
+        //WVPASSEQ(schema["Procedure-Encrypted/Func2"].text, query2);
     }
 
     public static void Main()
