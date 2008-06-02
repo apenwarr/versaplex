@@ -978,7 +978,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
             name.Replace('/', '!');
             name.Replace('\n', '!');
 
-            schema.Add(name, type, encrypted > 0, text);
+            schema.Add(name, type, text, encrypted > 0);
         }
         log.print("{0}/{1} {2}{3} done\n", num, total, type, 
             encrypted > 0 ? "-Encrypted" : "");

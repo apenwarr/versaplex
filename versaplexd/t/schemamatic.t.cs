@@ -78,7 +78,7 @@ class SchemamaticTests : VersaplexTester
                         out replysig))
                 throw new Exception("D-Bus reply had no signature");
 
-            if (replysig == null || replysig.ToString() != "a(ssys)")
+            if (replysig == null || replysig.ToString() != "a(sssy)")
                 throw new Exception("D-Bus reply had invalid signature: " +
                     replysig);
 
@@ -246,20 +246,33 @@ class SchemamaticTests : VersaplexTester
         try { VxExec("drop procedure Func1"); } catch { }
         try { VxExec("drop procedure Func2"); } catch { }
 
-        string msg = "Hello, world, this is Func1!";
-        string fmt = "create procedure {0} as select '{1}'";
-        string query = String.Format(fmt, "Func1", msg);
+        string msg1 = "Hello, world, this is Func1!";
+        string msg2 = "Hello, world, this is Func2!";
+        string fmt = "create procedure {0} {1} as select '{2}'";
+        string query1 = String.Format(fmt, "Func1", "", msg1);
+        string query2 = String.Format(fmt, "Func2", "", msg2);
         object outmsg;
-        WVASSERT(VxExec(query));
+        WVASSERT(VxExec(query1));
         WVASSERT(VxScalar("exec Func1", out outmsg));
-        WVPASSEQ(msg, (string)outmsg);
+        WVPASSEQ(msg1, (string)outmsg);
+
+        WVASSERT(VxExec(query2));
+        WVASSERT(VxScalar("exec Func2", out outmsg));
+        WVPASSEQ(msg2, (string)outmsg);
 
         VxSchema schema = VxGetSchema();
 
+        WVASSERT(schema.ContainsKey("Procedure/Func1"));
         WVPASSEQ(schema["Procedure/Func1"].name, "Func1");
         WVPASSEQ(schema["Procedure/Func1"].type, "Procedure");
         WVPASSEQ(schema["Procedure/Func1"].encrypted, false);
-        WVPASSEQ(schema["Procedure/Func1"].text, query);
+        WVPASSEQ(schema["Procedure/Func1"].text, query1);
+
+        WVASSERT(schema.ContainsKey("Procedure/Func2"));
+        WVPASSEQ(schema["Procedure/Func2"].name, "Func2");
+        WVPASSEQ(schema["Procedure/Func2"].type, "Procedure");
+        WVPASSEQ(schema["Procedure/Func2"].encrypted, false);
+        WVPASSEQ(schema["Procedure/Func2"].text, query2);
     }
 
     public static void Main()

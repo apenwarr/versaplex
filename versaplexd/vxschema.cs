@@ -14,19 +14,19 @@ internal class VxSchemaElement : IComparable
         get { return _type; }
     }
 
-    bool _encrypted;
-    public bool encrypted {
-        get { return _encrypted; }
-    }
-
     string _text;
     public string text {
         get { return _text; }
         set { _text = value;}
     }
     
-    public VxSchemaElement(string newname, string newtype, bool newencrypted,
-        string newtext)
+    bool _encrypted;
+    public bool encrypted {
+        get { return _encrypted; }
+    }
+
+    public VxSchemaElement(string newname, string newtype, string newtext,
+            bool newencrypted)
     {
         _name = newname;
         _type = newtype;
@@ -38,19 +38,19 @@ internal class VxSchemaElement : IComparable
     {
         reader.GetValue(out _name);
         reader.GetValue(out _type);
+        reader.GetValue(out _text);
         byte enc_byte;
         reader.GetValue(out enc_byte);
         _encrypted = enc_byte > 0;
-        reader.GetValue(out _text);
     }
 
     public void Write(MessageWriter writer)
     {
-        byte encb = (byte)(encrypted ? 1 : 0);
         writer.Write(typeof(string), name);
         writer.Write(typeof(string), type);
-        writer.Write(typeof(byte), encb);
         writer.Write(typeof(string), text);
+        byte encb = (byte)(encrypted ? 1 : 0);
+        writer.Write(typeof(byte), encb);
     }
 
     public string GetKey()
@@ -69,7 +69,7 @@ internal class VxSchemaElement : IComparable
 
     public static string GetSignature()
     {
-        return "ssys";
+        return "sssy";
     }
 }
 
@@ -78,7 +78,7 @@ internal class VxSchemaElement : IComparable
 internal class VxSchemaTable : VxSchemaElement
 {
     public VxSchemaTable(string newname, string newtext) :
-        base(newname, "Table", false, newtext)
+        base(newname, "Table", newtext, false)
     {
     }
 }
@@ -106,7 +106,10 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
     private void _WriteSchema(MessageWriter writer)
     {
         foreach (KeyValuePair<string,VxSchemaElement> p in this)
+        {
+            writer.WritePad(8);
             p.Value.Write(writer);
+        }
     }
 
     public void WriteSchema(MessageWriter writer)
@@ -117,7 +120,7 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
             }, 8);
     }
 
-    public void Add(string name, string type, bool encrypted, string text)
+    public void Add(string name, string type, string text, bool encrypted)
     {
         string key = GetKey(name, type, encrypted);
         if (this.ContainsKey(key))
@@ -127,7 +130,7 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
             if (type == "Table")
                 this.Add(key, new VxSchemaTable(name, text));
             else
-                this.Add(key, new VxSchemaElement(name, type, encrypted, text));
+                this.Add(key, new VxSchemaElement(name, type, text, encrypted));
         }
     }
 
