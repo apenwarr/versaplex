@@ -119,12 +119,14 @@ class SchemamaticTests : VersaplexTester
         try { VxExec("drop procedure Func2"); } catch { }
 
         VxSchemaChecksums sums;
-// FIXME: Either dbus-sharp or wvdbusd doesn't properly send back empty
-// replies.  See Versaplex Google Code bug 37.
-#if 0
         sums = VxGetSchemaChecksums();
+        if (sums.Count != 0)
+        {
+            Console.WriteLine("Found entries:");
+            foreach (KeyValuePair<string,VxSchemaChecksum> p in sums)
+                Console.WriteLine(p.Key);
+        }
         WVPASSEQ(sums.Count, 0);
-#endif
 
         string msg1 = "Hello, world, this is Func1!";
         string msg2 = "Hello, world, this is Func2!";
@@ -162,6 +164,9 @@ class SchemamaticTests : VersaplexTester
         WVFAIL(sums.ContainsKey("Procedure/Func2"));
         WVPASSEQ(sums["Procedure/Func1"].checksums.Count, 1);
         WVPASSEQ(sums["Procedure/Func1"].checksums[0], 0x55F9D9E3);
+
+        try { VxExec("drop procedure Func1"); } catch { }
+        try { VxExec("drop procedure Func2"); } catch { }
     }
 
     [Test, Category("Schemamatic"), Category("GetSchemaChecksums")]
@@ -182,6 +187,8 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(sums["Table/Tab1"].checksums[0], 0x588AEDDC)
         WVPASSEQ(sums["Table/Tab1"].checksums[1], 0x065BBC3B)
         WVPASSEQ(sums["Table/Tab1"].checksums[2], 0x279DBF24)
+
+        try { VxExec("drop table Tab1"); } catch { }
     }
 
     [Test, Category("Schemamatic"), Category("GetSchemaChecksums")]
@@ -209,6 +216,8 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(sums["Index/Tab1/Index2"].checksums.Count, 2);
         WVPASSEQ(sums["Index/Tab1/Index2"].checksums[0], 0x603EA184);
         WVPASSEQ(sums["Index/Tab1/Index2"].checksums[1], 0x8FD2C903);
+
+        try { VxExec("drop table Tab1"); } catch { }
     }
 
     [Test, Category("Schemamatic"), Category("GetSchemaChecksums")]
@@ -238,6 +247,8 @@ class SchemamaticTests : VersaplexTester
 
         WVPASSEQ(sums["XMLSchema/TestSchema"].checksums.Count, 1);
         WVPASSEQ(sums["XMLSchema/TestSchema"].checksums[0], 0xFA7736B3);
+
+        try { VxExec("drop xml schema collection TestSchema"); } catch { }
     }
 
     [Test, Category("Schemamatic"), Category("GetSchema")]
@@ -274,6 +285,9 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(schema["Procedure-Encrypted/Func2"].encrypted, true);
 	// FIXME: Can't yet retrieve the contents of encrypted functions
         //WVPASSEQ(schema["Procedure-Encrypted/Func2"].text, query2);
+
+        try { VxExec("drop procedure Func1"); } catch { }
+        try { VxExec("drop procedure Func2"); } catch { }
     }
 
     public static void Main()
