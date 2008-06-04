@@ -96,7 +96,10 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
     private void _WriteChecksums(MessageWriter writer)
     {
         foreach (KeyValuePair<string,VxSchemaChecksum> p in this)
+        {
+            writer.WritePad(8);
             p.Value.Write(writer);
+        }
     }
 
     // Write the list of checksums to DBus in a(sat) format.
