@@ -411,9 +411,12 @@ namespace NDesk.DBus
 			}
 		}
 
+		static byte[] zeroes = {0, 0, 0, 0, 0, 0, 0, 0};
 		public void WritePad (int alignment)
 		{
-			stream.Position = Protocol.Padded ((int)stream.Position, alignment);
+			int pos = (int)stream.Position;
+			int num_pad = Protocol.Padded(pos, alignment) - pos;
+			stream.Write(zeroes, 0, num_pad);
 		}
 
 		public delegate void WriterDelegate(MessageWriter w);
