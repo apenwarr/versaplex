@@ -290,6 +290,60 @@ class SchemamaticTests : VersaplexTester
         try { VxExec("drop procedure Func2"); } catch { }
     }
 
+    [Test, Category("Schemamatic"), Category("GetSchema")]
+    public void TestGetIndexSchema()
+    {
+        try { VxExec("drop table Tab1"); } catch { }
+        string query = "CREATE TABLE [Tab1] (" + 
+            "[f1] [int]  NOT NULL PRIMARY KEY," +
+            "[f2] [money]  NULL," + 
+            "[f3] [varchar] (80) NULL)";
+        WVASSERT(VxExec(query));
+
+	string idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
+	    "\t(f2,f3 DESC);\n\n";
+        WVASSERT(VxExec(idx1q));
+
+	VxSchema schema = VxGetSchema();
+
+	WVPASSEQ(schema.Count, 2);
+
+	WVASSERT(schema.ContainsKey("Index/Idx1"));
+	WVPASSEQ(schema["Index/Idx1"].name, "Idx1");
+	WVPASSEQ(schema["Index/Idx1"].type, "Index");
+	WVPASSEQ(schema["Index/Idx1"].encrypted, false);
+	WVPASSEQ(schema["Index/Idx1"].text.Length, idx1q.Length);
+	WVPASSEQ(schema["Index/Idx1"].text, idx1q);
+
+	string pk_name = "";
+	bool found_pk = false;
+
+	// Primary key names are generated and unpredictable.  Just make sure
+	// that we only got one back, and that it looks like the right one.
+	foreach (string key in schema.Keys)
+	    if (key.StartsWith("Index/PK__Tab1"))
+	    {
+		WVASSERT(!found_pk);
+		found_pk = true;
+		pk_name = key.Substring("Index/".Length);
+		Console.WriteLine("Found primary key index " + pk_name);
+		// Note: don't break here, so we can check there aren't others.
+	    }
+	WVASSERT(found_pk);
+
+	WVASSERT(schema.ContainsKey("Index/" + pk_name));
+	WVPASSEQ(schema["Index/" + pk_name].name, pk_name);
+	WVPASSEQ(schema["Index/" + pk_name].type, "Index");
+	WVPASSEQ(schema["Index/" + pk_name].encrypted, false);
+	string pk_query = String.Format(
+	    "ALTER TABLE [Tab1] ADD CONSTRAINT [{0}] PRIMARY KEY CLUSTERED\n" +
+	    "\t(f1);\n\n", pk_name);
+	WVPASSEQ(schema["Index/" + pk_name].text.Length, pk_query.Length);
+	WVPASSEQ(schema["Index/" + pk_name].text, pk_query);
+
+        try { VxExec("drop table Tab1"); } catch { }
+    }
+
     public static void Main()
     {
         WvTest.DoMain();

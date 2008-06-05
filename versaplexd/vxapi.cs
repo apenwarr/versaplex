@@ -982,6 +982,95 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
             encrypted > 0 ? "-Encrypted" : "");
     }
 
+    private static void GetIndexSchema(VxSchema schema, List<string> names, 
+        string clientid)
+    {
+        string idxnames = (names.Count > 0) ? 
+            "and ((object_name(i.object_id)+'/'+i.name) in (" + 
+                String.Join(",", names.ToArray()) + "'))"
+            : "";
+
+        string query = @"
+          select 
+           convert(varchar(128), object_name(i.object_id)) tabname,
+           convert(varchar(128), i.name) idxname,
+           convert(int, i.type) idxtype,
+           convert(int, i.is_unique) idxunique,
+           convert(int, i.is_primary_key) idxprimary,
+           convert(varchar(128), c.name) colname,
+           convert(int, ic.index_column_id) colid,
+           convert(int, ic.is_descending_key) coldesc
+          from sys.indexes i
+          join sys.index_columns ic
+             on ic.object_id = i.object_id
+             and ic.index_id = i.index_id
+          join sys.columns c
+             on c.object_id = i.object_id
+             and c.column_id = ic.column_id
+          where object_name(i.object_id) not like 'sys%' 
+            and object_name(i.object_id) not like 'queue_%' " + 
+            idxnames + 
+          @"order by i.name, i.object_id, ic.index_column_id";
+
+        VxColumnInfo[] colinfo;
+        object[][] data;
+        byte[][] nullity;
+        
+        VxDb.ExecRecordset(clientid, query, out colinfo, out data, out nullity);
+
+        int total = data.Length;
+        List<string> cols = new List<string>();
+        for (int ii = 0; ii < data.Length; ii++)
+        {
+            object[] row = data[ii];
+
+            string tabname = (string)row[0];
+            string idxname = (string)row[1];
+            int idxtype = (int)row[2];
+            int idxunique = (int)row[3];
+            int idxprimary = (int)row[4];
+            string colname = (string)row[5];
+            int colid = (int)row[6];
+            int coldesc = (int)row[7];
+
+            cols.Add(coldesc == 0 ? colname : colname + " DESC");
+
+            object[] nextrow = ((ii+1) < data.Length) ? data[ii+1] : null;
+            string next_tabname = (nextrow != null) ? (string)nextrow[0] : null;
+            string next_idxname = (nextrow != null) ? (string)nextrow[1] : null;
+            
+            // If we've finished reading the columns for this index, add the
+            // index to the schema.  Note: depends on the statement's ORDER BY.
+            if (tabname != next_tabname || idxname != next_idxname)
+            {
+                string colstr = String.Join(",", cols.ToArray());
+                string indexstr;
+                if (idxprimary != 0)
+                {
+                    indexstr = String.Format(
+                        "ALTER TABLE [{0}] ADD CONSTRAINT [{1}] PRIMARY KEY{2}\n" + 
+                        "\t({3});\n\n", 
+                        tabname,
+                        idxname,
+                        (idxtype == 1 ? " CLUSTERED" : " NONCLUSTERED"),
+                        colstr);
+                }
+                else
+                {
+                    indexstr = String.Format(
+                        "CREATE {0}{1}INDEX [{2}] ON [{3}] \n\t({4});\n\n",
+                        (idxunique != 0 ? "UNIQUE " : ""),
+                        (idxtype == 1 ? "CLUSTERED " : ""),
+                        idxname,
+                        tabname,
+                        colstr);
+                }
+                schema.Add(idxname, "Index", indexstr, false);
+                cols.Clear();
+            }
+        }
+    }
+
     private static void CallGetSchema(Message call, out Message reply)
     {
         if (call.Signature.ToString() != "") {
@@ -1012,6 +1101,9 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
             GetProcSchema(schema, names, clientid, type, 0);
             GetProcSchema(schema, names, clientid, type, 1);
         }
+
+        GetIndexSchema(schema, names, clientid);
+
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
         schema.WriteSchema(writer);
