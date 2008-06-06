@@ -883,14 +883,35 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         {
             if (type == "Procedure")
             {
-                // FIXME: Set up self test
+                // Set up self test
+                object result;
+                VxDb.ExecScalar(clientid, "create procedure " + 
+                    "schemamatic_checksum_test as print 'hello' ", out result);
             }
 
             GetProcChecksums(sums, clientid, type, 0);
 
             if (type == "Procedure")
             {
-                // FIXME: Validate self test and clean up
+                object result;
+                VxDb.ExecScalar(clientid, 
+                    "drop procedure schemamatic_checksum_test", out result);
+
+                // Self-test the checksum feature.  If mssql's checksum
+                // algorithm changes, we don't want to pretend our checksum
+                // list makes any sense!
+                string test_csum_label = "Procedure/schemamatic_checksum_test";
+                ulong got_csum = sums[test_csum_label].checksums[0];
+                ulong want_csum = 0x173d6ee8;
+                if (want_csum != got_csum)
+                {
+                    reply = VxDbus.CreateError(
+                        "org.freedesktop.DBus.Error.Failed",
+                        String.Format("checksum_test mismatch! {0} != {1}", 
+                            got_csum, want_csum), call);
+                    return;
+                }
+                sums.Remove(test_csum_label);
             }
 
             GetProcChecksums(sums, clientid, type, 1);
