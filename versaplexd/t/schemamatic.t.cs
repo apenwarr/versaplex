@@ -148,6 +148,7 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(msg2, (string)outmsg);
 
         sums = VxGetSchemaChecksums();
+        WVPASSEQ(sums.Count, 2);
 
         WVASSERT(sums.ContainsKey("Procedure/Func1"));
         WVASSERT(sums.ContainsKey("Procedure-Encrypted/Func2"));
@@ -156,17 +157,17 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(sums["Procedure/Func1"].checksums[0], 0x55F9D9E3);
         WVPASSEQ(sums["Procedure-Encrypted/Func2"].checksums[0], 0x458D4283);
 
-        try { VxExec("drop procedure Func2"); } catch { }
+        WVASSERT(VxExec("drop procedure Func2"));
 
         sums = VxGetSchemaChecksums();
+        WVPASSEQ(sums.Count, 1);
 
         WVASSERT(sums.ContainsKey("Procedure/Func1"));
         WVFAIL(sums.ContainsKey("Procedure/Func2"));
         WVPASSEQ(sums["Procedure/Func1"].checksums.Count, 1);
         WVPASSEQ(sums["Procedure/Func1"].checksums[0], 0x55F9D9E3);
 
-        try { VxExec("drop procedure Func1"); } catch { }
-        try { VxExec("drop procedure Func2"); } catch { }
+        WVASSERT(VxExec("drop procedure Func1"));
     }
 
     [Test, Category("Schemamatic"), Category("GetSchemaChecksums")]
@@ -188,7 +189,7 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(sums["Table/Tab1"].checksums[1], 0x065BBC3B)
         WVPASSEQ(sums["Table/Tab1"].checksums[2], 0x279DBF24)
 
-        try { VxExec("drop table Tab1"); } catch { }
+        WVASSERT(VxExec("drop table Tab1"));
     }
 
     [Test, Category("Schemamatic"), Category("GetSchemaChecksums")]
@@ -217,7 +218,7 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(sums["Index/Tab1/Index2"].checksums[0], 0x603EA184);
         WVPASSEQ(sums["Index/Tab1/Index2"].checksums[1], 0x8FD2C903);
 
-        try { VxExec("drop table Tab1"); } catch { }
+        WVASSERT(VxExec("drop table Tab1"));
     }
 
     [Test, Category("Schemamatic"), Category("GetSchemaChecksums")]
@@ -248,7 +249,7 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(sums["XMLSchema/TestSchema"].checksums.Count, 1);
         WVPASSEQ(sums["XMLSchema/TestSchema"].checksums[0], 0xFA7736B3);
 
-        try { VxExec("drop xml schema collection TestSchema"); } catch { }
+        WVASSERT(VxExec("drop xml schema collection TestSchema"));
     }
 
     [Test, Category("Schemamatic"), Category("GetSchema")]
@@ -283,11 +284,11 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(schema["Procedure-Encrypted/Func2"].name, "Func2");
         WVPASSEQ(schema["Procedure-Encrypted/Func2"].type, "Procedure");
         WVPASSEQ(schema["Procedure-Encrypted/Func2"].encrypted, true);
-	// FIXME: Can't yet retrieve the contents of encrypted functions
+        // FIXME: Can't yet retrieve the contents of encrypted functions
         //WVPASSEQ(schema["Procedure-Encrypted/Func2"].text, query2);
 
-        try { VxExec("drop procedure Func1"); } catch { }
-        try { VxExec("drop procedure Func2"); } catch { }
+        WVASSERT(VxExec("drop procedure Func1"));
+        WVASSERT(VxExec("drop procedure Func2"));
     }
 
     [Test, Category("Schemamatic"), Category("GetSchema")]
@@ -341,7 +342,8 @@ class SchemamaticTests : VersaplexTester
 	WVPASSEQ(schema["Index/" + pk_name].text.Length, pk_query.Length);
 	WVPASSEQ(schema["Index/" + pk_name].text, pk_query);
 
-        try { VxExec("drop table Tab1"); } catch { }
+        WVASSERT(VxExec("drop index Tab1.Idx1"));
+        WVASSERT(VxExec("drop table Tab1"));
     }
 
     [Test, Category("Schemamatic"), Category("GetSchema")]
