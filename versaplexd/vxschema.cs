@@ -124,7 +124,7 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
     {
         string key = GetKey(name, type, encrypted);
         if (this.ContainsKey(key))
-            this[name].text += text;
+            this[key].text += text;
         else
         {
             if (type == "Table")
