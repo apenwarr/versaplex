@@ -344,6 +344,79 @@ class SchemamaticTests : VersaplexTester
         try { VxExec("drop table Tab1"); } catch { }
     }
 
+    [Test, Category("Schemamatic"), Category("GetSchema")]
+    public void TestGetXmlSchemas()
+    {
+        try { VxExec("drop xml schema collection TestSchema"); } catch { }
+        try { VxExec("drop xml schema collection TestSchema2"); } catch { }
+
+        string query1 = "CREATE XML SCHEMA COLLECTION [dbo].[TestSchema] AS " + 
+            "'<xsd:schema xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">" +
+             "<xsd:element name=\"Employee\">" + 
+              "<xsd:complexType>" + 
+               "<xsd:complexContent>" + 
+                "<xsd:restriction base=\"xsd:anyType\">" + 
+                 "<xsd:sequence>" + 
+                  "<xsd:element name=\"SIN\" type=\"xsd:string\"/>" + 
+                  "<xsd:element name=\"Name\" type=\"xsd:string\"/>" +
+                  "<xsd:element name=\"DateOfBirth\" type=\"xsd:date\"/>" +
+                  "<xsd:element name=\"EmployeeType\" type=\"xsd:string\"/>" +
+                  "<xsd:element name=\"Salary\" type=\"xsd:long\"/>" +
+                 "</xsd:sequence>" +
+                "</xsd:restriction>" + 
+               "</xsd:complexContent>" + 
+              "</xsd:complexType>" +
+             "</xsd:element>" +
+            "</xsd:schema>'\n";
+        WVASSERT(VxExec(query1));
+
+	// Make a long XML Schema, to test the 4000-character chunking
+        string query2 = @"CREATE XML SCHEMA COLLECTION [dbo].[TestSchema2] AS " + 
+            "'<xsd:schema xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">" + 
+            "<xsd:element name=\"Employee\">" +
+             "<xsd:complexType>" +
+              "<xsd:complexContent>" + 
+               "<xsd:restriction base=\"xsd:anyType\">" + 
+                "<xsd:sequence>";
+	
+        while (query2.Length < 8000)
+            query2 += 
+                "<xsd:element name=\"SIN\" type=\"xsd:string\"/>" +
+                "<xsd:element name=\"Name\" type=\"xsd:string\"/>" +
+                "<xsd:element name=\"DateOfBirth\" type=\"xsd:date\"/>" +
+                "<xsd:element name=\"EmployeeType\" type=\"xsd:string\"/>" +
+                "<xsd:element name=\"Salary\" type=\"xsd:long\"/>";
+
+        query2 += "</xsd:sequence>" + 
+                
+                "</xsd:restriction>" + 
+               "</xsd:complexContent>" + 
+              "</xsd:complexType>" +
+             "</xsd:element>" +
+            "</xsd:schema>'\n";
+
+        WVASSERT(VxExec(query2));
+
+	VxSchema schema = VxGetSchema();
+
+        WVPASSEQ(schema.Count, 2);
+
+        WVASSERT(schema.ContainsKey("XMLSchema/TestSchema"));
+        WVPASSEQ(schema["XMLSchema/TestSchema"].name, "TestSchema");
+        WVPASSEQ(schema["XMLSchema/TestSchema"].type, "XMLSchema");
+        WVPASSEQ(schema["XMLSchema/TestSchema"].encrypted, false);
+        WVPASSEQ(schema["XMLSchema/TestSchema"].text, query1);
+
+        WVASSERT(schema.ContainsKey("XMLSchema/TestSchema2"));
+        WVPASSEQ(schema["XMLSchema/TestSchema2"].name, "TestSchema2");
+        WVPASSEQ(schema["XMLSchema/TestSchema2"].type, "XMLSchema");
+        WVPASSEQ(schema["XMLSchema/TestSchema2"].encrypted, false);
+        WVPASSEQ(schema["XMLSchema/TestSchema2"].text, query2);
+
+        WVASSERT(VxExec("drop xml schema collection TestSchema"));
+        WVASSERT(VxExec("drop xml schema collection TestSchema2"));
+    }
+
     public static void Main()
     {
         WvTest.DoMain();

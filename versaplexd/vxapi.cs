@@ -1071,6 +1071,74 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         }
     }
 
+    private static string XmlSchemasQuery(int count, List<string> names)
+    {
+        int start = count * 4000;
+
+        string namestr = (names.Count > 0) ? 
+            "and ((object_name(i.object_id)+'/'+i.name) in (" + 
+                String.Join(",", names.ToArray()) + "'))"
+            : "";
+
+        string query = @"select sch.name owner,
+           xsc.name sch, 
+           cast(substring(
+                 cast(XML_Schema_Namespace(sch.name,xsc.name) as varchar(max)), 
+                 " + start + @", 4000) 
+            as varchar(4000)) contents
+          from sys.xml_schema_collections xsc 
+          join sys.schemas sch on xsc.schema_id = sch.schema_id
+          where sch.name <> 'sys'" + 
+            namestr + 
+          @"order by sch.name, xsc.name";
+
+        return query;
+    }
+
+    private static void GetXmlSchemas(VxSchema schema, List<string> names, 
+        string clientid)
+    {
+        bool do_again = true;
+        for (int count = 0; do_again; count++)
+        {
+            do_again = false;
+            string query = XmlSchemasQuery(count, names);
+
+            VxColumnInfo[] colinfo;
+            object[][] data;
+            byte[][] nullity;
+            
+            VxDb.ExecRecordset(clientid, query, out colinfo, out data, 
+                out nullity);
+
+            foreach (object[] row in data)
+            {
+                string owner = (string)row[0];
+                string name = (string)row[1];
+                string contents = (string)row[2];
+
+                if (contents == "")
+                    continue;
+
+                do_again = true;
+
+                if (count == 0)
+                    schema.Add(name, "XMLSchema", String.Format(
+                        "CREATE XML SCHEMA COLLECTION [{0}].[{1}] AS '", 
+                        owner, name), false);
+
+                schema.Add(name, "XMLSchema", contents, false);
+            }
+        }
+
+        // Close the quotes on all the XMLSchemas
+        foreach (KeyValuePair<string, VxSchemaElement> p in schema)
+        {
+            if (p.Value.type == "XMLSchema")
+                p.Value.text += "'\n";
+        }
+    }
+
     private static void CallGetSchema(Message call, out Message reply)
     {
         if (call.Signature.ToString() != "") {
@@ -1103,6 +1171,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         }
 
         GetIndexSchema(schema, names, clientid);
+        GetXmlSchemas(schema, names, clientid);
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
