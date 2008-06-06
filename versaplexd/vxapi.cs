@@ -1164,6 +1164,112 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         }
     }
 
+    private static void GetTableColumnSchemas(VxSchema schema, 
+        List<string> names, string clientid)
+    {
+        // FIXME: Escape nasty characters from names
+        string tablenames = (names.Count > 0 
+            ? "and t.name in ('" + String.Join("','", names.ToArray()) + "')"
+            : "");
+
+        string query = @"select t.name tabname,
+	   c.name colname,
+	   typ.name typename,
+	   c.length len,
+	   c.xprec xprec,
+	   c.xscale xscale,
+	   c.colorder colorder,
+	   def.text defval,
+	   c.isnullable nullable,
+	   columnproperty(t.id, c.name, 'IsIdentity') isident,
+	   ident_seed(t.name) ident_seed, ident_incr(t.name) ident_incr
+	  from sysobjects t
+	  join syscolumns c on t.id = c.id 
+	  join systypes typ on c.xtype = typ.xtype
+	  left join syscomments def on def.id = c.cdefault
+	  where t.xtype = 'U'
+	    and typ.name <> 'sysname' " + 
+	    tablenames + @"
+	  order by tabname, colorder, typ.status";
+
+        VxColumnInfo[] colinfo;
+        object[][] data;
+        byte[][] nullity;
+        
+        VxDb.ExecRecordset(clientid, query, out colinfo, out data, out nullity);
+
+        List<string> cols = new List<string>();
+        for (int ii = 0; ii < data.Length; ii++)
+        {
+            object[] row = data[ii];
+
+            string tabname = (string)row[0];
+            string colname = (string)row[1];
+            string typename = (string)row[2];
+            short len = (short)row[3];
+            byte xprec = (byte)row[4];
+            byte xscale = (byte)row[5];
+            short colorder = (short)row[6];
+            string defval = (string)row[7];
+            int isnullable = (int)row[8];
+            int isident = (int)row[9];
+            string ident_seed = (string)row[10];
+            string ident_incr = (string)row[11];
+
+            if (isident == 0)
+                ident_seed = ident_incr = null;
+
+            string lenstr = "";
+            if (typename.EndsWith("nvarchar") || typename.EndsWith("nchar"))
+            {
+                if (len == -1)
+                    lenstr = "(max)";
+                else
+                {
+                    len /= 2;
+                    lenstr = String.Format("({0})", len);
+                }
+            }
+            else if (typename.EndsWith("char") || typename.EndsWith("binary"))
+            {
+                lenstr = (len == -1 ? "(max)" : String.Format("({0})", len));
+            }
+            else if (typename.EndsWith("decimal") || 
+                typename.EndsWith("numeric") || typename.EndsWith("real"))
+            {
+                lenstr = String.Format("({0},{1})", xprec,xscale);
+            }
+
+            if (defval != null && defval != "")
+            {
+                // MSSQL returns default values wrapped in ()s
+                if (defval[0] == '(' && defval[defval.Length - 1] == ')')
+                    defval = defval.Substring(1, defval.Length - 2);
+            }
+
+            cols.Add(String.Format("[{0}] [{1}]{2}{3}{4}{5}",
+                colname, typename, 
+                ((lenstr != "") ? " " + lenstr : ""),
+                ((defval != "") ? " DEFAULT " + defval : ""),
+                ((isnullable != 0) ? " NULL" : " NOT NULL"),
+                ((isident != 0) ?  String.Format(
+                    " IDENTITY({0},{1})", ident_seed, ident_incr) :
+                    "")));
+
+            string next_tabname = ((ii+1) < data.Length ? 
+                (string)data[ii+1][0] : null);
+            if (tabname != next_tabname)
+            {
+                string tablestr = String.Format(
+                    "CREATE TABLE [{0}] (\n\t{1});\n\n",
+                    tabname, String.Join(",\n\t", cols.ToArray()));
+                schema.Add(tabname, "Table", tablestr, false);
+
+                cols.Clear();
+            }
+        }
+    }
+
     private static void CallGetSchema(Message call, out Message reply)
     {
         if (call.Signature.ToString() != "as") {
@@ -1204,6 +1310,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
 
         GetIndexSchema(schema, names, clientid);
         GetXmlSchemas(schema, names, clientid);
+        GetTableColumnSchemas(schema, names, clientid);
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 

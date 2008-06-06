@@ -308,6 +308,35 @@ class SchemamaticTests : VersaplexTester
         WVASSERT(VxExec("drop procedure Func2"));
     }
 
+    public void CheckForPrimaryKey(VxSchema schema, string tablename)
+    {
+	string pk_name = "";
+	bool found_pk = false;
+
+	// Primary key names are generated and unpredictable.  Just make sure
+	// that we only got one back, and that it looks like the right one.
+	foreach (string key in schema.Keys)
+	    if (key.StartsWith("Index/PK__" + tablename))
+	    {
+		WVASSERT(!found_pk);
+		found_pk = true;
+		pk_name = key.Substring("Index/".Length);
+		Console.WriteLine("Found primary key index " + pk_name);
+		// Note: don't break here, so we can check there aren't others.
+	    }
+	WVASSERT(found_pk);
+
+	WVASSERT(schema.ContainsKey("Index/" + pk_name));
+	WVPASSEQ(schema["Index/" + pk_name].name, pk_name);
+	WVPASSEQ(schema["Index/" + pk_name].type, "Index");
+	WVPASSEQ(schema["Index/" + pk_name].encrypted, false);
+	string pk_query = String.Format(
+	    "ALTER TABLE [{0}] ADD CONSTRAINT [{1}] PRIMARY KEY CLUSTERED\n" +
+	    "\t(f1);\n\n", tablename, pk_name);
+	WVPASSEQ(schema["Index/" + pk_name].text.Length, pk_query.Length);
+	WVPASSEQ(schema["Index/" + pk_name].text, pk_query);
+    }
+
     [Test, Category("Schemamatic"), Category("GetSchema")]
     public void TestGetIndexSchema()
     {
@@ -337,31 +366,7 @@ class SchemamaticTests : VersaplexTester
 	WVPASSEQ(schema["Index/Idx1"].text.Length, idx1q.Length);
 	WVPASSEQ(schema["Index/Idx1"].text, idx1q);
 
-	string pk_name = "";
-	bool found_pk = false;
-
-	// Primary key names are generated and unpredictable.  Just make sure
-	// that we only got one back, and that it looks like the right one.
-	foreach (string key in schema.Keys)
-	    if (key.StartsWith("Index/PK__Tab1"))
-	    {
-		WVASSERT(!found_pk);
-		found_pk = true;
-		pk_name = key.Substring("Index/".Length);
-		Console.WriteLine("Found primary key index " + pk_name);
-		// Note: don't break here, so we can check there aren't others.
-	    }
-	WVASSERT(found_pk);
-
-	WVASSERT(schema.ContainsKey("Index/" + pk_name));
-	WVPASSEQ(schema["Index/" + pk_name].name, pk_name);
-	WVPASSEQ(schema["Index/" + pk_name].type, "Index");
-	WVPASSEQ(schema["Index/" + pk_name].encrypted, false);
-	string pk_query = String.Format(
-	    "ALTER TABLE [Tab1] ADD CONSTRAINT [{0}] PRIMARY KEY CLUSTERED\n" +
-	    "\t(f1);\n\n", pk_name);
-	WVPASSEQ(schema["Index/" + pk_name].text.Length, pk_query.Length);
-	WVPASSEQ(schema["Index/" + pk_name].text, pk_query);
+        CheckForPrimaryKey(schema, "Tab1");
 
         WVASSERT(VxExec("drop index Tab1.Idx1"));
         WVASSERT(VxExec("drop table Tab1"));
@@ -448,6 +453,37 @@ class SchemamaticTests : VersaplexTester
 
         WVASSERT(VxExec("drop xml schema collection TestSchema"));
         WVASSERT(VxExec("drop xml schema collection TestSchema2"));
+    }
+
+    [Test, Category("Schemamatic"), Category("GetSchema")]
+    public void TestGetTableSchema()
+    {
+        try { VxExec("drop table Table1"); } catch { }
+        string query = "CREATE TABLE [Table1] (\n\t" + 
+            "[f1] [int] NOT NULL PRIMARY KEY,\n\t" +
+            "[f2] [money] NULL,\n\t" + 
+            "[f3] [varchar] (80) NOT NULL,\n\t" +
+            "[f4] [varchar] (max) DEFAULT 'Default Value' NULL,\n\t" + 
+            "[f5] [decimal] (3,2),\n\t" + 
+            "[f6] [bigint] NOT NULL IDENTITY(4,5));\n\n";
+        WVASSERT(VxExec(query));
+
+        VxSchema schema = VxGetSchema();
+        WVASSERT(schema.Count >= 2);
+
+        // Primary keys get returned as indexes, not in the CREATE TABLE
+        string result = query.Replace(" PRIMARY KEY", "");
+        // Check that columns default to nullable
+        result = result.Replace("[f5] [decimal] (3,2)", 
+            "[f5] [decimal] (3,2) NULL");
+
+        WVASSERT(schema.ContainsKey("Table/Table1"));
+        WVPASSEQ(schema["Table/Table1"].name, "Table1");
+        WVPASSEQ(schema["Table/Table1"].type, "Table");
+        WVPASSEQ(schema["Table/Table1"].encrypted, false);
+        WVPASSEQ(schema["Table/Table1"].text, result);
+
+        CheckForPrimaryKey(schema, "Table1");
     }
 
     public static void Main()
