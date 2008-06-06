@@ -923,7 +923,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
     {
         string name_q = names.Count > 0 
             ? " and object_name(id) in ('" + 
-                String.Join(",", names.ToArray()) + "')"
+                String.Join("','", names.ToArray()) + "')"
             : "";
 
         string textcol = encrypted > 0 ? "ctext" : "text";
@@ -986,8 +986,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         string clientid)
     {
         string idxnames = (names.Count > 0) ? 
-            "and ((object_name(i.object_id)+'/'+i.name) in (" + 
-                String.Join(",", names.ToArray()) + "'))"
+            "and ((object_name(i.object_id)+'/'+i.name) in ('" + 
+                String.Join("','", names.ToArray()) + "'))"
             : "";
 
         string query = @"
@@ -1010,7 +1010,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
           where object_name(i.object_id) not like 'sys%' 
             and object_name(i.object_id) not like 'queue_%' " + 
             idxnames + 
-          @"order by i.name, i.object_id, ic.index_column_id";
+          @" order by i.name, i.object_id, ic.index_column_id";
 
         VxColumnInfo[] colinfo;
         object[][] data;
@@ -1080,8 +1080,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         int start = count * 4000;
 
         string namestr = (names.Count > 0) ? 
-            "and ((object_name(i.object_id)+'/'+i.name) in (" + 
-                String.Join(",", names.ToArray()) + "'))"
+            "and xsc.name in ('" + 
+                String.Join("','", names.ToArray()) + "')"
             : "";
 
         string query = @"select sch.name owner,
@@ -1094,7 +1094,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
           join sys.schemas sch on xsc.schema_id = sch.schema_id
           where sch.name <> 'sys'" + 
             namestr + 
-          @"order by sch.name, xsc.name";
+          @" order by sch.name, xsc.name";
 
         return query;
     }
@@ -1145,7 +1145,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
 
     private static void CallGetSchema(Message call, out Message reply)
     {
-        if (call.Signature.ToString() != "") {
+        if (call.Signature.ToString() != "as") {
             reply = VxDbus.CreateError(
                     "org.freedesktop.DBus.Error.UnknownMethod",
                     String.Format(
@@ -1163,8 +1163,15 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
             return;
         }
 
-        // FIXME: Read list of schemas to get
+        MessageReader mr = new MessageReader(call);
+        Array names_untyped;
+        mr.GetValue(typeof(string[]), out names_untyped);
         List<string> names = new List<string>();
+        foreach (object name in names_untyped)
+        {
+            names.Add((string)name);
+            Console.WriteLine("CallGetSchema: Read name " + (string)name);
+        }
 
         VxSchema schema = new VxSchema();
 
