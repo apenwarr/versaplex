@@ -1018,7 +1018,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         
         VxDb.ExecRecordset(clientid, query, out colinfo, out data, out nullity);
 
-        int total = data.Length;
+        int old_colid = 0;
         List<string> cols = new List<string>();
         for (int ii = 0; ii < data.Length; ii++)
         {
@@ -1032,6 +1032,10 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
             string colname = (string)row[5];
             int colid = (int)row[6];
             int coldesc = (int)row[7];
+
+            // Check that we're getting the rows in order.
+            wv.assert(colid == old_colid + 1 || colid == 1);
+            old_colid = colid;
 
             cols.Add(coldesc == 0 ? colname : colname + " DESC");
 
