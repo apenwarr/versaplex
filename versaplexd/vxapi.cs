@@ -940,7 +940,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         VxDbus.MessageDump(" >> ", reply);
     }
 
-    private static string GetSchemaQuery(string type, int encrypted, 
+    private static string RetrieveProcSchemasQuery(string type, int encrypted, 
         bool countonly, List<string> names)
     {
         string name_q = names.Count > 0 
@@ -951,17 +951,17 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         string textcol = encrypted > 0 ? "ctext" : "text";
         string cols = countonly 
             ? "count(*)"
-            : "object_name(id), number, colid, " + textcol + " ";
+            : "object_name(id), colid, " + textcol + " ";
 
         return "select " + cols + " from syscomments " + 
             "where objectproperty(id, 'Is" + type + "') = 1 " + 
                 "and encrypted = " + encrypted + name_q;
     }
 
-    private static void GetProcSchema(VxSchema schema, List<string> names, 
+    private static void RetrieveProcSchemas(VxSchema schema, List<string> names, 
         string clientid, string type, int encrypted)
     {
-        string query = GetSchemaQuery(type, encrypted, false, names);
+        string query = RetrieveProcSchemasQuery(type, encrypted, false, names);
 
         VxColumnInfo[] colinfo;
         object[][] data;
@@ -975,17 +975,19 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         {
             num++;
             string name = (string)row[0];
-            short number = (short)row[1];
-            short colid = (short)row[2];
+            short colid = (short)row[1];
             string text;
             if (encrypted > 0)
             {
-                byte[] bytes = (byte[])row[3];
+                byte[] bytes = (byte[])row[2];
+                // BitConverter.ToString formats the bytes as "01-23-cd-ef", 
+                // but we want to have them as just straight "0123cdef".
                 text = System.BitConverter.ToString(bytes);
+                text = text.Replace("-", "");
                 log.print("bytes.Length = {0}, text={1}\n", bytes.Length, text);
             }
             else
-                text = (string)row[3];
+                text = (string)row[2];
 
 
             // Skip dt_* functions and sys_* views
@@ -1004,7 +1006,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
             encrypted > 0 ? "-Encrypted" : "");
     }
 
-    private static void GetIndexSchema(VxSchema schema, List<string> names, 
+    private static void RetrieveIndexSchemas(VxSchema schema, List<string> names, 
         string clientid)
     {
         string idxnames = (names.Count > 0) ? 
@@ -1121,7 +1123,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         return query;
     }
 
-    private static void GetXmlSchemas(VxSchema schema, List<string> names, 
+    private static void RetrieveXmlSchemas(VxSchema schema, List<string> names, 
         string clientid)
     {
         bool do_again = true;
@@ -1165,7 +1167,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         }
     }
 
-    private static void GetTableColumnSchemas(VxSchema schema, 
+    private static void RetrieveTableColumns(VxSchema schema, 
         List<string> names, string clientid)
     {
         string tablenames = (names.Count > 0 
@@ -1178,7 +1180,6 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
 	   c.length len,
 	   c.xprec xprec,
 	   c.xscale xscale,
-	   c.colorder colorder,
 	   def.text defval,
 	   c.isnullable nullable,
 	   columnproperty(t.id, c.name, 'IsIdentity') isident,
@@ -1190,7 +1191,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
 	  where t.xtype = 'U'
 	    and typ.name <> 'sysname' " + 
 	    tablenames + @"
-	  order by tabname, colorder, typ.status";
+	  order by tabname, c.colorder, typ.status";
 
         VxColumnInfo[] colinfo;
         object[][] data;
@@ -1209,12 +1210,11 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
             short len = (short)row[3];
             byte xprec = (byte)row[4];
             byte xscale = (byte)row[5];
-            short colorder = (short)row[6];
-            string defval = (string)row[7];
-            int isnullable = (int)row[8];
-            int isident = (int)row[9];
-            string ident_seed = (string)row[10];
-            string ident_incr = (string)row[11];
+            string defval = (string)row[6];
+            int isnullable = (int)row[7];
+            int isident = (int)row[8];
+            string ident_seed = (string)row[9];
+            string ident_incr = (string)row[10];
 
             if (isident == 0)
                 ident_seed = ident_incr = null;
@@ -1315,13 +1315,13 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
 
         foreach (string type in ProcedureTypes)
         {
-            GetProcSchema(schema, names, clientid, type, 0);
-            GetProcSchema(schema, names, clientid, type, 1);
+            RetrieveProcSchemas(schema, names, clientid, type, 0);
+            RetrieveProcSchemas(schema, names, clientid, type, 1);
         }
 
-        GetIndexSchema(schema, names, clientid);
-        GetXmlSchemas(schema, names, clientid);
-        GetTableColumnSchemas(schema, names, clientid);
+        RetrieveIndexSchemas(schema, names, clientid);
+        RetrieveXmlSchemas(schema, names, clientid);
+        RetrieveTableColumns(schema, names, clientid);
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
