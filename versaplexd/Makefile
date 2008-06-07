@@ -11,7 +11,7 @@ test: all t/test
 tests: all t/all
 
 versaplexd.exe: versaplexd.cs \
-    dodgytransport.cs PriorityQueue.cs vxbufferstream.cs \
+    dodgytransport.cs PriorityQueue.cs schemamatic.cs vxbufferstream.cs \
     vxapi.cs vxcolumninfo.cs vxdbus.cs vxdbusdatetime.cs \
     vxevent.cs vxeventloop.cs vxnotifysocket.cs \
     vxschema.cs vxschemachecksums.cs vxsocket.cs \
