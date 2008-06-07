@@ -260,42 +260,43 @@ class SchemamaticTests : VersaplexTester
     [Test, Category("Schemamatic"), Category("GetSchema")]
     public void TestGetProcSchema()
     {
-        try { VxExec("drop procedure Func1"); } catch { }
-        try { VxExec("drop procedure Func2"); } catch { }
+        try { VxExec("drop procedure [Func1!]"); } catch { }
+        try { VxExec("drop procedure [Func2]"); } catch { }
 
         string msg1 = "Hello, world, this is Func1!";
         string msg2 = "Hello, world, this is Func2!";
-        string fmt = "create procedure {0} {1} as select '{2}'";
-        string query1 = String.Format(fmt, "Func1", "", msg1);
+        string fmt = "create procedure [{0}] {1} as select '{2}'";
+        string query1 = String.Format(fmt, "Func1!", "", msg1);
         string query2 = String.Format(fmt, "Func2", "with encryption", msg2);
         object outmsg;
         WVASSERT(VxExec(query1));
-        WVASSERT(VxScalar("exec Func1", out outmsg));
+        WVASSERT(VxScalar("exec [Func1!]", out outmsg));
         WVPASSEQ(msg1, (string)outmsg);
 
         WVASSERT(VxExec(query2));
-        WVASSERT(VxScalar("exec Func2", out outmsg));
+        WVASSERT(VxScalar("exec [Func2]", out outmsg));
         WVPASSEQ(msg2, (string)outmsg);
 
-        // Check that the query limiting works
-        VxSchema schema = VxGetSchema("Func1");
+        // Check that the query limiting works.  Also test that the evil
+        // character cleansing works (turning bad characters into !s)
+        VxSchema schema = VxGetSchema("Func1é");
         WVPASSEQ(schema.Count, 1);
 
-        WVASSERT(schema.ContainsKey("Procedure/Func1"));
-        WVPASSEQ(schema["Procedure/Func1"].name, "Func1");
-        WVPASSEQ(schema["Procedure/Func1"].type, "Procedure");
-        WVPASSEQ(schema["Procedure/Func1"].encrypted, false);
-        WVPASSEQ(schema["Procedure/Func1"].text, query1);
+        WVASSERT(schema.ContainsKey("Procedure/Func1!"));
+        WVPASSEQ(schema["Procedure/Func1!"].name, "Func1!");
+        WVPASSEQ(schema["Procedure/Func1!"].type, "Procedure");
+        WVPASSEQ(schema["Procedure/Func1!"].encrypted, false);
+        WVPASSEQ(schema["Procedure/Func1!"].text, query1);
 
         // Also check that unlimited queries get everything
         schema = VxGetSchema();
         WVASSERT(schema.Count >= 2);
 
-        WVASSERT(schema.ContainsKey("Procedure/Func1"));
-        WVPASSEQ(schema["Procedure/Func1"].name, "Func1");
-        WVPASSEQ(schema["Procedure/Func1"].type, "Procedure");
-        WVPASSEQ(schema["Procedure/Func1"].encrypted, false);
-        WVPASSEQ(schema["Procedure/Func1"].text, query1);
+        WVASSERT(schema.ContainsKey("Procedure/Func1!"));
+        WVPASSEQ(schema["Procedure/Func1!"].name, "Func1!");
+        WVPASSEQ(schema["Procedure/Func1!"].type, "Procedure");
+        WVPASSEQ(schema["Procedure/Func1!"].encrypted, false);
+        WVPASSEQ(schema["Procedure/Func1!"].text, query1);
 
         WVASSERT(schema.ContainsKey("Procedure-Encrypted/Func2"));
         WVPASSEQ(schema["Procedure-Encrypted/Func2"].name, "Func2");
@@ -304,8 +305,8 @@ class SchemamaticTests : VersaplexTester
         // FIXME: Can't yet retrieve the contents of encrypted functions
         //WVPASSEQ(schema["Procedure-Encrypted/Func2"].text, query2);
 
-        WVASSERT(VxExec("drop procedure Func1"));
-        WVASSERT(VxExec("drop procedure Func2"));
+        WVASSERT(VxExec("drop procedure [Func1!]"));
+        WVASSERT(VxExec("drop procedure [Func2]"));
     }
 
     public void CheckForPrimaryKey(VxSchema schema, string tablename)

@@ -1,5 +1,6 @@
 using System;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Data;
 using System.Data.SqlClient;
 using System.Runtime.Serialization;
@@ -1167,7 +1168,6 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
     private static void GetTableColumnSchemas(VxSchema schema, 
         List<string> names, string clientid)
     {
-        // FIXME: Escape nasty characters from names
         string tablenames = (names.Count > 0 
             ? "and t.name in ('" + String.Join("','", names.ToArray()) + "')"
             : "");
@@ -1270,6 +1270,17 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         }
     }
 
+    // Escape the schema element names supplied, to make sure they don't have
+    // evil characters.
+    private static string EscapeSchemaElementName(string name)
+    {
+        // Replace any nasty non-ASCII characters with an !
+        string escaped = Regex.Replace(name, "[^\\p{IsBasicLatin}]", "!");
+
+        // Escape quote marks
+        return escaped.Replace("'", "''");
+    }
+
     private static void CallGetSchema(Message call, out Message reply)
     {
         if (call.Signature.ToString() != "as") {
@@ -1296,7 +1307,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         List<string> names = new List<string>();
         foreach (object name in names_untyped)
         {
-            names.Add((string)name);
+            names.Add(EscapeSchemaElementName((string)name));
             Console.WriteLine("CallGetSchema: Read name " + (string)name);
         }
 
