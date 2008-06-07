@@ -902,7 +902,9 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
                 // algorithm changes, we don't want to pretend our checksum
                 // list makes any sense!
                 string test_csum_label = "Procedure/schemamatic_checksum_test";
-                ulong got_csum = sums[test_csum_label].checksums[0];
+                ulong got_csum = 0;
+                if (sums.ContainsKey(test_csum_label))
+                    got_csum = sums[test_csum_label].checksums[0];
                 ulong want_csum = 0x173d6ee8;
                 if (want_csum != got_csum)
                 {
