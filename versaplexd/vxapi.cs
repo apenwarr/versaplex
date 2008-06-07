@@ -1093,7 +1093,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
                         tabname,
                         colstr);
                 }
-                schema.Add(idxname, "Index", indexstr, false);
+                schema.Add(tabname + "/" + idxname, "Index", indexstr, false);
                 cols.Clear();
             }
         }
@@ -1301,27 +1301,64 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
             return;
         }
 
-        MessageReader mr = new MessageReader(call);
         Array names_untyped;
+        List<string> all_names = new List<string>();
+        List<string> proc_names = new List<string>();
+        List<string> xml_names = new List<string>();
+        List<string> tab_names = new List<string>();
+        List<string> idx_names = new List<string>();
+
+        MessageReader mr = new MessageReader(call);
         mr.GetValue(typeof(string[]), out names_untyped);
-        List<string> names = new List<string>();
-        foreach (object name in names_untyped)
+        foreach (object nameobj in names_untyped)
         {
-            names.Add(EscapeSchemaElementName((string)name));
-            Console.WriteLine("CallGetSchema: Read name " + (string)name);
+            string fullname = EscapeSchemaElementName((string)nameobj);
+            Console.WriteLine("CallGetSchema: Read name " + fullname);
+            all_names.Add(fullname);
+
+            string[] parts = fullname.Split(new char[] {'/'}, 2);
+            if (parts.Length == 2)
+            {
+                string type = parts[0];
+                string name = parts[1];
+                if (type == "Table")
+                    tab_names.Add(name);
+                else if (type == "Index")
+                    idx_names.Add(name);
+                else if (type == "XMLSchema")
+                    xml_names.Add(name);
+                else
+                    proc_names.Add(name);
+            }
+            else
+            {
+                // No type given, just try them all
+                proc_names.Add(fullname);
+                xml_names.Add(fullname);
+                tab_names.Add(fullname);
+                idx_names.Add(fullname);
+            }
         }
 
         VxSchema schema = new VxSchema();
 
-        foreach (string type in ProcedureTypes)
+        if (proc_names.Count > 0 || all_names.Count == 0)
         {
-            RetrieveProcSchemas(schema, names, clientid, type, 0);
-            RetrieveProcSchemas(schema, names, clientid, type, 1);
+            foreach (string type in ProcedureTypes)
+            {
+                RetrieveProcSchemas(schema, proc_names, clientid, type, 0);
+                RetrieveProcSchemas(schema, proc_names, clientid, type, 1);
+            }
         }
 
-        RetrieveIndexSchemas(schema, names, clientid);
-        RetrieveXmlSchemas(schema, names, clientid);
-        RetrieveTableColumns(schema, names, clientid);
+        if (idx_names.Count > 0 || all_names.Count == 0)
+            RetrieveIndexSchemas(schema, idx_names, clientid);
+
+        if (xml_names.Count > 0 || all_names.Count == 0)
+            RetrieveXmlSchemas(schema, xml_names, clientid);
+
+        if (tab_names.Count > 0 || all_names.Count == 0)
+            RetrieveTableColumns(schema, tab_names, clientid);
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 

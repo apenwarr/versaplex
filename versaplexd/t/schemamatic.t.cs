@@ -279,7 +279,16 @@ class SchemamaticTests : VersaplexTester
 
         // Check that the query limiting works.  Also test that the evil
         // character cleansing works (turning bad characters into !s)
-        VxSchema schema = VxGetSchema("Func1é");
+        VxSchema schema = VxGetSchema("Procedure/Func1é");
+        WVPASSEQ(schema.Count, 1);
+
+        WVASSERT(schema.ContainsKey("Procedure/Func1!"));
+        WVPASSEQ(schema["Procedure/Func1!"].name, "Func1!");
+        WVPASSEQ(schema["Procedure/Func1!"].type, "Procedure");
+        WVPASSEQ(schema["Procedure/Func1!"].encrypted, false);
+        WVPASSEQ(schema["Procedure/Func1!"].text, query1);
+
+        schema = VxGetSchema("Func1é");
         WVPASSEQ(schema.Count, 1);
 
         WVASSERT(schema.ContainsKey("Procedure/Func1!"));
@@ -314,28 +323,33 @@ class SchemamaticTests : VersaplexTester
 	string pk_name = "";
 	bool found_pk = false;
 
+        string prefix = "Index/" + tablename + "/";
+
 	// Primary key names are generated and unpredictable.  Just make sure
 	// that we only got one back, and that it looks like the right one.
 	foreach (string key in schema.Keys)
-	    if (key.StartsWith("Index/PK__" + tablename))
+        {
+            Console.WriteLine("Looking at " + key);
+	    if (key.StartsWith(prefix + "PK__" + tablename))
 	    {
 		WVASSERT(!found_pk);
 		found_pk = true;
-		pk_name = key.Substring("Index/".Length);
+		pk_name = key.Substring(prefix.Length);
 		Console.WriteLine("Found primary key index " + pk_name);
 		// Note: don't break here, so we can check there aren't others.
 	    }
+        }
 	WVASSERT(found_pk);
 
-	WVASSERT(schema.ContainsKey("Index/" + pk_name));
-	WVPASSEQ(schema["Index/" + pk_name].name, pk_name);
-	WVPASSEQ(schema["Index/" + pk_name].type, "Index");
-	WVPASSEQ(schema["Index/" + pk_name].encrypted, false);
+	WVASSERT(schema.ContainsKey(prefix + pk_name));
+	WVPASSEQ(schema[prefix + pk_name].name, tablename + "/" + pk_name);
+	WVPASSEQ(schema[prefix + pk_name].type, "Index");
+	WVPASSEQ(schema[prefix + pk_name].encrypted, false);
 	string pk_query = String.Format(
 	    "ALTER TABLE [{0}] ADD CONSTRAINT [{1}] PRIMARY KEY CLUSTERED\n" +
 	    "\t(f1);\n\n", tablename, pk_name);
-	WVPASSEQ(schema["Index/" + pk_name].text.Length, pk_query.Length);
-	WVPASSEQ(schema["Index/" + pk_name].text, pk_query);
+	WVPASSEQ(schema[prefix + pk_name].text.Length, pk_query.Length);
+	WVPASSEQ(schema[prefix + pk_name].text, pk_query);
     }
 
     [Test, Category("Schemamatic"), Category("GetSchema")]
@@ -353,19 +367,26 @@ class SchemamaticTests : VersaplexTester
         WVASSERT(VxExec(idx1q));
 
         // Check that the query limiting works
-	VxSchema schema = VxGetSchema("Tab1/Idx1");
+	VxSchema schema = VxGetSchema("Index/Tab1/Idx1");
 	WVPASSEQ(schema.Count, 1);
+
+	WVASSERT(schema.ContainsKey("Index/Tab1/Idx1"));
+	WVPASSEQ(schema["Index/Tab1/Idx1"].name, "Tab1/Idx1");
+	WVPASSEQ(schema["Index/Tab1/Idx1"].type, "Index");
+	WVPASSEQ(schema["Index/Tab1/Idx1"].encrypted, false);
+	WVPASSEQ(schema["Index/Tab1/Idx1"].text.Length, idx1q.Length);
+	WVPASSEQ(schema["Index/Tab1/Idx1"].text, idx1q);
 
         // Now get everything, since we don't know the primary key's name
         schema = VxGetSchema();
         WVASSERT(schema.Count >= 2);
 
-	WVASSERT(schema.ContainsKey("Index/Idx1"));
-	WVPASSEQ(schema["Index/Idx1"].name, "Idx1");
-	WVPASSEQ(schema["Index/Idx1"].type, "Index");
-	WVPASSEQ(schema["Index/Idx1"].encrypted, false);
-	WVPASSEQ(schema["Index/Idx1"].text.Length, idx1q.Length);
-	WVPASSEQ(schema["Index/Idx1"].text, idx1q);
+	WVASSERT(schema.ContainsKey("Index/Tab1/Idx1"));
+	WVPASSEQ(schema["Index/Tab1/Idx1"].name, "Tab1/Idx1");
+	WVPASSEQ(schema["Index/Tab1/Idx1"].type, "Index");
+	WVPASSEQ(schema["Index/Tab1/Idx1"].encrypted, false);
+	WVPASSEQ(schema["Index/Tab1/Idx1"].text.Length, idx1q.Length);
+	WVPASSEQ(schema["Index/Tab1/Idx1"].text, idx1q);
 
         CheckForPrimaryKey(schema, "Tab1");
 
@@ -428,6 +449,15 @@ class SchemamaticTests : VersaplexTester
 
         // Test that the query limiting works
 	VxSchema schema = VxGetSchema("TestSchema");
+        WVPASSEQ(schema.Count, 1);
+
+        WVASSERT(schema.ContainsKey("XMLSchema/TestSchema"));
+        WVPASSEQ(schema["XMLSchema/TestSchema"].name, "TestSchema");
+        WVPASSEQ(schema["XMLSchema/TestSchema"].type, "XMLSchema");
+        WVPASSEQ(schema["XMLSchema/TestSchema"].encrypted, false);
+        WVPASSEQ(schema["XMLSchema/TestSchema"].text, query1);
+
+	schema = VxGetSchema("XMLSchema/TestSchema");
         WVPASSEQ(schema.Count, 1);
 
         WVASSERT(schema.ContainsKey("XMLSchema/TestSchema"));
