@@ -165,10 +165,10 @@ internal static class VxDb {
                     rownulls.Add(rownull);
                 }
 
-				data = rows.ToArray();
-				nullity = rownulls.ToArray();
-				log.print(WvLog.L.Debug4, "({0} rows)\n", data.Length);
-				wv.assert(nullity.Length == data.Length);
+                data = rows.ToArray();
+                nullity = rownulls.ToArray();
+                log.print(WvLog.L.Debug4, "({0} rows)\n", data.Length);
+                wv.assert(nullity.Length == data.Length);
             }
         } catch (SqlException e) {
             throw new VxSqlException(e.Message, e);
