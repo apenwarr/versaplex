@@ -10,6 +10,27 @@ using NDesk.DBus;
 [TestFixture]
 class SchemamaticTests : VersaplexTester
 {
+    Exception GetDbusException(Message reply)
+    {
+        object errname;
+        if (!reply.Header.Fields.TryGetValue(FieldCode.ErrorName,
+                    out errname))
+            return new Exception("D-Bus error received but no error name "
+                    +"given");
+
+        object errsig;
+        if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
+                    out errsig) || errsig.ToString() != "s")
+            return new DbusError(errname.ToString());
+
+        MessageReader mr = new MessageReader(reply);
+
+        object errmsg;
+        mr.GetValue(typeof(string), out errmsg);
+
+        return new DbusError(errname.ToString() + ": " + errmsg.ToString());
+    }
+
     VxSchemaChecksums VxGetSchemaChecksums()
     {
 	Console.WriteLine(" + VxGetSchemaChecksums");
@@ -36,25 +57,7 @@ class SchemamaticTests : VersaplexTester
             return sums;
         }
         case MessageType.Error:
-        {
-            object errname;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.ErrorName,
-                        out errname))
-                throw new Exception("D-Bus error received but no error name "
-                        +"given");
-
-            object errsig;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out errsig) || errsig.ToString() != "s")
-                throw new DbusError(errname.ToString());
-
-            MessageReader mr = new MessageReader(reply);
-
-            object errmsg;
-            mr.GetValue(typeof(string), out errmsg);
-
-            throw new DbusError(errname.ToString() + ": " + errmsg.ToString());
-        }
+            throw GetDbusException(reply);
         default:
             throw new Exception("D-Bus response was not a method return or "
                     +"error");
@@ -92,25 +95,7 @@ class SchemamaticTests : VersaplexTester
             return schema;
         }
         case MessageType.Error:
-        {
-            object errname;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.ErrorName,
-                        out errname))
-                throw new Exception("D-Bus error received but no error name "
-                        +"given");
-
-            object errsig;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out errsig) || errsig.ToString() != "s")
-                throw new DbusError(errname.ToString());
-
-            MessageReader mr = new MessageReader(reply);
-
-            object errmsg;
-            mr.GetValue(typeof(string), out errmsg);
-
-            throw new DbusError(errname.ToString() + ": " + errmsg.ToString());
-        }
+            throw GetDbusException(reply);
         default:
             throw new Exception("D-Bus response was not a method return or "
                     +"error");
@@ -226,27 +211,33 @@ class SchemamaticTests : VersaplexTester
         WVASSERT(VxExec("drop table Tab1"));
     }
 
+    string CreateXmlSchemaQuery()
+    {
+        return "CREATE XML SCHEMA COLLECTION [dbo].[TestSchema] AS " + 
+            "'<xsd:schema xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">" +
+             "<xsd:element name=\"Employee\">" + 
+              "<xsd:complexType>" + 
+               "<xsd:complexContent>" + 
+                "<xsd:restriction base=\"xsd:anyType\">" + 
+                 "<xsd:sequence>" + 
+                  "<xsd:element name=\"SIN\" type=\"xsd:string\"/>" + 
+                  "<xsd:element name=\"Name\" type=\"xsd:string\"/>" +
+                  "<xsd:element name=\"DateOfBirth\" type=\"xsd:date\"/>" +
+                  "<xsd:element name=\"EmployeeType\" type=\"xsd:string\"/>" +
+                  "<xsd:element name=\"Salary\" type=\"xsd:long\"/>" +
+                 "</xsd:sequence>" +
+                "</xsd:restriction>" + 
+               "</xsd:complexContent>" + 
+              "</xsd:complexType>" +
+             "</xsd:element>" +
+            "</xsd:schema>'\n";
+    }
+
     [Test, Category("Schemamatic"), Category("GetSchemaChecksums")]
     public void TestXmlSchemaChecksums()
     {
         try { VxExec("drop xml schema collection TestSchema"); } catch { }
-        // To escape a double-quote within an @" string, use "".  This
-        // looks a bit hideous, but better than a normal string (esp printed).
-        string query = @"CREATE XML SCHEMA COLLECTION TestSchema AS
-            N'<xsd:schema xmlns:xsd=""http://www.w3.org/2001/XMLSchema"">
-            <xsd:element name=""Employee"">
-                <xsd:complexType>
-                    <xsd:sequence>
-                        <xsd:element name=""SIN"" type=""xsd:string""/>
-                        <xsd:element name=""Name"" type=""xsd:string""/>
-                        <xsd:element name=""DateOfBirth"" type=""xsd:date""/>
-                        <xsd:element name=""EmployeeType"" type=""xsd:string""/>
-                        <xsd:element name=""Salary"" type=""xsd:long""/>
-                    </xsd:sequence>
-                </xsd:complexType>
-            </xsd:element>
-          </xsd:schema>'";
-        WVASSERT(VxExec(query));
+        WVASSERT(VxExec(CreateXmlSchemaQuery()));
 
         VxSchemaChecksums sums;
         sums = VxGetSchemaChecksums();
@@ -400,24 +391,7 @@ class SchemamaticTests : VersaplexTester
         try { VxExec("drop xml schema collection TestSchema"); } catch { }
         try { VxExec("drop xml schema collection TestSchema2"); } catch { }
 
-        string query1 = "CREATE XML SCHEMA COLLECTION [dbo].[TestSchema] AS " + 
-            "'<xsd:schema xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">" +
-             "<xsd:element name=\"Employee\">" + 
-              "<xsd:complexType>" + 
-               "<xsd:complexContent>" + 
-                "<xsd:restriction base=\"xsd:anyType\">" + 
-                 "<xsd:sequence>" + 
-                  "<xsd:element name=\"SIN\" type=\"xsd:string\"/>" + 
-                  "<xsd:element name=\"Name\" type=\"xsd:string\"/>" +
-                  "<xsd:element name=\"DateOfBirth\" type=\"xsd:date\"/>" +
-                  "<xsd:element name=\"EmployeeType\" type=\"xsd:string\"/>" +
-                  "<xsd:element name=\"Salary\" type=\"xsd:long\"/>" +
-                 "</xsd:sequence>" +
-                "</xsd:restriction>" + 
-               "</xsd:complexContent>" + 
-              "</xsd:complexType>" +
-             "</xsd:element>" +
-            "</xsd:schema>'\n";
+        string query1 = CreateXmlSchemaQuery();
         WVASSERT(VxExec(query1));
 
 	// Make a long XML Schema, to test the 4000-character chunking
