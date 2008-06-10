@@ -269,8 +269,9 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         methods.Add("Quit", CallQuit);
         methods.Add("ExecScalar", CallExecScalar);
         methods.Add("ExecRecordset", CallExecRecordset);
-        methods.Add("GetSchema", CallGetSchema);
         methods.Add("GetSchemaChecksums", CallGetSchemaChecksums);
+        methods.Add("GetSchema", CallGetSchema);
+        methods.Add("DropSchema", CallDropSchema);
     }
 
     protected override void ExecuteCall(MethodCallProcessor processor,
@@ -810,6 +811,40 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         VxDbus.MessageDump(" >> ", reply);
     }
 
+    private static void CallDropSchema(Message call, out Message reply)
+    {
+        if (call.Signature.ToString() != "ss") {
+            reply = VxDbus.CreateError(
+                    "org.freedesktop.DBus.Error.UnknownMethod",
+                    String.Format(
+                        "No overload of GetSchemaChecksums has signature '{0}'",
+                        call.Signature), call);
+            return;
+        }
+
+        string clientid = GetClientId(call);
+        if (clientid == null)
+        {
+            reply = VxDbus.CreateError(
+                    "org.freedesktop.DBus.Error.Failed",
+                    "Could not identify the client", call);
+            return;
+        }
+
+        string type, name;
+
+        MessageReader mr = new MessageReader(call);
+        mr.GetValue(out type);
+        mr.GetValue(out name);
+
+        // FIXME: Return errors
+        Schemamatic.DropSchema(clientid, type, name);
+
+        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+
+        // FIXME: Return errors
+        reply = VxDbus.CreateReply(call);
+    }
 }
 
 class VxRequestException : Exception {

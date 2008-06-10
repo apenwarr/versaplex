@@ -101,6 +101,40 @@ class SchemamaticTests : VersaplexTester
                     +"error");
         }
     }
+    
+    void VxDropSchema(string type, string name)
+    {
+	Console.WriteLine(" + VxDropSchema");
+
+        Message call = CreateMethodCall("DropSchema", "ss");
+
+        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+
+        writer.Write(typeof(string), type);
+        writer.Write(typeof(string), name);
+        call.Body = writer.ToArray();
+
+        Message reply = call.Connection.SendWithReplyAndBlock(call);
+        Console.WriteLine("Got reply");
+
+        switch (reply.Header.MessageType) {
+        case MessageType.MethodReturn:
+        {
+            object replysig;
+            if (reply.Header.Fields.TryGetValue(FieldCode.Signature,
+                        out replysig))
+                throw new Exception("D-Bus reply had unexpected signature" + 
+                    replysig);
+
+            return;
+        }
+        case MessageType.Error:
+            throw GetDbusException(reply);
+        default:
+            throw new Exception("D-Bus response was not a method return or "
+                    +"error");
+        }
+    }
 
     [Test, Category("Schemamatic"), Category("GetSchemaChecksums")]
     public void TestProcedureChecksums()
@@ -489,6 +523,73 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(schema["Table/Table1"].text, result);
 
         CheckForPrimaryKey(schema, "Table1");
+    }
+
+    [Test, Category("Schemamatic"), Category("GetSchema")]
+    public void TestDropSchema()
+    {
+        try { VxExec("drop table Tab1"); } catch { }
+        try { VxExec("drop table Tab2"); } catch { }
+        try { VxExec("drop index Idx1"); } catch { }
+        try { VxExec("drop xml schema collection TestSchema"); } catch { }
+        try { VxExec("drop procedure Func1"); } catch { }
+
+        string tab1q = "CREATE TABLE [Tab1] (" + 
+            "[f1] [int]  NOT NULL PRIMARY KEY," +
+            "[f2] [money]  NULL," + 
+            "[f3] [varchar] (80) NULL)";
+        WVASSERT(VxExec(tab1q));
+
+        string tab2q = "CREATE TABLE [Tab2] ([f4] binary NOT NULL)";
+        WVASSERT(VxExec(tab2q));
+
+	string idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
+	    "\t(f2,f3 DESC);\n\n";
+        WVASSERT(VxExec(idx1q));
+
+        string msg = "Hello, world, this is Func1!";
+        WVASSERT(VxExec("create procedure Func1 as select '" + msg + "'"));
+
+        WVASSERT(VxExec(CreateXmlSchemaQuery()));
+        
+        VxSchemaChecksums sums = VxGetSchemaChecksums();
+
+        WVASSERT(sums.ContainsKey("Index/Tab1/Idx1"));
+        WVASSERT(sums.ContainsKey("Procedure/Func1"));
+        WVASSERT(sums.ContainsKey("Table/Tab1"));
+        WVASSERT(sums.ContainsKey("Table/Tab2"));
+        WVASSERT(sums.ContainsKey("XMLSchema/TestSchema"));
+
+        VxDropSchema("Index", "Tab1/Idx1");
+        VxDropSchema("Procedure", "Func1");
+        VxDropSchema("Table", "Tab2");
+        VxDropSchema("XMLSchema", "TestSchema");
+
+        sums = VxGetSchemaChecksums();
+
+        WVASSERT(!sums.ContainsKey("Index/Tab1/Idx1"));
+        WVASSERT(!sums.ContainsKey("Procedure/Func1"));
+        WVASSERT(sums.ContainsKey("Table/Tab1"));
+        WVASSERT(!sums.ContainsKey("Table/Tab2"));
+        WVASSERT(!sums.ContainsKey("XMLSchema/TestSchema"));
+
+        try {
+            WVEXCEPT(VxDropSchema("Procedure", "Func1"));
+	} catch (Wv.Test.WvAssertionFailure e) {
+	    throw e;
+	} catch (System.Exception e) {
+            // FIXME: This should check for a vx.db.sqlerror
+            // rather than any dbus error
+	    WVPASS(e is DbusError);
+            Console.WriteLine(e.ToString());
+	}
+
+        try { VxExec("drop table Tab1"); } catch { }
+        try { VxExec("drop table Tab2"); } catch { }
+        try { VxExec("drop index Idx1"); } catch { }
+        try { VxExec("drop xml schema collection TestSchema"); } catch { }
+        try { VxExec("drop procedure Func1"); } catch { }
+
     }
 
     public static void Main()

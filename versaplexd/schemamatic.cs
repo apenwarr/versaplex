@@ -572,4 +572,47 @@ internal static class Schemamatic
         }
     }
 
+    private static string GetDropCommand(string type, string name)
+    {
+        if (type.StartsWith("Function"))
+            type = "Function";
+        else if (type == "XMLSchema")
+            type = "XML Schema Collection";
+        else if (type == "Index")
+        {
+            string[] parts = name.Split(new char[] {'/'}, 2);
+            if (parts.Length == 2)
+            {
+                string tabname = parts[0];
+                string idxname = parts[1];
+                return String.Format(
+                    @"declare @x int;
+                      select @x = is_primary_key 
+                          from sys.indexes 
+                          where object_name(object_id) = '{0}' 
+                            and name = '{1}';
+                      if @x = 1 
+                          ALTER TABLE [{0}] DROP CONSTRAINT [{1}]; 
+                      else 
+                          DROP {2} [{0}].[{1}]", 
+                    tabname, idxname, type);
+            } 
+            else 
+                throw new ArgumentException(String.Format(
+                    "Invalid index name '{0}'!", name));
+        }
+
+        return String.Format("DROP {0} [{1}]", type, name);
+    }
+
+    internal static void DropSchema(string clientid, 
+        string type, string name)
+    {
+        string query = GetDropCommand(type, name);
+
+        log.print("Executing query {0}\n", query);
+
+        object result;
+        VxDb.ExecScalar(clientid, query, out result);
+    }
 }
