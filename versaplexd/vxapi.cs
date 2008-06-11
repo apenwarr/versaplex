@@ -339,14 +339,20 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         return username;
     }
 
+    private static Message CreateUnknownMethodReply(Message call, 
+        string methodname)
+    {
+        return VxDbus.CreateError(
+                    "org.freedesktop.DBus.Error.UnknownMethod",
+                    String.Format(
+                        "No overload of {0} has signature '{1}'",
+                        methodname, call.Signature), call);
+    }
+
     private static void CallTest(Message call, out Message reply)
     {
         if (call.Signature.ToString() != "") {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.UnknownMethod",
-                    String.Format(
-                        "No overload of Test has signature '{0}'",
-                        call.Signature), call);
+            reply = CreateUnknownMethodReply(call, "Test");
             return;
         }
 
@@ -393,11 +399,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
     private static void CallExecScalar(Message call, out Message reply)
     {
         if (call.Signature.ToString() != "s") {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.UnknownMethod",
-                    String.Format(
-                        "No overload of ExecScalar has signature '{0}'",
-                        call.Signature), call);
+            reply = CreateUnknownMethodReply(call, "ExecScalar");
             return;
         }
 
@@ -452,11 +454,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
     private static void CallExecRecordset(Message call, out Message reply)
     {
         if (call.Signature.ToString() != "s") {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.UnknownMethod",
-                    String.Format(
-                        "No overload of ExecRecordset has signature '{0}'",
-                        call.Signature), call);
+            reply = CreateUnknownMethodReply(call, "ExecRecordset");
             return;
         }
 
@@ -628,11 +626,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
     private static void CallGetSchemaChecksums(Message call, out Message reply)
     {
         if (call.Signature.ToString() != "") {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.UnknownMethod",
-                    String.Format(
-                        "No overload of GetSchemaChecksums has signature '{0}'",
-                        call.Signature), call);
+            reply = CreateUnknownMethodReply(call, "GetSchemaChecksums");
             return;
         }
 
@@ -723,11 +717,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
     private static void CallGetSchema(Message call, out Message reply)
     {
         if (call.Signature.ToString() != "as") {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.UnknownMethod",
-                    String.Format(
-                        "No overload of GetSchemaChecksums has signature '{0}'",
-                        call.Signature), call);
+            reply = CreateUnknownMethodReply(call, "GetSchema");
             return;
         }
 
@@ -815,11 +805,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
     private static void CallDropSchema(Message call, out Message reply)
     {
         if (call.Signature.ToString() != "ss") {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.UnknownMethod",
-                    String.Format(
-                        "No overload of GetSchemaChecksums has signature '{0}'",
-                        call.Signature), call);
+            reply = CreateUnknownMethodReply(call, "DropSchema");
             return;
         }
 
@@ -846,11 +832,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
     private static void CallPutSchema(Message call, out Message reply)
     {
         if (call.Signature.ToString() != "sssy") {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.UnknownMethod",
-                    String.Format(
-                        "No overload of GetSchemaChecksums has signature '{0}'",
-                        call.Signature), call);
+            reply = CreateUnknownMethodReply(call, "PutSchema");
             return;
         }
 
