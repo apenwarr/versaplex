@@ -8,3 +8,4 @@ config.mk
 *.swp
 *.pyc
 *.vim
+tags
