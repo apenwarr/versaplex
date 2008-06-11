@@ -5,7 +5,8 @@ all: wv.dll
 
 tests: all streamtest servtest httpservtest htmlgentest
 
-PKGS += /r:System.Data /r:System.Web
+PKGS += /r:System.Data /r:System.Web \
+	$(shell pkg-config --libs mysql-connector-net)
 
 servtest.exe: PKGS += /r:System.ServiceProcess /r:System.Configuration.Install
 

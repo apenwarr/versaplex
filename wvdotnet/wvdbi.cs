@@ -1,6 +1,7 @@
 using System;
 using System.Data;
 using System.Data.Odbc;
+using MySql.Data.MySqlClient;
 using System.Data.SqlClient;
 using System.Collections.Specialized;
 using System.Collections.Generic;
@@ -20,7 +21,7 @@ namespace Wv
 	public WvDbi(string odbcstr)
 	{
 	    string real;
-	    bool use_mssql = false;
+	    bool use_mssql = false, use_mysql = false;
 	    
 	    if (settings[odbcstr].Count > 0)
 	    {
@@ -30,6 +31,15 @@ namespace Wv
 		{
 		    use_mssql = true;
 		    fake_bind = true;
+		    real = wv.fmt("server={0};database={1};"
+				  + "User ID={2};Password={3};",
+				  sect["server"],
+				  sect["database"],
+				  sect["user"], sect["password"]);
+		}
+		else if (sect["driver"] == "MySql.Data")
+		{
+		    use_mysql = true;
 		    real = wv.fmt("server={0};database={1};"
 				  + "User ID={2};Password={3};",
 				  sect["server"],
@@ -53,6 +63,8 @@ namespace Wv
 		   ("unrecognized odbc string '" + odbcstr + "'");
 	    if (use_mssql)
 		db = new SqlConnection(real);
+	    else if (use_mysql)
+	    	db = new MySqlConnection(real);
 	    else
 		db = new OdbcConnection(real);
 	    db.Open();
