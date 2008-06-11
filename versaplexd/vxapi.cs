@@ -271,6 +271,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         methods.Add("ExecRecordset", CallExecRecordset);
         methods.Add("GetSchemaChecksums", CallGetSchemaChecksums);
         methods.Add("GetSchema", CallGetSchema);
+        methods.Add("PutSchema", CallPutSchema);
         methods.Add("DropSchema", CallDropSchema);
     }
 
@@ -837,12 +838,42 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         mr.GetValue(out type);
         mr.GetValue(out name);
 
-        // FIXME: Return errors
         Schemamatic.DropSchema(clientid, type, name);
 
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+        reply = VxDbus.CreateReply(call);
+    }
 
-        // FIXME: Return errors
+    private static void CallPutSchema(Message call, out Message reply)
+    {
+        if (call.Signature.ToString() != "sssy") {
+            reply = VxDbus.CreateError(
+                    "org.freedesktop.DBus.Error.UnknownMethod",
+                    String.Format(
+                        "No overload of GetSchemaChecksums has signature '{0}'",
+                        call.Signature), call);
+            return;
+        }
+
+        string clientid = GetClientId(call);
+        if (clientid == null)
+        {
+            reply = VxDbus.CreateError(
+                    "org.freedesktop.DBus.Error.Failed",
+                    "Could not identify the client", call);
+            return;
+        }
+
+        string type, name, text;
+        byte destructive;
+
+        MessageReader mr = new MessageReader(call);
+        mr.GetValue(out type);
+        mr.GetValue(out name);
+        mr.GetValue(out text);
+        mr.GetValue(out destructive);
+
+        Schemamatic.PutSchema(clientid, type, name, text, destructive);
+
         reply = VxDbus.CreateReply(call);
     }
 }
@@ -895,6 +926,20 @@ class VxSqlException : VxRequestException {
     public VxSqlException(string msg, Exception inner)
         : base("vx.db.sqlerror", msg, inner)
     {
+    }
+
+    public bool ContainsSqlError(int errno)
+    {
+        if (!(InnerException is SqlException))
+            return false;
+
+        SqlException sqle = (SqlException)InnerException;
+        foreach (SqlError err in sqle.Errors)
+        {
+            if (err.Number == errno)
+                return true;
+        }
+        return false;
     }
 }
 

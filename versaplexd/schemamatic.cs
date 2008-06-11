@@ -610,9 +610,29 @@ internal static class Schemamatic
     {
         string query = GetDropCommand(type, name);
 
-        log.print("Executing query {0}\n", query);
-
         object result;
         VxDb.ExecScalar(clientid, query, out result);
+    }
+
+    internal static void PutSchema(string clientid, string type, string name, 
+        string text, byte destructive)
+    {
+        if (destructive > 0 || !type.StartsWith("Table"))
+        {
+            try { 
+                DropSchema(clientid, type, name); 
+            } catch (VxSqlException e) {
+                // Check if it's a "didn't exist" error, rethrow otherwise.
+                // SQL Error 3701 means "can't drop sensible item because
+                // it doesn't exist or you don't have permission."
+                // SQL Error 15151 means "can't drop XML Schema collection 
+                // because it doesn't exist or you don't have permission."
+                if (!e.ContainsSqlError(3701) && !e.ContainsSqlError(15151))
+                    throw e;
+            }
+        }
+
+        object result;
+        VxDb.ExecScalar(clientid, text, out result);
     }
 }
