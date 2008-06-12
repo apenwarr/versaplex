@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using NDesk.DBus;
 using Wv;
+using Wv.Extensions;
 
 internal static class Schemamatic
 {
@@ -246,8 +247,7 @@ internal static class Schemamatic
         bool countonly, List<string> names)
     {
         string name_q = names.Count > 0 
-            ? " and object_name(id) in ('" + 
-                String.Join("','", names.ToArray()) + "')"
+            ? " and object_name(id) in ('" + names.Join("','") + "')"
             : "";
 
         string textcol = encrypted > 0 ? "ctext" : "text";
@@ -313,7 +313,7 @@ internal static class Schemamatic
     {
         string idxnames = (names.Count > 0) ? 
             "and ((object_name(i.object_id)+'/'+i.name) in ('" + 
-                String.Join("','", names.ToArray()) + "'))"
+                names.Join("','") + "'))"
             : "";
 
         string query = @"
@@ -373,7 +373,7 @@ internal static class Schemamatic
             // index to the schema.  Note: depends on the statement's ORDER BY.
             if (tabname != next_tabname || idxname != next_idxname)
             {
-                string colstr = String.Join(",", cols.ToArray());
+                string colstr = cols.Join(",");
                 string indexstr;
                 if (idxprimary != 0)
                 {
@@ -406,8 +406,7 @@ internal static class Schemamatic
         int start = count * 4000;
 
         string namestr = (names.Count > 0) ? 
-            "and xsc.name in ('" + 
-                String.Join("','", names.ToArray()) + "')"
+            "and xsc.name in ('" + names.Join("','") + "')"
             : "";
 
         string query = @"select sch.name owner,
@@ -473,7 +472,7 @@ internal static class Schemamatic
         List<string> names, string clientid)
     {
         string tablenames = (names.Count > 0 
-            ? "and t.name in ('" + String.Join("','", names.ToArray()) + "')"
+            ? "and t.name in ('" + names.Join("','") + "')"
             : "");
 
         string query = @"select t.name tabname,
@@ -564,7 +563,7 @@ internal static class Schemamatic
             {
                 string tablestr = String.Format(
                     "CREATE TABLE [{0}] (\n\t{1});\n\n",
-                    tabname, String.Join(",\n\t", cols.ToArray()));
+                    tabname, cols.Join(",\n\t"));
                 schema.Add(tabname, "Table", tablestr, false);
 
                 cols.Clear();
