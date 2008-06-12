@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using NDesk.DBus;
 using Wv;
+using Wv.Extensions;
 
 internal static class Schemamatic
 {
@@ -246,8 +248,7 @@ internal static class Schemamatic
         bool countonly, List<string> names)
     {
         string name_q = names.Count > 0 
-            ? " and object_name(id) in ('" + 
-                String.Join("','", names.ToArray()) + "')"
+            ? " and object_name(id) in ('" + names.Join("','") + "')"
             : "";
 
         string textcol = encrypted > 0 ? "ctext" : "text";
@@ -313,7 +314,7 @@ internal static class Schemamatic
     {
         string idxnames = (names.Count > 0) ? 
             "and ((object_name(i.object_id)+'/'+i.name) in ('" + 
-                String.Join("','", names.ToArray()) + "'))"
+                names.Join("','") + "'))"
             : "";
 
         string query = @"
@@ -373,7 +374,7 @@ internal static class Schemamatic
             // index to the schema.  Note: depends on the statement's ORDER BY.
             if (tabname != next_tabname || idxname != next_idxname)
             {
-                string colstr = String.Join(",", cols.ToArray());
+                string colstr = cols.Join(",");
                 string indexstr;
                 if (idxprimary != 0)
                 {
@@ -406,8 +407,7 @@ internal static class Schemamatic
         int start = count * 4000;
 
         string namestr = (names.Count > 0) ? 
-            "and xsc.name in ('" + 
-                String.Join("','", names.ToArray()) + "')"
+            "and xsc.name in ('" + names.Join("','") + "')"
             : "";
 
         string query = @"select sch.name owner,
@@ -473,7 +473,7 @@ internal static class Schemamatic
         List<string> names, string clientid)
     {
         string tablenames = (names.Count > 0 
-            ? "and t.name in ('" + String.Join("','", names.ToArray()) + "')"
+            ? "and t.name in ('" + names.Join("','") + "')"
             : "");
 
         string query = @"select t.name tabname,
@@ -564,7 +564,7 @@ internal static class Schemamatic
             {
                 string tablestr = String.Format(
                     "CREATE TABLE [{0}] (\n\t{1});\n\n",
-                    tabname, String.Join(",\n\t", cols.ToArray()));
+                    tabname, cols.Join(",\n\t"));
                 schema.Add(tabname, "Table", tablestr, false);
 
                 cols.Clear();
@@ -610,9 +610,79 @@ internal static class Schemamatic
     {
         string query = GetDropCommand(type, name);
 
-        log.print("Executing query {0}\n", query);
-
         object result;
         VxDb.ExecScalar(clientid, query, out result);
+    }
+
+    internal static void PutSchema(string clientid, string type, string name, 
+        string text, byte destructive)
+    {
+        if (destructive > 0 || !type.StartsWith("Table"))
+        {
+            try { 
+                DropSchema(clientid, type, name); 
+            } catch (VxSqlException e) {
+                // Check if it's a "didn't exist" error, rethrow otherwise.
+                // SQL Error 3701 means "can't drop sensible item because
+                // it doesn't exist or you don't have permission."
+                // SQL Error 15151 means "can't drop XML Schema collection 
+                // because it doesn't exist or you don't have permission."
+                if (!e.ContainsSqlError(3701) && !e.ContainsSqlError(15151))
+                    throw e;
+            }
+        }
+
+        object result;
+        VxDb.ExecScalar(clientid, text, out result);
+    }
+
+    internal static string GetSchemaData(string clientid, string tablename)
+    {
+        string query = "SELECT * FROM " + tablename;
+
+        VxColumnInfo[] colinfo;
+        object[][] data;
+        byte[][] nullity;
+        
+        VxDb.ExecRecordset(clientid, query, out colinfo, out data, out nullity);
+
+        List<string> cols = new List<string>();
+        foreach (VxColumnInfo ci in colinfo)
+            cols.Add("[" + ci.ColumnName + "]");
+
+        string prefix = String.Format("INSERT INTO {0} ({1}) VALUES (", 
+            tablename, cols.Join(","));
+
+        StringBuilder result = new StringBuilder();
+        List<string> values = new List<string>();
+        for(int ii = 0; ii < data.Length; ii++)
+        {
+            object[] row = data[ii];
+            values.Clear();
+            for (int jj = 0; jj < row.Length; jj++)
+            {
+                object elem = row[jj];
+                VxColumnInfo ci = colinfo[jj];
+                log.print("Col {0}, name={1}, type={2}\n", jj, 
+                    ci.ColumnName, ci.VxColumnType.ToString());
+                if (elem == null)
+                    values.Add("NULL");
+                else if (ci.VxColumnType == VxColumnType.String ||
+                    ci.VxColumnType == VxColumnType.DateTime)
+                {
+                    // Double-quote chars for SQL safety
+                    string esc = elem.ToString().Replace("'", "''");
+                    values.Add("'" + esc + "'");
+                }
+                else
+                    values.Add(elem.ToString());
+            }
+            result.Append(prefix + values.Join(",") + ");\n");
+
+            if (ii > 0 && (ii % 10) == 0)
+                result.Append("GO\n");
+        }
+
+        return result.ToString();
     }
 }

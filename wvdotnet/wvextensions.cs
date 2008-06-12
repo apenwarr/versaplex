@@ -110,7 +110,17 @@ namespace Wv.Extensions
 		return t;
 	    return (T)null;
 	}
-	
+
+        public static string Join<T>(this IEnumerable<T> list, string sep)
+        {
+            return String.Join(sep, list.ToStringArray());
+        }
+
+        public static string Join<T>(this List<string> list, string sep)
+        {
+            return String.Join(sep, list.ToArray());
+        }
+
 	public static int atoi(this object o)
 	{
 	    return wv.atoi(o);

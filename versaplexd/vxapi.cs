@@ -271,7 +271,9 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         methods.Add("ExecRecordset", CallExecRecordset);
         methods.Add("GetSchemaChecksums", CallGetSchemaChecksums);
         methods.Add("GetSchema", CallGetSchema);
+        methods.Add("PutSchema", CallPutSchema);
         methods.Add("DropSchema", CallDropSchema);
+        methods.Add("GetSchemaData", CallGetSchemaData);
     }
 
     protected override void ExecuteCall(MethodCallProcessor processor,
@@ -338,14 +340,20 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         return username;
     }
 
+    private static Message CreateUnknownMethodReply(Message call, 
+        string methodname)
+    {
+        return VxDbus.CreateError(
+                    "org.freedesktop.DBus.Error.UnknownMethod",
+                    String.Format(
+                        "No overload of {0} has signature '{1}'",
+                        methodname, call.Signature), call);
+    }
+
     private static void CallTest(Message call, out Message reply)
     {
         if (call.Signature.ToString() != "") {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.UnknownMethod",
-                    String.Format(
-                        "No overload of Test has signature '{0}'",
-                        call.Signature), call);
+            reply = CreateUnknownMethodReply(call, "Test");
             return;
         }
 
@@ -392,11 +400,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
     private static void CallExecScalar(Message call, out Message reply)
     {
         if (call.Signature.ToString() != "s") {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.UnknownMethod",
-                    String.Format(
-                        "No overload of ExecScalar has signature '{0}'",
-                        call.Signature), call);
+            reply = CreateUnknownMethodReply(call, "ExecScalar");
             return;
         }
 
@@ -451,11 +455,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
     private static void CallExecRecordset(Message call, out Message reply)
     {
         if (call.Signature.ToString() != "s") {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.UnknownMethod",
-                    String.Format(
-                        "No overload of ExecRecordset has signature '{0}'",
-                        call.Signature), call);
+            reply = CreateUnknownMethodReply(call, "ExecRecordset");
             return;
         }
 
@@ -627,11 +627,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
     private static void CallGetSchemaChecksums(Message call, out Message reply)
     {
         if (call.Signature.ToString() != "") {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.UnknownMethod",
-                    String.Format(
-                        "No overload of GetSchemaChecksums has signature '{0}'",
-                        call.Signature), call);
+            reply = CreateUnknownMethodReply(call, "GetSchemaChecksums");
             return;
         }
 
@@ -722,11 +718,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
     private static void CallGetSchema(Message call, out Message reply)
     {
         if (call.Signature.ToString() != "as") {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.UnknownMethod",
-                    String.Format(
-                        "No overload of GetSchemaChecksums has signature '{0}'",
-                        call.Signature), call);
+            reply = CreateUnknownMethodReply(call, "GetSchema");
             return;
         }
 
@@ -814,11 +806,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
     private static void CallDropSchema(Message call, out Message reply)
     {
         if (call.Signature.ToString() != "ss") {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.UnknownMethod",
-                    String.Format(
-                        "No overload of GetSchemaChecksums has signature '{0}'",
-                        call.Signature), call);
+            reply = CreateUnknownMethodReply(call, "DropSchema");
             return;
         }
 
@@ -837,13 +825,68 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         mr.GetValue(out type);
         mr.GetValue(out name);
 
-        // FIXME: Return errors
         Schemamatic.DropSchema(clientid, type, name);
 
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
-
-        // FIXME: Return errors
         reply = VxDbus.CreateReply(call);
+    }
+
+    private static void CallPutSchema(Message call, out Message reply)
+    {
+        if (call.Signature.ToString() != "sssy") {
+            reply = CreateUnknownMethodReply(call, "PutSchema");
+            return;
+        }
+
+        string clientid = GetClientId(call);
+        if (clientid == null)
+        {
+            reply = VxDbus.CreateError(
+                    "org.freedesktop.DBus.Error.Failed",
+                    "Could not identify the client", call);
+            return;
+        }
+
+        string type, name, text;
+        byte destructive;
+
+        MessageReader mr = new MessageReader(call);
+        mr.GetValue(out type);
+        mr.GetValue(out name);
+        mr.GetValue(out text);
+        mr.GetValue(out destructive);
+
+        Schemamatic.PutSchema(clientid, type, name, text, destructive);
+
+        reply = VxDbus.CreateReply(call);
+    }
+
+    private static void CallGetSchemaData(Message call, out Message reply)
+    {
+        if (call.Signature.ToString() != "s") {
+            reply = CreateUnknownMethodReply(call, "GetSchemaData");
+            return;
+        }
+
+        string clientid = GetClientId(call);
+        if (clientid == null)
+        {
+            reply = VxDbus.CreateError(
+                    "org.freedesktop.DBus.Error.Failed",
+                    "Could not identify the client", call);
+            return;
+        }
+
+        string tablename;
+
+        MessageReader mr = new MessageReader(call);
+        mr.GetValue(out tablename);
+
+        string schemadata = Schemamatic.GetSchemaData(clientid, tablename);
+
+        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+        writer.Write(schemadata);
+
+        reply = VxDbus.CreateReply(call, "s", writer);
     }
 }
 
@@ -895,6 +938,20 @@ class VxSqlException : VxRequestException {
     public VxSqlException(string msg, Exception inner)
         : base("vx.db.sqlerror", msg, inner)
     {
+    }
+
+    public bool ContainsSqlError(int errno)
+    {
+        if (!(InnerException is SqlException))
+            return false;
+
+        SqlException sqle = (SqlException)InnerException;
+        foreach (SqlError err in sqle.Errors)
+        {
+            if (err.Number == errno)
+                return true;
+        }
+        return false;
     }
 }
 
