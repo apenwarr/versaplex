@@ -212,6 +212,40 @@ class SchemamaticTests : VersaplexTester
         }
     }
 
+    void VxPutSchemaData(string tablename, string text)
+    {
+	Console.WriteLine(" + VxPutSchemaData");
+
+        Message call = CreateMethodCall("PutSchemaData", "ss");
+
+        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+
+        writer.Write(tablename);
+        writer.Write(text);
+        call.Body = writer.ToArray();
+
+        Message reply = call.Connection.SendWithReplyAndBlock(call);
+        Console.WriteLine("Got reply");
+
+        switch (reply.Header.MessageType) {
+        case MessageType.MethodReturn:
+        {
+            object replysig;
+            if (reply.Header.Fields.TryGetValue(FieldCode.Signature,
+                        out replysig))
+                throw new Exception("D-Bus reply had unexpected signature" + 
+                    replysig);
+
+            return;
+        }
+        case MessageType.Error:
+            throw GetDbusException(reply);
+        default:
+            throw new Exception("D-Bus response was not a method return or "
+                    +"error");
+        }
+    }
+
     [Test, Category("Schemamatic"), Category("GetSchemaChecksums")]
     public void TestProcedureChecksums()
     {
@@ -753,8 +787,8 @@ class SchemamaticTests : VersaplexTester
         try { VxExec("drop procedure Func1"); } catch { }
     }
 
-    [Test, Category("Schemamatic"), Category("GetSchemaData")]
-    public void TestGetSchemaData()
+    [Test, Category("Schemamatic"), Category("SchemaData")]
+    public void TestSchemaData()
     {
         try { VxExec("drop table Tab1"); } catch { }
 
@@ -770,19 +804,32 @@ class SchemamaticTests : VersaplexTester
             inserts.Add(String.Format("INSERT INTO Tab1 ([f1],[f2],[f3]) " + 
                 "VALUES ({0},{1},'{2}');\n", 
                 ii, ii + ".3400", "Hi" + ii));
-
-            // We get a "GO" every 10 lines
-            if (ii != 0 && (ii % 10) == 0)
-                inserts.Add("GO\n");
         }
 
         foreach (string ins in inserts)
-            if (ins != "GO\n")
-                WVASSERT(VxExec(ins));
+            WVASSERT(VxExec(ins));
 
         WVPASSEQ(VxGetSchemaData("Tab1"), inserts.Join(""));
 
         try { VxExec("drop table Tab1"); } catch { }
+
+        try {
+            WVEXCEPT(VxGetSchemaData("Tab1"));
+	} catch (Wv.Test.WvAssertionFailure e) {
+	    throw e;
+	} catch (System.Exception e) {
+            // FIXME: This should check for a vx.db.sqlerror
+            // rather than any dbus error
+	    WVPASS(e is DbusError);
+            Console.WriteLine(e.ToString());
+	}
+
+        VxPutSchema("Table", "Tab1", tab1q, false);
+
+        WVPASSEQ(VxGetSchemaData("Tab1"), "");
+
+        VxPutSchemaData("Tab1", inserts.Join(""));
+        WVPASSEQ(VxGetSchemaData("Tab1"), inserts.Join(""));
     }
 
     public static void Main()

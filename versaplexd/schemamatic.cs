@@ -605,6 +605,7 @@ internal static class Schemamatic
         return String.Format("DROP {0} [{1}]", type, name);
     }
 
+    // Deletes the named object in the database.
     internal static void DropSchema(string clientid, 
         string type, string name)
     {
@@ -614,6 +615,11 @@ internal static class Schemamatic
         VxDb.ExecScalar(clientid, query, out result);
     }
 
+    // Replaces the named object in the database.  'text' is a verbatim hunk
+    // of text returned earlier by GetSchema.  'destructive' says whether or
+    // not to perform potentially destructive operations while making the
+    // change, e.g. dropping a table so we can re-add it with the right
+    // columns.
     internal static void PutSchema(string clientid, string type, string name, 
         string text, byte destructive)
     {
@@ -622,7 +628,7 @@ internal static class Schemamatic
             try { 
                 DropSchema(clientid, type, name); 
             } catch (VxSqlException e) {
-                // Check if it's a "didn't exist" error, rethrow otherwise.
+                // Check if it's a "didn't exist" error, rethrow if not.
                 // SQL Error 3701 means "can't drop sensible item because
                 // it doesn't exist or you don't have permission."
                 // SQL Error 15151 means "can't drop XML Schema collection 
@@ -636,6 +642,8 @@ internal static class Schemamatic
         VxDb.ExecScalar(clientid, text, out result);
     }
 
+    // Returns a blob of text that can be used with PutSchemaData to fill 
+    // the given table.
     internal static string GetSchemaData(string clientid, string tablename)
     {
         string query = "SELECT * FROM " + tablename;
@@ -678,11 +686,19 @@ internal static class Schemamatic
                     values.Add(elem.ToString());
             }
             result.Append(prefix + values.Join(",") + ");\n");
-
-            if (ii > 0 && (ii % 10) == 0)
-                result.Append("GO\n");
         }
 
         return result.ToString();
+    }
+
+    // Delete all rows from the given table and replace them with the given
+    // data.  text is an opaque hunk of text returned from GetSchemaData.
+    internal static void PutSchemaData(string clientid, string tablename, 
+        string text)
+    {
+        object result;
+        VxDb.ExecScalar(clientid, String.Format("DELETE FROM [{0}]", tablename),
+            out result);
+        VxDb.ExecScalar(clientid, text, out result);
     }
 }
