@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using Wv;
+using Wv.Extensions;
 using Wv.Test;
 using NDesk.DBus;
 
@@ -163,6 +164,45 @@ class SchemamaticTests : VersaplexTester
                     replysig);
 
             return;
+        }
+        case MessageType.Error:
+            throw GetDbusException(reply);
+        default:
+            throw new Exception("D-Bus response was not a method return or "
+                    +"error");
+        }
+    }
+
+    string VxGetSchemaData(string tablename)
+    {
+	Console.WriteLine(" + VxGetSchemaData");
+
+        Message call = CreateMethodCall("GetSchemaData", "s");
+
+        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+
+        writer.Write(typeof(string), tablename);
+        call.Body = writer.ToArray();
+
+        Message reply = call.Connection.SendWithReplyAndBlock(call);
+        Console.WriteLine("Got reply");
+
+        switch (reply.Header.MessageType) {
+        case MessageType.MethodReturn:
+        {
+            object replysig;
+            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
+                        out replysig))
+                throw new Exception("D-Bus reply had no signature");
+
+            if (replysig == null || replysig.ToString() != "s")
+                throw new Exception("D-Bus reply had invalid signature: " +
+                    replysig);
+
+            MessageReader reader = new MessageReader(reply);
+            string schemadata;
+            reader.GetValue(out schemadata);
+            return schemadata;
         }
         case MessageType.Error:
             throw GetDbusException(reply);
@@ -561,7 +601,7 @@ class SchemamaticTests : VersaplexTester
         CheckForPrimaryKey(schema, "Table1");
     }
 
-    [Test, Category("Schemamatic"), Category("GetSchema")]
+    [Test, Category("Schemamatic"), Category("DropSchema")]
     public void TestDropSchema()
     {
         try { VxExec("drop index Tab1.Idx1"); } catch { }
@@ -625,10 +665,9 @@ class SchemamaticTests : VersaplexTester
         try { VxExec("drop table Tab2"); } catch { }
         try { VxExec("drop xml schema collection TestSchema"); } catch { }
         try { VxExec("drop procedure Func1"); } catch { }
-
     }
 
-    [Test, Category("Schemamatic"), Category("GetSchema")]
+    [Test, Category("Schemamatic"), Category("PutSchema")]
     public void TestPutSchema()
     {
         try { VxExec("drop index Tab1.Idx1"); } catch { }
@@ -712,8 +751,40 @@ class SchemamaticTests : VersaplexTester
         try { VxExec("drop table Tab2"); } catch { }
         try { VxExec("drop xml schema collection TestSchema"); } catch { }
         try { VxExec("drop procedure Func1"); } catch { }
-
     }
+
+    [Test, Category("Schemamatic"), Category("GetSchemaData")]
+    public void TestGetSchemaData()
+    {
+        try { VxExec("drop table Tab1"); } catch { }
+
+        string tab1q = "CREATE TABLE [Tab1] (\n\t" + 
+            "[f1] [int] NOT NULL,\n\t" +
+            "[f2] [money] NULL,\n\t" + 
+            "[f3] [varchar] (80) NULL);\n\n";
+        VxPutSchema("Table", "Tab1", tab1q, false);
+
+        List<string> inserts = new List<string>();
+        for (int ii = 0; ii < 22; ii++)
+        {
+            inserts.Add(String.Format("INSERT INTO Tab1 ([f1],[f2],[f3]) " + 
+                "VALUES ({0},{1},'{2}');\n", 
+                ii, ii + ".3400", "Hi" + ii));
+
+            // We get a "GO" every 10 lines
+            if (ii != 0 && (ii % 10) == 0)
+                inserts.Add("GO\n");
+        }
+
+        foreach (string ins in inserts)
+            if (ins != "GO\n")
+                WVASSERT(VxExec(ins));
+
+        WVPASSEQ(VxGetSchemaData("Tab1"), inserts.Join(""));
+
+        try { VxExec("drop table Tab1"); } catch { }
+    }
+
     public static void Main()
     {
         WvTest.DoMain();

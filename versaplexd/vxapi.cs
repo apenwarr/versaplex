@@ -273,6 +273,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         methods.Add("GetSchema", CallGetSchema);
         methods.Add("PutSchema", CallPutSchema);
         methods.Add("DropSchema", CallDropSchema);
+        methods.Add("GetSchemaData", CallGetSchemaData);
     }
 
     protected override void ExecuteCall(MethodCallProcessor processor,
@@ -857,6 +858,35 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         Schemamatic.PutSchema(clientid, type, name, text, destructive);
 
         reply = VxDbus.CreateReply(call);
+    }
+
+    private static void CallGetSchemaData(Message call, out Message reply)
+    {
+        if (call.Signature.ToString() != "s") {
+            reply = CreateUnknownMethodReply(call, "GetSchemaData");
+            return;
+        }
+
+        string clientid = GetClientId(call);
+        if (clientid == null)
+        {
+            reply = VxDbus.CreateError(
+                    "org.freedesktop.DBus.Error.Failed",
+                    "Could not identify the client", call);
+            return;
+        }
+
+        string tablename;
+
+        MessageReader mr = new MessageReader(call);
+        mr.GetValue(out tablename);
+
+        string schemadata = Schemamatic.GetSchemaData(clientid, tablename);
+
+        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+        writer.Write(schemadata);
+
+        reply = VxDbus.CreateReply(call, "s", writer);
     }
 }
 

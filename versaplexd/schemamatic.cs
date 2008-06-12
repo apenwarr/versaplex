@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using NDesk.DBus;
 using Wv;
 using Wv.Extensions;
@@ -633,5 +634,55 @@ internal static class Schemamatic
 
         object result;
         VxDb.ExecScalar(clientid, text, out result);
+    }
+
+    internal static string GetSchemaData(string clientid, string tablename)
+    {
+        string query = "SELECT * FROM " + tablename;
+
+        VxColumnInfo[] colinfo;
+        object[][] data;
+        byte[][] nullity;
+        
+        VxDb.ExecRecordset(clientid, query, out colinfo, out data, out nullity);
+
+        List<string> cols = new List<string>();
+        foreach (VxColumnInfo ci in colinfo)
+            cols.Add("[" + ci.ColumnName + "]");
+
+        string prefix = String.Format("INSERT INTO {0} ({1}) VALUES (", 
+            tablename, cols.Join(","));
+
+        StringBuilder result = new StringBuilder();
+        List<string> values = new List<string>();
+        for(int ii = 0; ii < data.Length; ii++)
+        {
+            object[] row = data[ii];
+            values.Clear();
+            for (int jj = 0; jj < row.Length; jj++)
+            {
+                object elem = row[jj];
+                VxColumnInfo ci = colinfo[jj];
+                log.print("Col {0}, name={1}, type={2}\n", jj, 
+                    ci.ColumnName, ci.VxColumnType.ToString());
+                if (elem == null)
+                    values.Add("NULL");
+                else if (ci.VxColumnType == VxColumnType.String ||
+                    ci.VxColumnType == VxColumnType.DateTime)
+                {
+                    // Double-quote chars for SQL safety
+                    string esc = elem.ToString().Replace("'", "''");
+                    values.Add("'" + esc + "'");
+                }
+                else
+                    values.Add(elem.ToString());
+            }
+            result.Append(prefix + values.Join(",") + ");\n");
+
+            if (ii > 0 && (ii % 10) == 0)
+                result.Append("GO\n");
+        }
+
+        return result.ToString();
     }
 }
