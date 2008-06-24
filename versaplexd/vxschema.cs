@@ -1,5 +1,8 @@
 using System;
+using System.IO;
+using System.Text;
 using System.Collections.Generic;
+using System.Security.Cryptography;
 using NDesk.DBus;
 
 internal class VxSchemaElement : IComparable
@@ -23,6 +26,10 @@ internal class VxSchemaElement : IComparable
     bool _encrypted;
     public bool encrypted {
         get { return _encrypted; }
+    }
+
+    public string key {
+        get { return type + "/" + name; }
     }
 
     public VxSchemaElement(string newname, string newtype, string newtext,
@@ -145,4 +152,49 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
         return String.Format("a({0})", VxSchemaElement.GetSignature());
     }
 
+    public void ExportSchema(string exportdir, VxSchemaChecksums checksums, 
+        bool isbackup)
+    {
+        DirectoryInfo dir = new DirectoryInfo(exportdir);
+        dir.Create();
+
+        Encoding utf8 = Encoding.UTF8;
+        MD5 md5summer = MD5.Create();
+
+        foreach (KeyValuePair<string,VxSchemaElement> p in this)
+        {
+            VxSchemaElement elem = p.Value;
+
+            if (!checksums.ContainsKey(elem.key))
+                throw new ArgumentException("Missing checksum for " + elem.key);
+
+            // FIXME: Find backup suffix
+
+            byte[] text = utf8.GetBytes(elem.text);
+            byte[] md5 = md5summer.ComputeHash(text);
+
+            StringBuilder sb = new StringBuilder();
+            foreach (byte b in md5)
+                sb.Append(b.ToString("X2"));
+
+            string md5str = sb.ToString();
+            string sumstr = checksums[elem.key].GetSumString();
+
+            // Make some kind of attempt to run on Windows.  
+            string filename = (exportdir + "/" + elem.key).Replace( 
+                '/', Path.DirectorySeparatorChar);
+
+            // Make directories
+            Directory.CreateDirectory(Path.GetDirectoryName(filename));
+                
+            using(BinaryWriter file =
+                new BinaryWriter(File.Open(filename, FileMode.Create)))
+            {
+                file.Write(utf8.GetBytes(
+                    String.Format("!!SCHEMAMATIC {0} {1}\r\n",
+                    md5str, sumstr)));
+                file.Write(text);
+            }
+        }
+    }
 }

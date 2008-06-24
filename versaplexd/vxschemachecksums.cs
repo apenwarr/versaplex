@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using NDesk.DBus;
 using Wv;
+using Wv.Extensions;
 
 // The checksums for a single database element (table, procedure, etc).
 // Can have multiple checksum values - a table has one checksum per column,
@@ -43,6 +44,14 @@ internal class VxSchemaChecksum
             reader.GetValue(out sum);
             AddChecksum(sum);
         }
+    }
+
+    public string GetSumString()
+    {
+        List<string> l = new List<string>();
+        foreach (ulong sum in checksums)
+            l.Add(sum.ToString("X8"));
+        return l.Join(" ");
     }
 
     private void _WriteSums(MessageWriter writer)
