@@ -168,8 +168,6 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
             if (!checksums.ContainsKey(elem.key))
                 throw new ArgumentException("Missing checksum for " + elem.key);
 
-            // FIXME: Find backup suffix
-
             byte[] text = utf8.GetBytes(elem.text);
             byte[] md5 = md5summer.ComputeHash(text);
 
@@ -186,9 +184,18 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
 
             // Make directories
             Directory.CreateDirectory(Path.GetDirectoryName(filename));
+
+            string suffix = "";
+            if (isbackup)
+            {
+                int i = 1;
+                while(File.Exists(filename + "-" + i))
+                    i++;
+                suffix = "-" + i;
+            }
                 
-            using(BinaryWriter file =
-                new BinaryWriter(File.Open(filename, FileMode.Create)))
+            using(BinaryWriter file = new BinaryWriter(
+                File.Open(filename + suffix, FileMode.Create)))
             {
                 file.Write(utf8.GetBytes(
                     String.Format("!!SCHEMAMATIC {0} {1}\r\n",

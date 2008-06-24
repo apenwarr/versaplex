@@ -460,8 +460,7 @@ class SchemamaticTests : VersaplexTester
     // returns the primary key's name.
     public string CheckForPrimaryKey(VxSchema schema, string tablename)
     {
-	string pk_name = "";
-	bool found_pk = false;
+	string pk_name = null;
 
         string prefix = "Index/" + tablename + "/";
 
@@ -472,14 +471,13 @@ class SchemamaticTests : VersaplexTester
             Console.WriteLine("Looking at " + key);
 	    if (key.StartsWith(prefix + "PK__" + tablename))
 	    {
-		WVASSERT(!found_pk);
-		found_pk = true;
+		WVASSERT(pk_name == null)
 		pk_name = key.Substring(prefix.Length);
 		Console.WriteLine("Found primary key index " + pk_name);
 		// Note: don't break here, so we can check there aren't others.
 	    }
         }
-	WVASSERT(found_pk);
+	WVASSERT(pk_name != null);
 
 	WVASSERT(schema.ContainsKey(prefix + pk_name));
 	WVPASSEQ(schema[prefix + pk_name].name, tablename + "/" + pk_name);
@@ -491,7 +489,7 @@ class SchemamaticTests : VersaplexTester
 	WVPASSEQ(schema[prefix + pk_name].text.Length, pk_query.Length);
 	WVPASSEQ(schema[prefix + pk_name].text, pk_query);
 
-        return found_pk;
+        return pk_name;
     }
 
     [Test, Category("Schemamatic"), Category("GetSchema")]
@@ -875,6 +873,99 @@ class SchemamaticTests : VersaplexTester
         }
     }
 
+    private void VerifyExportedSchema(string exportdir, VxSchema schema, 
+        VxSchemaChecksums sums, string func1q, string tab1q, string tab2q,
+        string idx1q, string xmlq, int backupnum)
+    {
+        DirectoryInfo dirinfo = new DirectoryInfo(exportdir);
+
+        int filemultiplier = backupnum + 1;
+        string suffix = backupnum == 0 ? "" : "-" + backupnum;
+
+        string procdir = Path.Combine(exportdir, "Procedure");
+        string idxdir = Path.Combine(exportdir, "Index");
+        string tabdir = Path.Combine(exportdir, "Table");
+        string xmldir = Path.Combine(exportdir, "XMLSchema");
+
+        WVPASSEQ(dirinfo.GetDirectories().Length, 4);
+        WVPASSEQ(dirinfo.GetFiles().Length, 0);
+        WVPASS(Directory.Exists(procdir));
+        WVPASS(Directory.Exists(idxdir));
+        WVPASS(Directory.Exists(tabdir));
+        WVPASS(Directory.Exists(xmldir));
+
+        // Procedures
+        WVPASSEQ(Directory.GetDirectories(procdir).Length, 0);
+        WVPASSEQ(Directory.GetFiles(procdir).Length, 1 * filemultiplier);
+        string func1file = Path.Combine(procdir, "Func1" + suffix);
+        CheckExportedFileContents(func1file, 
+            "!!SCHEMAMATIC 2AE46AC0748AEDE839FB9CD167EA1180 D983A305",
+            func1q);
+
+        // Indexes
+        WVPASSEQ(Directory.GetDirectories(idxdir).Length, 1);
+        WVPASSEQ(Directory.GetFiles(idxdir).Length, 0);
+
+        string tab1idxdir = Path.Combine(idxdir, "Tab1");
+        WVPASS(Directory.Exists(tab1idxdir));
+        WVPASSEQ(Directory.GetDirectories(tab1idxdir).Length, 0);
+        WVPASSEQ(Directory.GetFiles(tab1idxdir).Length, 2 * filemultiplier);
+
+        string idx1file = Path.Combine(tab1idxdir, "Idx1" + suffix);
+        CheckExportedFileContents(idx1file, 
+            "!!SCHEMAMATIC BE6095FA7C7B1C9BA3D3DA2F1D94FCBE 1D32C7EA 968DBEDC", 
+            idx1q);
+
+        string pk_name = CheckForPrimaryKey(schema, "Tab1");
+        string pk_file = Path.Combine(tab1idxdir, pk_name + suffix);
+        string pk_query = String.Format(
+            "ALTER TABLE [Tab1] ADD CONSTRAINT [{0}] " + 
+            "PRIMARY KEY CLUSTERED\n" +
+            "\t(f1);\n\n", pk_name);
+
+        // We can't know the primary key's MD5 ahead of time, so compute
+        // it ourselves.
+        byte[] md5 = MD5.Create().ComputeHash(Encoding.UTF8.GetBytes(
+            pk_query));
+        StringBuilder md5sb = new StringBuilder();
+        foreach (byte b in md5)
+            md5sb.Append(b.ToString("X2"));
+        string md5str = md5sb.ToString();
+
+        CheckExportedFileContents(pk_file, 
+            String.Format("!!SCHEMAMATIC {0} {1}", 
+                md5str, sums["Index/Tab1/" + pk_name].GetSumString()),
+            pk_query);
+
+        // Tables
+        WVPASSEQ(Directory.GetDirectories(tabdir).Length, 0);
+        WVPASSEQ(Directory.GetFiles(tabdir).Length, 2 * filemultiplier);
+
+        string tab1file = Path.Combine(tabdir, "Tab1" + suffix);
+        string tab2file = Path.Combine(tabdir, "Tab2" + suffix);
+
+        WVPASS(File.Exists(tab1file));
+        CheckExportedFileContents(tab1file, 
+            "!!SCHEMAMATIC 3D05ABB172361D5BDC19DE2437C58F7E " + 
+                sums["Table/Tab1"].GetSumString(),
+            tab1q.Replace(" PRIMARY KEY", ""));
+
+        WVPASS(File.Exists(tab2file));
+        CheckExportedFileContents(tab2file, 
+            "!!SCHEMAMATIC 436EFDE94964E924CB0CCEDB96970AFF " + 
+            sums["Table/Tab2"].GetSumString(), tab2q);
+
+        // XML Schemas
+        WVPASSEQ(Directory.GetDirectories(xmldir).Length, 0);
+        WVPASSEQ(Directory.GetFiles(xmldir).Length, 1 * filemultiplier);
+
+        string testschemafile = Path.Combine(xmldir, "TestSchema" + suffix);
+        WVPASS(File.Exists(testschemafile));
+        CheckExportedFileContents(testschemafile, 
+            "!!SCHEMAMATIC 3D84628C4C6A7805CB9BF97B432D2268 FA7736B3", 
+            xmlq);
+    }
+
     [Test, Category("Schemamatic"), Category("SchemaExport")]
     public void TestExportSchema()
     {
@@ -902,7 +993,8 @@ class SchemamaticTests : VersaplexTester
         string func1q = "create procedure Func1 as select '" + msg + "'\n";
         WVASSERT(VxExec(func1q));
 
-        WVASSERT(VxExec(CreateXmlSchemaQuery()));
+        string xmlq = CreateXmlSchemaQuery();
+        WVASSERT(VxExec(xmlq));
         
         string tmpdir = Path.Combine(Path.GetTempPath(), 
             Path.GetRandomFileName());
@@ -930,85 +1022,29 @@ class SchemamaticTests : VersaplexTester
             sums = VxGetSchemaChecksums();
             schema.ExportSchema(tmpdir, sums, false);
 
-            string procdir = Path.Combine(tmpdir, "Procedure");
-            string idxdir = Path.Combine(tmpdir, "Index");
-            string tabdir = Path.Combine(tmpdir, "Table");
-            string xmldir = Path.Combine(tmpdir, "XMLSchema");
+            int backup_generation = 0;
+            VerifyExportedSchema(tmpdir, schema, sums, 
+                func1q, tab1q, tab2q, idx1q, xmlq, backup_generation);
 
-            WVPASSEQ(tmpdirinfo.GetDirectories().Length, 4);
-            WVPASSEQ(tmpdirinfo.GetFiles().Length, 0);
-            WVPASS(Directory.Exists(procdir));
-            WVPASS(Directory.Exists(idxdir));
-            WVPASS(Directory.Exists(tabdir));
-            WVPASS(Directory.Exists(xmldir));
+            // Doing it twice doesn't change anything.
+            schema.ExportSchema(tmpdir, sums, false);
 
-            // Procedures
-            WVPASSEQ(Directory.GetDirectories(procdir).Length, 0);
-            WVPASSEQ(Directory.GetFiles(procdir).Length, 1);
-            string func1file = Path.Combine(procdir, "Func1");
-            CheckExportedFileContents(func1file, 
-                "!!SCHEMAMATIC 2AE46AC0748AEDE839FB9CD167EA1180 D983A305",
-                func1q);
+            VerifyExportedSchema(tmpdir, schema, sums, 
+                func1q, tab1q, tab2q, idx1q, xmlq, backup_generation);
 
-            // Indexes
-            WVPASSEQ(Directory.GetDirectories(idxdir).Length, 1);
-            WVPASSEQ(Directory.GetFiles(idxdir).Length, 0);
+            // Check backup mode
+            schema.ExportSchema(tmpdir, sums, true);
+            backup_generation++;
 
-            string tab1idxdir = Path.Combine(idxdir, "Tab1");
-            WVPASS(Directory.Exists(tab1idxdir));
-            WVPASSEQ(Directory.GetDirectories(tab1idxdir).Length, 0);
-            WVPASSEQ(Directory.GetFiles(tab1idxdir).Length, 2);
+            VerifyExportedSchema(tmpdir, schema, sums, 
+                func1q, tab1q, tab2q, idx1q, xmlq, backup_generation);
 
-            string idx1file = Path.Combine(tab1idxdir, "Idx1");
-            CheckExportedFileContents(idx1file, 
-                "!!SCHEMAMATIC BE6095FA7C7B1C9BA3D3DA2F1D94FCBE 1D32C7EA 968DBEDC", 
-                idx1q);
+            // Check backup mode again
+            schema.ExportSchema(tmpdir, sums, true);
+            backup_generation++;
 
-            string pk_name = CheckForPrimaryKey(schema, "Tab1");
-            string pk_file = Path.Combine(tab1idxdir, pk_name);
-            string pk_query = String.Format(
-                "ALTER TABLE [Tab1] ADD CONSTRAINT [{0}] " + 
-                "PRIMARY KEY CLUSTERED\n" +
-                "\t(f1);\n\n", pk_name);
-
-            byte[] md5 = MD5.Create().ComputeHash(Encoding.UTF8.GetBytes(
-                pk_query));
-            StringBuilder md5sb = new StringBuilder();
-            foreach (byte b in md5)
-                md5sb.Append(b.ToString("X2"));
-            string md5str = md5sb.ToString();
-
-            CheckExportedFileContents(pk_file, 
-                String.Format("!!SCHEMAMATIC {0} {1}", 
-                    md5str, sums["Index/Tab1/" + pk_name].GetSumString()),
-                pk_query);
-
-            // Tables
-            WVPASSEQ(Directory.GetDirectories(tabdir).Length, 0);
-            WVPASSEQ(Directory.GetFiles(tabdir).Length, 2);
-
-            string tab1file = Path.Combine(tabdir, "Tab1");
-            string tab2file = Path.Combine(tabdir, "Tab2");
-
-            WVPASS(File.Exists(tab1file));
-            CheckExportedFileContents(tab1file, 
-                "!!SCHEMAMATIC 3D05ABB172361D5BDC19DE2437C58F7E " + 
-                    "E8634548 A5F77357 E50EE702", 
-                tab1q.Replace(" PRIMARY KEY", ""));
-
-            WVPASS(File.Exists(tab2file));
-            CheckExportedFileContents(tab2file, 
-                "!!SCHEMAMATIC 436EFDE94964E924CB0CCEDB96970AFF AB0CD659", tab2q);
-
-            // XML Schemas
-            WVPASSEQ(Directory.GetDirectories(xmldir).Length, 0);
-            WVPASSEQ(Directory.GetFiles(xmldir).Length, 1);
-
-            string testschemafile = Path.Combine(xmldir, "TestSchema");
-            WVPASS(File.Exists(testschemafile));
-            CheckExportedFileContents(testschemafile, 
-                "!!SCHEMAMATIC 3D84628C4C6A7805CB9BF97B432D2268 FA7736B3", 
-                CreateXmlSchemaQuery());
+            VerifyExportedSchema(tmpdir, schema, sums, 
+                func1q, tab1q, tab2q, idx1q, xmlq, backup_generation);
         }
         finally
         {
