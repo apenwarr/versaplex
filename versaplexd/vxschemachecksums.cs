@@ -183,6 +183,16 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
         }
     }
 
+    private void AddChecksumFromFile(string filepath, string key)
+    {
+        // Internally, we separate elements with '/' regardless of running on
+        // Windows or Unix.
+        VxSchemaChecksum cs = new VxSchemaChecksum(
+            key.Replace(Path.DirectorySeparatorChar, '/'));
+        cs.ReadChecksum(filepath);
+        Add(cs.name, cs);
+    }
+
     public void ReadChecksums(string exportdir)
     {
         DirectoryInfo exportdirinfo = new DirectoryInfo(exportdir);
@@ -202,27 +212,16 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
                     // This is the */*/* part
                     foreach (FileInfo file in dir2.GetFiles())
                     {
-                        string subdir = Path.Combine(dir1.Name, dir2.Name);
-                        // Internally, we separate elements with '/'
-                        // regardless of running on Windows or Unix.
-                        string keyname = Path.Combine(subdir, file.Name)
-                            .Replace(Path.DirectorySeparatorChar, '/');
-                        VxSchemaChecksum cs = new VxSchemaChecksum(keyname);
-                        cs.ReadChecksum(file.FullName);
-                        Add(cs.name, cs);
+                        AddChecksumFromFile(file.FullName, 
+                            wv.PathCombine(dir1.Name, dir2.Name, file.Name));
                     }
                 }
 
                 // This is the */* part
                 foreach (FileInfo file in dir1.GetFiles())
                 {
-                    // Internally, we separate elements with '/' regardless of
-                    // running on Windows or Unix.
-                    string keyname = Path.Combine(dir1.Name, file.Name)
-                        .Replace(Path.DirectorySeparatorChar, '/');
-                    VxSchemaChecksum cs = new VxSchemaChecksum(keyname);
-                    cs.ReadChecksum(file.FullName);
-                    Add(cs.name, cs);
+                    AddChecksumFromFile(file.FullName, 
+                        wv.PathCombine(dir1.Name, file.Name));
                 }
             }
         }

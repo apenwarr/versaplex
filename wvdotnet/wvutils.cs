@@ -5,6 +5,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -245,6 +246,15 @@ namespace Wv
                 }
             }
             return retval.ToString();
+        }
+
+        // Extend Path.Combine to work on more than two path elements.
+        public static string PathCombine(string first, params string[] rest)
+        {
+            string combined = first;
+            foreach (string elem in rest)
+                combined = Path.Combine(combined, elem);
+            return combined;
         }
     }
 }

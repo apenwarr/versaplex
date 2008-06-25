@@ -1108,14 +1108,14 @@ class SchemamaticTests : VersaplexTester
             // Test that changing a file invalidates its checksums, and that
             // we skip directories named "DATA"
             using (StreamWriter sw = File.AppendText(
-                Path.Combine(Path.Combine(tmpdir, "Table"), "Tab1")))
+                wv.PathCombine(tmpdir, "Table", "Tab1")))
             {
                 sw.WriteLine("Ooga Booga");
             }
 
             Directory.CreateDirectory(Path.Combine(tmpdir, "DATA"));
             using (StreamWriter sw = File.AppendText(
-                Path.Combine(Path.Combine(tmpdir, "DATA"), "Decoy")))
+                wv.PathCombine(tmpdir, "DATA", "Decoy")))
             {
                 sw.WriteLine("Decoy file, shoudln't have checksums");
             }
