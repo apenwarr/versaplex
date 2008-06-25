@@ -191,8 +191,14 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
             // Read all files that match */* and */*/*.
             foreach (DirectoryInfo dir1 in exportdirinfo.GetDirectories())
             {
+                if (dir1.Name == "DATA")
+                    continue;
+
                 foreach (DirectoryInfo dir2 in dir1.GetDirectories())
                 {
+                    if (dir2.Name == "DATA")
+                        continue;
+
                     // This is the */*/* part
                     foreach (FileInfo file in dir2.GetFiles())
                     {

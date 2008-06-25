@@ -1105,15 +1105,26 @@ class SchemamaticTests : VersaplexTester
             }
             WVPASSEQ(sums.Count, fromdisk.Count);
 
-            // Test that changing a file invalidates its checksums
+            // Test that changing a file invalidates its checksums, and that
+            // we skip directories named "DATA"
             using (StreamWriter sw = File.AppendText(
                 Path.Combine(Path.Combine(tmpdir, "Table"), "Tab1")))
             {
                 sw.WriteLine("Ooga Booga");
             }
 
+            Directory.CreateDirectory(Path.Combine(tmpdir, "DATA"));
+            using (StreamWriter sw = File.AppendText(
+                Path.Combine(Path.Combine(tmpdir, "DATA"), "Decoy")))
+            {
+                sw.WriteLine("Decoy file, shoudln't have checksums");
+            }
+
             VxSchemaChecksums mangled = new VxSchemaChecksums();
             mangled.ReadChecksums(tmpdir);
+
+            // Check that the decoy file didn't get read
+            WVFAIL(mangled.ContainsKey("DATA/Decoy"));
 
             // Check that the mangled checksums exist, but are empty.
             WVASSERT(mangled.ContainsKey("Table/Tab1"));
