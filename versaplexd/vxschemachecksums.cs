@@ -1,5 +1,8 @@
 using System;
+using System.IO;
+using System.Text;
 using System.Collections.Generic;
+using System.Security.Cryptography;
 using NDesk.DBus;
 using Wv;
 using Wv.Extensions;
@@ -18,6 +21,12 @@ internal class VxSchemaChecksum
     List<ulong> _checksums;
     public List<ulong> checksums {
         get { return _checksums; }
+    }
+
+    public VxSchemaChecksum(string newname)
+    {
+        _name = newname;
+        _checksums = new List<ulong>();
     }
 
     public VxSchemaChecksum(string newname, ulong newchecksum)
@@ -44,6 +53,78 @@ internal class VxSchemaChecksum
             reader.GetValue(out sum);
             AddChecksum(sum);
         }
+    }
+
+    // Reads checksums from a file on disk.  If the file is corrupt, will not
+    // load any checksums.
+    public void ReadChecksum(string filename)
+    {
+        FileInfo fileinfo = new FileInfo(filename);
+
+        // Read the entire file into memory.  C#'s file IO sucks.
+        byte[] bytes = new byte[fileinfo.Length];
+        using (FileStream fs = fileinfo.OpenRead())
+        {
+            fs.Read(bytes, 0, bytes.Length);
+        }
+        
+        // Find the header line
+        int ii;
+        for (ii = 0; ii < bytes.Length; ii++)
+            if (bytes[ii] == '\n')
+                break;
+
+        if (ii == bytes.Length)
+            return; 
+
+        // Read the header line
+        Encoding utf8 = Encoding.UTF8;
+        string header = utf8.GetString(bytes, 0, ii).Replace("\r", "");
+
+        // Parse the header line
+        char[] space = {' '};
+        string[] elems = header.Split(space, 3);
+        if (elems.Length != 3)
+            return;
+
+        string prefix = elems[0];
+        string header_md5 = elems[1];
+        string dbsum = elems[2];
+
+        if (prefix != "!!SCHEMAMATIC")
+            return;
+
+        // Compute the hash of the rest of the file
+        ii++;
+        byte[] md5 = MD5.Create().ComputeHash(bytes, ii, 
+            (int)fileinfo.Length - ii);
+        StringBuilder sb = new StringBuilder();
+        foreach (byte b in md5)
+            sb.Append(b.ToString("X2"));
+        string content_md5 = sb.ToString();
+
+        // If the MD5 sums don't match, we want to make it obvious that the
+        // database and local file aren't in sync, so we don't load any actual
+        // checksums.  
+        if (header_md5 == content_md5)
+        {
+            string[] sums = dbsum.Split(' ');
+            foreach (string sum in sums)
+            {
+                ulong longsum;
+                if (!UInt64.TryParse(sum, 
+                        System.Globalization.NumberStyles.HexNumber, null, 
+                        out longsum))
+                {
+                    // A bad checksum means the whole file is bad.
+                    _checksums.Clear();
+                    return;
+                }
+                AddChecksum(longsum);
+            }
+        }
+
+        return;
     }
 
     public string GetSumString()
@@ -99,6 +180,45 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
             reader.ReadPad(8);
             VxSchemaChecksum cs = new VxSchemaChecksum(reader);
             Add(cs.name, cs);
+        }
+    }
+
+    public void ReadChecksums(string exportdir)
+    {
+        DirectoryInfo exportdirinfo = new DirectoryInfo(exportdir);
+        if (exportdirinfo.Exists)
+        {
+            // Read all files that match */* and */*/*.
+            foreach (DirectoryInfo dir1 in exportdirinfo.GetDirectories())
+            {
+                foreach (DirectoryInfo dir2 in dir1.GetDirectories())
+                {
+                    // This is the */*/* part
+                    foreach (FileInfo file in dir2.GetFiles())
+                    {
+                        string subdir = Path.Combine(dir1.Name, dir2.Name);
+                        // Internally, we separate elements with '/'
+                        // regardless of running on Windows or Unix.
+                        string keyname = Path.Combine(subdir, file.Name)
+                            .Replace(Path.DirectorySeparatorChar, '/');
+                        VxSchemaChecksum cs = new VxSchemaChecksum(keyname);
+                        cs.ReadChecksum(file.FullName);
+                        Add(cs.name, cs);
+                    }
+                }
+
+                // This is the */* part
+                foreach (FileInfo file in dir1.GetFiles())
+                {
+                    // Internally, we separate elements with '/' regardless of
+                    // running on Windows or Unix.
+                    string keyname = Path.Combine(dir1.Name, file.Name)
+                        .Replace(Path.DirectorySeparatorChar, '/');
+                    VxSchemaChecksum cs = new VxSchemaChecksum(keyname);
+                    cs.ReadChecksum(file.FullName);
+                    Add(cs.name, cs);
+                }
+            }
         }
     }
 

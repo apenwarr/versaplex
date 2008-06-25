@@ -1053,6 +1053,89 @@ class SchemamaticTests : VersaplexTester
         }
     }
 
+    [Test, Category("Schemamatic"), Category("ReadChecksums")]
+    public void TestReadChecksums()
+    {
+        try { VxExec("drop index Tab1.Idx1"); } catch { }
+        try { VxExec("drop table Tab1"); } catch { }
+        try { VxExec("drop table Tab2"); } catch { }
+        try { VxExec("drop xml schema collection TestSchema"); } catch { }
+        try { VxExec("drop procedure Func1"); } catch { }
+
+        string tab1q = "CREATE TABLE [Tab1] (\n" + 
+            "\t[f1] [int] NOT NULL PRIMARY KEY,\n" +
+            "\t[f2] [money] NULL,\n" + 
+            "\t[f3] [varchar] (80) NULL);\n\n";
+        WVASSERT(VxExec(tab1q));
+
+        string tab2q = "CREATE TABLE [Tab2] (\n" + 
+            "\t[f4] [binary] (1) NOT NULL);\n\n";
+        WVASSERT(VxExec(tab2q));
+
+	string idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
+	    "\t(f2,f3 DESC);\n\n";
+        WVASSERT(VxExec(idx1q));
+
+        string msg = "Hello, world, this is Func1!";
+        string func1q = "create procedure Func1 as select '" + msg + "'\n";
+        WVASSERT(VxExec(func1q));
+
+        string xmlq = CreateXmlSchemaQuery();
+        WVASSERT(VxExec(xmlq));
+        
+        string tmpdir = Path.Combine(Path.GetTempPath(), 
+            Path.GetRandomFileName());
+        Console.WriteLine("Using temporary directory " + tmpdir);
+
+        DirectoryInfo tmpdirinfo = new DirectoryInfo(tmpdir);
+        try
+        {
+            tmpdirinfo.Create();
+
+            VxSchema schema = VxGetSchema();
+            VxSchemaChecksums sums = VxGetSchemaChecksums();
+            schema.ExportSchema(tmpdir, sums, false);
+
+            VxSchemaChecksums fromdisk = new VxSchemaChecksums();
+            fromdisk.ReadChecksums(tmpdir);
+
+            foreach (KeyValuePair<string, VxSchemaChecksum> p in sums)
+            {
+                WVPASSEQ(p.Value.GetSumString(), fromdisk[p.Key].GetSumString());
+            }
+            WVPASSEQ(sums.Count, fromdisk.Count);
+
+            // Test that changing a file invalidates its checksums
+            using (StreamWriter sw = File.AppendText(
+                Path.Combine(Path.Combine(tmpdir, "Table"), "Tab1")))
+            {
+                sw.WriteLine("Ooga Booga");
+            }
+
+            VxSchemaChecksums mangled = new VxSchemaChecksums();
+            mangled.ReadChecksums(tmpdir);
+
+            // Check that the mangled checksums exist, but are empty.
+            WVASSERT(mangled.ContainsKey("Table/Tab1"));
+            WVASSERT(mangled["Table/Tab1"].GetSumString() != 
+                sums["Table/Tab1"].GetSumString());
+            WVPASSEQ(mangled["Table/Tab1"].GetSumString(), "");
+
+            // Check that everything else is still sensible
+            foreach (KeyValuePair<string, VxSchemaChecksum> p in sums)
+            {
+                if (p.Key != "Table/Tab1")
+                    WVPASSEQ(p.Value.GetSumString(), 
+                        mangled[p.Key].GetSumString());
+            }
+        }
+        finally
+        {
+            tmpdirinfo.Delete(true);
+            WVASSERT(!tmpdirinfo.Exists);
+        }
+    }
+
     public static void Main()
     {
         WvTest.DoMain();
