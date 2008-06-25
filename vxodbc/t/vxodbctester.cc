@@ -139,6 +139,42 @@ bool VxOdbcTester::msg_received(WvDBusMsg &msg)
                 "Not yet implemented.  Try again later.").send(vxserver_conn);
         }
     }
+    else if (msg.get_member() == "Test")
+    {
+        log("Processing Test message!\n");
+
+        WvDBusMsg reply = msg.reply();
+	Table f("totally temporary table that doesn't exist");
+	/* Hint:  look at the number on the next line upside down */
+	f.addStringCol("foo", 20, false);
+	f.cols[0].append("This test works!");
+
+        reply.array_start(WvString("(%s)", ColumnInfo::getDBusSignature()));
+        f.cols[0].info.writeHeader(reply);
+        reply.array_end();
+
+        // Write the body signature
+        WvString sig(f.getDBusTypeSignature());
+        reply.varray_start(WvString("(%s)", sig));
+	
+	reply.struct_start(sig);
+        // Write the body
+        f.cols[0].addDataTo(reply);
+        reply.struct_end();
+        
+	reply.varray_end();
+
+        // Nullity
+        // FIXME: Need to send one copy per row, and properly reflect 
+        // the data (not the column's overall nullability)
+        reply.array_start("ay");
+        reply.array_start("y");
+        reply.append(f.cols[0].info.nullable);
+        reply.array_end();
+        reply.array_end();
+
+	reply.send(vxserver_conn);
+    }
     else
     {
         WvDBusError(msg, "System.NotImplemented", 
