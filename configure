@@ -1,6 +1,6 @@
 #!/bin/sh -x
 set -e
-./get-git-modules
+test -e wv/Makefile || ./get-git-modules
 
 rm -f config.mk
 cat >config.mk <<EOF
