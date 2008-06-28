@@ -9,6 +9,7 @@ WVLIBDIR=$(WVDIR)/lib
 XPLC=$(WVDIR)/wvports/xplc/build/xplc
 BOOST=$(WVDIR)/wvports/boost/build/boost
 DBUS=$(WVDIR)/wvports/dbus/build/dbus
+ARGP=$(WVDIR)/wvports/argp/build/argp
 WVSTREAMS=$(WVDIR)/wvstreams
 VALGRIND=valgrind --tool=memcheck --leak-check=yes --num-callers=10 --suppressions=$(WVSTREAMS)/wvstreams.supp --log-file=valgrind.log
 RUNTEST=$(WVSTREAMS)/wvtesthelper
@@ -25,7 +26,7 @@ CXX=i586-mingw32msvc-g++
 CFLAGS+= -D_MSC_VER=1300 -D_WIN32_WINNT=0x0501 -DWIN_MULTITHREAD_SUPPORT
 LIBS+=-L. -L.. -L$(WVSTREAMS) -L$(WVLIBDIR)
 LIBS+=-lwvwin32 -lssl -lcrypto -lxplc-cxx 
-LIBS+=../vxodbc.a $(DBUS)/dbus/.libs/libdbus-1.a $(WVSTREAMS)/gnulib/libgnu.a 
+LIBS+=../vxodbc.a $(DBUS)/dbus/.libs/libdbus-1.a $(ARGP)/libargp.a
 LIBS+=$(WVSTREAMS)/wvtestmain.o $(WVSTREAMS)/utils/wvcrash.o 
 LIBS+=-lwsock32 -lgdi32 -lrpcrt4 -lole32 -lodbc32 -limagehlp
 VALGRIND=
