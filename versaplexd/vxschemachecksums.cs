@@ -98,10 +98,7 @@ internal class VxSchemaChecksum
         ii++;
         byte[] md5 = MD5.Create().ComputeHash(bytes, ii, 
             (int)fileinfo.Length - ii);
-        StringBuilder sb = new StringBuilder();
-        foreach (byte b in md5)
-            sb.Append(b.ToString("X2"));
-        string content_md5 = sb.ToString();
+        string content_md5 = md5.ToHex();
 
         // If the MD5 sums don't match, we want to make it obvious that the
         // database and local file aren't in sync, so we don't load any actual

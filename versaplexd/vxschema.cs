@@ -4,6 +4,7 @@ using System.Text;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 using NDesk.DBus;
+using Wv.Extensions;
 
 internal class VxSchemaElement : IComparable
 {
@@ -171,11 +172,7 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
             byte[] text = utf8.GetBytes(elem.text);
             byte[] md5 = md5summer.ComputeHash(text);
 
-            StringBuilder sb = new StringBuilder();
-            foreach (byte b in md5)
-                sb.Append(b.ToString("X2"));
-
-            string md5str = sb.ToString();
+            string md5str = md5.ToHex();
             string sumstr = checksums[elem.key].GetSumString();
 
             // Make some kind of attempt to run on Windows.  

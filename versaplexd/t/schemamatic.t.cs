@@ -927,10 +927,7 @@ class SchemamaticTests : VersaplexTester
         // it ourselves.
         byte[] md5 = MD5.Create().ComputeHash(Encoding.UTF8.GetBytes(
             pk_query));
-        StringBuilder md5sb = new StringBuilder();
-        foreach (byte b in md5)
-            md5sb.Append(b.ToString("X2"));
-        string md5str = md5sb.ToString();
+        string md5str = md5.ToHex();
 
         CheckExportedFileContents(pk_file, 
             String.Format("!!SCHEMAMATIC {0} {1}", 
