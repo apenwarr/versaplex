@@ -3,6 +3,7 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Collections.Generic;
 using System.Security.Cryptography;
@@ -1142,6 +1143,56 @@ class SchemamaticTests : VersaplexTester
             tmpdirinfo.Delete(true);
             WVASSERT(!tmpdirinfo.Exists);
         }
+    }
+
+    [Test, Category("Schemamatic"), Category("VxSchemaChecksumDiff")]
+    public void TestChecksumDiff()
+    {
+        VxSchemaChecksums srcsums = new VxSchemaChecksums();
+        VxSchemaChecksums goalsums = new VxSchemaChecksums();
+        VxSchemaChecksums emptysums = new VxSchemaChecksums();
+
+        srcsums.Add("XMLSchema/secondxml", 2);
+        srcsums.Add("XMLSchema/firstxml", 1);
+        srcsums.Add("Index/Tab1/ConflictIndex", 3);
+        srcsums.Add("Table/HarmonyTable", 6);
+
+        goalsums.Add("Table/NewTable", 3);
+        goalsums.Add("Procedure/NewFunc", 4);
+        goalsums.Add("Index/Tab1/ConflictIndex", 5);
+        goalsums.Add("Table/HarmonyTable", 6);
+
+        VxSchemaChecksumDiff diff = new VxSchemaChecksumDiff(srcsums, goalsums);
+
+        string expected = "- XMLSchema/firstxml\n" + 
+            "- XMLSchema/secondxml\n" +
+            "+ Table/NewTable\n" +
+            "* Index/Tab1/ConflictIndex\n" +
+            "+ Procedure/NewFunc\n";
+        WVPASSEQ(diff.ToString(), expected);
+
+        // Check that the internal order matches the string's order.
+        WVPASSEQ(diff.ElementAt(0).Key, "XMLSchema/firstxml");
+        WVPASSEQ(diff.ElementAt(1).Key, "XMLSchema/secondxml");
+        WVPASSEQ(diff.ElementAt(2).Key, "Table/NewTable");
+        WVPASSEQ(diff.ElementAt(3).Key, "Index/Tab1/ConflictIndex");
+        WVPASSEQ(diff.ElementAt(4).Key, "Procedure/NewFunc");
+
+        // Check that a comparison with an empty set of sums returns the other
+        // side, sorted.
+        diff = new VxSchemaChecksumDiff(srcsums, emptysums);
+        expected = "- XMLSchema/firstxml\n" + 
+            "- XMLSchema/secondxml\n" + 
+            "- Table/HarmonyTable\n" + 
+            "- Index/Tab1/ConflictIndex\n";
+        WVPASSEQ(diff.ToString(), expected);
+
+        diff = new VxSchemaChecksumDiff(emptysums, goalsums);
+        expected = "+ Table/HarmonyTable\n" +
+            "+ Table/NewTable\n" +
+            "+ Index/Tab1/ConflictIndex\n" +
+            "+ Procedure/NewFunc\n";
+        WVPASSEQ(diff.ToString(), expected);
     }
 
     public static void Main()
