@@ -1,0 +1,4 @@
+all.t
+odbc.ini
+.wvtest-total
+valgrind.log
