@@ -177,7 +177,7 @@ internal class VxSchemaChecksum
         return true;
     }
 
-    public static string GetSignature()
+    public static string GetDbusSignature()
     {
         return "sat";
     }
@@ -276,9 +276,9 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
             this.Add(name, new VxSchemaChecksum(name, checksum));
     }
 
-    public static string GetSignature()
+    public static string GetDbusSignature()
     {
-        return String.Format("a({0})", VxSchemaChecksum.GetSignature());
+        return String.Format("a({0})", VxSchemaChecksum.GetDbusSignature());
     }
 }
 

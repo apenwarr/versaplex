@@ -698,7 +698,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         sums.WriteChecksums(writer);
 
         reply = VxDbus.CreateReply(call, 
-            VxSchemaChecksums.GetSignature(), writer);
+            VxSchemaChecksums.GetDbusSignature(), writer);
 
         // For debugging
         reply.WriteHeader();
@@ -797,7 +797,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
 
         schema.WriteSchema(writer);
 
-        reply = VxDbus.CreateReply(call, VxSchema.GetSignature(), writer);
+        reply = VxDbus.CreateReply(call, VxSchema.GetDbusSignature(), writer);
 
         // For debugging
         reply.WriteHeader();

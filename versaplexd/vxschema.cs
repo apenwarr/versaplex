@@ -75,7 +75,7 @@ internal class VxSchemaElement : IComparable
         return GetKey().CompareTo(other.GetKey());
     }
 
-    public static string GetSignature()
+    public static string GetDbusSignature()
     {
         return "sssy";
     }
@@ -148,9 +148,9 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
         return String.Format("{0}{1}/{2}", type, enc_str, name);
     }
 
-    public static string GetSignature()
+    public static string GetDbusSignature()
     {
-        return String.Format("a({0})", VxSchemaElement.GetSignature());
+        return String.Format("a({0})", VxSchemaElement.GetDbusSignature());
     }
 
     // Export the current schema to the given directory, in a format that can
