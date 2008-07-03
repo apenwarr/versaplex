@@ -153,6 +153,12 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
         return String.Format("a({0})", VxSchemaElement.GetSignature());
     }
 
+    // Export the current schema to the given directory, in a format that can
+    // be read back later.  checksums contains the database checksums for
+    // every element in the schema.  
+    // If isbackup is true, will not replace any existing files in the
+    // directory, but will append a unique numeric suffix to any files that
+    // would have conflicted.
     public void ExportSchema(string exportdir, VxSchemaChecksums checksums, 
         bool isbackup)
     {
