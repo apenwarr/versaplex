@@ -1145,7 +1145,7 @@ class SchemamaticTests : VersaplexTester
         }
     }
 
-    [Test, Category("Schemamatic"), Category("VxSchemaChecksumDiff")]
+    [Test, Category("Schemamatic"), Category("VxSchemaDiff")]
     public void TestChecksumDiff()
     {
         VxSchemaChecksums srcsums = new VxSchemaChecksums();
@@ -1162,7 +1162,7 @@ class SchemamaticTests : VersaplexTester
         goalsums.Add("Index/Tab1/ConflictIndex", 5);
         goalsums.Add("Table/HarmonyTable", 6);
 
-        VxSchemaChecksumDiff diff = new VxSchemaChecksumDiff(srcsums, goalsums);
+        VxSchemaDiff diff = new VxSchemaDiff(srcsums, goalsums);
 
         string expected = "- XMLSchema/firstxml\n" + 
             "- XMLSchema/secondxml\n" +
@@ -1180,14 +1180,14 @@ class SchemamaticTests : VersaplexTester
 
         // Check that a comparison with an empty set of sums returns the other
         // side, sorted.
-        diff = new VxSchemaChecksumDiff(srcsums, emptysums);
+        diff = new VxSchemaDiff(srcsums, emptysums);
         expected = "- XMLSchema/firstxml\n" + 
             "- XMLSchema/secondxml\n" + 
             "- Table/HarmonyTable\n" + 
             "- Index/Tab1/ConflictIndex\n";
         WVPASSEQ(diff.ToString(), expected);
 
-        diff = new VxSchemaChecksumDiff(emptysums, goalsums);
+        diff = new VxSchemaDiff(emptysums, goalsums);
         expected = "+ Table/HarmonyTable\n" +
             "+ Table/NewTable\n" +
             "+ Index/Tab1/ConflictIndex\n" +

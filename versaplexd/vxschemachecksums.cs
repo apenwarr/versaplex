@@ -337,13 +337,11 @@ internal enum VxDiffType
 // FIXME: It might be nicer in the long term to just implement 
 // IEnumerable<...> or IDictionary<...> ourselves, and defer to
 // an internal member.  But it's a lot of boilerplate code.
-internal class VxSchemaChecksumDiff : SortedList<string, VxDiffType>
+internal class VxSchemaDiff : SortedList<string, VxDiffType>
 {
-    // Estimate the initial size as being the maximum of either set of 
-    // input sums.
-    public VxSchemaChecksumDiff(VxSchemaChecksums srcsums, 
+    public VxSchemaDiff(VxSchemaChecksums srcsums, 
         VxSchemaChecksums goalsums):
-        base(Math.Max(srcsums.Count, goalsums.Count), new SchemaTypeComparer())
+        base(new SchemaTypeComparer())
     {
         List<string> keys = srcsums.Keys.Union(goalsums.Keys).ToList();
         keys.Sort(new SchemaTypeComparer());
