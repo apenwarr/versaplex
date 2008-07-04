@@ -22,6 +22,13 @@ internal class VxSchemaError
         errnum = newerrnum;
     }
 
+    public VxSchemaError(MessageReader reader)
+    {
+        reader.GetValue(out key);
+        reader.GetValue(out msg);
+        reader.GetValue(out errnum);
+    }
+
     public void WriteError(MessageWriter writer)
     {
         writer.Write(key);
@@ -38,6 +45,25 @@ internal class VxSchemaError
 // Dictionary<string,VxPutSchemaError> gets awfully tedious to type.
 internal class VxSchemaErrors : Dictionary<string, VxSchemaError>
 {
+    public VxSchemaErrors()
+    {
+    }
+
+    public VxSchemaErrors(MessageReader reader)
+    {
+        int size;
+        reader.GetValue(out size);
+
+        int endpos = reader.Position + size;
+        while (reader.Position < endpos)
+        {
+            reader.ReadPad(8);
+            VxSchemaError err = new VxSchemaError(reader);
+
+            this.Add(err.key, err);
+        }
+    }
+
     private void _WriteErrors(MessageWriter writer)
     {
         foreach (KeyValuePair<string,VxSchemaError> p in this)

@@ -137,7 +137,7 @@ class SchemamaticTests : VersaplexTester
             throw GetDbusException(reply);
         default:
             throw new Exception("D-Bus response was not a method return or "
-                    +"error");
+                    + "error");
         }
     }
 
@@ -195,30 +195,10 @@ class SchemamaticTests : VersaplexTester
                 throw new Exception("D-Bus reply had invalid signature: " +
                     replysig);
 
-            VxSchemaErrors errors = new VxSchemaErrors();
-
             MessageReader reader = new MessageReader(reply);
-            int size;
-            reader.GetValue(out size);
-
-            if (size == 0)
-                return null;
-
-            WVASSERT(reply.Header.MessageType == MessageType.Error);
-
-            int endpos = reader.Position + size;
-            while (reader.Position < endpos)
-            {
-                reader.ReadPad(8);
-                string key;
-                string msg;
-                int errnum;
-                reader.GetValue(out key);
-                reader.GetValue(out msg);
-                reader.GetValue(out errnum);
-
-                errors.Add(key, new VxSchemaError(key, msg, errnum));
-            }
+            VxSchemaErrors errors = new VxSchemaErrors(reader);
+            if (errors.Count > 0)
+                WVASSERT(reply.Header.MessageType == MessageType.Error);
 
             return errors;
         }
