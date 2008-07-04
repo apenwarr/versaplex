@@ -141,22 +141,34 @@ class SchemamaticTests : VersaplexTester
         }
     }
 
-    void VxPutSchema(string type, string name, string text, bool destructive)
+    VxSchemaError VxPutSchema(string type, string name, string text, 
+        bool destructive)
     {
         VxSchemaElement elem = new VxSchemaElement(type, name, text, false);
-        VxPutSchema(elem, destructive);
+        VxSchema schema = new VxSchema(elem);
+        VxSchemaErrors errs = VxPutSchema(schema, destructive);
+        if (errs == null || errs.Count == 0)
+            return null;
+
+        WVPASSEQ(errs.Count, 1);
+
+        foreach (KeyValuePair<string,VxSchemaError> p in errs)
+            return p.Value;
+
+        // Shouldn't happen.
+        return null;
     }
 
-    void VxPutSchema(VxSchemaElement elem, bool destructive)
+    VxSchemaErrors VxPutSchema(VxSchema schema, bool destructive)
     {
 	Console.WriteLine(" + VxPutSchema");
 
         Message call = CreateMethodCall("PutSchema", 
-            String.Format("{0}y", VxSchemaElement.GetDbusSignature()));
+            String.Format("{0}y", VxSchema.GetDbusSignature()));
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
-        elem.Write(writer);
+        schema.WriteSchema(writer);
         writer.Write(typeof(byte), destructive ? (byte)1 : (byte)0);
         call.Body = writer.ToArray();
 
@@ -165,17 +177,51 @@ class SchemamaticTests : VersaplexTester
 
         switch (reply.Header.MessageType) {
         case MessageType.MethodReturn:
+        case MessageType.Error:
         {
             object replysig;
-            if (reply.Header.Fields.TryGetValue(FieldCode.Signature,
+            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
                         out replysig))
-                throw new Exception("D-Bus reply had unexpected signature" + 
+                throw new Exception("D-Bus reply had no signature.");
+
+            if (replysig == null)
+                throw new Exception("D-Bus reply had null signature");
+
+            // Some unexpected error
+            if (replysig.ToString() == "s")
+                throw GetDbusException(reply);
+
+            if (replysig.ToString() != "a(ssi)")
+                throw new Exception("D-Bus reply had invalid signature: " +
                     replysig);
 
-            return;
+            VxSchemaErrors errors = new VxSchemaErrors();
+
+            MessageReader reader = new MessageReader(reply);
+            int size;
+            reader.GetValue(out size);
+
+            if (size == 0)
+                return null;
+
+            WVASSERT(reply.Header.MessageType == MessageType.Error);
+
+            int endpos = reader.Position + size;
+            while (reader.Position < endpos)
+            {
+                reader.ReadPad(8);
+                string key;
+                string msg;
+                int errnum;
+                reader.GetValue(out key);
+                reader.GetValue(out msg);
+                reader.GetValue(out errnum);
+
+                errors.Add(key, new VxSchemaError(key, msg, errnum));
+            }
+
+            return errors;
         }
-        case MessageType.Error:
-            throw GetDbusException(reply);
         default:
             throw new Exception("D-Bus response was not a method return or "
                     +"error");
@@ -727,17 +773,17 @@ class SchemamaticTests : VersaplexTester
             "[f1] [int] NOT NULL,\n\t" +
             "[f2] [money] NULL,\n\t" + 
             "[f3] [varchar] (80) NULL);\n\n";
-        VxPutSchema("Table", "Tab1", tab1q, false);
+        WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q, false), null);
 
 	string idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
 	    "\t(f2,f3 DESC);\n\n";
-        VxPutSchema("Index", "Tab1/Idx1", idx1q, false);
+        WVPASSEQ(VxPutSchema("Index", "Tab1/Idx1", idx1q, false), null);
 
         string msg = "Hello, world, this is Func1!";
         string func1q = "create procedure Func1 as select '" + msg + "'";
-        VxPutSchema("Procedure", "Func1", func1q, false);
+        WVPASSEQ(VxPutSchema("Procedure", "Func1", func1q, false), null);
 
-        VxPutSchema("XMLSchema", "TestSchema", CreateXmlSchemaQuery(), false);
+        WVPASSEQ(VxPutSchema("XMLSchema", "TestSchema", CreateXmlSchemaQuery(), false), null);
         
         VxSchema schema = VxGetSchema();
 
@@ -761,23 +807,19 @@ class SchemamaticTests : VersaplexTester
         string tab1q2 = "CREATE TABLE [Tab1] (\n\t" + 
             "[f4] [binary] (1) NOT NULL);\n\n";
 
-        try {
-            WVEXCEPT(VxPutSchema("Table", "Tab1", tab1q2, false));
-	} catch (Wv.Test.WvAssertionFailure e) {
-	    throw e;
-	} catch (System.Exception e) {
-            // FIXME: This should check for a vx.db.sqlerror
-            // rather than any dbus error
-	    WVPASS(e is DbusError);
-            Console.WriteLine(e.ToString());
-	}
-
+        VxSchemaError err = VxPutSchema("Table", "Tab1", tab1q2, false);
+        WVPASS(err != null);
+        WVPASSEQ(err.key, "Table/Tab1");
+        WVPASSEQ(err.msg, 
+            "There is already an object named 'Tab1' in the database.");
+        WVPASSEQ(err.errnum, 2714);
+        
         schema = VxGetSchema("Table/Tab1");
         WVPASSEQ(schema["Table/Tab1"].name, "Tab1");
         WVPASSEQ(schema["Table/Tab1"].type, "Table");
         WVPASSEQ(schema["Table/Tab1"].text, tab1q);
 
-        VxPutSchema("Table", "Tab1", tab1q2, true);
+        WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q2, true), null);
 
         schema = VxGetSchema("Table/Tab1");
         WVPASSEQ(schema["Table/Tab1"].name, "Tab1");
@@ -786,7 +828,7 @@ class SchemamaticTests : VersaplexTester
 
         string msg2 = "This is definitely not the Func1 you thought you knew.";
         string func1q2 = "create procedure Func1 as select '" + msg2 + "'";
-        VxPutSchema("Procedure", "Func1", func1q2, false);
+        WVPASSEQ(VxPutSchema("Procedure", "Func1", func1q2, false), null);
 
         schema = VxGetSchema("Procedure/Func1");
         WVPASSEQ(schema["Procedure/Func1"].name, "Func1");
@@ -809,7 +851,7 @@ class SchemamaticTests : VersaplexTester
             "[f1] [int] NOT NULL,\n\t" +
             "[f2] [money] NULL,\n\t" + 
             "[f3] [varchar] (80) NULL);\n\n";
-        VxPutSchema("Table", "Tab1", tab1q, false);
+        WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q, false), null);
 
         List<string> inserts = new List<string>();
         for (int ii = 0; ii < 22; ii++)
@@ -837,7 +879,7 @@ class SchemamaticTests : VersaplexTester
             Console.WriteLine(e.ToString());
 	}
 
-        VxPutSchema("Table", "Tab1", tab1q, false);
+        WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q, false), null);
 
         WVPASSEQ(VxGetSchemaData("Tab1"), "");
 

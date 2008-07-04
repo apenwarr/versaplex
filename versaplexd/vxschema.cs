@@ -6,6 +6,29 @@ using System.Security.Cryptography;
 using NDesk.DBus;
 using Wv.Extensions;
 
+internal class VxSchemaError
+{
+    // The key of the element that had the error
+    public string key;
+    // The error message
+    public string msg;
+    // The SQL error number, or -1 if not applicable.
+    public int errnum;
+
+    public VxSchemaError(string newkey, string newmsg, int newerrnum)
+    {
+        key = newkey;
+        msg = newmsg;
+        errnum = newerrnum;
+    }
+}
+
+// Dictionary<string,VxPutSchemaError> gets awfully tedious to type.
+internal class VxSchemaErrors : Dictionary<string, VxSchemaError>
+{
+}
+
+
 internal class VxSchemaElement : IComparable
 {
     string _type;
@@ -104,6 +127,12 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
 {
     public VxSchema()
     {
+    }
+
+    // Convenience method for making single-element schemas
+    public VxSchema(VxSchemaElement elem)
+    {
+        Add(elem.key, elem);
     }
 
     public VxSchema(MessageReader reader)

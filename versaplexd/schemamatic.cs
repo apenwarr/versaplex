@@ -620,8 +620,8 @@ internal static class Schemamatic
     // or not to perform potentially destructive operations while making the
     // change, e.g. dropping a table so we can re-add it with the right
     // columns.
-    internal static void PutSchema(string clientid, VxSchemaElement elem,
-        byte destructive)
+    internal static void PutSchemaElement(string clientid, 
+        VxSchemaElement elem, byte destructive)
     {
         if (destructive > 0 || !elem.type.StartsWith("Table"))
         {
@@ -641,6 +641,22 @@ internal static class Schemamatic
         object result;
         if (elem.text != null && elem.text != "")
             VxDb.ExecScalar(clientid, elem.text, out result);
+    }
+
+    internal static VxSchemaErrors PutSchema(string clientid, 
+        VxSchema schema, byte destructive)
+    {
+        VxSchemaErrors errs = new VxSchemaErrors();
+        foreach (KeyValuePair<string,VxSchemaElement> p in schema)
+        {
+            try {
+                PutSchemaElement(clientid, p.Value, destructive);
+            } catch (VxSqlException e) {
+                errs.Add(p.Key, new VxSchemaError(p.Key, e.Message, 
+                    e.GetFirstSqlErrno()));
+            }
+        }
+        return errs.Count > 0 ? errs : null;
     }
 
     // Returns a blob of text that can be used with PutSchemaData to fill 
