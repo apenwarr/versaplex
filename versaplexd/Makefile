@@ -6,7 +6,6 @@ all: versaplexd
 PKGS += /unsafe /r:System.Data
 
 test: all t/test
-	$(MAKE) -C t $@
 	
 tests: all t/all
 
