@@ -21,11 +21,43 @@ internal class VxSchemaError
         msg = newmsg;
         errnum = newerrnum;
     }
+
+    public void WriteError(MessageWriter writer)
+    {
+        writer.Write(key);
+        writer.Write(msg);
+        writer.Write(errnum);
+    }
+
+    public static string GetDbusSignature()
+    {
+        return "ssi";
+    }
 }
 
 // Dictionary<string,VxPutSchemaError> gets awfully tedious to type.
 internal class VxSchemaErrors : Dictionary<string, VxSchemaError>
 {
+    private void _WriteErrors(MessageWriter writer)
+    {
+        foreach (KeyValuePair<string,VxSchemaError> p in this)
+            p.Value.WriteError(writer);
+    }
+
+    // Static so we can properly write an empty array for a null object.
+    public static void WriteErrors(MessageWriter writer, VxSchemaErrors errs)
+    {
+        writer.WriteDelegatePrependSize(delegate(MessageWriter w)
+            {
+                if (errs != null)
+                    errs._WriteErrors(w);
+            }, 8);
+    }
+
+    public static string GetDbusSignature()
+    {
+        return String.Format("a({0})", VxSchemaError.GetDbusSignature());
+    }
 }
 
 
