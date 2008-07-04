@@ -833,7 +833,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
 
     private static void CallPutSchema(Message call, out Message reply)
     {
-        if (call.Signature.ToString() != "sssy") {
+        if (call.Signature.ToString() != String.Format("{0}y", 
+                VxSchemaElement.GetDbusSignature())) {
             reply = CreateUnknownMethodReply(call, "PutSchema");
             return;
         }
@@ -847,16 +848,13 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
             return;
         }
 
-        string type, name, text;
         byte destructive;
 
         MessageReader mr = new MessageReader(call);
-        mr.GetValue(out type);
-        mr.GetValue(out name);
-        mr.GetValue(out text);
+        VxSchemaElement elem = new VxSchemaElement(mr);
         mr.GetValue(out destructive);
 
-        Schemamatic.PutSchema(clientid, type, name, text, destructive);
+        Schemamatic.PutSchema(clientid, elem, destructive);
 
         reply = VxDbus.CreateReply(call);
     }

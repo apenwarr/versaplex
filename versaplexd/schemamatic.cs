@@ -615,18 +615,18 @@ internal static class Schemamatic
         VxDb.ExecScalar(clientid, query, out result);
     }
 
-    // Replaces the named object in the database.  'text' is a verbatim hunk
-    // of text returned earlier by GetSchema.  'destructive' says whether or
-    // not to perform potentially destructive operations while making the
+    // Replaces the named object in the database.  elem.text is a verbatim
+    // hunk of text returned earlier by GetSchema.  'destructive' says whether
+    // or not to perform potentially destructive operations while making the
     // change, e.g. dropping a table so we can re-add it with the right
     // columns.
-    internal static void PutSchema(string clientid, string type, string name, 
-        string text, byte destructive)
+    internal static void PutSchema(string clientid, VxSchemaElement elem,
+        byte destructive)
     {
-        if (destructive > 0 || !type.StartsWith("Table"))
+        if (destructive > 0 || !elem.type.StartsWith("Table"))
         {
             try { 
-                DropSchema(clientid, type, name); 
+                DropSchema(clientid, elem.type, elem.name); 
             } catch (VxSqlException e) {
                 // Check if it's a "didn't exist" error, rethrow if not.
                 // SQL Error 3701 means "can't drop sensible item because
@@ -639,7 +639,8 @@ internal static class Schemamatic
         }
 
         object result;
-        VxDb.ExecScalar(clientid, text, out result);
+        if (elem.text != null && elem.text != "")
+            VxDb.ExecScalar(clientid, elem.text, out result);
     }
 
     // Returns a blob of text that can be used with PutSchemaData to fill 

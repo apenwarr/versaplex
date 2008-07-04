@@ -8,14 +8,14 @@ using Wv.Extensions;
 
 internal class VxSchemaElement : IComparable
 {
-    string _name;
-    public string name {
-        get { return _name; }
-    }
-
     string _type;
     public string type {
         get { return _type; }
+    }
+
+    string _name;
+    public string name {
+        get { return _name; }
     }
 
     string _text;
@@ -33,19 +33,27 @@ internal class VxSchemaElement : IComparable
         get { return type + "/" + name; }
     }
 
-    public VxSchemaElement(string newname, string newtype, string newtext,
+    public VxSchemaElement(string newtype, string newname, string newtext,
             bool newencrypted)
     {
-        _name = newname;
         _type = newtype;
+        _name = newname;
         _encrypted = newencrypted;
         _text = newtext;
     }
 
+    public VxSchemaElement(VxSchemaElement copy)
+    {
+        _type = copy.type;
+        _name = copy.name;
+        _text = copy.text;
+        _encrypted = copy.encrypted;
+    }
+
     public VxSchemaElement(MessageReader reader)
     {
-        reader.GetValue(out _name);
         reader.GetValue(out _type);
+        reader.GetValue(out _name);
         reader.GetValue(out _text);
         byte enc_byte;
         reader.GetValue(out enc_byte);
@@ -54,8 +62,8 @@ internal class VxSchemaElement : IComparable
 
     public void Write(MessageWriter writer)
     {
-        writer.Write(typeof(string), name);
         writer.Write(typeof(string), type);
+        writer.Write(typeof(string), name);
         writer.Write(typeof(string), text);
         byte encb = (byte)(encrypted ? 1 : 0);
         writer.Write(typeof(byte), encb);
@@ -63,7 +71,7 @@ internal class VxSchemaElement : IComparable
 
     public string GetKey()
     {
-        return VxSchema.GetKey(name, type, encrypted);
+        return VxSchema.GetKey(type, name, encrypted);
     }
 
     public int CompareTo(object obj)
@@ -86,7 +94,7 @@ internal class VxSchemaElement : IComparable
 internal class VxSchemaTable : VxSchemaElement
 {
     public VxSchemaTable(string newname, string newtext) :
-        base(newname, "Table", newtext, false)
+        base("Table", newname, newtext, false)
     {
     }
 }
@@ -130,7 +138,7 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
 
     public void Add(string name, string type, string text, bool encrypted)
     {
-        string key = GetKey(name, type, encrypted);
+        string key = GetKey(type, name, encrypted);
         if (this.ContainsKey(key))
             this[key].text += text;
         else
@@ -138,11 +146,11 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
             if (type == "Table")
                 this.Add(key, new VxSchemaTable(name, text));
             else
-                this.Add(key, new VxSchemaElement(name, type, text, encrypted));
+                this.Add(key, new VxSchemaElement(type, name, text, encrypted));
         }
     }
 
-    public static string GetKey(string name, string type, bool encrypted)
+    public static string GetKey(string type, string name, bool encrypted)
     {
         string enc_str = encrypted ? "-Encrypted" : "";
         return String.Format("{0}{1}/{2}", type, enc_str, name);

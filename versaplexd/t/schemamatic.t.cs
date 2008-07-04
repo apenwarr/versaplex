@@ -143,15 +143,20 @@ class SchemamaticTests : VersaplexTester
 
     void VxPutSchema(string type, string name, string text, bool destructive)
     {
+        VxSchemaElement elem = new VxSchemaElement(type, name, text, false);
+        VxPutSchema(elem, destructive);
+    }
+
+    void VxPutSchema(VxSchemaElement elem, bool destructive)
+    {
 	Console.WriteLine(" + VxPutSchema");
 
-        Message call = CreateMethodCall("PutSchema", "sssy");
+        Message call = CreateMethodCall("PutSchema", 
+            String.Format("{0}y", VxSchemaElement.GetDbusSignature()));
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
-        writer.Write(typeof(string), type);
-        writer.Write(typeof(string), name);
-        writer.Write(typeof(string), text);
+        elem.Write(writer);
         writer.Write(typeof(byte), destructive ? (byte)1 : (byte)0);
         call.Body = writer.ToArray();
 
