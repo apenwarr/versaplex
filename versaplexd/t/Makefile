@@ -42,7 +42,7 @@ TESTOBJS=$(patsubst %.cc,%.o,$(TESTSOURCES))
 
 all: test
 
-test: versaplex.t.pass vxsanity.t.pass verifydata.t.pass schemamatic.t.pass
+test: versaplex.t.pass vxsanity.t.pass verifydata.t.pass schemamatic.t.pass all.t
 	$(RUNTEST) $(VALGRIND) ./all.t $(TESTNAME)
 
 versaplex.t.exe: versaplex.t.cs.E versaplextester.cs.E dbuserror.cs \
