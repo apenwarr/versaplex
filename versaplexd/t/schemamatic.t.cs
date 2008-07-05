@@ -3,6 +3,7 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Collections.Generic;
 using System.Security.Cryptography;
@@ -927,10 +928,7 @@ class SchemamaticTests : VersaplexTester
         // it ourselves.
         byte[] md5 = MD5.Create().ComputeHash(Encoding.UTF8.GetBytes(
             pk_query));
-        StringBuilder md5sb = new StringBuilder();
-        foreach (byte b in md5)
-            md5sb.Append(b.ToString("X2"));
-        string md5str = md5sb.ToString();
+        string md5str = md5.ToHex();
 
         CheckExportedFileContents(pk_file, 
             String.Format("!!SCHEMAMATIC {0} {1}", 
@@ -1051,6 +1049,150 @@ class SchemamaticTests : VersaplexTester
             tmpdirinfo.Delete(true);
             WVASSERT(!tmpdirinfo.Exists);
         }
+    }
+
+    [Test, Category("Schemamatic"), Category("ReadChecksums")]
+    public void TestReadChecksums()
+    {
+        try { VxExec("drop index Tab1.Idx1"); } catch { }
+        try { VxExec("drop table Tab1"); } catch { }
+        try { VxExec("drop table Tab2"); } catch { }
+        try { VxExec("drop xml schema collection TestSchema"); } catch { }
+        try { VxExec("drop procedure Func1"); } catch { }
+
+        string tab1q = "CREATE TABLE [Tab1] (\n" + 
+            "\t[f1] [int] NOT NULL PRIMARY KEY,\n" +
+            "\t[f2] [money] NULL,\n" + 
+            "\t[f3] [varchar] (80) NULL);\n\n";
+        WVASSERT(VxExec(tab1q));
+
+        string tab2q = "CREATE TABLE [Tab2] (\n" + 
+            "\t[f4] [binary] (1) NOT NULL);\n\n";
+        WVASSERT(VxExec(tab2q));
+
+	string idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
+	    "\t(f2,f3 DESC);\n\n";
+        WVASSERT(VxExec(idx1q));
+
+        string msg = "Hello, world, this is Func1!";
+        string func1q = "create procedure Func1 as select '" + msg + "'\n";
+        WVASSERT(VxExec(func1q));
+
+        string xmlq = CreateXmlSchemaQuery();
+        WVASSERT(VxExec(xmlq));
+        
+        string tmpdir = Path.Combine(Path.GetTempPath(), 
+            Path.GetRandomFileName());
+        Console.WriteLine("Using temporary directory " + tmpdir);
+
+        DirectoryInfo tmpdirinfo = new DirectoryInfo(tmpdir);
+        try
+        {
+            tmpdirinfo.Create();
+
+            VxSchema schema = VxGetSchema();
+            VxSchemaChecksums sums = VxGetSchemaChecksums();
+            schema.ExportSchema(tmpdir, sums, false);
+
+            VxSchemaChecksums fromdisk = new VxSchemaChecksums();
+            fromdisk.ReadChecksums(tmpdir);
+
+            foreach (KeyValuePair<string, VxSchemaChecksum> p in sums)
+            {
+                WVPASSEQ(p.Value.GetSumString(), fromdisk[p.Key].GetSumString());
+            }
+            WVPASSEQ(sums.Count, fromdisk.Count);
+
+            // Test that changing a file invalidates its checksums, and that
+            // we skip directories named "DATA"
+            using (StreamWriter sw = File.AppendText(
+                wv.PathCombine(tmpdir, "Table", "Tab1")))
+            {
+                sw.WriteLine("Ooga Booga");
+            }
+
+            Directory.CreateDirectory(Path.Combine(tmpdir, "DATA"));
+            using (StreamWriter sw = File.AppendText(
+                wv.PathCombine(tmpdir, "DATA", "Decoy")))
+            {
+                sw.WriteLine("Decoy file, shoudln't have checksums");
+            }
+
+            VxSchemaChecksums mangled = new VxSchemaChecksums();
+            mangled.ReadChecksums(tmpdir);
+
+            // Check that the decoy file didn't get read
+            WVFAIL(mangled.ContainsKey("DATA/Decoy"));
+
+            // Check that the mangled checksums exist, but are empty.
+            WVASSERT(mangled.ContainsKey("Table/Tab1"));
+            WVASSERT(mangled["Table/Tab1"].GetSumString() != 
+                sums["Table/Tab1"].GetSumString());
+            WVPASSEQ(mangled["Table/Tab1"].GetSumString(), "");
+
+            // Check that everything else is still sensible
+            foreach (KeyValuePair<string, VxSchemaChecksum> p in sums)
+            {
+                if (p.Key != "Table/Tab1")
+                    WVPASSEQ(p.Value.GetSumString(), 
+                        mangled[p.Key].GetSumString());
+            }
+        }
+        finally
+        {
+            tmpdirinfo.Delete(true);
+            WVASSERT(!tmpdirinfo.Exists);
+        }
+    }
+
+    [Test, Category("Schemamatic"), Category("VxSchemaChecksumDiff")]
+    public void TestChecksumDiff()
+    {
+        VxSchemaChecksums srcsums = new VxSchemaChecksums();
+        VxSchemaChecksums goalsums = new VxSchemaChecksums();
+        VxSchemaChecksums emptysums = new VxSchemaChecksums();
+
+        srcsums.Add("XMLSchema/secondxml", 2);
+        srcsums.Add("XMLSchema/firstxml", 1);
+        srcsums.Add("Index/Tab1/ConflictIndex", 3);
+        srcsums.Add("Table/HarmonyTable", 6);
+
+        goalsums.Add("Table/NewTable", 3);
+        goalsums.Add("Procedure/NewFunc", 4);
+        goalsums.Add("Index/Tab1/ConflictIndex", 5);
+        goalsums.Add("Table/HarmonyTable", 6);
+
+        VxSchemaChecksumDiff diff = new VxSchemaChecksumDiff(srcsums, goalsums);
+
+        string expected = "- XMLSchema/firstxml\n" + 
+            "- XMLSchema/secondxml\n" +
+            "+ Table/NewTable\n" +
+            "* Index/Tab1/ConflictIndex\n" +
+            "+ Procedure/NewFunc\n";
+        WVPASSEQ(diff.ToString(), expected);
+
+        // Check that the internal order matches the string's order.
+        WVPASSEQ(diff.ElementAt(0).Key, "XMLSchema/firstxml");
+        WVPASSEQ(diff.ElementAt(1).Key, "XMLSchema/secondxml");
+        WVPASSEQ(diff.ElementAt(2).Key, "Table/NewTable");
+        WVPASSEQ(diff.ElementAt(3).Key, "Index/Tab1/ConflictIndex");
+        WVPASSEQ(diff.ElementAt(4).Key, "Procedure/NewFunc");
+
+        // Check that a comparison with an empty set of sums returns the other
+        // side, sorted.
+        diff = new VxSchemaChecksumDiff(srcsums, emptysums);
+        expected = "- XMLSchema/firstxml\n" + 
+            "- XMLSchema/secondxml\n" + 
+            "- Table/HarmonyTable\n" + 
+            "- Index/Tab1/ConflictIndex\n";
+        WVPASSEQ(diff.ToString(), expected);
+
+        diff = new VxSchemaChecksumDiff(emptysums, goalsums);
+        expected = "+ Table/HarmonyTable\n" +
+            "+ Table/NewTable\n" +
+            "+ Index/Tab1/ConflictIndex\n" +
+            "+ Procedure/NewFunc\n";
+        WVPASSEQ(diff.ToString(), expected);
     }
 
     public static void Main()
