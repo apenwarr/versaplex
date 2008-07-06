@@ -24,6 +24,14 @@ internal class VxSchemaChecksum
         get { return _checksums; }
     }
 
+    public VxSchemaChecksum(VxSchemaChecksum copy)
+    {
+        _name = copy.name;
+        _checksums = new List<ulong>();
+        foreach (ulong sum in copy.checksums)
+            _checksums.Add(sum);
+    }
+
     public VxSchemaChecksum(string newname)
     {
         _name = newname;
@@ -190,6 +198,12 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
     {
     }
 
+    public VxSchemaChecksums(VxSchemaChecksums copy)
+    {
+        foreach (KeyValuePair<string,VxSchemaChecksum> p in copy)
+            this.Add(p.Key, new VxSchemaChecksum(p.Value));
+    }
+
     // Read an array of checksums from a DBus message.
     public VxSchemaChecksums(MessageReader reader)
     {
@@ -301,9 +315,9 @@ internal class SchemaTypeComparer: IComparer<string>
         string[] parts = s.Split('/');
 
         int retval;
+        bool ignore_case = true;
         try
         {
-            bool ignore_case = true;
             retval = Convert.ToInt32(Enum.Parse(typeof(SchemaTypes), 
                 parts[0], ignore_case));
         }

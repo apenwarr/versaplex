@@ -1139,11 +1139,8 @@ class SchemamaticTests : VersaplexTester
             }
 
             Directory.CreateDirectory(Path.Combine(tmpdir, "DATA"));
-            using (StreamWriter sw = File.AppendText(
-                wv.PathCombine(tmpdir, "DATA", "Decoy")))
-            {
-                sw.WriteLine("Decoy file, shoudln't have checksums");
-            }
+            File.WriteAllText(wv.PathCombine(tmpdir, "DATA", "Decoy"),
+                "Decoy file, shouldn't have checksums");
 
             VxSchemaChecksums mangled = new VxSchemaChecksums();
             mangled.ReadChecksums(tmpdir);
@@ -1220,6 +1217,103 @@ class SchemamaticTests : VersaplexTester
             "+ Index/Tab1/ConflictIndex\n" +
             "+ Procedure/NewFunc\n";
         WVPASSEQ(diff.ToString(), expected);
+    }
+
+    [Test, Category("Schemamatic"), Category("VxApplySchemaDiff")]
+    public void TestApplySchemaDiff()
+    {
+        try { VxExec("drop index Tab1.Idx1"); } catch { }
+        try { VxExec("drop table Tab1"); } catch { }
+        try { VxExec("drop table Tab2"); } catch { }
+        try { VxExec("drop xml schema collection TestSchema"); } catch { }
+        try { VxExec("drop procedure Func1"); } catch { }
+
+        string tab1q = "CREATE TABLE [Tab1] (\n" + 
+            "\t[f1] [int] NOT NULL PRIMARY KEY,\n" +
+            "\t[f2] [money] NULL,\n" + 
+            "\t[f3] [varchar] (80) NULL);\n\n";
+        WVASSERT(VxExec(tab1q));
+
+        string tab2q = "CREATE TABLE [Tab2] (\n" + 
+            "\t[f4] [binary] (1) NOT NULL);\n\n";
+        WVASSERT(VxExec(tab2q));
+
+	string idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
+	    "\t(f2,f3 DESC);\n\n";
+        WVASSERT(VxExec(idx1q));
+
+        string msg1 = "Hello, world, this is Func1!";
+        string msg2 = "Hello, world, this used to be Func1!";
+        string func1q = "create procedure Func1 as select '" + msg1 + "'\n";
+        string func1q2 = "create procedure Func1 as select '" + msg2 + "'\n";
+        WVASSERT(VxExec(func1q));
+
+        string xmlq = CreateXmlSchemaQuery();
+        WVASSERT(VxExec(xmlq));
+        
+        string tmpdir = Path.Combine(Path.GetTempPath(), 
+            Path.GetRandomFileName());
+        Console.WriteLine("Using temporary directory " + tmpdir);
+
+        DirectoryInfo tmpdirinfo = new DirectoryInfo(tmpdir);
+        try
+        {
+            tmpdirinfo.Create();
+
+            VxSchema origschema = VxGetSchema();
+            VxSchemaChecksums origsums = VxGetSchemaChecksums();
+            VxSchema newschema = new VxSchema(origschema);
+            VxSchemaChecksums newsums = new VxSchemaChecksums(origsums);
+
+            newschema["Procedure/Func1"].text = func1q2;
+            newsums["Procedure/Func1"].checksums.Clear();
+            newsums["Procedure/Func1"].checksums.Add(123);
+            newsums.Remove("XMLSchema/TestSchema");
+            origsums.Remove("Index/Tab1/Idx1");
+
+            VxSchemaDiff diff = new VxSchemaDiff(origsums, newsums);
+            using (IEnumerator<KeyValuePair<string,VxDiffType>> iter = 
+                diff.GetEnumerator())
+            {
+                WVPASS(iter.MoveNext());
+                WVPASSEQ(iter.Current.Key, "XMLSchema/TestSchema");
+                WVPASSEQ((char)iter.Current.Value, (char)VxDiffType.Remove);
+                WVPASS(iter.MoveNext());
+                WVPASSEQ(iter.Current.Key, "Index/Tab1/Idx1");
+                WVPASSEQ((char)iter.Current.Value, (char)VxDiffType.Add);
+                WVPASS(iter.MoveNext());
+                WVPASSEQ(iter.Current.Key, "Procedure/Func1");
+                WVPASSEQ((char)iter.Current.Value, (char)VxDiffType.Change);
+                WVFAIL(iter.MoveNext());
+            }
+
+            VxSchema diffschema = newschema.GetDiffElements(diff);
+            WVPASSEQ(diffschema["XMLSchema/TestSchema"].type, "XMLSchema");
+            WVPASSEQ(diffschema["XMLSchema/TestSchema"].name, "TestSchema");
+            WVPASSEQ(diffschema["XMLSchema/TestSchema"].text, "");
+            WVPASSEQ(diffschema["Index/Tab1/Idx1"].type, "Index");
+            WVPASSEQ(diffschema["Index/Tab1/Idx1"].name, "Tab1/Idx1");
+            WVPASSEQ(diffschema["Index/Tab1/Idx1"].text, idx1q);
+            WVPASSEQ(diffschema["Procedure/Func1"].type, "Procedure");
+            WVPASSEQ(diffschema["Procedure/Func1"].name, "Func1");
+            WVPASSEQ(diffschema["Procedure/Func1"].text, func1q2);
+
+            VxSchemaErrors errs = VxPutSchema(diffschema, false);
+            WVPASSEQ(errs.Count, 0);
+
+            VxSchema updated = VxGetSchema();
+            WVASSERT(!updated.ContainsKey("XMLSchema/TestSchema"));
+            WVPASSEQ(updated["Index/Tab1/Idx1"].text, 
+                newschema["Index/Tab1/Idx1"].text);
+            WVPASSEQ(updated["Procedure/Func1"].text, 
+                newschema["Procedure/Func1"].text);
+            WVPASSEQ(updated["Table/Tab1"].text, newschema["Table/Tab1"].text);
+        }
+        finally
+        {
+            tmpdirinfo.Delete(true);
+            WVASSERT(!tmpdirinfo.Exists);
+        }
     }
 
     public static void Main()

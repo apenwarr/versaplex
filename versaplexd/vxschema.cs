@@ -193,6 +193,12 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
         Add(elem.key, elem);
     }
 
+    public VxSchema(VxSchema copy)
+    {
+        foreach (KeyValuePair<string,VxSchemaElement> p in copy)
+            this.Add(p.Key, new VxSchemaElement(p.Value));
+    }
+
     public VxSchema(MessageReader reader)
     {
         int size;
@@ -221,6 +227,32 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
             {
                 _WriteSchema(w);
             }, 8);
+    }
+
+    // Returns only the elements of the schema that are affected by the diff.
+    // If an element is scheduled to be removed, clear its text field.
+    // Produces a VxSchema that, if sent to PutSchema, will update the
+    // database as indicated by the diff.
+    public VxSchema GetDiffElements(VxSchemaDiff diff)
+    {
+        VxSchema diffschema = new VxSchema();
+        foreach (KeyValuePair<string,VxDiffType> p in diff)
+        {
+            if (!this.ContainsKey(p.Key))
+                throw new ArgumentException("The provided diff does not " + 
+                    "match the schema: extra element '" + p.Value + "'");
+            if (p.Value == VxDiffType.Remove)
+            {
+                VxSchemaElement elem = new VxSchemaElement(this[p.Key]);
+                elem.text = "";
+                diffschema[p.Key] = elem;
+            }
+            else if (p.Value == VxDiffType.Add || p.Value == VxDiffType.Change)
+            {
+                diffschema[p.Key] = new VxSchemaElement(this[p.Key]);
+            }
+        }
+        return diffschema;
     }
 
     public void Add(string name, string type, string text, bool encrypted)
