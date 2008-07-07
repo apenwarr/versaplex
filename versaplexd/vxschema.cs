@@ -14,7 +14,9 @@ public enum VxPutSchemaOpts : int
     None = 0,
     // If set, PutSchema will do potentially destructive things like
     // dropping a table in order to re-add it.
-    Destructive = 1
+    Destructive = 0x1,
+    // If set, PutSchema will not attempt to do any retries.
+    NoRetry = 0x2
 }
 
 // FIXME: This isn't a great spot for this class either.  Maybe it rates its

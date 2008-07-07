@@ -647,15 +647,42 @@ internal static class Schemamatic
     internal static VxSchemaErrors PutSchema(string clientid, 
         VxSchema schema, VxPutSchemaOpts opts)
     {
+        bool no_retry = (opts & VxPutSchemaOpts.NoRetry) != 0;
+        int old_err_count = -1;
+        IEnumerable<string> keys = schema.Keys;
         VxSchemaErrors errs = new VxSchemaErrors();
-        foreach (KeyValuePair<string,VxSchemaElement> p in schema)
+
+        // Sometimes we'll get schema elements in the wrong order, so retry
+        // until the number of errors stops decreasing.
+        while (errs.Count != old_err_count)
         {
-            try {
-                PutSchemaElement(clientid, p.Value, opts);
-            } catch (VxSqlException e) {
-                errs.Add(p.Key, new VxSchemaError(p.Key, e.Message, 
-                    e.GetFirstSqlErrno()));
+            log.print("Calling PutSchema on {0} entries\n", 
+                old_err_count == -1 ? schema.Count : errs.Count);
+            old_err_count = errs.Count;
+            errs.Clear();
+            foreach (string key in keys)
+            {
+                try {
+                    log.print("Calling PutSchema on {0}\n", key);
+                    PutSchemaElement(clientid, schema[key], opts);
+                } catch (VxSqlException e) {
+                    log.print("Got error from {0}\n", key);
+                    errs.Add(key, new VxSchemaError(key, e.Message, 
+                        e.GetFirstSqlErrno()));
+                }
             }
+            // If we only had one schema element, retrying it isn't going to
+            // fix anything.  We retry to fix ordering problems.
+            if (no_retry || errs.Count == 0 || schema.Count == 1)
+                break;
+
+            log.print("Got {0} errors, old_errs={1}, retrying\n", 
+                errs.Count, old_err_count);
+
+            // A reference to errs.Keys would be cleared along with errs.
+            string[] tmpkeys = new string[errs.Count];
+            errs.Keys.CopyTo(tmpkeys, 0);
+            keys = tmpkeys;
         }
         return errs.Count > 0 ? errs : null;
     }
