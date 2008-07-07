@@ -62,6 +62,15 @@ WVTEST_MAIN("SQLDriverConnect with DBus moniker")
 
 WVTEST_MAIN("SQLDriverConnect server and port")
 {
+    WvLog log("Driverconnect VxODBC test");
+
+    char *versa = getenv("USE_REAL_VERSAPLEX");
+
+    if (versa && !strncmp(versa, "1", 1)) {
+	log("Using real Versaplex; server and port settings test not necessary.");
+	return;
+    }
+
     // Be sure to create a TCP DBus server, as we obviously can't test the
     // server and port settings if we have to use dbus:session
     VxOdbcTester v(true);
