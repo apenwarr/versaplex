@@ -621,9 +621,10 @@ internal static class Schemamatic
     // change, e.g. dropping a table so we can re-add it with the right
     // columns.
     internal static void PutSchemaElement(string clientid, 
-        VxSchemaElement elem, byte destructive)
+        VxSchemaElement elem, VxPutSchemaOpts opts)
     {
-        if (destructive > 0 || !elem.type.StartsWith("Table"))
+        bool destructive = (opts & VxPutSchemaOpts.Destructive) != 0;
+        if (destructive || !elem.type.StartsWith("Table"))
         {
             try { 
                 DropSchema(clientid, elem.type, elem.name); 
@@ -644,13 +645,13 @@ internal static class Schemamatic
     }
 
     internal static VxSchemaErrors PutSchema(string clientid, 
-        VxSchema schema, byte destructive)
+        VxSchema schema, VxPutSchemaOpts opts)
     {
         VxSchemaErrors errs = new VxSchemaErrors();
         foreach (KeyValuePair<string,VxSchemaElement> p in schema)
         {
             try {
-                PutSchemaElement(clientid, p.Value, destructive);
+                PutSchemaElement(clientid, p.Value, opts);
             } catch (VxSqlException e) {
                 errs.Add(p.Key, new VxSchemaError(p.Key, e.Message, 
                     e.GetFirstSqlErrno()));

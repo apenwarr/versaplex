@@ -833,7 +833,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
 
     private static void CallPutSchema(Message call, out Message reply)
     {
-        if (call.Signature.ToString() != String.Format("{0}y", 
+        if (call.Signature.ToString() != String.Format("{0}i", 
                 VxSchema.GetDbusSignature())) {
             reply = CreateUnknownMethodReply(call, "PutSchema");
             return;
@@ -848,14 +848,14 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
             return;
         }
 
-        byte destructive;
+        int opts;
 
         MessageReader mr = new MessageReader(call);
         VxSchema schema = new VxSchema(mr);
-        mr.GetValue(out destructive);
+        mr.GetValue(out opts);
 
         VxSchemaErrors errs = 
-            Schemamatic.PutSchema(clientid, schema, destructive);
+            Schemamatic.PutSchema(clientid, schema, (VxPutSchemaOpts)opts);
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
         VxSchemaErrors.WriteErrors(writer, errs);

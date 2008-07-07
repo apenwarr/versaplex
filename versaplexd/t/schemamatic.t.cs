@@ -142,11 +142,11 @@ class SchemamaticTests : VersaplexTester
     }
 
     VxSchemaError VxPutSchema(string type, string name, string text, 
-        bool destructive)
+        VxPutSchemaOpts opts)
     {
         VxSchemaElement elem = new VxSchemaElement(type, name, text, false);
         VxSchema schema = new VxSchema(elem);
-        VxSchemaErrors errs = VxPutSchema(schema, destructive);
+        VxSchemaErrors errs = VxPutSchema(schema, opts);
         if (errs == null || errs.Count == 0)
             return null;
 
@@ -160,17 +160,17 @@ class SchemamaticTests : VersaplexTester
         return null;
     }
 
-    VxSchemaErrors VxPutSchema(VxSchema schema, bool destructive)
+    VxSchemaErrors VxPutSchema(VxSchema schema, VxPutSchemaOpts opts)
     {
 	Console.WriteLine(" + VxPutSchema");
 
         Message call = CreateMethodCall("PutSchema", 
-            String.Format("{0}y", VxSchema.GetDbusSignature()));
+            String.Format("{0}i", VxSchema.GetDbusSignature()));
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
         schema.WriteSchema(writer);
-        writer.Write(typeof(byte), destructive ? (byte)1 : (byte)0);
+        writer.Write(typeof(int), (int)opts);
         call.Body = writer.ToArray();
 
         Message reply = call.Connection.SendWithReplyAndBlock(call);
@@ -754,17 +754,19 @@ class SchemamaticTests : VersaplexTester
             "[f1] [int] NOT NULL,\n\t" +
             "[f2] [money] NULL,\n\t" + 
             "[f3] [varchar] (80) NULL);\n\n";
-        WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q, false), null);
+        VxPutSchemaOpts no_opts = VxPutSchemaOpts.None;
+        WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q, no_opts), null);
 
 	string idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
 	    "\t(f2,f3 DESC);\n\n";
-        WVPASSEQ(VxPutSchema("Index", "Tab1/Idx1", idx1q, false), null);
+        WVPASSEQ(VxPutSchema("Index", "Tab1/Idx1", idx1q, no_opts), null);
 
         string msg = "Hello, world, this is Func1!";
         string func1q = "create procedure Func1 as select '" + msg + "'";
-        WVPASSEQ(VxPutSchema("Procedure", "Func1", func1q, false), null);
+        WVPASSEQ(VxPutSchema("Procedure", "Func1", func1q, no_opts), null);
 
-        WVPASSEQ(VxPutSchema("XMLSchema", "TestSchema", CreateXmlSchemaQuery(), false), null);
+        WVPASSEQ(VxPutSchema("XMLSchema", "TestSchema", 
+            CreateXmlSchemaQuery(), no_opts), null);
         
         VxSchema schema = VxGetSchema();
 
@@ -788,7 +790,7 @@ class SchemamaticTests : VersaplexTester
         string tab1q2 = "CREATE TABLE [Tab1] (\n\t" + 
             "[f4] [binary] (1) NOT NULL);\n\n";
 
-        VxSchemaError err = VxPutSchema("Table", "Tab1", tab1q2, false);
+        VxSchemaError err = VxPutSchema("Table", "Tab1", tab1q2, no_opts);
         WVPASS(err != null);
         WVPASSEQ(err.key, "Table/Tab1");
         WVPASSEQ(err.msg, 
@@ -800,7 +802,7 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(schema["Table/Tab1"].type, "Table");
         WVPASSEQ(schema["Table/Tab1"].text, tab1q);
 
-        WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q2, true), null);
+        WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q2, VxPutSchemaOpts.Destructive), null);
 
         schema = VxGetSchema("Table/Tab1");
         WVPASSEQ(schema["Table/Tab1"].name, "Tab1");
@@ -809,7 +811,7 @@ class SchemamaticTests : VersaplexTester
 
         string msg2 = "This is definitely not the Func1 you thought you knew.";
         string func1q2 = "create procedure Func1 as select '" + msg2 + "'";
-        WVPASSEQ(VxPutSchema("Procedure", "Func1", func1q2, false), null);
+        WVPASSEQ(VxPutSchema("Procedure", "Func1", func1q2, no_opts), null);
 
         schema = VxGetSchema("Procedure/Func1");
         WVPASSEQ(schema["Procedure/Func1"].name, "Func1");
@@ -832,7 +834,8 @@ class SchemamaticTests : VersaplexTester
             "[f1] [int] NOT NULL,\n\t" +
             "[f2] [money] NULL,\n\t" + 
             "[f3] [varchar] (80) NULL);\n\n";
-        WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q, false), null);
+        VxPutSchemaOpts no_opts = VxPutSchemaOpts.None;
+        WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q, no_opts), null);
 
         List<string> inserts = new List<string>();
         for (int ii = 0; ii < 22; ii++)
@@ -860,7 +863,7 @@ class SchemamaticTests : VersaplexTester
             Console.WriteLine(e.ToString());
 	}
 
-        WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q, false), null);
+        WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q, no_opts), null);
 
         WVPASSEQ(VxGetSchemaData("Tab1"), "");
 
@@ -1299,7 +1302,8 @@ class SchemamaticTests : VersaplexTester
             WVPASSEQ(diffschema["Procedure/Func1"].name, "Func1");
             WVPASSEQ(diffschema["Procedure/Func1"].text, func1q2);
 
-            VxSchemaErrors errs = VxPutSchema(diffschema, false);
+            VxPutSchemaOpts no_opts = VxPutSchemaOpts.None;
+            VxSchemaErrors errs = VxPutSchema(diffschema, no_opts);
             WVPASSEQ(errs.Count, 0);
 
             VxSchema updated = VxGetSchema();
@@ -1340,7 +1344,8 @@ class SchemamaticTests : VersaplexTester
         WVASSERT(VxExec(tab2q));
 
         VxSchema schema = VxGetSchema();
-        VxSchemaErrors errs = VxPutSchema(schema, false);
+        VxPutSchemaOpts no_opts = VxPutSchemaOpts.None;
+        VxSchemaErrors errs = VxPutSchema(schema, no_opts);
 
         WVPASSEQ(errs.Count, 2);
         WVPASSEQ(errs["Table/Tab1"].key, "Table/Tab1");

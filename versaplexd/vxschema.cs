@@ -6,6 +6,19 @@ using System.Security.Cryptography;
 using NDesk.DBus;
 using Wv.Extensions;
 
+// FIXME: This isn't a great spot for this enum.  But if it lives in
+// schemamatic.cs, it's hard for the unit tests to include.  
+[Flags]
+public enum VxPutSchemaOpts : int
+{
+    None = 0,
+    // If set, PutSchema will do potentially destructive things like
+    // dropping a table in order to re-add it.
+    Destructive = 1
+}
+
+// FIXME: This isn't a great spot for this class either.  Maybe it rates its
+// own file.
 internal class VxSchemaError
 {
     // The key of the element that had the error
