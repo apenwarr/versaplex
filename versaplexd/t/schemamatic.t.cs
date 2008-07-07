@@ -152,6 +152,7 @@ class SchemamaticTests : VersaplexTester
 
         WVPASSEQ(errs.Count, 1);
 
+        // Just return the first error
         foreach (KeyValuePair<string,VxSchemaError> p in errs)
             return p.Value;
 
@@ -1219,7 +1220,7 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(diff.ToString(), expected);
     }
 
-    [Test, Category("Schemamatic"), Category("VxApplySchemaDiff")]
+    [Test, Category("Schemamatic"), Category("PutSchema")]
     public void TestApplySchemaDiff()
     {
         try { VxExec("drop index Tab1.Idx1"); } catch { }
@@ -1314,6 +1315,45 @@ class SchemamaticTests : VersaplexTester
             tmpdirinfo.Delete(true);
             WVASSERT(!tmpdirinfo.Exists);
         }
+
+        try { VxExec("drop index Tab1.Idx1"); } catch { }
+        try { VxExec("drop table Tab1"); } catch { }
+        try { VxExec("drop table Tab2"); } catch { }
+        try { VxExec("drop xml schema collection TestSchema"); } catch { }
+        try { VxExec("drop procedure Func1"); } catch { }
+    }
+
+    [Test, Category("Schemamatic"), Category("PutSchema")]
+    public void TestPutSchemaErrors()
+    {
+        try { VxExec("drop table Tab1"); } catch { }
+        try { VxExec("drop table Tab2"); } catch { }
+
+        string tab1q = "CREATE TABLE [Tab1] (\n" + 
+            "\t[f1] [int] NOT NULL PRIMARY KEY,\n" +
+            "\t[f2] [money] NULL,\n" + 
+            "\t[f3] [varchar] (80) NULL);\n\n";
+        WVASSERT(VxExec(tab1q));
+
+        string tab2q = "CREATE TABLE [Tab2] (\n" + 
+            "\t[f4] [binary] (1) NOT NULL);\n\n";
+        WVASSERT(VxExec(tab2q));
+
+        VxSchema schema = VxGetSchema();
+        VxSchemaErrors errs = VxPutSchema(schema, false);
+
+        WVPASSEQ(errs.Count, 2);
+        WVPASSEQ(errs["Table/Tab1"].key, "Table/Tab1");
+        WVPASSEQ(errs["Table/Tab1"].msg, 
+            "There is already an object named 'Tab1' in the database.");
+        WVPASSEQ(errs["Table/Tab1"].errnum, 2714);
+        WVPASSEQ(errs["Table/Tab2"].key, "Table/Tab2");
+        WVPASSEQ(errs["Table/Tab2"].msg, 
+            "There is already an object named 'Tab2' in the database.");
+        WVPASSEQ(errs["Table/Tab2"].errnum, 2714);
+
+        try { VxExec("drop table Tab1"); } catch { }
+        try { VxExec("drop table Tab2"); } catch { }
     }
 
     public static void Main()

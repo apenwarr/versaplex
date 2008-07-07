@@ -42,7 +42,6 @@ internal class VxSchemaError
     }
 }
 
-// Dictionary<string,VxPutSchemaError> gets awfully tedious to type.
 internal class VxSchemaErrors : Dictionary<string, VxSchemaError>
 {
     public VxSchemaErrors()
@@ -67,7 +66,10 @@ internal class VxSchemaErrors : Dictionary<string, VxSchemaError>
     private void _WriteErrors(MessageWriter writer)
     {
         foreach (KeyValuePair<string,VxSchemaError> p in this)
+        {
+            writer.WritePad(8);
             p.Value.WriteError(writer);
+        }
     }
 
     // Static so we can properly write an empty array for a null object.
