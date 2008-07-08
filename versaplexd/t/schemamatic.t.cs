@@ -1361,6 +1361,58 @@ class SchemamaticTests : VersaplexTester
         try { VxExec("drop table Tab2"); } catch { }
     }
 
+    [Test, Category("Schemamatic"), Category("PutSchema")]
+    public void TestPutSchemaRetry()
+    {
+        try { VxExec("drop view View1"); } catch { }
+        try { VxExec("drop view View2"); } catch { }
+        try { VxExec("drop view View3"); } catch { }
+        try { VxExec("drop view View4"); } catch { }
+
+        // Create the views in the wrong order, so it'll take a few tries
+        // to get them all working.  The server seems to sort them
+        // alphabetically when it runs them, though this isn't a guarantee.
+	string view1q = "create view View1 as select * from View2";
+	string view2q = "create view View2 as select * from View3";
+	string view3q = "create view View3 as select * from View4";
+        string view4q = "create view View4(viewcol1) as select 42";
+
+        VxSchema schema = new VxSchema();
+        schema.Add("View1", "View", view1q, false);
+        schema.Add("View2", "View", view2q, false);
+        schema.Add("View3", "View", view3q, false);
+        schema.Add("View4", "View", view4q, false);
+
+        VxPutSchemaOpts no_opts = VxPutSchemaOpts.None;
+        VxPutSchemaOpts no_retry = VxPutSchemaOpts.NoRetry;
+
+        VxSchemaErrors errs = VxPutSchema(schema, no_retry);
+
+        WVPASSEQ(errs.Count, 3);
+        WVPASSEQ(errs["View/View1"].key, "View/View1");
+        WVPASSEQ(errs["View/View2"].key, "View/View2");
+        WVPASSEQ(errs["View/View3"].key, "View/View3");
+        WVPASSEQ(errs["View/View1"].msg, "Invalid object name 'View2'.");
+        WVPASSEQ(errs["View/View2"].msg, "Invalid object name 'View3'.");
+        WVPASSEQ(errs["View/View3"].msg, "Invalid object name 'View4'.");
+        WVPASSEQ(errs["View/View1"].errnum, 208);
+        WVPASSEQ(errs["View/View2"].errnum, 208);
+        WVPASSEQ(errs["View/View3"].errnum, 208);
+
+        try { VxExec("drop view View4"); } catch { }
+        errs = VxPutSchema(schema, no_opts);
+        WVPASSEQ(errs.Count, 0);
+
+        object result;
+        WVASSERT(VxScalar("select viewcol1 from View1;", out result));
+        WVPASSEQ((int)result, 42);
+
+        try { VxExec("drop view View1"); } catch { }
+        try { VxExec("drop view View2"); } catch { }
+        try { VxExec("drop view View3"); } catch { }
+        try { VxExec("drop view View4"); } catch { }
+    }
+
     public static void Main()
     {
         WvTest.DoMain();
