@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using NDesk.DBus;
 using Wv;
@@ -679,10 +680,7 @@ internal static class Schemamatic
             log.print("Got {0} errors, old_errs={1}, retrying\n", 
                 errs.Count, old_err_count);
 
-            // A reference to errs.Keys would be cleared along with errs.
-            string[] tmpkeys = new string[errs.Count];
-            errs.Keys.CopyTo(tmpkeys, 0);
-            keys = tmpkeys;
+            keys = errs.Keys.ToList();
         }
         return errs.Count > 0 ? errs : null;
     }
