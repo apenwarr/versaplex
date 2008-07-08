@@ -7,6 +7,7 @@ WVPORTS=../wv/wvports
 XPLC=$(WVPORTS)/xplc/build/xplc
 OPENSSL=$(WVPORTS)/openssl/build/openssl
 DBUS=$(WVPORTS)/dbus/build/dbus/dbus/.libs
+ARGP=$(WVPORTS)/argp/build/argp
 BOOST=$(WVPORTS)/boost/build/boost
 WVSTREAMS=../wv/wvstreams
 CFLAGS=-w \
@@ -21,7 +22,7 @@ LIBS=\
 	-L$(WVSTREAMS) -lwvwin32 \
 	-L$(DBUS) -ldbus-1 \
 	-L$(XPLC) -lxplc-cxx -lxplc \
-	-L$(OPENSSL) -lssl -lcrypto $(WVSTREAMS)/gnulib/libgnu.a \
+	-L$(OPENSSL) -lssl -lcrypto $(ARGP)/libargp.a \
 	-limagehlp \
 	-lole32 -lrpcrt4 \
 	-lodbc32 -lodbccp32 \
