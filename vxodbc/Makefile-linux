@@ -4,12 +4,13 @@ WVPORTS=../wv/wvports
 XPLC=$(WVPORTS)/xplc/build/xplc
 OPENSSL=$(WVPORTS)/openssl/build/openssl
 DBUS=$(WVPORTS)/dbus/build/dbus/dbus/.libs
+BOOST=$(WVPORTS)/boost/build/boost
 WVSTREAMS=../wv/wvstreams
 CFLAGS=-g -w \
 	-DUNICODE_SUPPORT -DODBCVER=0x0351 \
 	-I$(WVSTREAMS)/include -I$(XPLC)/include \
 	-I/usr/include/postgresql
-CXXFLAGS=$(CFLAGS)
+CXXFLAGS=$(CFLAGS) -I$(BOOST)
 LIBS=\
 	$(WVSTREAMS)/libwvdbus.a $(WVSTREAMS)/libwvstreams.a \
 	$(WVSTREAMS)/libwvutils.a $(WVSTREAMS)/libwvbase.a \

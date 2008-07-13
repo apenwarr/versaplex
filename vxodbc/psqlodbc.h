@@ -65,6 +65,7 @@
 #if defined(WIN32) || defined(WITH_UNIXODBC) || defined(WITH_IODBC)
 #include <sql.h>
 #include <sqlext.h>
+#include <sqlucode.h>
 #if defined(WIN32) && (_MSC_VER < 1300) /* in case of VC6 or under */
 #define SQLLEN SQLINTEGER
 #define SQLULEN SQLUINTEGER
