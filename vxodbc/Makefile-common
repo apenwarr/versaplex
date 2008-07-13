@@ -55,12 +55,20 @@ clean:
 	$(CC) -o $@ -E $< $(CXXFLAGS)
 	
 %.o: %.c
-	@echo Compiling $@...
-	@$(CC) -o $@ -c -MMD -MP -MF .$*.d $< $(CFLAGS)
+	@if [ -z "$VERBOSE" ]; then \
+		echo Compiling $@...; \
+	else \
+		echo $(CC) -o $@ -c -MMD -MP -MF .$*.d $< $(CFLAGS); \
+	fi; \
+	$(CC) -o $@ -c -MMD -MP -MF .$*.d $< $(CFLAGS);
 
 %.o: %.cc
-	@echo Compiling $@...
-	@$(CXX) -o $@ -c -MMD -MP -MF .$*.d $< $(CXXFLAGS)
+	@if [ -z "$VERBOSE" ]; then \
+		echo Compiling $@...; \
+	else \
+		echo $(CXX) -o $@ -c -MMD -MP -MF .$*.d $< $(CXXFLAGS); \
+	fi; \
+	$(CXX) -o $@ -c -MMD -MP -MF .$*.d $< $(CXXFLAGS);
 
 config.h.in: configure.ac aclocal.m4
 	autoheader
