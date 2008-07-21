@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using NDesk.DBus;
 using Wv;
@@ -615,18 +616,19 @@ internal static class Schemamatic
         VxDb.ExecScalar(clientid, query, out result);
     }
 
-    // Replaces the named object in the database.  'text' is a verbatim hunk
-    // of text returned earlier by GetSchema.  'destructive' says whether or
-    // not to perform potentially destructive operations while making the
+    // Replaces the named object in the database.  elem.text is a verbatim
+    // hunk of text returned earlier by GetSchema.  'destructive' says whether
+    // or not to perform potentially destructive operations while making the
     // change, e.g. dropping a table so we can re-add it with the right
     // columns.
-    internal static void PutSchema(string clientid, string type, string name, 
-        string text, byte destructive)
+    internal static void PutSchemaElement(string clientid, 
+        VxSchemaElement elem, VxPutSchemaOpts opts)
     {
-        if (destructive > 0 || !type.StartsWith("Table"))
+        bool destructive = (opts & VxPutSchemaOpts.Destructive) != 0;
+        if (destructive || !elem.type.StartsWith("Table"))
         {
             try { 
-                DropSchema(clientid, type, name); 
+                DropSchema(clientid, elem.type, elem.name); 
             } catch (VxSqlException e) {
                 // Check if it's a "didn't exist" error, rethrow if not.
                 // SQL Error 3701 means "can't drop sensible item because
@@ -639,7 +641,48 @@ internal static class Schemamatic
         }
 
         object result;
-        VxDb.ExecScalar(clientid, text, out result);
+        if (elem.text != null && elem.text != "")
+            VxDb.ExecScalar(clientid, elem.text, out result);
+    }
+
+    internal static VxSchemaErrors PutSchema(string clientid, 
+        VxSchema schema, VxPutSchemaOpts opts)
+    {
+        bool no_retry = (opts & VxPutSchemaOpts.NoRetry) != 0;
+        int old_err_count = -1;
+        IEnumerable<string> keys = schema.Keys;
+        VxSchemaErrors errs = new VxSchemaErrors();
+
+        // Sometimes we'll get schema elements in the wrong order, so retry
+        // until the number of errors stops decreasing.
+        while (errs.Count != old_err_count)
+        {
+            log.print("Calling PutSchema on {0} entries\n", 
+                old_err_count == -1 ? schema.Count : errs.Count);
+            old_err_count = errs.Count;
+            errs.Clear();
+            foreach (string key in keys)
+            {
+                try {
+                    log.print("Calling PutSchema on {0}\n", key);
+                    PutSchemaElement(clientid, schema[key], opts);
+                } catch (VxSqlException e) {
+                    log.print("Got error from {0}\n", key);
+                    errs.Add(key, new VxSchemaError(key, e.Message, 
+                        e.GetFirstSqlErrno()));
+                }
+            }
+            // If we only had one schema element, retrying it isn't going to
+            // fix anything.  We retry to fix ordering problems.
+            if (no_retry || errs.Count == 0 || schema.Count == 1)
+                break;
+
+            log.print("Got {0} errors, old_errs={1}, retrying\n", 
+                errs.Count, old_err_count);
+
+            keys = errs.Keys.ToList();
+        }
+        return errs.Count > 0 ? errs : null;
     }
 
     // Returns a blob of text that can be used with PutSchemaData to fill 

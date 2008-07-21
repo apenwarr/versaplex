@@ -6,16 +6,114 @@ using System.Security.Cryptography;
 using NDesk.DBus;
 using Wv.Extensions;
 
-internal class VxSchemaElement : IComparable
+// FIXME: This isn't a great spot for this enum.  But if it lives in
+// schemamatic.cs, it's hard for the unit tests to include.  
+[Flags]
+public enum VxPutSchemaOpts : int
 {
-    string _name;
-    public string name {
-        get { return _name; }
+    None = 0,
+    // If set, PutSchema will do potentially destructive things like
+    // dropping a table in order to re-add it.
+    Destructive = 0x1,
+    // If set, PutSchema will not attempt to do any retries.
+    NoRetry = 0x2
+}
+
+// FIXME: This isn't a great spot for this class either.  Maybe it rates its
+// own file.
+internal class VxSchemaError
+{
+    // The key of the element that had the error
+    public string key;
+    // The error message
+    public string msg;
+    // The SQL error number, or -1 if not applicable.
+    public int errnum;
+
+    public VxSchemaError(string newkey, string newmsg, int newerrnum)
+    {
+        key = newkey;
+        msg = newmsg;
+        errnum = newerrnum;
     }
 
+    public VxSchemaError(MessageReader reader)
+    {
+        reader.GetValue(out key);
+        reader.GetValue(out msg);
+        reader.GetValue(out errnum);
+    }
+
+    public void WriteError(MessageWriter writer)
+    {
+        writer.Write(key);
+        writer.Write(msg);
+        writer.Write(errnum);
+    }
+
+    public static string GetDbusSignature()
+    {
+        return "ssi";
+    }
+}
+
+internal class VxSchemaErrors : Dictionary<string, VxSchemaError>
+{
+    public VxSchemaErrors()
+    {
+    }
+
+    public VxSchemaErrors(MessageReader reader)
+    {
+        int size;
+        reader.GetValue(out size);
+
+        int endpos = reader.Position + size;
+        while (reader.Position < endpos)
+        {
+            reader.ReadPad(8);
+            VxSchemaError err = new VxSchemaError(reader);
+
+            this.Add(err.key, err);
+        }
+    }
+
+    private void _WriteErrors(MessageWriter writer)
+    {
+        foreach (KeyValuePair<string,VxSchemaError> p in this)
+        {
+            writer.WritePad(8);
+            p.Value.WriteError(writer);
+        }
+    }
+
+    // Static so we can properly write an empty array for a null object.
+    public static void WriteErrors(MessageWriter writer, VxSchemaErrors errs)
+    {
+        writer.WriteDelegatePrependSize(delegate(MessageWriter w)
+            {
+                if (errs != null)
+                    errs._WriteErrors(w);
+            }, 8);
+    }
+
+    public static string GetDbusSignature()
+    {
+        return String.Format("a({0})", VxSchemaError.GetDbusSignature());
+    }
+}
+
+
+internal class VxSchemaElement : IComparable
+{
     string _type;
     public string type {
         get { return _type; }
+    }
+
+    string _name;
+    public string name {
+        get { return _name; }
     }
 
     string _text;
@@ -33,19 +131,27 @@ internal class VxSchemaElement : IComparable
         get { return type + "/" + name; }
     }
 
-    public VxSchemaElement(string newname, string newtype, string newtext,
+    public VxSchemaElement(string newtype, string newname, string newtext,
             bool newencrypted)
     {
-        _name = newname;
         _type = newtype;
+        _name = newname;
         _encrypted = newencrypted;
         _text = newtext;
     }
 
+    public VxSchemaElement(VxSchemaElement copy)
+    {
+        _type = copy.type;
+        _name = copy.name;
+        _text = copy.text;
+        _encrypted = copy.encrypted;
+    }
+
     public VxSchemaElement(MessageReader reader)
     {
-        reader.GetValue(out _name);
         reader.GetValue(out _type);
+        reader.GetValue(out _name);
         reader.GetValue(out _text);
         byte enc_byte;
         reader.GetValue(out enc_byte);
@@ -54,8 +160,8 @@ internal class VxSchemaElement : IComparable
 
     public void Write(MessageWriter writer)
     {
-        writer.Write(typeof(string), name);
         writer.Write(typeof(string), type);
+        writer.Write(typeof(string), name);
         writer.Write(typeof(string), text);
         byte encb = (byte)(encrypted ? 1 : 0);
         writer.Write(typeof(byte), encb);
@@ -63,7 +169,7 @@ internal class VxSchemaElement : IComparable
 
     public string GetKey()
     {
-        return VxSchema.GetKey(name, type, encrypted);
+        return VxSchema.GetKey(type, name, encrypted);
     }
 
     public int CompareTo(object obj)
@@ -75,7 +181,7 @@ internal class VxSchemaElement : IComparable
         return GetKey().CompareTo(other.GetKey());
     }
 
-    public static string GetSignature()
+    public static string GetDbusSignature()
     {
         return "sssy";
     }
@@ -86,7 +192,7 @@ internal class VxSchemaElement : IComparable
 internal class VxSchemaTable : VxSchemaElement
 {
     public VxSchemaTable(string newname, string newtext) :
-        base(newname, "Table", newtext, false)
+        base("Table", newname, newtext, false)
     {
     }
 }
@@ -96,6 +202,18 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
 {
     public VxSchema()
     {
+    }
+
+    // Convenience method for making single-element schemas
+    public VxSchema(VxSchemaElement elem)
+    {
+        Add(elem.key, elem);
+    }
+
+    public VxSchema(VxSchema copy)
+    {
+        foreach (KeyValuePair<string,VxSchemaElement> p in copy)
+            this.Add(p.Key, new VxSchemaElement(p.Value));
     }
 
     public VxSchema(MessageReader reader)
@@ -128,9 +246,35 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
             }, 8);
     }
 
+    // Returns only the elements of the schema that are affected by the diff.
+    // If an element is scheduled to be removed, clear its text field.
+    // Produces a VxSchema that, if sent to PutSchema, will update the
+    // database as indicated by the diff.
+    public VxSchema GetDiffElements(VxSchemaDiff diff)
+    {
+        VxSchema diffschema = new VxSchema();
+        foreach (KeyValuePair<string,VxDiffType> p in diff)
+        {
+            if (!this.ContainsKey(p.Key))
+                throw new ArgumentException("The provided diff does not " + 
+                    "match the schema: extra element '" + p.Value + "'");
+            if (p.Value == VxDiffType.Remove)
+            {
+                VxSchemaElement elem = new VxSchemaElement(this[p.Key]);
+                elem.text = "";
+                diffschema[p.Key] = elem;
+            }
+            else if (p.Value == VxDiffType.Add || p.Value == VxDiffType.Change)
+            {
+                diffschema[p.Key] = new VxSchemaElement(this[p.Key]);
+            }
+        }
+        return diffschema;
+    }
+
     public void Add(string name, string type, string text, bool encrypted)
     {
-        string key = GetKey(name, type, encrypted);
+        string key = GetKey(type, name, encrypted);
         if (this.ContainsKey(key))
             this[key].text += text;
         else
@@ -138,21 +282,27 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
             if (type == "Table")
                 this.Add(key, new VxSchemaTable(name, text));
             else
-                this.Add(key, new VxSchemaElement(name, type, text, encrypted));
+                this.Add(key, new VxSchemaElement(type, name, text, encrypted));
         }
     }
 
-    public static string GetKey(string name, string type, bool encrypted)
+    public static string GetKey(string type, string name, bool encrypted)
     {
         string enc_str = encrypted ? "-Encrypted" : "";
         return String.Format("{0}{1}/{2}", type, enc_str, name);
     }
 
-    public static string GetSignature()
+    public static string GetDbusSignature()
     {
-        return String.Format("a({0})", VxSchemaElement.GetSignature());
+        return String.Format("a({0})", VxSchemaElement.GetDbusSignature());
     }
 
+    // Export the current schema to the given directory, in a format that can
+    // be read back later.  checksums contains the database checksums for
+    // every element in the schema.  
+    // If isbackup is true, will not replace any existing files in the
+    // directory, but will append a unique numeric suffix to any files that
+    // would have conflicted.
     public void ExportSchema(string exportdir, VxSchemaChecksums checksums, 
         bool isbackup)
     {

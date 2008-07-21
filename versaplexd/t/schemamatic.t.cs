@@ -137,22 +137,40 @@ class SchemamaticTests : VersaplexTester
             throw GetDbusException(reply);
         default:
             throw new Exception("D-Bus response was not a method return or "
-                    +"error");
+                    + "error");
         }
     }
 
-    void VxPutSchema(string type, string name, string text, bool destructive)
+    VxSchemaError VxPutSchema(string type, string name, string text, 
+        VxPutSchemaOpts opts)
+    {
+        VxSchemaElement elem = new VxSchemaElement(type, name, text, false);
+        VxSchema schema = new VxSchema(elem);
+        VxSchemaErrors errs = VxPutSchema(schema, opts);
+        if (errs == null || errs.Count == 0)
+            return null;
+
+        WVPASSEQ(errs.Count, 1);
+
+        // Just return the first error
+        foreach (KeyValuePair<string,VxSchemaError> p in errs)
+            return p.Value;
+
+        // Shouldn't happen.
+        return null;
+    }
+
+    VxSchemaErrors VxPutSchema(VxSchema schema, VxPutSchemaOpts opts)
     {
 	Console.WriteLine(" + VxPutSchema");
 
-        Message call = CreateMethodCall("PutSchema", "sssy");
+        Message call = CreateMethodCall("PutSchema", 
+            String.Format("{0}i", VxSchema.GetDbusSignature()));
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
-        writer.Write(typeof(string), type);
-        writer.Write(typeof(string), name);
-        writer.Write(typeof(string), text);
-        writer.Write(typeof(byte), destructive ? (byte)1 : (byte)0);
+        schema.WriteSchema(writer);
+        writer.Write(typeof(int), (int)opts);
         call.Body = writer.ToArray();
 
         Message reply = call.Connection.SendWithReplyAndBlock(call);
@@ -160,17 +178,31 @@ class SchemamaticTests : VersaplexTester
 
         switch (reply.Header.MessageType) {
         case MessageType.MethodReturn:
+        case MessageType.Error:
         {
             object replysig;
-            if (reply.Header.Fields.TryGetValue(FieldCode.Signature,
+            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
                         out replysig))
-                throw new Exception("D-Bus reply had unexpected signature" + 
+                throw new Exception("D-Bus reply had no signature.");
+
+            if (replysig == null)
+                throw new Exception("D-Bus reply had null signature");
+
+            // Some unexpected error
+            if (replysig.ToString() == "s")
+                throw GetDbusException(reply);
+
+            if (replysig.ToString() != "a(ssi)")
+                throw new Exception("D-Bus reply had invalid signature: " +
                     replysig);
 
-            return;
+            MessageReader reader = new MessageReader(reply);
+            VxSchemaErrors errors = new VxSchemaErrors(reader);
+            if (errors.Count > 0)
+                WVASSERT(reply.Header.MessageType == MessageType.Error);
+
+            return errors;
         }
-        case MessageType.Error:
-            throw GetDbusException(reply);
         default:
             throw new Exception("D-Bus response was not a method return or "
                     +"error");
@@ -722,17 +754,19 @@ class SchemamaticTests : VersaplexTester
             "[f1] [int] NOT NULL,\n\t" +
             "[f2] [money] NULL,\n\t" + 
             "[f3] [varchar] (80) NULL);\n\n";
-        VxPutSchema("Table", "Tab1", tab1q, false);
+        VxPutSchemaOpts no_opts = VxPutSchemaOpts.None;
+        WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q, no_opts), null);
 
 	string idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
 	    "\t(f2,f3 DESC);\n\n";
-        VxPutSchema("Index", "Tab1/Idx1", idx1q, false);
+        WVPASSEQ(VxPutSchema("Index", "Tab1/Idx1", idx1q, no_opts), null);
 
         string msg = "Hello, world, this is Func1!";
         string func1q = "create procedure Func1 as select '" + msg + "'";
-        VxPutSchema("Procedure", "Func1", func1q, false);
+        WVPASSEQ(VxPutSchema("Procedure", "Func1", func1q, no_opts), null);
 
-        VxPutSchema("XMLSchema", "TestSchema", CreateXmlSchemaQuery(), false);
+        WVPASSEQ(VxPutSchema("XMLSchema", "TestSchema", 
+            CreateXmlSchemaQuery(), no_opts), null);
         
         VxSchema schema = VxGetSchema();
 
@@ -756,23 +790,19 @@ class SchemamaticTests : VersaplexTester
         string tab1q2 = "CREATE TABLE [Tab1] (\n\t" + 
             "[f4] [binary] (1) NOT NULL);\n\n";
 
-        try {
-            WVEXCEPT(VxPutSchema("Table", "Tab1", tab1q2, false));
-	} catch (Wv.Test.WvAssertionFailure e) {
-	    throw e;
-	} catch (System.Exception e) {
-            // FIXME: This should check for a vx.db.sqlerror
-            // rather than any dbus error
-	    WVPASS(e is DbusError);
-            Console.WriteLine(e.ToString());
-	}
-
+        VxSchemaError err = VxPutSchema("Table", "Tab1", tab1q2, no_opts);
+        WVPASS(err != null);
+        WVPASSEQ(err.key, "Table/Tab1");
+        WVPASSEQ(err.msg, 
+            "There is already an object named 'Tab1' in the database.");
+        WVPASSEQ(err.errnum, 2714);
+        
         schema = VxGetSchema("Table/Tab1");
         WVPASSEQ(schema["Table/Tab1"].name, "Tab1");
         WVPASSEQ(schema["Table/Tab1"].type, "Table");
         WVPASSEQ(schema["Table/Tab1"].text, tab1q);
 
-        VxPutSchema("Table", "Tab1", tab1q2, true);
+        WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q2, VxPutSchemaOpts.Destructive), null);
 
         schema = VxGetSchema("Table/Tab1");
         WVPASSEQ(schema["Table/Tab1"].name, "Tab1");
@@ -781,7 +811,7 @@ class SchemamaticTests : VersaplexTester
 
         string msg2 = "This is definitely not the Func1 you thought you knew.";
         string func1q2 = "create procedure Func1 as select '" + msg2 + "'";
-        VxPutSchema("Procedure", "Func1", func1q2, false);
+        WVPASSEQ(VxPutSchema("Procedure", "Func1", func1q2, no_opts), null);
 
         schema = VxGetSchema("Procedure/Func1");
         WVPASSEQ(schema["Procedure/Func1"].name, "Func1");
@@ -804,7 +834,8 @@ class SchemamaticTests : VersaplexTester
             "[f1] [int] NOT NULL,\n\t" +
             "[f2] [money] NULL,\n\t" + 
             "[f3] [varchar] (80) NULL);\n\n";
-        VxPutSchema("Table", "Tab1", tab1q, false);
+        VxPutSchemaOpts no_opts = VxPutSchemaOpts.None;
+        WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q, no_opts), null);
 
         List<string> inserts = new List<string>();
         for (int ii = 0; ii < 22; ii++)
@@ -832,7 +863,7 @@ class SchemamaticTests : VersaplexTester
             Console.WriteLine(e.ToString());
 	}
 
-        VxPutSchema("Table", "Tab1", tab1q, false);
+        WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q, no_opts), null);
 
         WVPASSEQ(VxGetSchemaData("Tab1"), "");
 
@@ -1112,11 +1143,8 @@ class SchemamaticTests : VersaplexTester
             }
 
             Directory.CreateDirectory(Path.Combine(tmpdir, "DATA"));
-            using (StreamWriter sw = File.AppendText(
-                wv.PathCombine(tmpdir, "DATA", "Decoy")))
-            {
-                sw.WriteLine("Decoy file, shoudln't have checksums");
-            }
+            File.WriteAllText(wv.PathCombine(tmpdir, "DATA", "Decoy"),
+                "Decoy file, shouldn't have checksums");
 
             VxSchemaChecksums mangled = new VxSchemaChecksums();
             mangled.ReadChecksums(tmpdir);
@@ -1145,7 +1173,7 @@ class SchemamaticTests : VersaplexTester
         }
     }
 
-    [Test, Category("Schemamatic"), Category("VxSchemaChecksumDiff")]
+    [Test, Category("Schemamatic"), Category("VxSchemaDiff")]
     public void TestChecksumDiff()
     {
         VxSchemaChecksums srcsums = new VxSchemaChecksums();
@@ -1162,7 +1190,7 @@ class SchemamaticTests : VersaplexTester
         goalsums.Add("Index/Tab1/ConflictIndex", 5);
         goalsums.Add("Table/HarmonyTable", 6);
 
-        VxSchemaChecksumDiff diff = new VxSchemaChecksumDiff(srcsums, goalsums);
+        VxSchemaDiff diff = new VxSchemaDiff(srcsums, goalsums);
 
         string expected = "- XMLSchema/firstxml\n" + 
             "- XMLSchema/secondxml\n" +
@@ -1180,19 +1208,209 @@ class SchemamaticTests : VersaplexTester
 
         // Check that a comparison with an empty set of sums returns the other
         // side, sorted.
-        diff = new VxSchemaChecksumDiff(srcsums, emptysums);
+        diff = new VxSchemaDiff(srcsums, emptysums);
         expected = "- XMLSchema/firstxml\n" + 
             "- XMLSchema/secondxml\n" + 
             "- Table/HarmonyTable\n" + 
             "- Index/Tab1/ConflictIndex\n";
         WVPASSEQ(diff.ToString(), expected);
 
-        diff = new VxSchemaChecksumDiff(emptysums, goalsums);
+        diff = new VxSchemaDiff(emptysums, goalsums);
         expected = "+ Table/HarmonyTable\n" +
             "+ Table/NewTable\n" +
             "+ Index/Tab1/ConflictIndex\n" +
             "+ Procedure/NewFunc\n";
         WVPASSEQ(diff.ToString(), expected);
+    }
+
+    [Test, Category("Schemamatic"), Category("PutSchema")]
+    public void TestApplySchemaDiff()
+    {
+        try { VxExec("drop index Tab1.Idx1"); } catch { }
+        try { VxExec("drop table Tab1"); } catch { }
+        try { VxExec("drop table Tab2"); } catch { }
+        try { VxExec("drop xml schema collection TestSchema"); } catch { }
+        try { VxExec("drop procedure Func1"); } catch { }
+
+        string tab1q = "CREATE TABLE [Tab1] (\n" + 
+            "\t[f1] [int] NOT NULL PRIMARY KEY,\n" +
+            "\t[f2] [money] NULL,\n" + 
+            "\t[f3] [varchar] (80) NULL);\n\n";
+        WVASSERT(VxExec(tab1q));
+
+        string tab2q = "CREATE TABLE [Tab2] (\n" + 
+            "\t[f4] [binary] (1) NOT NULL);\n\n";
+        WVASSERT(VxExec(tab2q));
+
+	string idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
+	    "\t(f2,f3 DESC);\n\n";
+        WVASSERT(VxExec(idx1q));
+
+        string msg1 = "Hello, world, this is Func1!";
+        string msg2 = "Hello, world, this used to be Func1!";
+        string func1q = "create procedure Func1 as select '" + msg1 + "'\n";
+        string func1q2 = "create procedure Func1 as select '" + msg2 + "'\n";
+        WVASSERT(VxExec(func1q));
+
+        string xmlq = CreateXmlSchemaQuery();
+        WVASSERT(VxExec(xmlq));
+        
+        string tmpdir = Path.Combine(Path.GetTempPath(), 
+            Path.GetRandomFileName());
+        Console.WriteLine("Using temporary directory " + tmpdir);
+
+        DirectoryInfo tmpdirinfo = new DirectoryInfo(tmpdir);
+        try
+        {
+            tmpdirinfo.Create();
+
+            VxSchema origschema = VxGetSchema();
+            VxSchemaChecksums origsums = VxGetSchemaChecksums();
+            VxSchema newschema = new VxSchema(origschema);
+            VxSchemaChecksums newsums = new VxSchemaChecksums(origsums);
+
+            newschema["Procedure/Func1"].text = func1q2;
+            newsums["Procedure/Func1"].checksums.Clear();
+            newsums["Procedure/Func1"].checksums.Add(123);
+            newsums.Remove("XMLSchema/TestSchema");
+            origsums.Remove("Index/Tab1/Idx1");
+
+            VxSchemaDiff diff = new VxSchemaDiff(origsums, newsums);
+            using (IEnumerator<KeyValuePair<string,VxDiffType>> iter = 
+                diff.GetEnumerator())
+            {
+                WVPASS(iter.MoveNext());
+                WVPASSEQ(iter.Current.Key, "XMLSchema/TestSchema");
+                WVPASSEQ((char)iter.Current.Value, (char)VxDiffType.Remove);
+                WVPASS(iter.MoveNext());
+                WVPASSEQ(iter.Current.Key, "Index/Tab1/Idx1");
+                WVPASSEQ((char)iter.Current.Value, (char)VxDiffType.Add);
+                WVPASS(iter.MoveNext());
+                WVPASSEQ(iter.Current.Key, "Procedure/Func1");
+                WVPASSEQ((char)iter.Current.Value, (char)VxDiffType.Change);
+                WVFAIL(iter.MoveNext());
+            }
+
+            VxSchema diffschema = newschema.GetDiffElements(diff);
+            WVPASSEQ(diffschema["XMLSchema/TestSchema"].type, "XMLSchema");
+            WVPASSEQ(diffschema["XMLSchema/TestSchema"].name, "TestSchema");
+            WVPASSEQ(diffschema["XMLSchema/TestSchema"].text, "");
+            WVPASSEQ(diffschema["Index/Tab1/Idx1"].type, "Index");
+            WVPASSEQ(diffschema["Index/Tab1/Idx1"].name, "Tab1/Idx1");
+            WVPASSEQ(diffschema["Index/Tab1/Idx1"].text, idx1q);
+            WVPASSEQ(diffschema["Procedure/Func1"].type, "Procedure");
+            WVPASSEQ(diffschema["Procedure/Func1"].name, "Func1");
+            WVPASSEQ(diffschema["Procedure/Func1"].text, func1q2);
+
+            VxPutSchemaOpts no_opts = VxPutSchemaOpts.None;
+            VxSchemaErrors errs = VxPutSchema(diffschema, no_opts);
+            WVPASSEQ(errs.Count, 0);
+
+            VxSchema updated = VxGetSchema();
+            WVASSERT(!updated.ContainsKey("XMLSchema/TestSchema"));
+            WVPASSEQ(updated["Index/Tab1/Idx1"].text, 
+                newschema["Index/Tab1/Idx1"].text);
+            WVPASSEQ(updated["Procedure/Func1"].text, 
+                newschema["Procedure/Func1"].text);
+            WVPASSEQ(updated["Table/Tab1"].text, newschema["Table/Tab1"].text);
+        }
+        finally
+        {
+            tmpdirinfo.Delete(true);
+            WVASSERT(!tmpdirinfo.Exists);
+        }
+
+        try { VxExec("drop index Tab1.Idx1"); } catch { }
+        try { VxExec("drop table Tab1"); } catch { }
+        try { VxExec("drop table Tab2"); } catch { }
+        try { VxExec("drop xml schema collection TestSchema"); } catch { }
+        try { VxExec("drop procedure Func1"); } catch { }
+    }
+
+    [Test, Category("Schemamatic"), Category("PutSchema")]
+    public void TestPutSchemaErrors()
+    {
+        try { VxExec("drop table Tab1"); } catch { }
+        try { VxExec("drop table Tab2"); } catch { }
+
+        string tab1q = "CREATE TABLE [Tab1] (\n" + 
+            "\t[f1] [int] NOT NULL PRIMARY KEY,\n" +
+            "\t[f2] [money] NULL,\n" + 
+            "\t[f3] [varchar] (80) NULL);\n\n";
+        WVASSERT(VxExec(tab1q));
+
+        string tab2q = "CREATE TABLE [Tab2] (\n" + 
+            "\t[f4] [binary] (1) NOT NULL);\n\n";
+        WVASSERT(VxExec(tab2q));
+
+        VxSchema schema = VxGetSchema();
+        VxPutSchemaOpts no_opts = VxPutSchemaOpts.None;
+        VxSchemaErrors errs = VxPutSchema(schema, no_opts);
+
+        WVPASSEQ(errs.Count, 2);
+        WVPASSEQ(errs["Table/Tab1"].key, "Table/Tab1");
+        WVPASSEQ(errs["Table/Tab1"].msg, 
+            "There is already an object named 'Tab1' in the database.");
+        WVPASSEQ(errs["Table/Tab1"].errnum, 2714);
+        WVPASSEQ(errs["Table/Tab2"].key, "Table/Tab2");
+        WVPASSEQ(errs["Table/Tab2"].msg, 
+            "There is already an object named 'Tab2' in the database.");
+        WVPASSEQ(errs["Table/Tab2"].errnum, 2714);
+
+        try { VxExec("drop table Tab1"); } catch { }
+        try { VxExec("drop table Tab2"); } catch { }
+    }
+
+    [Test, Category("Schemamatic"), Category("PutSchema")]
+    public void TestPutSchemaRetry()
+    {
+        try { VxExec("drop view View1"); } catch { }
+        try { VxExec("drop view View2"); } catch { }
+        try { VxExec("drop view View3"); } catch { }
+        try { VxExec("drop view View4"); } catch { }
+
+        // Create the views in the wrong order, so it'll take a few tries
+        // to get them all working.  The server seems to sort them
+        // alphabetically when it runs them, though this isn't a guarantee.
+	string view1q = "create view View1 as select * from View2";
+	string view2q = "create view View2 as select * from View3";
+	string view3q = "create view View3 as select * from View4";
+        string view4q = "create view View4(viewcol1) as select 42";
+
+        VxSchema schema = new VxSchema();
+        schema.Add("View1", "View", view1q, false);
+        schema.Add("View2", "View", view2q, false);
+        schema.Add("View3", "View", view3q, false);
+        schema.Add("View4", "View", view4q, false);
+
+        VxPutSchemaOpts no_opts = VxPutSchemaOpts.None;
+        VxPutSchemaOpts no_retry = VxPutSchemaOpts.NoRetry;
+
+        VxSchemaErrors errs = VxPutSchema(schema, no_retry);
+
+        WVPASSEQ(errs.Count, 3);
+        WVPASSEQ(errs["View/View1"].key, "View/View1");
+        WVPASSEQ(errs["View/View2"].key, "View/View2");
+        WVPASSEQ(errs["View/View3"].key, "View/View3");
+        WVPASSEQ(errs["View/View1"].msg, "Invalid object name 'View2'.");
+        WVPASSEQ(errs["View/View2"].msg, "Invalid object name 'View3'.");
+        WVPASSEQ(errs["View/View3"].msg, "Invalid object name 'View4'.");
+        WVPASSEQ(errs["View/View1"].errnum, 208);
+        WVPASSEQ(errs["View/View2"].errnum, 208);
+        WVPASSEQ(errs["View/View3"].errnum, 208);
+
+        try { VxExec("drop view View4"); } catch { }
+        errs = VxPutSchema(schema, no_opts);
+        WVPASSEQ(errs.Count, 0);
+
+        object result;
+        WVASSERT(VxScalar("select viewcol1 from View1;", out result));
+        WVPASSEQ((int)result, 42);
+
+        try { VxExec("drop view View1"); } catch { }
+        try { VxExec("drop view View2"); } catch { }
+        try { VxExec("drop view View3"); } catch { }
+        try { VxExec("drop view View4"); } catch { }
     }
 
     public static void Main()

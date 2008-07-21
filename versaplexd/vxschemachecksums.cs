@@ -24,6 +24,14 @@ internal class VxSchemaChecksum
         get { return _checksums; }
     }
 
+    public VxSchemaChecksum(VxSchemaChecksum copy)
+    {
+        _name = copy.name;
+        _checksums = new List<ulong>();
+        foreach (ulong sum in copy.checksums)
+            _checksums.Add(sum);
+    }
+
     public VxSchemaChecksum(string newname)
     {
         _name = newname;
@@ -177,7 +185,7 @@ internal class VxSchemaChecksum
         return true;
     }
 
-    public static string GetSignature()
+    public static string GetDbusSignature()
     {
         return "sat";
     }
@@ -188,6 +196,12 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
 {
     public VxSchemaChecksums()
     {
+    }
+
+    public VxSchemaChecksums(VxSchemaChecksums copy)
+    {
+        foreach (KeyValuePair<string,VxSchemaChecksum> p in copy)
+            this.Add(p.Key, new VxSchemaChecksum(p.Value));
     }
 
     // Read an array of checksums from a DBus message.
@@ -276,9 +290,9 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
             this.Add(name, new VxSchemaChecksum(name, checksum));
     }
 
-    public static string GetSignature()
+    public static string GetDbusSignature()
     {
-        return String.Format("a({0})", VxSchemaChecksum.GetSignature());
+        return String.Format("a({0})", VxSchemaChecksum.GetDbusSignature());
     }
 }
 
@@ -301,9 +315,9 @@ internal class SchemaTypeComparer: IComparer<string>
         string[] parts = s.Split('/');
 
         int retval;
+        bool ignore_case = true;
         try
         {
-            bool ignore_case = true;
             retval = Convert.ToInt32(Enum.Parse(typeof(SchemaTypes), 
                 parts[0], ignore_case));
         }
@@ -337,13 +351,11 @@ internal enum VxDiffType
 // FIXME: It might be nicer in the long term to just implement 
 // IEnumerable<...> or IDictionary<...> ourselves, and defer to
 // an internal member.  But it's a lot of boilerplate code.
-internal class VxSchemaChecksumDiff : SortedList<string, VxDiffType>
+internal class VxSchemaDiff : SortedList<string, VxDiffType>
 {
-    // Estimate the initial size as being the maximum of either set of 
-    // input sums.
-    public VxSchemaChecksumDiff(VxSchemaChecksums srcsums, 
+    public VxSchemaDiff(VxSchemaChecksums srcsums, 
         VxSchemaChecksums goalsums):
-        base(Math.Max(srcsums.Count, goalsums.Count), new SchemaTypeComparer())
+        base(new SchemaTypeComparer())
     {
         List<string> keys = srcsums.Keys.Union(goalsums.Keys).ToList();
         keys.Sort(new SchemaTypeComparer());

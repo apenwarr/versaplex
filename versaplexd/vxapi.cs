@@ -698,7 +698,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
         sums.WriteChecksums(writer);
 
         reply = VxDbus.CreateReply(call, 
-            VxSchemaChecksums.GetSignature(), writer);
+            VxSchemaChecksums.GetDbusSignature(), writer);
 
         // For debugging
         reply.WriteHeader();
@@ -797,7 +797,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
 
         schema.WriteSchema(writer);
 
-        reply = VxDbus.CreateReply(call, VxSchema.GetSignature(), writer);
+        reply = VxDbus.CreateReply(call, VxSchema.GetDbusSignature(), writer);
 
         // For debugging
         reply.WriteHeader();
@@ -833,7 +833,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
 
     private static void CallPutSchema(Message call, out Message reply)
     {
-        if (call.Signature.ToString() != "sssy") {
+        if (call.Signature.ToString() != String.Format("{0}i", 
+                VxSchema.GetDbusSignature())) {
             reply = CreateUnknownMethodReply(call, "PutSchema");
             return;
         }
@@ -847,18 +848,26 @@ public class VxDbInterfaceRouter : VxInterfaceRouter {
             return;
         }
 
-        string type, name, text;
-        byte destructive;
+        int opts;
 
         MessageReader mr = new MessageReader(call);
-        mr.GetValue(out type);
-        mr.GetValue(out name);
-        mr.GetValue(out text);
-        mr.GetValue(out destructive);
+        VxSchema schema = new VxSchema(mr);
+        mr.GetValue(out opts);
 
-        Schemamatic.PutSchema(clientid, type, name, text, destructive);
+        VxSchemaErrors errs = 
+            Schemamatic.PutSchema(clientid, schema, (VxPutSchemaOpts)opts);
 
-        reply = VxDbus.CreateReply(call);
+        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+        VxSchemaErrors.WriteErrors(writer, errs);
+        
+        reply = VxDbus.CreateReply(call, VxSchemaErrors.GetDbusSignature(), 
+            writer);
+        if (errs != null && errs.Count > 0)
+        {
+            reply.Header.MessageType = MessageType.Error;
+            reply.Header.Fields[FieldCode.ErrorName] = 
+                "org.freedesktop.DBus.Error.Failed";
+        }
     }
 
     private static void CallGetSchemaData(Message call, out Message reply)
@@ -980,6 +989,21 @@ class VxSqlException : VxRequestException {
                 return true;
         }
         return false;
+    }
+
+    // Returns the SQL error number of the first SQL Exception in the list, or
+    // -1 if none can be found.
+    public int GetFirstSqlErrno()
+    {
+        if (!(InnerException is SqlException))
+            return -1;
+
+        SqlException sqle = (SqlException)InnerException;
+        foreach (SqlError err in sqle.Errors)
+        {
+            return err.Number;
+        }
+        return -1;
     }
 }
 
