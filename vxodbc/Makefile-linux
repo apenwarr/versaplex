@@ -12,8 +12,7 @@ CFLAGS=-g -w \
 	-I/usr/include/postgresql
 CXXFLAGS=$(CFLAGS) -I$(BOOST)
 LIBS=\
-	$(WVSTREAMS)/libwvdbus.a $(WVSTREAMS)/libwvstreams.a \
-	$(WVSTREAMS)/libwvutils.a $(WVSTREAMS)/libwvbase.a \
+	$(WVSTREAMS)/libwvstatic.a \
 	$(DBUS)/libdbus-1.a \
 	$(OPENSSL)/libssl.a $(OPENSSL)/libcrypto.a \
 	$(XPLC)/libxplc-cxx.a $(XPLC)/libxplc.a -ldl \
