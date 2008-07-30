@@ -19,7 +19,7 @@ CFLAGS=-w \
 CXXFLAGS=$(CFLAGS)
 RSCFLAGS=-DUNICODE_SUPPORT
 LIBS=\
-	-L$(WVSTREAMS) -lwvwin32 \
+	-L$(WVSTREAMS) -lwvstatic \
 	-L$(DBUS) -ldbus-1 \
 	-L$(XPLC) -lxplc-cxx -lxplc \
 	-L$(OPENSSL) -lssl -lcrypto $(ARGP)/libargp.a \
