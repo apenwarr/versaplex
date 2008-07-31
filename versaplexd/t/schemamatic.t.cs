@@ -1058,6 +1058,20 @@ class SchemamaticTests : VersaplexTester
             VerifyExportedSchema(tmpdir, schema, sums, 
                 func1q, tab1q, tab2q, idx1q, xmlq, backup_generation);
 
+            // Check that we read back the same stuff
+            VxSchema schemafromdisk = backend.Get(null);
+            foreach (KeyValuePair<string,VxSchemaElement> p in schema)
+                WVPASSEQ(schemafromdisk[p.Key].CompareTo(p.Value), 0);
+
+            VxSchemaChecksums sumsfromdisk = backend.GetChecksums();
+
+            WVPASSEQ(sumsfromdisk.Count, sums.Count);
+            foreach (KeyValuePair<string,VxSchemaChecksum> p in sums)
+            {
+                WVPASSEQ(sumsfromdisk[p.Key].GetSumString(), 
+                    p.Value.GetSumString());
+            }
+
             // Doing it twice doesn't change anything.
             backend.Put(schema, sums, VxPutSchemaOpts.None);
 
