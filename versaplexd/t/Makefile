@@ -63,7 +63,8 @@ verifydata.t.exe: verifydata.t.cs.E versaplextester.cs.E dbuserror.cs \
 schemamatic.t.exe: schemamatic.t.cs.E versaplextester.cs.E dbuserror.cs \
 	../dodgytransport.cs ../vxnotifysocket.cs ../vxsocket.cs \
 	../vxcolumninfo.cs ../vxdbusdatetime.cs ../vxschemachecksums.cs \
-	../vxschema.cs ../ischemabackend.cs ../vxdiskschema.cs \
+	../vxschema.cs ../vxschemaerrors.cs \
+	../ischemabackend.cs ../vxdiskschema.cs \
 	../wv.dll ../NDesk.DBus.dll
 
 %.o: %.cc
