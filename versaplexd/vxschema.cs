@@ -16,7 +16,10 @@ public enum VxPutSchemaOpts : int
     // dropping a table in order to re-add it.
     Destructive = 0x1,
     // If set, PutSchema will not attempt to do any retries.
-    NoRetry = 0x2
+    NoRetry = 0x2,
+    // If set, will make a backup copy instead of overwriting existing data,
+    // if possible.
+    IsBackup = 0x4,
 }
 
 // FIXME: This isn't a great spot for this class either.  Maybe it rates its
@@ -181,6 +184,41 @@ internal class VxSchemaElement : IComparable
         return GetKey().CompareTo(other.GetKey());
     }
 
+    public void ExportToDisk(string exportdir, VxSchemaChecksum sum, 
+        bool isbackup)
+    {
+        MD5 md5summer = MD5.Create();
+        Encoding utf8 = Encoding.UTF8;
+
+        byte[] text = utf8.GetBytes(this.text);
+        byte[] md5 = md5summer.ComputeHash(text);
+
+        // Make some kind of attempt to run on Windows.  
+        string filename = (exportdir + "/" + this.key).Replace( 
+            '/', Path.DirectorySeparatorChar);
+
+        // Make directories
+        Directory.CreateDirectory(Path.GetDirectoryName(filename));
+
+        string suffix = "";
+        if (isbackup)
+        {
+            int i = 1;
+            while(File.Exists(filename + "-" + i))
+                i++;
+            suffix = "-" + i;
+        }
+            
+        using(BinaryWriter file = new BinaryWriter(
+            File.Open(filename + suffix, FileMode.Create)))
+        {
+            file.Write(utf8.GetBytes(
+                String.Format("!!SCHEMAMATIC {0} {1}\r\n",
+                md5.ToHex(), sum.GetSumString())));
+            file.Write(text);
+        }
+    }
+
     public static string GetDbusSignature()
     {
         return "sssy";
@@ -295,60 +333,5 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
     public static string GetDbusSignature()
     {
         return String.Format("a({0})", VxSchemaElement.GetDbusSignature());
-    }
-
-    // Export the current schema to the given directory, in a format that can
-    // be read back later.  checksums contains the database checksums for
-    // every element in the schema.  
-    // If isbackup is true, will not replace any existing files in the
-    // directory, but will append a unique numeric suffix to any files that
-    // would have conflicted.
-    public void ExportSchema(string exportdir, VxSchemaChecksums checksums, 
-        bool isbackup)
-    {
-        DirectoryInfo dir = new DirectoryInfo(exportdir);
-        dir.Create();
-
-        Encoding utf8 = Encoding.UTF8;
-        MD5 md5summer = MD5.Create();
-
-        foreach (KeyValuePair<string,VxSchemaElement> p in this)
-        {
-            VxSchemaElement elem = p.Value;
-
-            if (!checksums.ContainsKey(elem.key))
-                throw new ArgumentException("Missing checksum for " + elem.key);
-
-            byte[] text = utf8.GetBytes(elem.text);
-            byte[] md5 = md5summer.ComputeHash(text);
-
-            string md5str = md5.ToHex();
-            string sumstr = checksums[elem.key].GetSumString();
-
-            // Make some kind of attempt to run on Windows.  
-            string filename = (exportdir + "/" + elem.key).Replace( 
-                '/', Path.DirectorySeparatorChar);
-
-            // Make directories
-            Directory.CreateDirectory(Path.GetDirectoryName(filename));
-
-            string suffix = "";
-            if (isbackup)
-            {
-                int i = 1;
-                while(File.Exists(filename + "-" + i))
-                    i++;
-                suffix = "-" + i;
-            }
-                
-            using(BinaryWriter file = new BinaryWriter(
-                File.Open(filename + suffix, FileMode.Create)))
-            {
-                file.Write(utf8.GetBytes(
-                    String.Format("!!SCHEMAMATIC {0} {1}\r\n",
-                    md5str, sumstr)));
-                file.Write(text);
-            }
-        }
     }
 }

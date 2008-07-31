@@ -64,75 +64,6 @@ internal class VxSchemaChecksum
         }
     }
 
-    // Reads checksums from a file on disk.  If the file is corrupt, will not
-    // load any checksums.
-    public void ReadChecksum(string filename)
-    {
-        FileInfo fileinfo = new FileInfo(filename);
-
-        // Read the entire file into memory.  C#'s file IO sucks.
-        byte[] bytes = new byte[fileinfo.Length];
-        using (FileStream fs = fileinfo.OpenRead())
-        {
-            fs.Read(bytes, 0, bytes.Length);
-        }
-        
-        // Find the header line
-        int ii;
-        for (ii = 0; ii < bytes.Length; ii++)
-            if (bytes[ii] == '\n')
-                break;
-
-        if (ii == bytes.Length)
-            return; 
-
-        // Read the header line
-        Encoding utf8 = Encoding.UTF8;
-        string header = utf8.GetString(bytes, 0, ii).Replace("\r", "");
-
-        // Parse the header line
-        char[] space = {' '};
-        string[] elems = header.Split(space, 3);
-        if (elems.Length != 3)
-            return;
-
-        string prefix = elems[0];
-        string header_md5 = elems[1];
-        string dbsum = elems[2];
-
-        if (prefix != "!!SCHEMAMATIC")
-            return;
-
-        // Compute the hash of the rest of the file
-        ii++;
-        byte[] md5 = MD5.Create().ComputeHash(bytes, ii, 
-            (int)fileinfo.Length - ii);
-        string content_md5 = md5.ToHex();
-
-        // If the MD5 sums don't match, we want to make it obvious that the
-        // database and local file aren't in sync, so we don't load any actual
-        // checksums.  
-        if (header_md5 == content_md5)
-        {
-            string[] sums = dbsum.Split(' ');
-            foreach (string sum in sums)
-            {
-                ulong longsum;
-                if (!UInt64.TryParse(sum, 
-                        System.Globalization.NumberStyles.HexNumber, null, 
-                        out longsum))
-                {
-                    // A bad checksum means the whole file is bad.
-                    _checksums.Clear();
-                    return;
-                }
-                AddChecksum(longsum);
-            }
-        }
-
-        return;
-    }
-
     public string GetSumString()
     {
         List<string> l = new List<string>();
@@ -226,42 +157,8 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
         if (Path.DirectorySeparatorChar != '/')
             newkey = key.Replace(Path.DirectorySeparatorChar, '/');
         VxSchemaChecksum cs = new VxSchemaChecksum(newkey);
-        cs.ReadChecksum(filepath);
+        VxDiskSchema.ReadSchemaFile(filepath, null, cs);
         Add(cs.name, cs);
-    }
-
-    public void ReadChecksums(string exportdir)
-    {
-        DirectoryInfo exportdirinfo = new DirectoryInfo(exportdir);
-        if (exportdirinfo.Exists)
-        {
-            // Read all files that match */* and */*/*.
-            foreach (DirectoryInfo dir1 in exportdirinfo.GetDirectories())
-            {
-                if (dir1.Name == "DATA")
-                    continue;
-
-                foreach (DirectoryInfo dir2 in dir1.GetDirectories())
-                {
-                    if (dir2.Name == "DATA")
-                        continue;
-
-                    // This is the */*/* part
-                    foreach (FileInfo file in dir2.GetFiles())
-                    {
-                        AddChecksumFromFile(file.FullName, 
-                            wv.PathCombine(dir1.Name, dir2.Name, file.Name));
-                    }
-                }
-
-                // This is the */* part
-                foreach (FileInfo file in dir1.GetFiles())
-                {
-                    AddChecksumFromFile(file.FullName, 
-                        wv.PathCombine(dir1.Name, file.Name));
-                }
-            }
-        }
     }
 
     private void _WriteChecksums(MessageWriter writer)

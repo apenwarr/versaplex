@@ -156,7 +156,8 @@ class SchemamaticTests : VersaplexTester
         foreach (KeyValuePair<string,VxSchemaError> p in errs)
             return p.Value;
 
-        // Shouldn't happen.
+        WVFAIL("Shouldn't happen: couldn't find error to return");
+
         return null;
     }
 
@@ -871,7 +872,7 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(VxGetSchemaData("Tab1"), inserts.Join(""));
     }
 
-    [Test, Category("Schemamatic"), Category("SchemaExport")]
+    [Test, Category("Schemamatic"), Category("DiskBackend")]
     public void TestExportEmptySchema()
     {
         string tmpdir = Path.Combine(Path.GetTempPath(), 
@@ -883,7 +884,8 @@ class SchemamaticTests : VersaplexTester
         VxSchemaChecksums sums = new VxSchemaChecksums();
 
         // Check that exporting an empty schema doesn't touch anything.
-        schema.ExportSchema(tmpdir, sums, false);
+        VxDiskSchema backend = new VxDiskSchema(tmpdir);
+        backend.Put(schema, sums, VxPutSchemaOpts.None);
         WVPASSEQ(Directory.GetDirectories(tmpdir).Length, 0);
         WVPASSEQ(Directory.GetFiles(tmpdir).Length, 0);
 
@@ -995,7 +997,7 @@ class SchemamaticTests : VersaplexTester
             xmlq);
     }
 
-    [Test, Category("Schemamatic"), Category("SchemaExport")]
+    [Test, Category("Schemamatic"), Category("DiskBackend")]
     public void TestExportSchema()
     {
         try { VxExec("drop index Tab1.Idx1"); } catch { }
@@ -1038,8 +1040,9 @@ class SchemamaticTests : VersaplexTester
             VxSchema schema = VxGetSchema();
             VxSchemaChecksums sums = new VxSchemaChecksums();
 
+            VxDiskSchema backend = new VxDiskSchema(tmpdir);
             try {
-                WVEXCEPT(schema.ExportSchema(tmpdir, sums, false));
+                WVEXCEPT(backend.Put(schema, sums, VxPutSchemaOpts.None));
             } catch (Wv.Test.WvAssertionFailure e) {
                 throw e;
             } catch (System.Exception e) {
@@ -1049,27 +1052,27 @@ class SchemamaticTests : VersaplexTester
 
             // Check that the normal exporting works.
             sums = VxGetSchemaChecksums();
-            schema.ExportSchema(tmpdir, sums, false);
+            backend.Put(schema, sums, VxPutSchemaOpts.None);
 
             int backup_generation = 0;
             VerifyExportedSchema(tmpdir, schema, sums, 
                 func1q, tab1q, tab2q, idx1q, xmlq, backup_generation);
 
             // Doing it twice doesn't change anything.
-            schema.ExportSchema(tmpdir, sums, false);
+            backend.Put(schema, sums, VxPutSchemaOpts.None);
 
             VerifyExportedSchema(tmpdir, schema, sums, 
                 func1q, tab1q, tab2q, idx1q, xmlq, backup_generation);
 
             // Check backup mode
-            schema.ExportSchema(tmpdir, sums, true);
+            backend.Put(schema, sums, VxPutSchemaOpts.IsBackup);
             backup_generation++;
 
             VerifyExportedSchema(tmpdir, schema, sums, 
                 func1q, tab1q, tab2q, idx1q, xmlq, backup_generation);
 
             // Check backup mode again
-            schema.ExportSchema(tmpdir, sums, true);
+            backend.Put(schema, sums, VxPutSchemaOpts.IsBackup);
             backup_generation++;
 
             VerifyExportedSchema(tmpdir, schema, sums, 
@@ -1082,7 +1085,7 @@ class SchemamaticTests : VersaplexTester
         }
     }
 
-    [Test, Category("Schemamatic"), Category("ReadChecksums")]
+    [Test, Category("Schemamatic"), Category("DiskBackend")]
     public void TestReadChecksums()
     {
         try { VxExec("drop index Tab1.Idx1"); } catch { }
@@ -1123,10 +1126,10 @@ class SchemamaticTests : VersaplexTester
 
             VxSchema schema = VxGetSchema();
             VxSchemaChecksums sums = VxGetSchemaChecksums();
-            schema.ExportSchema(tmpdir, sums, false);
+            VxDiskSchema backend = new VxDiskSchema(tmpdir);
+            backend.Put(schema, sums, VxPutSchemaOpts.None);
 
-            VxSchemaChecksums fromdisk = new VxSchemaChecksums();
-            fromdisk.ReadChecksums(tmpdir);
+            VxSchemaChecksums fromdisk = backend.GetChecksums();
 
             foreach (KeyValuePair<string, VxSchemaChecksum> p in sums)
             {
@@ -1146,8 +1149,7 @@ class SchemamaticTests : VersaplexTester
             File.WriteAllText(wv.PathCombine(tmpdir, "DATA", "Decoy"),
                 "Decoy file, shouldn't have checksums");
 
-            VxSchemaChecksums mangled = new VxSchemaChecksums();
-            mangled.ReadChecksums(tmpdir);
+            VxSchemaChecksums mangled = backend.GetChecksums();
 
             // Check that the decoy file didn't get read
             WVFAIL(mangled.ContainsKey("DATA/Decoy"));
