@@ -10,8 +10,9 @@ test: all t/test
 tests: all t/all
 
 versaplexd.exe: versaplexd.cs \
-    dodgytransport.cs PriorityQueue.cs schemamatic.cs vxbufferstream.cs \
-    vxapi.cs vxcolumninfo.cs vxdbus.cs vxdbusdatetime.cs \
+    dodgytransport.cs ischemabackend.cs PriorityQueue.cs schemamatic.cs \
+    vxapi.cs vxbufferstream.cs \
+    vxcolumninfo.cs vxdbus.cs vxdbusdatetime.cs \
     vxevent.cs vxeventloop.cs vxnotifysocket.cs \
     vxschema.cs vxschemachecksums.cs vxsocket.cs \
     vxsqlpool.cs wvdbusserver.cs \
