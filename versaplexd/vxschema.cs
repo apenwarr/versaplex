@@ -6,22 +6,6 @@ using System.Security.Cryptography;
 using NDesk.DBus;
 using Wv.Extensions;
 
-// FIXME: This isn't a great spot for this enum.  But if it lives in
-// schemamatic.cs, it's hard for the unit tests to include.  
-[Flags]
-public enum VxPutSchemaOpts : int
-{
-    None = 0,
-    // If set, PutSchema will do potentially destructive things like
-    // dropping a table in order to re-add it.
-    Destructive = 0x1,
-    // If set, PutSchema will not attempt to do any retries.
-    NoRetry = 0x2,
-    // If set, will make a backup copy instead of overwriting existing data,
-    // if possible.
-    IsBackup = 0x4,
-}
-
 // FIXME: This isn't a great spot for this class either.  Maybe it rates its
 // own file.
 internal class VxSchemaError

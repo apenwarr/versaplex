@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 // An interface to a Schemamatic schema backend.
@@ -14,5 +15,19 @@ internal interface ISchemaBackend
 
     // Gets the checksums for all elements from the backing store.
     VxSchemaChecksums GetChecksums();
+}
+
+[Flags]
+public enum VxPutSchemaOpts : int
+{
+    None = 0,
+    // If set, PutSchema will do potentially destructive things like
+    // dropping a table in order to re-add it.
+    Destructive = 0x1,
+    // If set, PutSchema will not attempt to do any retries.
+    NoRetry = 0x2,
+    // If set, will make a backup copy instead of overwriting existing data,
+    // if possible.
+    IsBackup = 0x4,
 }
 
