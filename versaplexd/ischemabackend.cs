@@ -5,8 +5,7 @@ using System.Collections.Generic;
 internal interface ISchemaBackend  
 {
     // Update the backing store with all current elements.
-    VxSchemaErrors Put(VxSchema schema, VxSchemaChecksums sums, 
-        VxPutSchemaOpts opts);
+    VxSchemaErrors Put(VxSchema schema, VxSchemaChecksums sums, VxPutOpts opts);
 
     // Get elements from the backing store.
     // If keys is non-empty, only returns the schema for listed keys.
@@ -18,7 +17,7 @@ internal interface ISchemaBackend
 }
 
 [Flags]
-public enum VxPutSchemaOpts : int
+public enum VxPutOpts : int
 {
     None = 0,
     // If set, PutSchema will do potentially destructive things like

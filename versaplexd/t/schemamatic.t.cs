@@ -142,7 +142,7 @@ class SchemamaticTests : VersaplexTester
     }
 
     VxSchemaError VxPutSchema(string type, string name, string text, 
-        VxPutSchemaOpts opts)
+        VxPutOpts opts)
     {
         VxSchemaElement elem = new VxSchemaElement(type, name, text, false);
         VxSchema schema = new VxSchema(elem);
@@ -161,7 +161,7 @@ class SchemamaticTests : VersaplexTester
         return null;
     }
 
-    VxSchemaErrors VxPutSchema(VxSchema schema, VxPutSchemaOpts opts)
+    VxSchemaErrors VxPutSchema(VxSchema schema, VxPutOpts opts)
     {
 	Console.WriteLine(" + VxPutSchema");
 
@@ -755,7 +755,7 @@ class SchemamaticTests : VersaplexTester
             "[f1] [int] NOT NULL,\n\t" +
             "[f2] [money] NULL,\n\t" + 
             "[f3] [varchar] (80) NULL);\n\n";
-        VxPutSchemaOpts no_opts = VxPutSchemaOpts.None;
+        VxPutOpts no_opts = VxPutOpts.None;
         WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q, no_opts), null);
 
 	string idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
@@ -803,7 +803,8 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(schema["Table/Tab1"].type, "Table");
         WVPASSEQ(schema["Table/Tab1"].text, tab1q);
 
-        WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q2, VxPutSchemaOpts.Destructive), null);
+        WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q2, VxPutOpts.Destructive), 
+            null);
 
         schema = VxGetSchema("Table/Tab1");
         WVPASSEQ(schema["Table/Tab1"].name, "Tab1");
@@ -835,7 +836,7 @@ class SchemamaticTests : VersaplexTester
             "[f1] [int] NOT NULL,\n\t" +
             "[f2] [money] NULL,\n\t" + 
             "[f3] [varchar] (80) NULL);\n\n";
-        VxPutSchemaOpts no_opts = VxPutSchemaOpts.None;
+        VxPutOpts no_opts = VxPutOpts.None;
         WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q, no_opts), null);
 
         List<string> inserts = new List<string>();
@@ -885,7 +886,7 @@ class SchemamaticTests : VersaplexTester
 
         // Check that exporting an empty schema doesn't touch anything.
         VxDiskSchema backend = new VxDiskSchema(tmpdir);
-        backend.Put(schema, sums, VxPutSchemaOpts.None);
+        backend.Put(schema, sums, VxPutOpts.None);
         WVPASSEQ(Directory.GetDirectories(tmpdir).Length, 0);
         WVPASSEQ(Directory.GetFiles(tmpdir).Length, 0);
 
@@ -1042,7 +1043,7 @@ class SchemamaticTests : VersaplexTester
 
             VxDiskSchema backend = new VxDiskSchema(tmpdir);
             try {
-                WVEXCEPT(backend.Put(schema, sums, VxPutSchemaOpts.None));
+                WVEXCEPT(backend.Put(schema, sums, VxPutOpts.None));
             } catch (Wv.Test.WvAssertionFailure e) {
                 throw e;
             } catch (System.Exception e) {
@@ -1052,7 +1053,7 @@ class SchemamaticTests : VersaplexTester
 
             // Check that the normal exporting works.
             sums = VxGetSchemaChecksums();
-            backend.Put(schema, sums, VxPutSchemaOpts.None);
+            backend.Put(schema, sums, VxPutOpts.None);
 
             int backup_generation = 0;
             VerifyExportedSchema(tmpdir, schema, sums, 
@@ -1073,20 +1074,20 @@ class SchemamaticTests : VersaplexTester
             }
 
             // Doing it twice doesn't change anything.
-            backend.Put(schema, sums, VxPutSchemaOpts.None);
+            backend.Put(schema, sums, VxPutOpts.None);
 
             VerifyExportedSchema(tmpdir, schema, sums, 
                 func1q, tab1q, tab2q, idx1q, xmlq, backup_generation);
 
             // Check backup mode
-            backend.Put(schema, sums, VxPutSchemaOpts.IsBackup);
+            backend.Put(schema, sums, VxPutOpts.IsBackup);
             backup_generation++;
 
             VerifyExportedSchema(tmpdir, schema, sums, 
                 func1q, tab1q, tab2q, idx1q, xmlq, backup_generation);
 
             // Check backup mode again
-            backend.Put(schema, sums, VxPutSchemaOpts.IsBackup);
+            backend.Put(schema, sums, VxPutOpts.IsBackup);
             backup_generation++;
 
             VerifyExportedSchema(tmpdir, schema, sums, 
@@ -1141,7 +1142,7 @@ class SchemamaticTests : VersaplexTester
             VxSchema schema = VxGetSchema();
             VxSchemaChecksums sums = VxGetSchemaChecksums();
             VxDiskSchema backend = new VxDiskSchema(tmpdir);
-            backend.Put(schema, sums, VxPutSchemaOpts.None);
+            backend.Put(schema, sums, VxPutOpts.None);
 
             VxSchemaChecksums fromdisk = backend.GetChecksums();
 
@@ -1318,7 +1319,7 @@ class SchemamaticTests : VersaplexTester
             WVPASSEQ(diffschema["Procedure/Func1"].name, "Func1");
             WVPASSEQ(diffschema["Procedure/Func1"].text, func1q2);
 
-            VxPutSchemaOpts no_opts = VxPutSchemaOpts.None;
+            VxPutOpts no_opts = VxPutOpts.None;
             VxSchemaErrors errs = VxPutSchema(diffschema, no_opts);
             WVPASSEQ(errs.Count, 0);
 
@@ -1360,7 +1361,7 @@ class SchemamaticTests : VersaplexTester
         WVASSERT(VxExec(tab2q));
 
         VxSchema schema = VxGetSchema();
-        VxPutSchemaOpts no_opts = VxPutSchemaOpts.None;
+        VxPutOpts no_opts = VxPutOpts.None;
         VxSchemaErrors errs = VxPutSchema(schema, no_opts);
 
         WVPASSEQ(errs.Count, 2);
@@ -1399,8 +1400,7 @@ class SchemamaticTests : VersaplexTester
         schema.Add("View3", "View", view3q, false);
         schema.Add("View4", "View", view4q, false);
 
-        VxPutSchemaOpts no_opts = VxPutSchemaOpts.None;
-        VxPutSchemaOpts no_retry = VxPutSchemaOpts.NoRetry;
+        VxPutOpts no_retry = VxPutOpts.NoRetry;
 
         VxSchemaErrors errs = VxPutSchema(schema, no_retry);
 
@@ -1416,7 +1416,7 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(errs["View/View3"].errnum, 208);
 
         try { VxExec("drop view View4"); } catch { }
-        errs = VxPutSchema(schema, no_opts);
+        errs = VxPutSchema(schema, VxPutOpts.None);
         WVPASSEQ(errs.Count, 0);
 
         object result;

@@ -22,12 +22,12 @@ internal class VxDiskSchema : ISchemaBackend
     // Export the current schema to the backing directory, in a format that can
     // be read back later.  
     public VxSchemaErrors Put(VxSchema schema, VxSchemaChecksums sums, 
-        VxPutSchemaOpts opts)
+        VxPutOpts opts)
     {
+        bool isbackup = (opts & VxPutOpts.IsBackup) != 0;
+
         DirectoryInfo dir = new DirectoryInfo(exportdir);
         dir.Create();
-
-        bool isbackup = (opts & VxPutSchemaOpts.IsBackup) != 0;
 
         foreach (KeyValuePair<string,VxSchemaElement> p in schema)
         {

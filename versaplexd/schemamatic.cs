@@ -622,9 +622,9 @@ internal static class Schemamatic
     // change, e.g. dropping a table so we can re-add it with the right
     // columns.
     internal static void PutSchemaElement(string clientid, 
-        VxSchemaElement elem, VxPutSchemaOpts opts)
+        VxSchemaElement elem, VxPutOpts opts)
     {
-        bool destructive = (opts & VxPutSchemaOpts.Destructive) != 0;
+        bool destructive = (opts & VxPutOpts.Destructive) != 0;
         if (destructive || !elem.type.StartsWith("Table"))
         {
             try { 
@@ -646,9 +646,9 @@ internal static class Schemamatic
     }
 
     internal static VxSchemaErrors PutSchema(string clientid, 
-        VxSchema schema, VxPutSchemaOpts opts)
+        VxSchema schema, VxPutOpts opts)
     {
-        bool no_retry = (opts & VxPutSchemaOpts.NoRetry) != 0;
+        bool no_retry = (opts & VxPutOpts.NoRetry) != 0;
         int old_err_count = -1;
         IEnumerable<string> keys = schema.Keys;
         VxSchemaErrors errs = new VxSchemaErrors();

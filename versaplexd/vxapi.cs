@@ -860,7 +860,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         mr.GetValue(out opts);
 
         VxSchemaErrors errs = 
-            Schemamatic.PutSchema(clientid, schema, (VxPutSchemaOpts)opts);
+            Schemamatic.PutSchema(clientid, schema, (VxPutOpts)opts);
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
         VxSchemaErrors.WriteErrors(writer, errs);
