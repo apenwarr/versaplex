@@ -37,70 +37,74 @@ internal static class VxDb {
             out VxColumnInfo[] colinfo, out object[][] data,
             out byte[][] nullity)
     {
-		// XXX this is fishy
-		
-		if (query.ToLower().StartsWith("list tables"))
-			query = "exec sp_tables";
-		else if (query.ToLower().StartsWith("list columns "))
-			query = String.Format("exec sp_columns @table_name='{0}'",
-					  query.Substring(13));
-		else if (query.ToLower().StartsWith("list all table") &&
-				query.ToLower().StartsWith("list all tablefunction") == false)
-			query = "select distinct cast(Name as varchar(max)) Name"
-					+ " from sysobjects "
-					+ " where objectproperty(id,'IsTable')=1 "
-					+ " and xtype='U' "
-					+ " order by Name ";
-		else if (query.ToLower().StartsWith("list all"))
-		// Format: list all {view|trigger|procedure|scalarfunction|tablefunction}
-		// Returns: a list of all of whatever
-			query = String.Format(
-					"select distinct "
-					+ " cast (object_name(id) as varchar(256)) Name "
-					+ " from syscomments "
-					+ " where objectproperty(id,'Is{0}') = 1 "
-					+ " order by Name ",
-					query.Split(' ')[2].Trim());
-		else if (query.ToLower().StartsWith("get object"))
-		// Format: 
-		// get object {view|trigger|procedure|scalarfunction|tablefunction} name
-		// Returns: the "source code" to the object
-			query = String.Format(
-            "select cast(text as varchar(max)) text "
-               + "from syscomments "
-               + "where objectproperty(id, 'Is{0}') = 1 "
-               + "and object_name(id) = '{1}' "
-               + "order by number, colid ",
-               query.Split(' ')[2].Trim(), 
-			   query.Split(' ')[3].Trim());
+        // XXX this is fishy
+
+        if (query.ToLower().StartsWith("list tables"))
+            query = "exec sp_tables";
+        else if (query.ToLower().StartsWith("list columns "))
+            query = String.Format("exec sp_columns @table_name='{0}'",
+                    query.Substring(13));
+        else if (query.ToLower().StartsWith("list all table") &&
+                query.ToLower().StartsWith("list all tablefunction") == false)
+            query = "select distinct cast(Name as varchar(max)) Name"
+                + " from sysobjects "
+                + " where objectproperty(id,'IsTable')=1 "
+                + " and xtype='U' "
+                + " order by Name ";
+        else if (query.ToLower().StartsWith("list all"))
+            // Format: list all {view|trigger|procedure|scalarfunction|tablefunction}
+            // Returns: a list of all of whatever
+            query = String.Format(
+                    "select distinct "
+                    + " cast (object_name(id) as varchar(256)) Name "
+                    + " from syscomments "
+                    + " where objectproperty(id,'Is{0}') = 1 "
+                    + " order by Name ",
+                    query.Split(' ')[2].Trim());
+        else if (query.ToLower().StartsWith("get object"))
+            // Format: 
+            // get object {view|trigger|procedure|scalarfunction|tablefunction} name
+            // Returns: the "source code" to the object
+            query = String.Format(
+                    "select cast(text as varchar(max)) text "
+                    + "from syscomments "
+                    + "where objectproperty(id, 'Is{0}') = 1 "
+                    + "and object_name(id) = '{1}' "
+                    + "order by number, colid ",
+                    query.Split(' ')[2].Trim(), 
+                    query.Split(' ')[3].Trim());
 
         log.print(WvLog.L.Debug3, "ExecRecordset {0}\n", query);
-	
+
         SqlConnection conn = null;
         try {
             conn = VxSqlPool.TakeConnection(connid);
-			List<object[]> rows = new List<object[]>();
-			List<byte[]> rownulls = new List<byte[]>();
+            List<object[]> rows = new List<object[]>();
+            List<byte[]> rownulls = new List<byte[]>();
 
             using (SqlCommand cmd = new SqlCommand(query, conn))
-            using (SqlDataReader reader = cmd.ExecuteReader()) {
-                if (reader.FieldCount <= 0) {
-            		log.print("No columns in resulting data set.");
-                }
-               	ProcessSchema(reader, out colinfo);
+            using (SqlDataReader reader = cmd.ExecuteReader()) 
+            {
+                if (reader.FieldCount <= 0) 
+                    log.print("No columns in resulting data set.");
 
-                while (reader.Read()) {
+                ProcessSchema(reader, out colinfo);
+
+                while (reader.Read()) 
+                {
                     object[] row = new object[reader.FieldCount];
                     byte[] rownull = new byte[reader.FieldCount];
 
-                    for (int i = 0; i < reader.FieldCount; i++) {
+                    for (int i = 0; i < reader.FieldCount; i++) 
+                    {
                         bool isnull = reader.IsDBNull(i);
 
                         row[i] = null;
 
                         rownull[i] = isnull ? (byte)1 : (byte)0;
 
-                        switch (colinfo[i].VxColumnType) {
+                        switch (colinfo[i].VxColumnType) 
+                        {
                             case VxColumnType.Int64:
                                 row[i] = !isnull ?
                                     reader.GetInt64(i) : new Int64();
@@ -133,19 +137,20 @@ internal static class VxDb {
                                     reader.GetGuid(i).ToString() : "";
                                 break;
                             case VxColumnType.Binary:
-                            {
-                                if (isnull) {
-                                    row[i] = new byte[0];
+                                {
+                                    if (isnull) 
+                                    {
+                                        row[i] = new byte[0];
+                                        break;
+                                    }
+
+                                    byte[] cell = new byte[
+                                        reader.GetBytes(i, 0, null, 0, 0)];
+                                    reader.GetBytes(i, 0, cell, 0, cell.Length);
+
+                                    row[i] = cell;
                                     break;
                                 }
-
-                                byte[] cell = new byte[reader.GetBytes(i, 0,
-                                        null, 0, 0)];
-                                reader.GetBytes(i, 0, cell, 0, cell.Length);
-
-                                row[i] = cell;
-                                break;
-                            }
                             case VxColumnType.String:
                                 row[i] = !isnull ? reader.GetString(i) : "";
                                 break;
@@ -183,20 +188,19 @@ internal static class VxDb {
     {
         colinfo = new VxColumnInfo[reader.FieldCount];
 
-		if (reader.FieldCount <= 0) {
-			return;
-		}
+        if (reader.FieldCount <= 0) 
+            return;
 
         int i = 0;
 
         using (DataTable schema = reader.GetSchemaTable()) {
             foreach (DataRowView col in schema.DefaultView) {
-                foreach (DataColumn c in schema.Columns) {
-                    log.print(WvLog.L.Debug4,
-			      "{0}:'{1}'  ", c.ColumnName,
-			      col[c.ColumnName]);
+                foreach (DataColumn c in schema.Columns) 
+                {
+                    log.print(WvLog.L.Debug4, "{0}:'{1}'  ", 
+                        c.ColumnName, col[c.ColumnName]);
                 }
-				log.print(WvLog.L.Debug4, "\n\n");
+                log.print(WvLog.L.Debug4, "\n\n");
 
                 System.Type type = (System.Type)col["DataType"];
 
@@ -251,7 +255,8 @@ internal static class VxDb {
     }
 }
 
-public class VxDbInterfaceRouter : VxInterfaceRouter {
+public class VxDbInterfaceRouter : VxInterfaceRouter 
+{
 
     static WvLog log = new WvLog("VxDbInterfaceRouter");
     static readonly VxDbInterfaceRouter instance;
