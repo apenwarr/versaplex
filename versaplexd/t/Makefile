@@ -73,4 +73,4 @@ all.t: $(TESTOBJS)
 	$(CXX) -o $@ $^ $(LIBS)
 
 clean::
-	rm -f *.pass
+	rm -f *.pass *.t.o all.t
