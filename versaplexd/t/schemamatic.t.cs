@@ -1170,9 +1170,7 @@ class SchemamaticTests : VersaplexTester
         schema.Add("View3", "View", view3q, false);
         schema.Add("View4", "View", view4q, false);
 
-        VxPutOpts no_retry = VxPutOpts.NoRetry;
-
-        VxSchemaErrors errs = VxPutSchema(schema, no_retry);
+        VxSchemaErrors errs = VxPutSchema(schema, VxPutOpts.NoRetry);
 
         WVPASSEQ(errs.Count, 3);
         WVPASSEQ(errs["View/View1"].key, "View/View1");
