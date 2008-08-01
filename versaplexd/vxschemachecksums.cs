@@ -149,18 +149,6 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
         }
     }
 
-    private void AddChecksumFromFile(string filepath, string key)
-    {
-        string newkey = key;
-        // Internally, we separate elements with '/' regardless of running on
-        // Windows or Unix.
-        if (Path.DirectorySeparatorChar != '/')
-            newkey = key.Replace(Path.DirectorySeparatorChar, '/');
-        VxSchemaChecksum cs = new VxSchemaChecksum(newkey);
-        VxDiskSchema.ReadSchemaFile(filepath, null, cs);
-        Add(cs.name, cs);
-    }
-
     private void _WriteChecksums(MessageWriter writer)
     {
         foreach (KeyValuePair<string,VxSchemaChecksum> p in this)
