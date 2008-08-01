@@ -22,56 +22,10 @@ class SchemamaticTests : VersaplexTester
         dbus = new VxDbusSchema(bus);
     }
 
-    VxSchemaChecksums VxGetSchemaChecksums()
-    {
-	Console.WriteLine(" + VxGetSchemaChecksums");
-
-        return dbus.GetChecksums();
-    }
-
-    VxSchema VxGetSchema(params string[] names)
-    {
-	Console.WriteLine(" + VxGetSchema");
-
-        return dbus.Get(names);
-    }
-    
-    // FIXME: Move to VxDbusSchema?
-    void VxDropSchema(string type, string name)
-    {
-	Console.WriteLine(" + VxDropSchema");
-
-        Message call = dbus.CreateMethodCall("DropSchema", "ss");
-
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
-
-        writer.Write(typeof(string), type);
-        writer.Write(typeof(string), name);
-        call.Body = writer.ToArray();
-
-        Message reply = call.Connection.SendWithReplyAndBlock(call);
-        Console.WriteLine("Got reply");
-
-        switch (reply.Header.MessageType) {
-        case MessageType.MethodReturn:
-        {
-            object replysig;
-            if (reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out replysig))
-                throw new Exception("D-Bus reply had unexpected signature" + 
-                    replysig);
-
-            return;
-        }
-        case MessageType.Error:
-            throw VxDbusUtils.GetDbusException(reply);
-        default:
-            throw new Exception("D-Bus response was not a method return or "
-                    + "error");
-        }
-    }
-
-    // Utility function to just put a single schema element.
+    // Utility function to put a single schema element.
+    // This may someday be useful to have in the VxDbusSchema class (or even
+    // in ISchemaBackend), but this implementation is a tiny bit too hacky for
+    // general consumption.
     VxSchemaError VxPutSchema(string type, string name, string text, 
         VxPutOpts opts)
     {
@@ -99,79 +53,6 @@ class SchemamaticTests : VersaplexTester
         return dbus.Put(schema, null, opts);
     }
 
-    string VxGetSchemaData(string tablename)
-    {
-	Console.WriteLine(" + VxGetSchemaData");
-
-        Message call = dbus.CreateMethodCall("GetSchemaData", "s");
-
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
-
-        writer.Write(typeof(string), tablename);
-        call.Body = writer.ToArray();
-
-        Message reply = call.Connection.SendWithReplyAndBlock(call);
-        Console.WriteLine("Got reply");
-
-        switch (reply.Header.MessageType) {
-        case MessageType.MethodReturn:
-        {
-            object replysig;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out replysig))
-                throw new Exception("D-Bus reply had no signature");
-
-            if (replysig == null || replysig.ToString() != "s")
-                throw new Exception("D-Bus reply had invalid signature: " +
-                    replysig);
-
-            MessageReader reader = new MessageReader(reply);
-            string schemadata;
-            reader.GetValue(out schemadata);
-            return schemadata;
-        }
-        case MessageType.Error:
-            throw VxDbusUtils.GetDbusException(reply);
-        default:
-            throw new Exception("D-Bus response was not a method return or "
-                    +"error");
-        }
-    }
-
-    void VxPutSchemaData(string tablename, string text)
-    {
-	Console.WriteLine(" + VxPutSchemaData");
-
-        Message call = dbus.CreateMethodCall("PutSchemaData", "ss");
-
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
-
-        writer.Write(tablename);
-        writer.Write(text);
-        call.Body = writer.ToArray();
-
-        Message reply = call.Connection.SendWithReplyAndBlock(call);
-        Console.WriteLine("Got reply");
-
-        switch (reply.Header.MessageType) {
-        case MessageType.MethodReturn:
-        {
-            object replysig;
-            if (reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out replysig))
-                throw new Exception("D-Bus reply had unexpected signature" + 
-                    replysig);
-
-            return;
-        }
-        case MessageType.Error:
-            throw VxDbusUtils.GetDbusException(reply);
-        default:
-            throw new Exception("D-Bus response was not a method return or "
-                    +"error");
-        }
-    }
-
     [Test, Category("Schemamatic"), Category("GetSchemaChecksums")]
     public void TestProcedureChecksums()
     {
@@ -179,7 +60,7 @@ class SchemamaticTests : VersaplexTester
         try { VxExec("drop procedure Func2"); } catch { }
 
         VxSchemaChecksums sums;
-        sums = VxGetSchemaChecksums();
+        sums = dbus.GetChecksums();
         if (sums.Count != 0)
         {
             Console.WriteLine("Found entries:");
@@ -195,7 +76,7 @@ class SchemamaticTests : VersaplexTester
         WVASSERT(VxScalar("exec Func1", out outmsg));
         WVPASSEQ(msg1, (string)outmsg);
 
-        sums = VxGetSchemaChecksums();
+        sums = dbus.GetChecksums();
 
         WVASSERT(sums.ContainsKey("Procedure/Func1"));
         WVPASSEQ(sums["Procedure/Func1"].checksums.Count, 1);
@@ -207,7 +88,7 @@ class SchemamaticTests : VersaplexTester
         WVASSERT(VxScalar("exec Func2", out outmsg));
         WVPASSEQ(msg2, (string)outmsg);
 
-        sums = VxGetSchemaChecksums();
+        sums = dbus.GetChecksums();
         //WVPASSEQ(sums.Count, 2);
 
         WVASSERT(sums.ContainsKey("Procedure/Func1"));
@@ -219,7 +100,7 @@ class SchemamaticTests : VersaplexTester
 
         WVASSERT(VxExec("drop procedure Func2"));
 
-        sums = VxGetSchemaChecksums();
+        sums = dbus.GetChecksums();
         //WVPASSEQ(sums.Count, 1);
 
         WVASSERT(sums.ContainsKey("Procedure/Func1"));
@@ -241,7 +122,7 @@ class SchemamaticTests : VersaplexTester
         WVASSERT(VxExec(query));
 
         VxSchemaChecksums sums;
-        sums = VxGetSchemaChecksums();
+        sums = dbus.GetChecksums();
 
         // Three columns gives us three checksums
         WVPASSEQ(sums["Table/Tab1"].checksums.Count, 3);
@@ -269,7 +150,7 @@ class SchemamaticTests : VersaplexTester
         WVASSERT(VxExec(query));
 
         VxSchemaChecksums sums;
-        sums = VxGetSchemaChecksums();
+        sums = dbus.GetChecksums();
 
         WVPASSEQ(sums["Index/Tab1/Index1"].checksums.Count, 1);
         WVPASSEQ(sums["Index/Tab1/Index1"].checksums[0], 0x62781FDD);
@@ -310,7 +191,7 @@ class SchemamaticTests : VersaplexTester
         WVASSERT(VxExec(CreateXmlSchemaQuery()));
 
         VxSchemaChecksums sums;
-        sums = VxGetSchemaChecksums();
+        sums = dbus.GetChecksums();
 
         WVPASSEQ(sums["XMLSchema/TestSchema"].checksums.Count, 1);
         WVPASSEQ(sums["XMLSchema/TestSchema"].checksums[0], 0xFA7736B3);
@@ -340,7 +221,7 @@ class SchemamaticTests : VersaplexTester
 
         // Check that the query limiting works.  Also test that the evil
         // character cleansing works (turning bad characters into !s)
-        VxSchema schema = VxGetSchema("Procedure/Func1é");
+        VxSchema schema = dbus.Get("Procedure/Func1é");
         WVPASSEQ(schema.Count, 1);
 
         WVASSERT(schema.ContainsKey("Procedure/Func1!"));
@@ -349,7 +230,7 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(schema["Procedure/Func1!"].encrypted, false);
         WVPASSEQ(schema["Procedure/Func1!"].text, query1);
 
-        schema = VxGetSchema("Func1é");
+        schema = dbus.Get("Func1é");
         WVPASSEQ(schema.Count, 1);
 
         WVASSERT(schema.ContainsKey("Procedure/Func1!"));
@@ -359,7 +240,7 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(schema["Procedure/Func1!"].text, query1);
 
         // Also check that unlimited queries get everything
-        schema = VxGetSchema();
+        schema = dbus.Get();
         WVASSERT(schema.Count >= 2);
 
         WVASSERT(schema.ContainsKey("Procedure/Func1!"));
@@ -430,7 +311,7 @@ class SchemamaticTests : VersaplexTester
         WVASSERT(VxExec(idx1q));
 
         // Check that the query limiting works
-	VxSchema schema = VxGetSchema("Index/Tab1/Idx1");
+	VxSchema schema = dbus.Get("Index/Tab1/Idx1");
 	WVPASSEQ(schema.Count, 1);
 
 	WVASSERT(schema.ContainsKey("Index/Tab1/Idx1"));
@@ -441,7 +322,7 @@ class SchemamaticTests : VersaplexTester
 	WVPASSEQ(schema["Index/Tab1/Idx1"].text, idx1q);
 
         // Now get everything, since we don't know the primary key's name
-        schema = VxGetSchema();
+        schema = dbus.Get();
         WVASSERT(schema.Count >= 2);
 
 	WVASSERT(schema.ContainsKey("Index/Tab1/Idx1"));
@@ -493,7 +374,7 @@ class SchemamaticTests : VersaplexTester
         WVASSERT(VxExec(query2));
 
         // Test that the query limiting works
-	VxSchema schema = VxGetSchema("TestSchema");
+	VxSchema schema = dbus.Get("TestSchema");
         WVPASSEQ(schema.Count, 1);
 
         WVASSERT(schema.ContainsKey("XMLSchema/TestSchema"));
@@ -502,7 +383,7 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(schema["XMLSchema/TestSchema"].encrypted, false);
         WVPASSEQ(schema["XMLSchema/TestSchema"].text, query1);
 
-	schema = VxGetSchema("XMLSchema/TestSchema");
+	schema = dbus.Get("XMLSchema/TestSchema");
         WVPASSEQ(schema.Count, 1);
 
         WVASSERT(schema.ContainsKey("XMLSchema/TestSchema"));
@@ -512,7 +393,7 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(schema["XMLSchema/TestSchema"].text, query1);
 
         // Also check that unlimited queries get everything
-	schema = VxGetSchema();
+	schema = dbus.Get();
         WVASSERT(schema.Count >= 2)
 
         WVASSERT(schema.ContainsKey("XMLSchema/TestSchema"));
@@ -544,7 +425,7 @@ class SchemamaticTests : VersaplexTester
             "[f6] [bigint] NOT NULL IDENTITY(4,5));\n\n";
         WVASSERT(VxExec(query));
 
-        VxSchema schema = VxGetSchema();
+        VxSchema schema = dbus.Get();
         WVASSERT(schema.Count >= 2);
 
         // Primary keys get returned as indexes, not in the CREATE TABLE
@@ -592,7 +473,7 @@ class SchemamaticTests : VersaplexTester
 
         WVASSERT(VxExec(CreateXmlSchemaQuery()));
         
-        VxSchemaChecksums sums = VxGetSchemaChecksums();
+        VxSchemaChecksums sums = dbus.GetChecksums();
 
         WVASSERT(sums.ContainsKey("Index/Tab1/Idx1"));
         WVASSERT(sums.ContainsKey("Procedure/Func1"));
@@ -605,7 +486,7 @@ class SchemamaticTests : VersaplexTester
         VxDropSchema("Table", "Tab2");
         VxDropSchema("XMLSchema", "TestSchema");
 
-        sums = VxGetSchemaChecksums();
+        sums = dbus.GetChecksums();
 
         WVASSERT(!sums.ContainsKey("Index/Tab1/Idx1"));
         WVASSERT(!sums.ContainsKey("Procedure/Func1"));
@@ -658,7 +539,7 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(VxPutSchema("XMLSchema", "TestSchema", 
             CreateXmlSchemaQuery(), no_opts), null);
         
-        VxSchema schema = VxGetSchema();
+        VxSchema schema = dbus.Get();
 
         WVASSERT(schema.ContainsKey("Index/Tab1/Idx1"));
         WVPASSEQ(schema["Index/Tab1/Idx1"].name, "Tab1/Idx1");
@@ -687,7 +568,7 @@ class SchemamaticTests : VersaplexTester
             "There is already an object named 'Tab1' in the database.");
         WVPASSEQ(err.errnum, 2714);
         
-        schema = VxGetSchema("Table/Tab1");
+        schema = dbus.Get("Table/Tab1");
         WVPASSEQ(schema["Table/Tab1"].name, "Tab1");
         WVPASSEQ(schema["Table/Tab1"].type, "Table");
         WVPASSEQ(schema["Table/Tab1"].text, tab1q);
@@ -695,7 +576,7 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q2, VxPutOpts.Destructive), 
             null);
 
-        schema = VxGetSchema("Table/Tab1");
+        schema = dbus.Get("Table/Tab1");
         WVPASSEQ(schema["Table/Tab1"].name, "Tab1");
         WVPASSEQ(schema["Table/Tab1"].type, "Table");
         WVPASSEQ(schema["Table/Tab1"].text, tab1q2);
@@ -704,7 +585,7 @@ class SchemamaticTests : VersaplexTester
         string func1q2 = "create procedure Func1 as select '" + msg2 + "'";
         WVPASSEQ(VxPutSchema("Procedure", "Func1", func1q2, no_opts), null);
 
-        schema = VxGetSchema("Procedure/Func1");
+        schema = dbus.Get("Procedure/Func1");
         WVPASSEQ(schema["Procedure/Func1"].name, "Func1");
         WVPASSEQ(schema["Procedure/Func1"].type, "Procedure");
         WVPASSEQ(schema["Procedure/Func1"].text, func1q2);
@@ -739,12 +620,12 @@ class SchemamaticTests : VersaplexTester
         foreach (string ins in inserts)
             WVASSERT(VxExec(ins));
 
-        WVPASSEQ(VxGetSchemaData("Tab1"), inserts.Join(""));
+        WVPASSEQ(dbus.GetSchemaData("Tab1"), inserts.Join(""));
 
         try { VxExec("drop table Tab1"); } catch { }
 
         try {
-            WVEXCEPT(VxGetSchemaData("Tab1"));
+            WVEXCEPT(dbus.GetSchemaData("Tab1"));
 	} catch (Wv.Test.WvAssertionFailure e) {
 	    throw e;
 	} catch (System.Exception e) {
@@ -756,10 +637,10 @@ class SchemamaticTests : VersaplexTester
 
         WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q, no_opts), null);
 
-        WVPASSEQ(VxGetSchemaData("Tab1"), "");
+        WVPASSEQ(dbus.GetSchemaData("Tab1"), "");
 
-        VxPutSchemaData("Tab1", inserts.Join(""));
-        WVPASSEQ(VxGetSchemaData("Tab1"), inserts.Join(""));
+        dbus.PutSchemaData("Tab1", inserts.Join(""));
+        WVPASSEQ(dbus.GetSchemaData("Tab1"), inserts.Join(""));
     }
 
     [Test, Category("Schemamatic"), Category("DiskBackend")]
@@ -927,7 +808,7 @@ class SchemamaticTests : VersaplexTester
             tmpdirinfo.Create();
 
             // Check that having mangled checksums fails
-            VxSchema schema = VxGetSchema();
+            VxSchema schema = dbus.Get();
             VxSchemaChecksums sums = new VxSchemaChecksums();
 
             VxDiskSchema backend = new VxDiskSchema(tmpdir);
@@ -941,7 +822,7 @@ class SchemamaticTests : VersaplexTester
             }
 
             // Check that the normal exporting works.
-            sums = VxGetSchemaChecksums();
+            sums = dbus.GetChecksums();
             backend.Put(schema, sums, VxPutOpts.None);
 
             int backup_generation = 0;
@@ -1028,8 +909,8 @@ class SchemamaticTests : VersaplexTester
         {
             tmpdirinfo.Create();
 
-            VxSchema schema = VxGetSchema();
-            VxSchemaChecksums sums = VxGetSchemaChecksums();
+            VxSchema schema = dbus.Get();
+            VxSchemaChecksums sums = dbus.GetChecksums();
             VxDiskSchema backend = new VxDiskSchema(tmpdir);
             backend.Put(schema, sums, VxPutOpts.None);
 
@@ -1170,8 +1051,8 @@ class SchemamaticTests : VersaplexTester
         {
             tmpdirinfo.Create();
 
-            VxSchema origschema = VxGetSchema();
-            VxSchemaChecksums origsums = VxGetSchemaChecksums();
+            VxSchema origschema = dbus.Get();
+            VxSchemaChecksums origsums = dbus.GetChecksums();
             VxSchema newschema = new VxSchema(origschema);
             VxSchemaChecksums newsums = new VxSchemaChecksums(origsums);
 
@@ -1212,7 +1093,7 @@ class SchemamaticTests : VersaplexTester
             VxSchemaErrors errs = VxPutSchema(diffschema, no_opts);
             WVPASSEQ(errs.Count, 0);
 
-            VxSchema updated = VxGetSchema();
+            VxSchema updated = dbus.Get();
             WVASSERT(!updated.ContainsKey("XMLSchema/TestSchema"));
             WVPASSEQ(updated["Index/Tab1/Idx1"].text, 
                 newschema["Index/Tab1/Idx1"].text);
@@ -1249,7 +1130,7 @@ class SchemamaticTests : VersaplexTester
             "\t[f4] [binary] (1) NOT NULL);\n\n";
         WVASSERT(VxExec(tab2q));
 
-        VxSchema schema = VxGetSchema();
+        VxSchema schema = dbus.Get();
         VxPutOpts no_opts = VxPutOpts.None;
         VxSchemaErrors errs = VxPutSchema(schema, no_opts);
 

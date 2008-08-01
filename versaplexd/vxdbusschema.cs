@@ -26,7 +26,11 @@ internal class VxDbusSchema : ISchemaBackend
         bus = _bus;
     }
 
+    // 
     // The ISchema interface
+    //
+
+    // Note: this implementation ignores the sums.
     public VxSchemaErrors Put(VxSchema schema, VxSchemaChecksums sums, 
         VxPutOpts opts)
     {
@@ -64,11 +68,6 @@ internal class VxDbusSchema : ISchemaBackend
 
             MessageReader reader = new MessageReader(reply);
             VxSchemaErrors errors = new VxSchemaErrors(reader);
-            // FIXME
-            /* 
-            if (errors.Count > 0)
-                WVASSERT(reply.Header.MessageType == MessageType.Error);
-            */
 
             return errors;
         }
@@ -78,13 +77,13 @@ internal class VxDbusSchema : ISchemaBackend
         }
     }
 
-    public VxSchema Get(IEnumerable<string> keys)
+    public VxSchema Get(params string[] keys)
     {
         Message call = CreateMethodCall("GetSchema", "as");
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
-        writer.Write(typeof(string[]), (Array)keys.ToArray());
+        writer.Write(typeof(string[]), (Array)keys);
         call.Body = writer.ToArray();
 
         Message reply = call.Connection.SendWithReplyAndBlock(call);
@@ -111,6 +110,11 @@ internal class VxDbusSchema : ISchemaBackend
             throw new Exception("D-Bus response was not a method return or "
                     +"error");
         }
+    }
+
+    public VxSchema Get(IEnumerable<string> keys)
+    {
+        return Get(keys.ToArray());
     }
 
     public VxSchemaChecksums GetChecksums()
@@ -141,6 +145,114 @@ internal class VxDbusSchema : ISchemaBackend
         default:
             throw new Exception("D-Bus response was not a method return or " +
                     "error");
+        }
+    }
+
+    //
+    // Non-ISchemaBackend methods
+    //
+
+    // A method exported over DBus but not exposed in ISchemaBackend
+    public void DropSchema(string type, string name)
+    {
+        Message call = CreateMethodCall("DropSchema", "ss");
+
+        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+
+        writer.Write(typeof(string), type);
+        writer.Write(typeof(string), name);
+        call.Body = writer.ToArray();
+
+        Message reply = call.Connection.SendWithReplyAndBlock(call);
+        Console.WriteLine("Got reply");
+
+        switch (reply.Header.MessageType) {
+        case MessageType.MethodReturn:
+        {
+            object replysig;
+            if (reply.Header.Fields.TryGetValue(FieldCode.Signature,
+                        out replysig))
+                throw new Exception("D-Bus reply had unexpected signature" + 
+                    replysig);
+
+            return;
+        }
+        case MessageType.Error:
+            throw VxDbusUtils.GetDbusException(reply);
+        default:
+            throw new Exception("D-Bus response was not a method return or "
+                    + "error");
+        }
+    }
+    
+    // A method exported over DBus but not exposed in ISchemaBackend
+    public string GetSchemaData(string tablename)
+    {
+        Message call = CreateMethodCall("GetSchemaData", "s");
+
+        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+
+        writer.Write(typeof(string), tablename);
+        call.Body = writer.ToArray();
+
+        Message reply = call.Connection.SendWithReplyAndBlock(call);
+        Console.WriteLine("Got reply");
+
+        switch (reply.Header.MessageType) {
+        case MessageType.MethodReturn:
+        {
+            object replysig;
+            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
+                        out replysig))
+                throw new Exception("D-Bus reply had no signature");
+
+            if (replysig == null || replysig.ToString() != "s")
+                throw new Exception("D-Bus reply had invalid signature: " +
+                    replysig);
+
+            MessageReader reader = new MessageReader(reply);
+            string schemadata;
+            reader.GetValue(out schemadata);
+            return schemadata;
+        }
+        case MessageType.Error:
+            throw VxDbusUtils.GetDbusException(reply);
+        default:
+            throw new Exception("D-Bus response was not a method return or "
+                    +"error");
+        }
+    }
+
+    // A method exported over DBus but not exposed in ISchemaBackend
+    public void PutSchemaData(string tablename, string text)
+    {
+        Message call = CreateMethodCall("PutSchemaData", "ss");
+
+        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+
+        writer.Write(tablename);
+        writer.Write(text);
+        call.Body = writer.ToArray();
+
+        Message reply = call.Connection.SendWithReplyAndBlock(call);
+        Console.WriteLine("Got reply");
+
+        switch (reply.Header.MessageType) {
+        case MessageType.MethodReturn:
+        {
+            object replysig;
+            if (reply.Header.Fields.TryGetValue(FieldCode.Signature,
+                        out replysig))
+                throw new Exception("D-Bus reply had unexpected signature" + 
+                    replysig);
+
+            return;
+        }
+        case MessageType.Error:
+            throw VxDbusUtils.GetDbusException(reply);
+        default:
+            throw new Exception("D-Bus response was not a method return or "
+                    +"error");
         }
     }
 
