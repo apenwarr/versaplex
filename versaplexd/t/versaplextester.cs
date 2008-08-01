@@ -13,14 +13,6 @@ using NDesk.DBus;
 
 public class VersaplexTester: IDisposable
 {
-    private const string DbusConnName = "vx.versaplexd";
-    private const string DbusInterface = "vx.db";
-    private static readonly ObjectPath DbusObjPath;
-    
-    static VersaplexTester() {
-        DbusObjPath = new ObjectPath("/db");
-    }
-
     // A file full of "lorem ipsum dolor" text
     private const string lipsum_file = "lipsum.txt";
     // A UTF-8 test file
@@ -32,7 +24,7 @@ public class VersaplexTester: IDisposable
 
     SqlConnection con;
     SqlCommand cmd;
-    Bus bus;
+    protected Bus bus;
 
     public VersaplexTester()
     {
@@ -138,42 +130,11 @@ public class VersaplexTester: IDisposable
 	return true;
     }
 
-    // Create a method call using the default connection, object path, and
-    // interface; this lets subclasses call new methods without access to
-    // those private variables.
-    protected Message CreateMethodCall(string member, string signature)
-    {
-        return CreateMethodCall(DbusConnName, DbusObjPath, 
-            DbusInterface, member, signature);
-    }
-
-    protected Message CreateMethodCall(string destination, ObjectPath path,
-            string iface, string member, string signature)
-    {
-        Message msg = new Message();
-        msg.Connection = bus;
-        msg.Header.MessageType = MessageType.MethodCall;
-        msg.Header.Flags = HeaderFlag.None;
-        msg.Header.Fields[FieldCode.Path] = path;
-        msg.Header.Fields[FieldCode.Member] = member;
-
-        if (destination != null && destination != "")
-            msg.Header.Fields[FieldCode.Destination] = destination;
-        
-        if (iface != null && iface != "")
-            msg.Header.Fields[FieldCode.Interface] = iface;
-
-        if (signature != null && signature != "")
-            msg.Header.Fields[FieldCode.Signature] = new Signature(signature);
-
-        return msg;
-    }
-
     internal bool VxExec(string query)
     {
 	Console.WriteLine(" + VxExec SQL Query: {0}", query);
 
-        Message call = CreateMethodCall("ExecRecordset", "s");
+        Message call = VxDbusUtils.CreateMethodCall(bus, "ExecRecordset", "s");
 
         MessageWriter mw = new MessageWriter(Connection.NativeEndianness);
         mw.Write(typeof(string), query);
@@ -215,7 +176,7 @@ public class VersaplexTester: IDisposable
     {
 	Console.WriteLine(" + VxScalar SQL Query: {0}", query);
 
-        Message call = CreateMethodCall("ExecScalar", "s");
+        Message call = VxDbusUtils.CreateMethodCall(bus, "ExecScalar", "s");
 
         MessageWriter mw = new MessageWriter(Connection.NativeEndianness);
         mw.Write(typeof(string), query);
@@ -312,7 +273,7 @@ public class VersaplexTester: IDisposable
     {
 	Console.WriteLine(" + VxReader SQL Query: {0}", query);
 
-        Message call = CreateMethodCall("ExecRecordset", "s");
+        Message call = VxDbusUtils.CreateMethodCall(bus, "ExecRecordset", "s");
 
         MessageWriter mw = new MessageWriter(Connection.NativeEndianness);
         mw.Write(typeof(string), query);

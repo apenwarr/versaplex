@@ -15,103 +15,33 @@ using NDesk.DBus;
 [TestFixture]
 class SchemamaticTests : VersaplexTester
 {
-    Exception GetDbusException(Message reply)
+    VxDbusSchema dbus;
+
+    public SchemamaticTests()
     {
-        object errname;
-        if (!reply.Header.Fields.TryGetValue(FieldCode.ErrorName,
-                    out errname))
-            return new Exception("D-Bus error received but no error name "
-                    +"given");
-
-        object errsig;
-        if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                    out errsig) || errsig.ToString() != "s")
-            return new DbusError(errname.ToString());
-
-        MessageReader mr = new MessageReader(reply);
-
-        object errmsg;
-        mr.GetValue(typeof(string), out errmsg);
-
-        return new DbusError(errname.ToString() + ": " + errmsg.ToString());
+        dbus = new VxDbusSchema(bus);
     }
 
     VxSchemaChecksums VxGetSchemaChecksums()
     {
 	Console.WriteLine(" + VxGetSchemaChecksums");
 
-        Message call = CreateMethodCall("GetSchemaChecksums", "");
-
-        Message reply = call.Connection.SendWithReplyAndBlock(call);
-        Console.WriteLine("Got reply");
-
-        switch (reply.Header.MessageType) {
-        case MessageType.MethodReturn:
-        {
-            object replysig;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out replysig))
-                throw new Exception("D-Bus reply had no signature");
-
-            if (replysig == null || replysig.ToString() != "a(sat)")
-                throw new Exception("D-Bus reply had invalid signature: " +
-                    replysig);
-
-            MessageReader reader = new MessageReader(reply);
-            VxSchemaChecksums sums = new VxSchemaChecksums(reader);
-            return sums;
-        }
-        case MessageType.Error:
-            throw GetDbusException(reply);
-        default:
-            throw new Exception("D-Bus response was not a method return or "
-                    +"error");
-        }
+        return dbus.GetChecksums();
     }
 
     VxSchema VxGetSchema(params string[] names)
     {
 	Console.WriteLine(" + VxGetSchema");
 
-        Message call = CreateMethodCall("GetSchema", "as");
-
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
-
-        writer.Write(typeof(string[]), (Array)names);
-        call.Body = writer.ToArray();
-
-        Message reply = call.Connection.SendWithReplyAndBlock(call);
-        Console.WriteLine("Got reply");
-
-        switch (reply.Header.MessageType) {
-        case MessageType.MethodReturn:
-        {
-            object replysig;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out replysig))
-                throw new Exception("D-Bus reply had no signature");
-
-            if (replysig == null || replysig.ToString() != "a(sssy)")
-                throw new Exception("D-Bus reply had invalid signature: " +
-                    replysig);
-
-            MessageReader reader = new MessageReader(reply);
-            VxSchema schema = new VxSchema(reader);
-            return schema;
-        }
-        case MessageType.Error:
-            throw GetDbusException(reply);
-        default:
-            throw new Exception("D-Bus response was not a method return or "
-                    +"error");
-        }
+        return dbus.Get(names);
     }
     
+    // FIXME: Move to VxDbusSchema?
     void VxDropSchema(string type, string name)
     {
 	Console.WriteLine(" + VxDropSchema");
 
-        Message call = CreateMethodCall("DropSchema", "ss");
+        Message call = dbus.CreateMethodCall("DropSchema", "ss");
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
@@ -134,13 +64,14 @@ class SchemamaticTests : VersaplexTester
             return;
         }
         case MessageType.Error:
-            throw GetDbusException(reply);
+            throw VxDbusUtils.GetDbusException(reply);
         default:
             throw new Exception("D-Bus response was not a method return or "
                     + "error");
         }
     }
 
+    // Utility function to just put a single schema element.
     VxSchemaError VxPutSchema(string type, string name, string text, 
         VxPutOpts opts)
     {
@@ -165,56 +96,14 @@ class SchemamaticTests : VersaplexTester
     {
 	Console.WriteLine(" + VxPutSchema");
 
-        Message call = CreateMethodCall("PutSchema", 
-            String.Format("{0}i", VxSchema.GetDbusSignature()));
-
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
-
-        schema.WriteSchema(writer);
-        writer.Write(typeof(int), (int)opts);
-        call.Body = writer.ToArray();
-
-        Message reply = call.Connection.SendWithReplyAndBlock(call);
-        Console.WriteLine("Got reply");
-
-        switch (reply.Header.MessageType) {
-        case MessageType.MethodReturn:
-        case MessageType.Error:
-        {
-            object replysig;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out replysig))
-                throw new Exception("D-Bus reply had no signature.");
-
-            if (replysig == null)
-                throw new Exception("D-Bus reply had null signature");
-
-            // Some unexpected error
-            if (replysig.ToString() == "s")
-                throw GetDbusException(reply);
-
-            if (replysig.ToString() != "a(ssi)")
-                throw new Exception("D-Bus reply had invalid signature: " +
-                    replysig);
-
-            MessageReader reader = new MessageReader(reply);
-            VxSchemaErrors errors = new VxSchemaErrors(reader);
-            if (errors.Count > 0)
-                WVASSERT(reply.Header.MessageType == MessageType.Error);
-
-            return errors;
-        }
-        default:
-            throw new Exception("D-Bus response was not a method return or "
-                    +"error");
-        }
+        return dbus.Put(schema, null, opts);
     }
 
     string VxGetSchemaData(string tablename)
     {
 	Console.WriteLine(" + VxGetSchemaData");
 
-        Message call = CreateMethodCall("GetSchemaData", "s");
+        Message call = dbus.CreateMethodCall("GetSchemaData", "s");
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
@@ -242,7 +131,7 @@ class SchemamaticTests : VersaplexTester
             return schemadata;
         }
         case MessageType.Error:
-            throw GetDbusException(reply);
+            throw VxDbusUtils.GetDbusException(reply);
         default:
             throw new Exception("D-Bus response was not a method return or "
                     +"error");
@@ -253,7 +142,7 @@ class SchemamaticTests : VersaplexTester
     {
 	Console.WriteLine(" + VxPutSchemaData");
 
-        Message call = CreateMethodCall("PutSchemaData", "ss");
+        Message call = dbus.CreateMethodCall("PutSchemaData", "ss");
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
@@ -276,7 +165,7 @@ class SchemamaticTests : VersaplexTester
             return;
         }
         case MessageType.Error:
-            throw GetDbusException(reply);
+            throw VxDbusUtils.GetDbusException(reply);
         default:
             throw new Exception("D-Bus response was not a method return or "
                     +"error");
