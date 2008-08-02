@@ -645,60 +645,12 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
-        VxSchemaChecksums sums = new VxSchemaChecksums();
-
-        foreach (string type in Schemamatic.ProcedureTypes)
-        {
-            if (type == "Procedure")
-            {
-                // Set up self test
-                object result;
-                VxDb.ExecScalar(clientid, "create procedure " + 
-                    "schemamatic_checksum_test as print 'hello' ", out result);
-            }
-
-            Schemamatic.GetProcChecksums(sums, clientid, type, 0);
-
-            if (type == "Procedure")
-            {
-                object result;
-                VxDb.ExecScalar(clientid, 
-                    "drop procedure schemamatic_checksum_test", out result);
-
-                // Self-test the checksum feature.  If mssql's checksum
-                // algorithm changes, we don't want to pretend our checksum
-                // list makes any sense!
-                string test_csum_label = "Procedure/schemamatic_checksum_test";
-                ulong got_csum = 0;
-                if (sums.ContainsKey(test_csum_label))
-                    got_csum = sums[test_csum_label].checksums[0];
-                ulong want_csum = 0x173d6ee8;
-                if (want_csum != got_csum)
-                {
-                    reply = VxDbus.CreateError(
-                        "org.freedesktop.DBus.Error.Failed",
-                        String.Format("checksum_test mismatch! {0} != {1}", 
-                            got_csum, want_csum), call);
-                    return;
-                }
-                sums.Remove(test_csum_label);
-            }
-
-            Schemamatic.GetProcChecksums(sums, clientid, type, 1);
-        }
-
-        // Do tables separately
-        Schemamatic.GetTableChecksums(sums, clientid);
-
-        // Do indexes separately
-        Schemamatic.GetIndexChecksums(sums, clientid);
-
-        // Do XML schema collections separately (FIXME: only if SQL2005)
-        Schemamatic.GetXmlSchemaChecksums(sums, clientid);
-
         // FIXME: Add vx.db.toomuchdata error
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
+        ISchemaBackend backend = new VxDbSchema(
+            VxSqlPool.GetConnInfoFromConnId(clientid).ConnectionString);
+        VxSchemaChecksums sums = backend.GetChecksums();
         sums.WriteChecksums(writer);
 
         reply = VxDbus.CreateReply(call, 
@@ -779,7 +731,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 
         if (proc_names.Count > 0 || all_names.Count == 0)
         {
-            foreach (string type in Schemamatic.ProcedureTypes)
+            foreach (string type in VxDbSchema.ProcedureTypes)
             {
                 Schemamatic.RetrieveProcSchemas(schema, proc_names, 
                     clientid, type, 0);
@@ -830,7 +782,9 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         mr.GetValue(out type);
         mr.GetValue(out name);
 
-        Schemamatic.DropSchema(clientid, type, name);
+        VxDbSchema backend = new VxDbSchema(
+            VxSqlPool.GetConnInfoFromConnId(clientid).ConnectionString);
+        backend.DropSchema(type, name);
 
         reply = VxDbus.CreateReply(call);
     }
@@ -858,8 +812,9 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         VxSchema schema = new VxSchema(mr);
         mr.GetValue(out opts);
 
-        VxSchemaErrors errs = 
-            Schemamatic.PutSchema(clientid, schema, (VxPutOpts)opts);
+        VxDbSchema backend = new VxDbSchema(
+            VxSqlPool.GetConnInfoFromConnId(clientid).ConnectionString);
+        VxSchemaErrors errs = backend.Put(schema, null, (VxPutOpts)opts);
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
         VxSchemaErrors.WriteErrors(writer, errs);

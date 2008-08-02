@@ -65,7 +65,7 @@ schemamatic.t.exe: schemamatic.t.cs.E versaplextester.cs.E dbuserror.cs \
 	../vxcolumninfo.cs ../vxdbusdatetime.cs ../vxschemachecksums.cs \
 	../vxschema.cs ../vxschemachecksums.cs ../vxschemaerrors.cs \
 	../ischemabackend.cs ../vxdiskschema.cs ../vxdbusschema.cs \
-	../vxdbusutils.cs \
+	../vxdbschema.cs ../vxdbusutils.cs ../vxexceptions.cs \
 	../wv.dll ../NDesk.DBus.dll
 
 %.o: %.cc

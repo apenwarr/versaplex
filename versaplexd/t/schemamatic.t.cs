@@ -481,10 +481,10 @@ class SchemamaticTests : VersaplexTester
         WVASSERT(sums.ContainsKey("Table/Tab2"));
         WVASSERT(sums.ContainsKey("XMLSchema/TestSchema"));
 
-        VxDropSchema("Index", "Tab1/Idx1");
-        VxDropSchema("Procedure", "Func1");
-        VxDropSchema("Table", "Tab2");
-        VxDropSchema("XMLSchema", "TestSchema");
+        dbus.DropSchema("Index", "Tab1/Idx1");
+        dbus.DropSchema("Procedure", "Func1");
+        dbus.DropSchema("Table", "Tab2");
+        dbus.DropSchema("XMLSchema", "TestSchema");
 
         sums = dbus.GetChecksums();
 
@@ -495,7 +495,7 @@ class SchemamaticTests : VersaplexTester
         WVASSERT(!sums.ContainsKey("XMLSchema/TestSchema"));
 
         try {
-            WVEXCEPT(VxDropSchema("Procedure", "Func1"));
+            WVEXCEPT(dbus.DropSchema("Procedure", "Func1"));
         } catch (Wv.Test.WvAssertionFailure e) {
             throw e;
         } catch (System.Exception e) {

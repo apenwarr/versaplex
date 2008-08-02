@@ -14,7 +14,7 @@ public static class VxSqlPool
 	inifile = new WvIni(filepath);
     }
 
-    private static SqlConnectionStringBuilder GetConnInfoFromConnId(
+    public static SqlConnectionStringBuilder GetConnInfoFromConnId(
         string connid)
     {
         SqlConnectionStringBuilder conStr = new SqlConnectionStringBuilder();

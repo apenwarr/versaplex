@@ -12,7 +12,7 @@ tests: all t/all
 versaplexd.exe: versaplexd.cs \
     dodgytransport.cs ischemabackend.cs PriorityQueue.cs schemamatic.cs \
     vxapi.cs vxbufferstream.cs \
-    vxcolumninfo.cs vxdbus.cs vxdbusdatetime.cs \
+    vxcolumninfo.cs vxdbus.cs vxdbusdatetime.cs vxdbschema.cs \
     vxevent.cs vxeventloop.cs vxexceptions.cs vxnotifysocket.cs \
     vxschema.cs vxschemachecksums.cs vxschemaerrors.cs vxsocket.cs \
     vxsqlpool.cs wvdbusserver.cs \
