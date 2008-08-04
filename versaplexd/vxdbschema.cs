@@ -168,10 +168,9 @@ internal class VxDbSchema : ISchemaBackend
     // FIXME: An alarming duplicate of VxDb.ExecScalar.
     private object SqlExecScalar(string query)
     {
-        SqlConnection conn = null;
         try
         {
-            conn = GetConnection();
+            using (SqlConnection conn = GetConnection())
             using (SqlCommand cmd = conn.CreateCommand())
             {
                 cmd.CommandText = query;
@@ -182,20 +181,15 @@ internal class VxDbSchema : ISchemaBackend
         {
             throw new VxSqlException(e.Message, e);
         }
-        finally
-        {
-            ReleaseConnection(conn);
-        }
     }
 
     // Like VxDb.ExecRecordset, except we don't care about colinfo or nullity
     private object[][] SqlExecRecordset(string query)
     {
         List<object[]> result = new List<object[]>();
-        SqlConnection conn = null;
         try
         {
-            conn = GetConnection();
+            using (SqlConnection conn = GetConnection())
             using (SqlCommand cmd = new SqlCommand(query, conn))
             using (SqlDataReader reader = cmd.ExecuteReader())
             {
@@ -210,10 +204,6 @@ internal class VxDbSchema : ISchemaBackend
         catch (SqlException e)
         {
             throw new VxSqlException(e.Message, e);
-        }
-        finally
-        {
-            ReleaseConnection(conn);
         }
 
         return result.ToArray();
