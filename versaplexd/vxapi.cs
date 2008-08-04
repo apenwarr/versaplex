@@ -1,6 +1,6 @@
 using System;
+using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Data;
 using System.Data.SqlClient;
 using System.Collections.Generic;
@@ -661,17 +661,6 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         VxDbus.MessageDump(" >> ", reply);
     }
 
-    // Escape the schema element names supplied, to make sure they don't have
-    // evil characters.
-    private static string EscapeSchemaElementName(string name)
-    {
-        // Replace any nasty non-ASCII characters with an !
-        string escaped = Regex.Replace(name, "[^\\p{IsBasicLatin}]", "!");
-
-        // Escape quote marks
-        return escaped.Replace("'", "''");
-    }
-
     private static void CallGetSchema(Message call, out Message reply)
     {
         if (call.Signature.ToString() != "as") {
@@ -689,65 +678,13 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         }
 
         Array names_untyped;
-        List<string> all_names = new List<string>();
-        List<string> proc_names = new List<string>();
-        List<string> xml_names = new List<string>();
-        List<string> tab_names = new List<string>();
-        List<string> idx_names = new List<string>();
 
         MessageReader mr = new MessageReader(call);
         mr.GetValue(typeof(string[]), out names_untyped);
-        foreach (object nameobj in names_untyped)
-        {
-            string fullname = EscapeSchemaElementName((string)nameobj);
-            Console.WriteLine("CallGetSchema: Read name " + fullname);
-            all_names.Add(fullname);
 
-            string[] parts = fullname.Split(new char[] {'/'}, 2);
-            if (parts.Length == 2)
-            {
-                string type = parts[0];
-                string name = parts[1];
-                if (type == "Table")
-                    tab_names.Add(name);
-                else if (type == "Index")
-                    idx_names.Add(name);
-                else if (type == "XMLSchema")
-                    xml_names.Add(name);
-                else
-                    proc_names.Add(name);
-            }
-            else
-            {
-                // No type given, just try them all
-                proc_names.Add(fullname);
-                xml_names.Add(fullname);
-                tab_names.Add(fullname);
-                idx_names.Add(fullname);
-            }
-        }
-
-        VxSchema schema = new VxSchema();
-
-        if (proc_names.Count > 0 || all_names.Count == 0)
-        {
-            foreach (string type in VxDbSchema.ProcedureTypes)
-            {
-                Schemamatic.RetrieveProcSchemas(schema, proc_names, 
-                    clientid, type, 0);
-                Schemamatic.RetrieveProcSchemas(schema, proc_names, 
-                    clientid, type, 1);
-            }
-        }
-
-        if (idx_names.Count > 0 || all_names.Count == 0)
-            Schemamatic.RetrieveIndexSchemas(schema, idx_names, clientid);
-
-        if (xml_names.Count > 0 || all_names.Count == 0)
-            Schemamatic.RetrieveXmlSchemas(schema, xml_names, clientid);
-
-        if (tab_names.Count > 0 || all_names.Count == 0)
-            Schemamatic.RetrieveTableColumns(schema, tab_names, clientid);
+        VxDbSchema backend = new VxDbSchema(
+            VxSqlPool.GetConnInfoFromConnId(clientid).ConnectionString);
+        VxSchema schema = backend.Get(names_untyped.Cast<string>());
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 

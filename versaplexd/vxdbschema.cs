@@ -3,7 +3,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Wv;
+using Wv.Extensions;
 
 // An ISchemaBackend that uses a direct database connection as a backing
 // store.
@@ -85,10 +87,76 @@ internal class VxDbSchema : ISchemaBackend
         return errs.Count > 0 ? errs : null;
     }
 
-    // FIXME: NYI
+    // Escape the schema element names supplied, to make sure they don't have
+    // evil characters.
+    private static string EscapeSchemaElementName(string name)
+    {
+        // Replace any nasty non-ASCII characters with an !
+        string escaped = Regex.Replace(name, "[^\\p{IsBasicLatin}]", "!");
+
+        // Escape quote marks
+        return escaped.Replace("'", "''");
+    }
+
     public VxSchema Get(IEnumerable<string> keys)
     {
-        return new VxSchema();
+        List<string> all_names = new List<string>();
+        List<string> proc_names = new List<string>();
+        List<string> xml_names = new List<string>();
+        List<string> tab_names = new List<string>();
+        List<string> idx_names = new List<string>();
+
+        foreach (string key in keys)
+        {
+            string fullname = EscapeSchemaElementName(key);
+            Console.WriteLine("CallGetSchema: Read name " + fullname);
+            all_names.Add(fullname);
+
+            string[] parts = fullname.Split(new char[] {'/'}, 2);
+            if (parts.Length == 2)
+            {
+                string type = parts[0];
+                string name = parts[1];
+                if (type == "Table")
+                    tab_names.Add(name);
+                else if (type == "Index")
+                    idx_names.Add(name);
+                else if (type == "XMLSchema")
+                    xml_names.Add(name);
+                else
+                    proc_names.Add(name);
+            }
+            else
+            {
+                // No type given, just try them all
+                proc_names.Add(fullname);
+                xml_names.Add(fullname);
+                tab_names.Add(fullname);
+                idx_names.Add(fullname);
+            }
+        }
+
+        VxSchema schema = new VxSchema();
+
+        if (proc_names.Count > 0 || all_names.Count == 0)
+        {
+            foreach (string type in ProcedureTypes)
+            {
+                RetrieveProcSchemas(schema, proc_names, type, 0);
+                RetrieveProcSchemas(schema, proc_names, type, 1);
+            }
+        }
+
+        if (idx_names.Count > 0 || all_names.Count == 0)
+            RetrieveIndexSchemas(schema, idx_names);
+
+        if (xml_names.Count > 0 || all_names.Count == 0)
+            RetrieveXmlSchemas(schema, xml_names);
+
+        if (tab_names.Count > 0 || all_names.Count == 0)
+            RetrieveTableColumns(schema, tab_names);
+
+        return schema;
     }
 
     public VxSchemaChecksums GetChecksums()
@@ -197,6 +265,9 @@ internal class VxDbSchema : ISchemaBackend
                 {
                     object[] row = new object[reader.FieldCount];
                     reader.GetValues(row);
+                    for (int i = 0; i < reader.FieldCount; i++)
+                        if (reader.IsDBNull(i))
+                            row[i] = null;
                     result.Add(row);
                 }
             }
@@ -276,6 +347,8 @@ internal class VxDbSchema : ISchemaBackend
         if (elem.text != null && elem.text != "")
             SqlExecScalar(elem.text);
     }
+
+    // Functions used for GetSchemaChecksums
 
     internal void GetProcChecksums(VxSchemaChecksums sums, 
             string type, int encrypted)
@@ -466,6 +539,319 @@ internal class VxDbSchema : ISchemaBackend
             log.print("schemaname={0}, checksum={1}, key={2}\n", 
                 schemaname, checksum, key);
             sums.Add(key, checksum);
+        }
+    }
+
+    // Functions used for GetSchema
+
+    internal static string RetrieveProcSchemasQuery(string type, int encrypted, 
+        bool countonly, List<string> names)
+    {
+        string name_q = names.Count > 0 
+            ? " and object_name(id) in ('" + names.Join("','") + "')"
+            : "";
+
+        string textcol = encrypted > 0 ? "ctext" : "text";
+        string cols = countonly 
+            ? "count(*)"
+            : "object_name(id), colid, " + textcol + " ";
+
+        return "select " + cols + " from syscomments " + 
+            "where objectproperty(id, 'Is" + type + "') = 1 " + 
+                "and encrypted = " + encrypted + name_q;
+    }
+
+    internal void RetrieveProcSchemas(VxSchema schema, List<string> names, 
+        string type, int encrypted)
+    {
+        string query = RetrieveProcSchemasQuery(type, encrypted, false, names);
+        log.print("Query={0}\n", query);
+
+        object[][] data = SqlExecRecordset(query);
+
+        int num = 0;
+        int total = data.Length;
+        foreach (object[] row in data)
+        {
+            num++;
+            string name = (string)row[0];
+            short colid = (short)row[1];
+            string text;
+            if (encrypted > 0)
+            {
+                byte[] bytes = row[2] == null ?  new byte[0] : (byte[])row[2];
+                // BitConverter.ToString formats the bytes as "01-23-cd-ef", 
+                // but we want to have them as just straight "0123cdef".
+                text = System.BitConverter.ToString(bytes);
+                text = text.Replace("-", "");
+                log.print("bytes.Length = {0}, text={1}\n", bytes.Length, text);
+            }
+            else
+                text = (string)row[2];
+
+
+            // Skip dt_* functions and sys_* views
+            if (name.StartsWith("dt_") || name.StartsWith("sys_"))
+                continue;
+
+            log.print("{0}/{1} {2}{3}/{4} #{5}\n", num, total, type, 
+                encrypted > 0 ? "-Encrypted" : "", name, colid);
+            // Fix characters not allowed in filenames
+            name.Replace('/', '!');
+            name.Replace('\n', '!');
+
+            schema.Add(name, type, text, encrypted > 0);
+        }
+        log.print("{0}/{1} {2}{3} done\n", num, total, type, 
+            encrypted > 0 ? "-Encrypted" : "");
+    }
+
+    internal void RetrieveIndexSchemas(VxSchema schema, List<string> names)
+    {
+        string idxnames = (names.Count > 0) ? 
+            "and ((object_name(i.object_id)+'/'+i.name) in ('" + 
+                names.Join("','") + "'))"
+            : "";
+
+        string query = @"
+          select 
+           convert(varchar(128), object_name(i.object_id)) tabname,
+           convert(varchar(128), i.name) idxname,
+           convert(int, i.type) idxtype,
+           convert(int, i.is_unique) idxunique,
+           convert(int, i.is_primary_key) idxprimary,
+           convert(varchar(128), c.name) colname,
+           convert(int, ic.index_column_id) colid,
+           convert(int, ic.is_descending_key) coldesc
+          from sys.indexes i
+          join sys.index_columns ic
+             on ic.object_id = i.object_id
+             and ic.index_id = i.index_id
+          join sys.columns c
+             on c.object_id = i.object_id
+             and c.column_id = ic.column_id
+          where object_name(i.object_id) not like 'sys%' 
+            and object_name(i.object_id) not like 'queue_%' " + 
+            idxnames + 
+          @" order by i.name, i.object_id, ic.index_column_id";
+
+        object[][] data = SqlExecRecordset(query);
+
+        int old_colid = 0;
+        List<string> cols = new List<string>();
+        for (int ii = 0; ii < data.Length; ii++)
+        {
+            object[] row = data[ii];
+
+            string tabname = (string)row[0];
+            string idxname = (string)row[1];
+            int idxtype = (int)row[2];
+            int idxunique = (int)row[3];
+            int idxprimary = (int)row[4];
+            string colname = (string)row[5];
+            int colid = (int)row[6];
+            int coldesc = (int)row[7];
+
+            // Check that we're getting the rows in order.
+            wv.assert(colid == old_colid + 1 || colid == 1);
+            old_colid = colid;
+
+            cols.Add(coldesc == 0 ? colname : colname + " DESC");
+
+            object[] nextrow = ((ii+1) < data.Length) ? data[ii+1] : null;
+            string next_tabname = (nextrow != null) ? (string)nextrow[0] : null;
+            string next_idxname = (nextrow != null) ? (string)nextrow[1] : null;
+            
+            // If we've finished reading the columns for this index, add the
+            // index to the schema.  Note: depends on the statement's ORDER BY.
+            if (tabname != next_tabname || idxname != next_idxname)
+            {
+                string colstr = cols.Join(",");
+                string indexstr;
+                if (idxprimary != 0)
+                {
+                    indexstr = String.Format(
+                        "ALTER TABLE [{0}] ADD CONSTRAINT [{1}] PRIMARY KEY{2}\n" + 
+                        "\t({3});\n\n", 
+                        tabname,
+                        idxname,
+                        (idxtype == 1 ? " CLUSTERED" : " NONCLUSTERED"),
+                        colstr);
+                }
+                else
+                {
+                    indexstr = String.Format(
+                        "CREATE {0}{1}INDEX [{2}] ON [{3}] \n\t({4});\n\n",
+                        (idxunique != 0 ? "UNIQUE " : ""),
+                        (idxtype == 1 ? "CLUSTERED " : ""),
+                        idxname,
+                        tabname,
+                        colstr);
+                }
+                schema.Add(tabname + "/" + idxname, "Index", indexstr, false);
+                cols.Clear();
+            }
+        }
+    }
+
+    internal static string XmlSchemasQuery(int count, List<string> names)
+    {
+        int start = count * 4000;
+
+        string namestr = (names.Count > 0) ? 
+            "and xsc.name in ('" + names.Join("','") + "')"
+            : "";
+
+        string query = @"select sch.name owner,
+           xsc.name sch, 
+           cast(substring(
+                 cast(XML_Schema_Namespace(sch.name,xsc.name) as varchar(max)), 
+                 " + start + @", 4000) 
+            as varchar(4000)) contents
+          from sys.xml_schema_collections xsc 
+          join sys.schemas sch on xsc.schema_id = sch.schema_id
+          where sch.name <> 'sys'" + 
+            namestr + 
+          @" order by sch.name, xsc.name";
+
+        return query;
+    }
+
+    internal void RetrieveXmlSchemas(VxSchema schema, List<string> names)
+    {
+        bool do_again = true;
+        for (int count = 0; do_again; count++)
+        {
+            do_again = false;
+            string query = XmlSchemasQuery(count, names);
+
+            object[][] data = SqlExecRecordset(query);
+
+            foreach (object[] row in data)
+            {
+                string owner = (string)row[0];
+                string name = (string)row[1];
+                string contents = (string)row[2];
+
+                if (contents == "")
+                    continue;
+
+                do_again = true;
+
+                if (count == 0)
+                    schema.Add(name, "XMLSchema", String.Format(
+                        "CREATE XML SCHEMA COLLECTION [{0}].[{1}] AS '", 
+                        owner, name), false);
+
+                schema.Add(name, "XMLSchema", contents, false);
+            }
+        }
+
+        // Close the quotes on all the XMLSchemas
+        foreach (KeyValuePair<string, VxSchemaElement> p in schema)
+        {
+            if (p.Value.type == "XMLSchema")
+                p.Value.text += "'\n";
+        }
+    }
+
+    internal void RetrieveTableColumns(VxSchema schema, List<string> names)
+    {
+        string tablenames = (names.Count > 0 
+            ? "and t.name in ('" + names.Join("','") + "')"
+            : "");
+
+        string query = @"select t.name tabname,
+	   c.name colname,
+	   typ.name typename,
+	   c.length len,
+	   c.xprec xprec,
+	   c.xscale xscale,
+	   def.text defval,
+	   c.isnullable nullable,
+	   columnproperty(t.id, c.name, 'IsIdentity') isident,
+	   ident_seed(t.name) ident_seed, ident_incr(t.name) ident_incr
+	  from sysobjects t
+	  join syscolumns c on t.id = c.id 
+	  join systypes typ on c.xtype = typ.xtype
+	  left join syscomments def on def.id = c.cdefault
+	  where t.xtype = 'U'
+	    and typ.name <> 'sysname' " + 
+	    tablenames + @"
+	  order by tabname, c.colorder, typ.status";
+
+        object[][] data = SqlExecRecordset(query);
+
+        List<string> cols = new List<string>();
+        for (int ii = 0; ii < data.Length; ii++)
+        {
+            object[] row = data[ii];
+
+            string tabname = (string)row[0];
+            string colname = (string)row[1];
+            string typename = (string)row[2];
+            short len = (short)row[3];
+            byte xprec = (byte)row[4];
+            byte xscale = (byte)row[5];
+            string defval = row[6] == null ? "" : (string)row[6];
+            int isnullable = (int)row[7];
+            int isident = (int)row[8];
+            string ident_seed = row[9] == null ? null : 
+                ((Decimal)row[9]).ToString();
+            string ident_incr = row[10] == null ? null : 
+                ((Decimal)row[10]).ToString();
+
+            if (isident == 0)
+                ident_seed = ident_incr = null;
+
+            string lenstr = "";
+            if (typename.EndsWith("nvarchar") || typename.EndsWith("nchar"))
+            {
+                if (len == -1)
+                    lenstr = "(max)";
+                else
+                {
+                    len /= 2;
+                    lenstr = String.Format("({0})", len);
+                }
+            }
+            else if (typename.EndsWith("char") || typename.EndsWith("binary"))
+            {
+                lenstr = (len == -1 ? "(max)" : String.Format("({0})", len));
+            }
+            else if (typename.EndsWith("decimal") || 
+                typename.EndsWith("numeric") || typename.EndsWith("real"))
+            {
+                lenstr = String.Format("({0},{1})", xprec,xscale);
+            }
+
+            if (defval != null && defval != "")
+            {
+                // MSSQL returns default values wrapped in ()s
+                if (defval[0] == '(' && defval[defval.Length - 1] == ')')
+                    defval = defval.Substring(1, defval.Length - 2);
+            }
+
+            cols.Add(String.Format("[{0}] [{1}]{2}{3}{4}{5}",
+                colname, typename, 
+                ((lenstr != "") ? " " + lenstr : ""),
+                ((defval != "") ? " DEFAULT " + defval : ""),
+                ((isnullable != 0) ? " NULL" : " NOT NULL"),
+                ((isident != 0) ?  String.Format(
+                    " IDENTITY({0},{1})", ident_seed, ident_incr) :
+                    "")));
+
+            string next_tabname = ((ii+1) < data.Length ? 
+                (string)data[ii+1][0] : null);
+            if (tabname != next_tabname)
+            {
+                string tablestr = String.Format(
+                    "CREATE TABLE [{0}] (\n\t{1});\n\n",
+                    tabname, cols.Join(",\n\t"));
+                schema.Add(tabname, "Table", tablestr, false);
+
+                cols.Clear();
+            }
         }
     }
 
