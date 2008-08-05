@@ -10,7 +10,7 @@ test: all t/test
 tests: all t/all
 
 versaplexd.exe: versaplexd.cs \
-    dodgytransport.cs ischemabackend.cs PriorityQueue.cs schemamatic.cs \
+    dodgytransport.cs ischemabackend.cs PriorityQueue.cs \
     vxapi.cs vxbufferstream.cs \
     vxcolumninfo.cs vxdbus.cs vxdbusdatetime.cs vxdbschema.cs \
     vxevent.cs vxeventloop.cs vxexceptions.cs vxnotifysocket.cs \

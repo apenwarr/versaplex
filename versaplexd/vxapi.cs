@@ -787,7 +787,9 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         MessageReader mr = new MessageReader(call);
         mr.GetValue(out tablename);
 
-        string schemadata = Schemamatic.GetSchemaData(clientid, tablename);
+        VxDbSchema backend = new VxDbSchema(
+            VxSqlPool.GetConnInfoFromConnId(clientid).ConnectionString);
+        string schemadata = backend.GetSchemaData(tablename);
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
         writer.Write(schemadata);
@@ -817,7 +819,9 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         mr.GetValue(out tablename);
         mr.GetValue(out text);
 
-        Schemamatic.PutSchemaData(clientid, tablename, text);
+        VxDbSchema backend = new VxDbSchema(
+            VxSqlPool.GetConnInfoFromConnId(clientid).ConnectionString);
+        backend.PutSchemaData(tablename, text);
 
         reply = VxDbus.CreateReply(call);
     }

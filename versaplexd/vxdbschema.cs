@@ -1,8 +1,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using Wv;
 using Wv.Extensions;
@@ -855,5 +857,75 @@ internal class VxDbSchema : ISchemaBackend
         }
     }
 
+    // Returns a blob of text that can be used with PutSchemaData to fill 
+    // the given table.
+    internal string GetSchemaData(string tablename)
+    {
+        string query = "SELECT * FROM " + tablename;
+
+        StringBuilder result = new StringBuilder();
+        List<string> values = new List<string>();
+        try
+        {
+            // We need to get type information too, so we can't just call
+            // SqlExecRecordset.  This duplicates some of VxDb.ExecRecordset.
+            using (SqlConnection conn = GetConnection())
+            using (SqlCommand cmd = new SqlCommand(query, conn))
+            using (SqlDataReader reader = cmd.ExecuteReader())
+            {
+                List<string> cols = new List<string>();
+                System.Type[] types = new System.Type[reader.FieldCount];
+                using (DataTable schema = reader.GetSchemaTable())
+                {
+                    for (int ii = 0; ii < schema.DefaultView.Count; ii++)
+                    {
+                        DataRowView col = schema.DefaultView[ii];
+                        cols.Add("[" + col["ColumnName"].ToString() + "]");
+                        types[ii] = (System.Type)col["DataType"];
+                    }
+                }
+
+                string prefix = String.Format("INSERT INTO {0} ({1}) VALUES (", 
+                    tablename, cols.Join(","));
+
+                while (reader.Read())
+                {
+                    values.Clear();
+                    for (int ii = 0; ii < reader.FieldCount; ii++)
+                    {
+                        bool isnull = reader.IsDBNull(ii);
+
+                        string elem = reader.GetValue(ii).ToString();
+                        if (isnull)
+                            values.Add("NULL");
+                        else if (types[ii] == typeof(System.String) || 
+                            types[ii] == typeof(System.DateTime))
+                        {
+                            // Double-quote chars for SQL safety
+                            string esc = elem.Replace("'", "''");
+                            values.Add("'" + esc + "'");
+                        }
+                        else
+                            values.Add(elem);
+                    }
+                    result.Append(prefix + values.Join(",") + ");\n");
+                }
+            }
+        }
+        catch (SqlException e)
+        {
+            throw new VxSqlException(e.Message, e);
+        }
+
+        return result.ToString();
+    }
+
+    // Delete all rows from the given table and replace them with the given
+    // data.  text is an opaque hunk of text returned from GetSchemaData.
+    internal void PutSchemaData(string tablename, string text)
+    {
+        SqlExecScalar(String.Format("DELETE FROM [{0}]", tablename));
+        SqlExecScalar(text);
+    }
 }
 
