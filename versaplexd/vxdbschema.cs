@@ -222,17 +222,14 @@ internal class VxDbSchema : ISchemaBackend
     // Non-ISchemaBackend methods
     //
 
+    // Note: You must call Close() or Finalize() on the returned object.  The
+    // easiest and most reliable way is to put it in a using() block, e.g. 
+    // using (SqlConnection conn = GetConnection()) { ... }
     private SqlConnection GetConnection()
     {
         SqlConnection con = new SqlConnection(connstr);
         con.Open();
         return con;
-    }
-
-    private void ReleaseConnection(SqlConnection conn)
-    {
-        if (conn != null)
-            conn.Close();
     }
 
     // FIXME: An alarming duplicate of VxDb.ExecScalar.
