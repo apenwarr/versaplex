@@ -14,6 +14,9 @@ internal interface ISchemaBackend
 
     // Gets the checksums for all elements from the backing store.
     VxSchemaChecksums GetChecksums();
+
+    // Removes the given element from the schema.
+    void DropSchema(string type, string name);
 }
 
 [Flags]

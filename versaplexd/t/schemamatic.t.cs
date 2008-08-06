@@ -512,6 +512,69 @@ class SchemamaticTests : VersaplexTester
         try { VxExec("drop procedure Func1"); } catch { }
     }
 
+    [Test, Category("Schemamatic"), Category("DropSchema")]
+    public void TestDropSchemaFromDisk()
+    {
+        string tmpdir = Path.Combine(Path.GetTempPath(), 
+            Path.GetRandomFileName());
+        Console.WriteLine("Using temporary directory " + tmpdir);
+        Directory.CreateDirectory(tmpdir);
+        try
+        {
+            VxDiskSchema backend = new VxDiskSchema(tmpdir);
+
+            VxSchema schema = new VxSchema();
+            schema.Add("Foo", "Table", "Foo contents", false);
+            schema.Add("Bar", "Table", "Bar contents", false);
+            schema.Add("Func1", "Procedure", "Func1 contents", false);
+
+            VxSchemaChecksums sums = new VxSchemaChecksums();
+            sums.Add("Table/Foo", 1);
+            sums.Add("Table/Bar", 2);
+            sums.Add("Procedure/Func1", 3);
+
+            backend.Put(schema, sums, VxPutOpts.None);
+
+            WVPASS(File.Exists(Path.Combine(tmpdir, "Table/Foo")));
+            WVPASS(File.Exists(Path.Combine(tmpdir, "Table/Bar")));
+            WVPASS(File.Exists(Path.Combine(tmpdir, "Procedure/Func1")));
+
+            VxSchema newschema = backend.Get(null);
+            VxSchemaChecksums newsums = backend.GetChecksums();
+
+            WVPASSEQ(newschema.Count, schema.Count);
+            WVPASSEQ(newsums.Count, sums.Count);
+            WVPASS(newschema.ContainsKey("Table/Foo"));
+            WVPASS(newschema.ContainsKey("Table/Bar"));
+            WVPASS(newschema.ContainsKey("Procedure/Func1"));
+
+            backend.DropSchema("Table", "Foo");
+
+            newschema = backend.Get(null);
+            newsums = backend.GetChecksums();
+            WVPASSEQ(newschema.Count, 2);
+            WVPASSEQ(newsums.Count, 2);
+            WVPASS(!newschema.ContainsKey("Table/Foo"));
+            WVPASS(newschema.ContainsKey("Table/Bar"));
+            WVPASS(newschema.ContainsKey("Procedure/Func1"));
+
+            backend.DropSchema("Procedure", "Func1");
+
+            newschema = backend.Get(null);
+            newsums = backend.GetChecksums();
+            WVPASSEQ(newschema.Count, 1);
+            WVPASSEQ(newsums.Count, 1);
+            WVPASS(!newschema.ContainsKey("Table/Foo"));
+            WVPASS(newschema.ContainsKey("Table/Bar"));
+            WVPASS(!newschema.ContainsKey("Procedure/Func1"));
+        }
+        finally
+        {
+            Directory.Delete(tmpdir, true);
+            WVPASS(!Directory.Exists(tmpdir));
+        }
+    }
+
     [Test, Category("Schemamatic"), Category("PutSchema")]
     public void TestPutSchema()
     {

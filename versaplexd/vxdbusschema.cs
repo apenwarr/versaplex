@@ -77,6 +77,7 @@ internal class VxDbusSchema : ISchemaBackend
         }
     }
 
+    // Utility API so you can say Get("foo").
     public VxSchema Get(params string[] keys)
     {
         Message call = CreateMethodCall("GetSchema", "as");
@@ -148,10 +149,6 @@ internal class VxDbusSchema : ISchemaBackend
         }
     }
 
-    //
-    // Non-ISchemaBackend methods
-    //
-
     // A method exported over DBus but not exposed in ISchemaBackend
     public void DropSchema(string type, string name)
     {
@@ -185,6 +182,10 @@ internal class VxDbusSchema : ISchemaBackend
         }
     }
     
+    //
+    // Non-ISchemaBackend methods
+    //
+
     // A method exported over DBus but not exposed in ISchemaBackend
     public string GetSchemaData(string tablename)
     {

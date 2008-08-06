@@ -13,6 +13,8 @@ using Wv.Extensions;
 // store.
 internal class VxDbSchema : ISchemaBackend
 {
+    static WvLog log = new WvLog("VxDbSchema", WvLog.L.Debug2);
+
     internal static string[] ProcedureTypes = new string[] { 
 //            "CheckCnst", 
 //            "Constraint",
@@ -38,11 +40,10 @@ internal class VxDbSchema : ISchemaBackend
         };
 
     string connstr;
-    WvLog log;
+
     public VxDbSchema(string _connstr)
     {
         connstr = _connstr;
-        log = new WvLog("VxDbSchema", WvLog.L.Debug2);
     }
 
     //
@@ -218,6 +219,14 @@ internal class VxDbSchema : ISchemaBackend
         return sums;
     }
 
+    // Deletes the named object in the database.
+    public void DropSchema(string type, string name)
+    {
+        string query = GetDropCommand(type, name);
+
+        SqlExecScalar(query);
+    }
+
     // 
     // Non-ISchemaBackend methods
     //
@@ -310,14 +319,6 @@ internal class VxDbSchema : ISchemaBackend
         }
 
         return String.Format("DROP {0} [{1}]", type, name);
-    }
-
-    // Deletes the named object in the database.
-    public void DropSchema(string type, string name)
-    {
-        string query = GetDropCommand(type, name);
-
-        SqlExecScalar(query);
     }
 
     // Replaces the named object in the database.  elem.text is a verbatim

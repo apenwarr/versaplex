@@ -10,6 +10,8 @@ using Wv.Extensions;
 // An ISchemaBackend that uses a directory on disk as a backing store.
 internal class VxDiskSchema : ISchemaBackend
 {
+    static WvLog log = new WvLog("VxDiskSchema", WvLog.L.Debug2);
+
     private string exportdir;
 
     public VxDiskSchema(string _exportdir)
@@ -69,6 +71,14 @@ internal class VxDiskSchema : ISchemaBackend
         VxSchemaChecksums sums = new VxSchemaChecksums();
         ReadExportedDir(null, sums);
         return sums;
+    }
+
+    public void DropSchema(string type, string name)
+    {
+        string fullpath = wv.PathCombine(exportdir, type, name);
+        log.print("Removing {0}\n", fullpath);
+        if (File.Exists(fullpath))
+            File.Delete(fullpath);
     }
 
     // Retrieves both the schema and its checksums from exportdir, and puts
