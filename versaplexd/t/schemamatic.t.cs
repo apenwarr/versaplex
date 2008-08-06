@@ -714,20 +714,26 @@ class SchemamaticTests : VersaplexTester
         Console.WriteLine("Using temporary directory " + tmpdir);
 
         Directory.CreateDirectory(tmpdir);
-        VxSchema schema = new VxSchema();
-        VxSchemaChecksums sums = new VxSchemaChecksums();
+        try 
+        {
+            VxSchema schema = new VxSchema();
+            VxSchemaChecksums sums = new VxSchemaChecksums();
 
-        // Check that exporting an empty schema doesn't touch anything.
-        VxDiskSchema backend = new VxDiskSchema(tmpdir);
-        backend.Put(schema, sums, VxPutOpts.None);
-        WVPASSEQ(Directory.GetDirectories(tmpdir).Length, 0);
-        WVPASSEQ(Directory.GetFiles(tmpdir).Length, 0);
-
-        Directory.Delete(tmpdir);
-        WVASSERT(!Directory.Exists(tmpdir));
+            // Check that exporting an empty schema doesn't touch anything.
+            VxDiskSchema backend = new VxDiskSchema(tmpdir);
+            backend.Put(schema, sums, VxPutOpts.None);
+            WVPASSEQ(Directory.GetDirectories(tmpdir).Length, 0);
+            WVPASSEQ(Directory.GetFiles(tmpdir).Length, 0);
+        }
+        finally
+        {
+            Directory.Delete(tmpdir);
+            WVASSERT(!Directory.Exists(tmpdir));
+        }
     }
 
-    private void CheckExportedFileContents(string filename, string header, string text)
+    private void CheckExportedFileContents(string filename, string header, 
+        string text)
     {
         WVPASS(File.Exists(filename));
         using (StreamReader sr = new StreamReader(filename))
