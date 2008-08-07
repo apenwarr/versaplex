@@ -84,6 +84,9 @@ internal class VxDbusSchema : ISchemaBackend
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
+        if (keys == null)
+            keys = new string[0];
+
         writer.Write(typeof(string[]), (Array)keys);
         call.Body = writer.ToArray();
 
@@ -115,6 +118,8 @@ internal class VxDbusSchema : ISchemaBackend
 
     public VxSchema Get(IEnumerable<string> keys)
     {
+        if (keys == null)
+            keys = new string[0];
         return Get(keys.ToArray());
     }
 
