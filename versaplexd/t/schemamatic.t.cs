@@ -880,9 +880,9 @@ class SchemamaticTests : VersaplexTester
             VxSchema schema = dbus.Get();
             VxSchemaChecksums sums = new VxSchemaChecksums();
 
-            VxDiskSchema backend = new VxDiskSchema(tmpdir);
+            VxDiskSchema disk = new VxDiskSchema(tmpdir);
             try {
-                WVEXCEPT(backend.Put(schema, sums, VxPutOpts.None));
+                WVEXCEPT(disk.Put(schema, sums, VxPutOpts.None));
             } catch (Wv.Test.WvAssertionFailure e) {
                 throw e;
             } catch (System.Exception e) {
@@ -892,18 +892,23 @@ class SchemamaticTests : VersaplexTester
 
             // Check that the normal exporting works.
             sums = dbus.GetChecksums();
-            backend.Put(schema, sums, VxPutOpts.None);
+            disk.Put(schema, sums, VxPutOpts.None);
 
             int backup_generation = 0;
             VerifyExportedSchema(tmpdir, schema, sums, 
                 func1q, tab1q, tab2q, idx1q, xmlq, backup_generation);
 
             // Check that we read back the same stuff
-            VxSchema schemafromdisk = backend.Get(null);
+            VxSchema schemafromdisk = disk.Get(null);
             foreach (KeyValuePair<string,VxSchemaElement> p in schema)
-                WVPASSEQ(schemafromdisk[p.Key].CompareTo(p.Value), 0);
+            {
+                WVPASSEQ(schemafromdisk[p.Key].type, p.Value.type);
+                WVPASSEQ(schemafromdisk[p.Key].name, p.Value.name);
+                WVPASSEQ(schemafromdisk[p.Key].text, p.Value.text);
+                WVPASSEQ(schemafromdisk[p.Key].encrypted, p.Value.encrypted);
+            }
 
-            VxSchemaChecksums sumsfromdisk = backend.GetChecksums();
+            VxSchemaChecksums sumsfromdisk = disk.GetChecksums();
 
             WVPASSEQ(sumsfromdisk.Count, sums.Count);
             foreach (KeyValuePair<string,VxSchemaChecksum> p in sums)
@@ -913,20 +918,20 @@ class SchemamaticTests : VersaplexTester
             }
 
             // Doing it twice doesn't change anything.
-            backend.Put(schema, sums, VxPutOpts.None);
+            disk.Put(schema, sums, VxPutOpts.None);
 
             VerifyExportedSchema(tmpdir, schema, sums, 
                 func1q, tab1q, tab2q, idx1q, xmlq, backup_generation);
 
             // Check backup mode
-            backend.Put(schema, sums, VxPutOpts.IsBackup);
+            disk.Put(schema, sums, VxPutOpts.IsBackup);
             backup_generation++;
 
             VerifyExportedSchema(tmpdir, schema, sums, 
                 func1q, tab1q, tab2q, idx1q, xmlq, backup_generation);
 
             // Check backup mode again
-            backend.Put(schema, sums, VxPutOpts.IsBackup);
+            disk.Put(schema, sums, VxPutOpts.IsBackup);
             backup_generation++;
 
             VerifyExportedSchema(tmpdir, schema, sums, 

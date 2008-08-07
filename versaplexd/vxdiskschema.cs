@@ -106,7 +106,7 @@ internal class VxDiskSchema : ISchemaBackend
                             wv.PathCombine(dir1.Name, dir2.Name, file.Name);
                         VxSchemaChecksum sum = new VxSchemaChecksum(key);
                         VxSchemaElement elem = new VxSchemaElement(
-                            wv.PathCombine(dir1.Name, dir2.Name), file.Name,
+                            dir1.Name, wv.PathCombine(dir2.Name, file.Name),
                             "", false);
                         ReadSchemaFile(file.FullName, elem, sum);
                         if (schema != null)
@@ -168,6 +168,10 @@ internal class VxDiskSchema : ISchemaBackend
         Encoding utf8 = Encoding.UTF8;
         string header = utf8.GetString(bytes, 0, ii).Replace("\r", "");
 
+        // Skip the newline
+        if (bytes[ii] == '\n')
+            ii++;
+
         // Read the body
         string body = utf8.GetString(bytes, ii, bytes.Length - ii);
         if (elem != null)
@@ -187,7 +191,6 @@ internal class VxDiskSchema : ISchemaBackend
             return false;
 
         // Compute the hash of the rest of the file
-        ii++;
         byte[] md5 = MD5.Create().ComputeHash(bytes, ii, 
             (int)fileinfo.Length - ii);
         string content_md5 = md5.ToHex();
