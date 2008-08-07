@@ -11,8 +11,9 @@ CFLAGS=-g -w \
 	-I$(WVSTREAMS)/include -I$(XPLC)/include \
 	-I/usr/include/postgresql
 CXXFLAGS=$(CFLAGS) -I$(BOOST)
+WVSTREAMS_STATIC=$(WVSTREAMS)/libwvstatic.a
 LIBS=\
-	$(WVSTREAMS)/libwvstatic.a \
+	$(WVSTREAMS_STATIC) \
 	$(DBUS)/libdbus-1.a \
 	$(OPENSSL)/libssl.a $(OPENSSL)/libcrypto.a \
 	$(XPLC)/libxplc-cxx.a $(XPLC)/libxplc.a -ldl \
@@ -23,7 +24,7 @@ LDFLAGS=-g
 
 all: wvdbusd.so vxodbc.so vxodbc-test.so test-linker
 
-wvdbusd.so: wvdbusd.o
+wvdbusd.so: wvdbusd.o $(WVSTREAMS_STATIC)
 	@echo Linking $@...
 	@$(CXX) -shared -o $@ \
 		$(LDFLAGS) \
@@ -34,7 +35,7 @@ wvdbusd.so: wvdbusd.o
 
 $(OBJS): configure config.h 
 
-vxodbc.so: $(OBJS)
+vxodbc.so: $(OBJS) $(WVSTREAMS_STATIC)
 	@echo Linking $@...
 	@$(CXX) -shared -o $@ \
 		$(LDFLAGS) \
