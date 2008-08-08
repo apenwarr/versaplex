@@ -1115,77 +1115,61 @@ class SchemamaticTests : VersaplexTester
         string xmlq = CreateXmlSchemaQuery();
         WVASSERT(VxExec(xmlq));
         
-        string tmpdir = Path.Combine(Path.GetTempPath(), 
-            Path.GetRandomFileName());
-        Console.WriteLine("Using temporary directory " + tmpdir);
+        VxSchema origschema = dbus.Get();
+        VxSchemaChecksums origsums = dbus.GetChecksums();
+        VxSchema newschema = new VxSchema(origschema);
+        VxSchemaChecksums newsums = new VxSchemaChecksums(origsums);
 
-        DirectoryInfo tmpdirinfo = new DirectoryInfo(tmpdir);
-        try
+        // Don't bother putting the data again if we're talking to dbus: 
+        // we already snuck it in the back door.
+        if (backend != dbus)
+            backend.Put(origschema, origsums, VxPutOpts.None);
+
+        VxSchemaChecksums diffsums = new VxSchemaChecksums(newsums);
+
+        newschema["Procedure/Func1"].text = func1q2;
+        newsums["Procedure/Func1"].checksums.Clear();
+        newsums["Procedure/Func1"].checksums.Add(123);
+        newsums.Remove("XMLSchema/TestSchema");
+        origsums.Remove("Index/Tab1/Idx1");
+
+        VxSchemaDiff diff = new VxSchemaDiff(origsums, newsums);
+        using (IEnumerator<KeyValuePair<string,VxDiffType>> iter = 
+            diff.GetEnumerator())
         {
-            tmpdirinfo.Create();
-
-            VxSchema origschema = dbus.Get();
-            VxSchemaChecksums origsums = dbus.GetChecksums();
-            VxSchema newschema = new VxSchema(origschema);
-            VxSchemaChecksums newsums = new VxSchemaChecksums(origsums);
-
-            // Don't bother putting the data again if we're talking to dbus: 
-            // we already snuck it in the back door.
-            if (backend != dbus)
-                backend.Put(origschema, origsums, VxPutOpts.None);
-
-            VxSchemaChecksums diffsums = new VxSchemaChecksums(newsums);
-
-            newschema["Procedure/Func1"].text = func1q2;
-            newsums["Procedure/Func1"].checksums.Clear();
-            newsums["Procedure/Func1"].checksums.Add(123);
-            newsums.Remove("XMLSchema/TestSchema");
-            origsums.Remove("Index/Tab1/Idx1");
-
-            VxSchemaDiff diff = new VxSchemaDiff(origsums, newsums);
-            using (IEnumerator<KeyValuePair<string,VxDiffType>> iter = 
-                diff.GetEnumerator())
-            {
-                WVPASS(iter.MoveNext());
-                WVPASSEQ(iter.Current.Key, "XMLSchema/TestSchema");
-                WVPASSEQ((char)iter.Current.Value, (char)VxDiffType.Remove);
-                WVPASS(iter.MoveNext());
-                WVPASSEQ(iter.Current.Key, "Index/Tab1/Idx1");
-                WVPASSEQ((char)iter.Current.Value, (char)VxDiffType.Add);
-                WVPASS(iter.MoveNext());
-                WVPASSEQ(iter.Current.Key, "Procedure/Func1");
-                WVPASSEQ((char)iter.Current.Value, (char)VxDiffType.Change);
-                WVFAIL(iter.MoveNext());
-            }
-
-            VxSchema diffschema = newschema.GetDiffElements(diff);
-            WVPASSEQ(diffschema["XMLSchema/TestSchema"].type, "XMLSchema");
-            WVPASSEQ(diffschema["XMLSchema/TestSchema"].name, "TestSchema");
-            WVPASSEQ(diffschema["XMLSchema/TestSchema"].text, "");
-            WVPASSEQ(diffschema["Index/Tab1/Idx1"].type, "Index");
-            WVPASSEQ(diffschema["Index/Tab1/Idx1"].name, "Tab1/Idx1");
-            WVPASSEQ(diffschema["Index/Tab1/Idx1"].text, idx1q);
-            WVPASSEQ(diffschema["Procedure/Func1"].type, "Procedure");
-            WVPASSEQ(diffschema["Procedure/Func1"].name, "Func1");
-            WVPASSEQ(diffschema["Procedure/Func1"].text, func1q2);
-
-            VxSchemaErrors errs = backend.Put(diffschema, diffsums, 
-                VxPutOpts.None);
-            WVPASSEQ(errs.Count, 0);
-
-            VxSchema updated = backend.Get(null);
-            WVASSERT(!updated.ContainsKey("XMLSchema/TestSchema"));
-            WVPASSEQ(updated["Index/Tab1/Idx1"].text, 
-                newschema["Index/Tab1/Idx1"].text);
-            WVPASSEQ(updated["Procedure/Func1"].text, 
-                newschema["Procedure/Func1"].text);
-            WVPASSEQ(updated["Table/Tab1"].text, newschema["Table/Tab1"].text);
+            WVPASS(iter.MoveNext());
+            WVPASSEQ(iter.Current.Key, "XMLSchema/TestSchema");
+            WVPASSEQ((char)iter.Current.Value, (char)VxDiffType.Remove);
+            WVPASS(iter.MoveNext());
+            WVPASSEQ(iter.Current.Key, "Index/Tab1/Idx1");
+            WVPASSEQ((char)iter.Current.Value, (char)VxDiffType.Add);
+            WVPASS(iter.MoveNext());
+            WVPASSEQ(iter.Current.Key, "Procedure/Func1");
+            WVPASSEQ((char)iter.Current.Value, (char)VxDiffType.Change);
+            WVFAIL(iter.MoveNext());
         }
-        finally
-        {
-            tmpdirinfo.Delete(true);
-            WVASSERT(!tmpdirinfo.Exists);
-        }
+
+        VxSchema diffschema = newschema.GetDiffElements(diff);
+        WVPASSEQ(diffschema["XMLSchema/TestSchema"].type, "XMLSchema");
+        WVPASSEQ(diffschema["XMLSchema/TestSchema"].name, "TestSchema");
+        WVPASSEQ(diffschema["XMLSchema/TestSchema"].text, "");
+        WVPASSEQ(diffschema["Index/Tab1/Idx1"].type, "Index");
+        WVPASSEQ(diffschema["Index/Tab1/Idx1"].name, "Tab1/Idx1");
+        WVPASSEQ(diffschema["Index/Tab1/Idx1"].text, idx1q);
+        WVPASSEQ(diffschema["Procedure/Func1"].type, "Procedure");
+        WVPASSEQ(diffschema["Procedure/Func1"].name, "Func1");
+        WVPASSEQ(diffschema["Procedure/Func1"].text, func1q2);
+
+        VxSchemaErrors errs = backend.Put(diffschema, diffsums, VxPutOpts.None);
+        WVPASSEQ(errs.Count, 0);
+
+        VxSchema updated = backend.Get(null);
+        WVASSERT(!updated.ContainsKey("XMLSchema/TestSchema"));
+        WVPASSEQ(updated["Index/Tab1/Idx1"].text, 
+            newschema["Index/Tab1/Idx1"].text);
+        WVPASSEQ(updated["Procedure/Func1"].text, 
+            newschema["Procedure/Func1"].text);
+        WVPASSEQ(updated["Table/Tab1"].text, newschema["Table/Tab1"].text);
 
         try { VxExec("drop index Tab1.Idx1"); } catch { }
         try { VxExec("drop table Tab1"); } catch { }
