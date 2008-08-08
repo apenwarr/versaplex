@@ -234,6 +234,8 @@ internal enum VxDiffType
     Change = '*'
 }
 
+// Figures out what changes are needed to convert srcsums to goalsums.
+//
 // FIXME: It might be nicer in the long term to just implement 
 // IEnumerable<...> or IDictionary<...> ourselves, and defer to
 // an internal member.  But it's a lot of boilerplate code.

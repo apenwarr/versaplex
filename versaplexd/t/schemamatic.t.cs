@@ -1296,6 +1296,81 @@ class SchemamaticTests : VersaplexTester
         try { VxExec("drop view View4"); } catch { }
     }
 
+    [Test, Category("Schemamatic"), Category("CopySchema")]
+    public void TestCopySchema()
+    {
+        try { VxExec("drop index Tab1.Idx1"); } catch { }
+        try { VxExec("drop table Tab1"); } catch { }
+        try { VxExec("drop table Tab2"); } catch { }
+        try { VxExec("drop xml schema collection TestSchema"); } catch { }
+        try { VxExec("drop procedure Func1"); } catch { }
+
+        string tab1q = "CREATE TABLE [Tab1] (\n" + 
+            "\t[f1] [int] NOT NULL PRIMARY KEY,\n" +
+            "\t[f2] [money] NULL,\n" + 
+            "\t[f3] [varchar] (80) NULL);\n\n";
+        WVASSERT(VxExec(tab1q));
+
+        string tab2q = "CREATE TABLE [Tab2] (\n" + 
+            "\t[f4] [binary] (1) NOT NULL);\n\n";
+        WVASSERT(VxExec(tab2q));
+
+	string idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
+	    "\t(f2,f3 DESC);\n\n";
+        WVASSERT(VxExec(idx1q));
+
+        string msg1 = "Hello, world, this is Func1!";
+        string msg2 = "Hello, world, this used to be Func1!";
+        string func1q = "create procedure Func1 as select '" + msg1 + "'\n";
+        string func1q2 = "create procedure Func1 as select '" + msg2 + "'\n";
+        WVASSERT(VxExec(func1q));
+
+        string xmlq = CreateXmlSchemaQuery();
+        WVASSERT(VxExec(xmlq));
+        
+        VxSchema origschema = dbus.Get();
+        VxSchemaChecksums origsums = dbus.GetChecksums();
+
+        string tmpdir = Path.Combine(Path.GetTempPath(), 
+            Path.GetRandomFileName());
+        Console.WriteLine("Using temporary directory " + tmpdir);
+        Directory.CreateDirectory(tmpdir);
+        try
+        {
+            VxDiskSchema disk = new VxDiskSchema(tmpdir);
+
+            // Test that the copy function will create new elements
+            VxSchema.CopySchema(dbus, disk);
+
+            VxSchema newschema = disk.Get(null);
+            VxSchemaChecksums newsums = disk.GetChecksums();
+
+            TestSchemaEquality(origschema, newschema);
+            TestChecksumEquality(origsums, newsums);
+
+            // Test that the copy function updates changed elements, and
+            // deletes old ones.
+            origschema["Procedure/Func1"].text = func1q2;
+
+            dbus.Put(origschema, null, VxPutOpts.None);
+            dbus.DropSchema("Index", "Tab1/Idx1");
+            origschema.Remove("Index/Tab1/Idx1");
+            origsums = dbus.GetChecksums();
+
+            VxSchema.CopySchema(dbus, disk);
+            newschema = disk.Get(null);
+            newsums = disk.GetChecksums();
+
+            TestSchemaEquality(origschema, newschema);
+            TestChecksumEquality(origsums, newsums);
+        }
+        finally
+        {
+            Directory.Delete(tmpdir, true);
+            WVPASS(!Directory.Exists(tmpdir));
+        }
+    }
+
     public static void Main()
     {
         WvTest.DoMain();

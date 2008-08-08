@@ -294,4 +294,38 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
     {
         return String.Format("a({0})", VxSchemaElement.GetDbusSignature());
     }
+
+    // Make dest look like source.  Only copies the bits that need updating.
+    // Note: this is a slightly funny spot to put this method; it really
+    // belongs in ISchemaBackend, but you can't put methods in interfaces.
+    public static VxSchemaErrors CopySchema(ISchemaBackend source, 
+        ISchemaBackend dest)
+    {
+        VxSchemaChecksums srcsums = source.GetChecksums();
+        VxSchemaChecksums destsums = dest.GetChecksums();
+
+        List<string> names = new List<string>();
+
+        VxSchemaDiff diff = new VxSchemaDiff(destsums, srcsums);
+        foreach (KeyValuePair<string,VxDiffType> p in diff)
+        {
+            switch (p.Value)
+            {
+            case VxDiffType.Remove:
+                string type, name;
+                VxSchema.ParseKey(p.Key, out type, out name);
+                if (type != null && name != null)
+                    dest.DropSchema(type, name);
+                break;
+            case VxDiffType.Add:
+            case VxDiffType.Change:
+                names.Add(p.Key);
+                break;
+            }
+        }
+
+        VxSchema to_put = source.Get(names);
+
+        return dest.Put(to_put, srcsums, VxPutOpts.None);
+    }
 }
