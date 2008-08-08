@@ -1084,8 +1084,7 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(diff.ToString(), expected);
     }
 
-    [Test, Category("Schemamatic"), Category("PutSchema")]
-    public void TestApplySchemaDiff()
+    public void TestApplySchemaDiff(ISchemaBackend backend)
     {
         try { VxExec("drop index Tab1.Idx1"); } catch { }
         try { VxExec("drop table Tab1"); } catch { }
@@ -1130,6 +1129,13 @@ class SchemamaticTests : VersaplexTester
             VxSchema newschema = new VxSchema(origschema);
             VxSchemaChecksums newsums = new VxSchemaChecksums(origsums);
 
+            // Don't bother putting the data again if we're talking to dbus: 
+            // we already snuck it in the back door.
+            if (backend != dbus)
+                backend.Put(origschema, origsums, VxPutOpts.None);
+
+            VxSchemaChecksums diffsums = new VxSchemaChecksums(newsums);
+
             newschema["Procedure/Func1"].text = func1q2;
             newsums["Procedure/Func1"].checksums.Clear();
             newsums["Procedure/Func1"].checksums.Add(123);
@@ -1163,11 +1169,11 @@ class SchemamaticTests : VersaplexTester
             WVPASSEQ(diffschema["Procedure/Func1"].name, "Func1");
             WVPASSEQ(diffschema["Procedure/Func1"].text, func1q2);
 
-            VxPutOpts no_opts = VxPutOpts.None;
-            VxSchemaErrors errs = VxPutSchema(diffschema, no_opts);
+            VxSchemaErrors errs = backend.Put(diffschema, diffsums, 
+                VxPutOpts.None);
             WVPASSEQ(errs.Count, 0);
 
-            VxSchema updated = dbus.Get();
+            VxSchema updated = backend.Get(null);
             WVASSERT(!updated.ContainsKey("XMLSchema/TestSchema"));
             WVPASSEQ(updated["Index/Tab1/Idx1"].text, 
                 newschema["Index/Tab1/Idx1"].text);
@@ -1186,6 +1192,31 @@ class SchemamaticTests : VersaplexTester
         try { VxExec("drop table Tab2"); } catch { }
         try { VxExec("drop xml schema collection TestSchema"); } catch { }
         try { VxExec("drop procedure Func1"); } catch { }
+    }
+
+    [Test, Category("Schemamatic"), Category("PutSchema")]
+    public void TestApplySchemaDiff()
+    {
+        Console.WriteLine("Testing applying diffs through DBus");
+        TestApplySchemaDiff(dbus);
+
+        Console.WriteLine("Testing applying diffs to the disk");
+
+        string tmpdir = Path.Combine(Path.GetTempPath(), 
+            Path.GetRandomFileName());
+        Console.WriteLine("Using temporary directory " + tmpdir);
+        Directory.CreateDirectory(tmpdir);
+        try
+        {
+            VxDiskSchema disk = new VxDiskSchema(tmpdir);
+
+            TestApplySchemaDiff(disk);
+        }
+        finally
+        {
+            Directory.Delete(tmpdir, true);
+            WVPASS(!Directory.Exists(tmpdir));
+        }
     }
 
     [Test, Category("Schemamatic"), Category("PutSchema")]

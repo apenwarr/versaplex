@@ -5,6 +5,7 @@ using System.Collections.Generic;
 internal interface ISchemaBackend  
 {
     // Update the backing store with all current elements.
+    // If an element's text is empty, it will be deleted.
     VxSchemaErrors Put(VxSchema schema, VxSchemaChecksums sums, VxPutOpts opts);
 
     // Get elements from the backing store.

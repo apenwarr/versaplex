@@ -232,8 +232,8 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
 
     // Returns only the elements of the schema that are affected by the diff.
     // If an element is scheduled to be removed, clear its text field.
-    // Produces a VxSchema that, if sent to PutSchema, will update the
-    // database as indicated by the diff.
+    // Produces a VxSchema that, if sent to a schema backend's Put, will
+    // update the schema as indicated by the diff.
     public VxSchema GetDiffElements(VxSchemaDiff diff)
     {
         VxSchema diffschema = new VxSchema();

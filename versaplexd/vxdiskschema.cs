@@ -36,11 +36,15 @@ internal class VxDiskSchema : ISchemaBackend
             if (!sums.ContainsKey(p.Key))
                 throw new ArgumentException("Missing checksum for " + p.Key);
 
-            p.Value.ExportToDisk(exportdir, sums[p.Key], isbackup);
+            VxSchemaElement elem = p.Value;
+            if (elem.text == null || elem.text == "")
+                DropSchema(elem.type, elem.name);
+            else
+                p.Value.ExportToDisk(exportdir, sums[p.Key], isbackup);
         }
 
         // Writing schemas to disk doesn't give us any per-element errors.
-        return null;
+        return new VxSchemaErrors();
     }
 
     public VxSchema Get(IEnumerable<string> keys)
