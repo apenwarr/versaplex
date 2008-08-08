@@ -44,7 +44,6 @@ internal class VxDbusSchema : ISchemaBackend
         call.Body = writer.ToArray();
 
         Message reply = call.Connection.SendWithReplyAndBlock(call);
-        Console.WriteLine("Got reply");
 
         switch (reply.Header.MessageType) {
         case MessageType.MethodReturn:
@@ -128,7 +127,6 @@ internal class VxDbusSchema : ISchemaBackend
         Message call = CreateMethodCall("GetSchemaChecksums", "");
 
         Message reply = call.Connection.SendWithReplyAndBlock(call);
-        Console.WriteLine("Got reply");
 
         switch (reply.Header.MessageType) {
         case MessageType.MethodReturn:
@@ -166,7 +164,6 @@ internal class VxDbusSchema : ISchemaBackend
         call.Body = writer.ToArray();
 
         Message reply = call.Connection.SendWithReplyAndBlock(call);
-        Console.WriteLine("Got reply");
 
         switch (reply.Header.MessageType) {
         case MessageType.MethodReturn:
@@ -202,7 +199,6 @@ internal class VxDbusSchema : ISchemaBackend
         call.Body = writer.ToArray();
 
         Message reply = call.Connection.SendWithReplyAndBlock(call);
-        Console.WriteLine("Got reply");
 
         switch (reply.Header.MessageType) {
         case MessageType.MethodReturn:
@@ -241,7 +237,6 @@ internal class VxDbusSchema : ISchemaBackend
         call.Body = writer.ToArray();
 
         Message reply = call.Connection.SendWithReplyAndBlock(call);
-        Console.WriteLine("Got reply");
 
         switch (reply.Header.MessageType) {
         case MessageType.MethodReturn:
