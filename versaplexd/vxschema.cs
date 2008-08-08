@@ -276,6 +276,20 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
         return String.Format("{0}{1}/{2}", type, enc_str, name);
     }
 
+    private static char[] slash = new char[] {'/'};
+    public static void ParseKey(string key, out string type, out string name)
+    {
+        string[] parts = key.Split(slash, 2);
+        if (parts.Length != 2)
+        {
+            type = name = null;
+            return;
+        }
+        type = parts[0];
+        name = parts[1];
+        return;
+    }
+
     public static string GetDbusSignature()
     {
         return String.Format("a({0})", VxSchemaElement.GetDbusSignature());

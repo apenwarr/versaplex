@@ -79,6 +79,9 @@ internal class VxDiskSchema : ISchemaBackend
 
     public void DropSchema(string type, string name)
     {
+        if (type == null || name == null)
+            return;
+
         string fullpath = wv.PathCombine(exportdir, type, name);
         log.print("Removing {0}\n", fullpath);
         if (File.Exists(fullpath))

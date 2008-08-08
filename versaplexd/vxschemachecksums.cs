@@ -197,14 +197,15 @@ internal class SchemaTypeComparer: IComparer<string>
 
     private int sort_order(string s)
     {
-        string[] parts = s.Split('/');
+        string type, name;
+        VxSchema.ParseKey(s, out type, out name);
 
         int retval;
         bool ignore_case = true;
         try
         {
             retval = Convert.ToInt32(Enum.Parse(typeof(SchemaTypes), 
-                parts[0], ignore_case));
+                type, ignore_case));
         }
         catch (Exception)
         {

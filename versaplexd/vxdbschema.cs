@@ -222,6 +222,9 @@ internal class VxDbSchema : ISchemaBackend
     // Deletes the named object in the database.
     public void DropSchema(string type, string name)
     {
+        if (type == null || name == null)
+            return;
+
         string query = GetDropCommand(type, name);
 
         SqlExecScalar(query);
