@@ -53,6 +53,28 @@ class SchemamaticTests : VersaplexTester
         return dbus.Put(schema, null, opts);
     }
 
+    public void TestSchemaEquality(VxSchema left, VxSchema right)
+    {
+        WVPASSEQ(left.Count, right.Count);
+        foreach (KeyValuePair<string,VxSchemaElement> p in right)
+        {
+            WVPASSEQ(left[p.Key].type, p.Value.type);
+            WVPASSEQ(left[p.Key].name, p.Value.name);
+            WVPASSEQ(left[p.Key].text, p.Value.text);
+            WVPASSEQ(left[p.Key].encrypted, p.Value.encrypted);
+        }
+    }
+
+    public void TestChecksumEquality(VxSchemaChecksums left, 
+        VxSchemaChecksums right)
+    {
+        WVPASSEQ(left.Count, right.Count);
+        foreach (KeyValuePair<string,VxSchemaChecksum> p in right)
+        {
+            WVPASSEQ(left[p.Key].GetSumString(), p.Value.GetSumString());
+        }
+    }
+
     [Test, Category("Schemamatic"), Category("GetSchemaChecksums")]
     public void TestProcedureChecksums()
     {
@@ -900,22 +922,10 @@ class SchemamaticTests : VersaplexTester
 
             // Check that we read back the same stuff
             VxSchema schemafromdisk = disk.Get(null);
-            foreach (KeyValuePair<string,VxSchemaElement> p in schema)
-            {
-                WVPASSEQ(schemafromdisk[p.Key].type, p.Value.type);
-                WVPASSEQ(schemafromdisk[p.Key].name, p.Value.name);
-                WVPASSEQ(schemafromdisk[p.Key].text, p.Value.text);
-                WVPASSEQ(schemafromdisk[p.Key].encrypted, p.Value.encrypted);
-            }
-
             VxSchemaChecksums sumsfromdisk = disk.GetChecksums();
 
-            WVPASSEQ(sumsfromdisk.Count, sums.Count);
-            foreach (KeyValuePair<string,VxSchemaChecksum> p in sums)
-            {
-                WVPASSEQ(sumsfromdisk[p.Key].GetSumString(), 
-                    p.Value.GetSumString());
-            }
+            TestSchemaEquality(schema, schemafromdisk);
+            TestChecksumEquality(sums, sumsfromdisk);
 
             // Doing it twice doesn't change anything.
             disk.Put(schema, sums, VxPutOpts.None);
