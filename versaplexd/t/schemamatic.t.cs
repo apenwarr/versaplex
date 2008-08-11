@@ -18,6 +18,7 @@ class SchemamaticTests : VersaplexTester
     class SchemaCreator
     {
         public string tab1q;
+        public string tab1q_nopk;
         public string tab2q;
         public string idx1q;
         public string msg1;
@@ -35,12 +36,16 @@ class SchemamaticTests : VersaplexTester
                 "\t[f1] [int] NOT NULL PRIMARY KEY,\n" +
                 "\t[f2] [money] NULL,\n" + 
                 "\t[f3] [varchar] (80) NULL);\n\n";
+            tab1q_nopk = "CREATE TABLE [Tab1] (\n" + 
+                "\t[f1] [int] NOT NULL,\n" +
+                "\t[f2] [money] NULL,\n" + 
+                "\t[f3] [varchar] (80) NULL);\n\n";
             tab2q = "CREATE TABLE [Tab2] (\n" + 
                 "\t[f4] [binary] (1) NOT NULL);\n\n";
             idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
                 "\t(f2,f3 DESC);\n\n";
             msg1 = "Hello, world, this is Func1!";
-            func1q = "create procedure Func1 as select '" + msg1 + "'";
+            func1q = "create procedure Func1 as select '" + msg1 + "'\n";
         }
 
         public void Create()
@@ -642,15 +647,15 @@ class SchemamaticTests : VersaplexTester
         WVASSERT(schema.ContainsKey("Index/Tab1/Idx1"));
         WVPASSEQ(schema["Index/Tab1/Idx1"].name, "Tab1/Idx1");
         WVPASSEQ(schema["Index/Tab1/Idx1"].type, "Index");
-        WVPASSEQ(schema["Index/Tab1/Idx1"].text, idx1q);
+        WVPASSEQ(schema["Index/Tab1/Idx1"].text, sc.idx1q);
         WVASSERT(schema.ContainsKey("Procedure/Func1"));
         WVPASSEQ(schema["Procedure/Func1"].name, "Func1");
         WVPASSEQ(schema["Procedure/Func1"].type, "Procedure");
-        WVPASSEQ(schema["Procedure/Func1"].text, func1q);
+        WVPASSEQ(schema["Procedure/Func1"].text, sc.func1q);
         WVASSERT(schema.ContainsKey("Table/Tab1"));
         WVPASSEQ(schema["Table/Tab1"].name, "Tab1");
         WVPASSEQ(schema["Table/Tab1"].type, "Table");
-        WVPASSEQ(schema["Table/Tab1"].text, tab1q);
+        WVPASSEQ(schema["Table/Tab1"].text, sc.tab1q_nopk);
         WVASSERT(schema.ContainsKey("XMLSchema/TestSchema"));
         WVPASSEQ(schema["XMLSchema/TestSchema"].name, "TestSchema");
         WVPASSEQ(schema["XMLSchema/TestSchema"].type, "XMLSchema");
@@ -669,7 +674,7 @@ class SchemamaticTests : VersaplexTester
         schema = dbus.Get("Table/Tab1");
         WVPASSEQ(schema["Table/Tab1"].name, "Tab1");
         WVPASSEQ(schema["Table/Tab1"].type, "Table");
-        WVPASSEQ(schema["Table/Tab1"].text, tab1q);
+        WVPASSEQ(schema["Table/Tab1"].text, sc.tab1q_nopk);
 
         WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q2, VxPutOpts.Destructive), 
             null);
@@ -724,7 +729,7 @@ class SchemamaticTests : VersaplexTester
             Console.WriteLine(e.ToString());
 	}
 
-        WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q, no_opts), null);
+        WVPASSEQ(VxPutSchema("Table", "Tab1", sc.tab1q, VxPutOpts.None), null);
 
         WVPASSEQ(dbus.GetSchemaData("Tab1"), "");
 
@@ -775,8 +780,7 @@ class SchemamaticTests : VersaplexTester
     }
 
     private void VerifyExportedSchema(string exportdir, VxSchema schema, 
-        VxSchemaChecksums sums, string func1q, string tab1q, string tab2q,
-        string idx1q, string xmlq, int backupnum)
+        VxSchemaChecksums sums, SchemaCreator sc, string xmlq, int backupnum)
     {
         DirectoryInfo dirinfo = new DirectoryInfo(exportdir);
 
@@ -801,7 +805,7 @@ class SchemamaticTests : VersaplexTester
         string func1file = Path.Combine(procdir, "Func1" + suffix);
         CheckExportedFileContents(func1file, 
             "!!SCHEMAMATIC 2AE46AC0748AEDE839FB9CD167EA1180 D983A305",
-            func1q);
+            sc.func1q);
 
         // Indexes
         WVPASSEQ(Directory.GetDirectories(idxdir).Length, 1);
@@ -815,7 +819,7 @@ class SchemamaticTests : VersaplexTester
         string idx1file = Path.Combine(tab1idxdir, "Idx1" + suffix);
         CheckExportedFileContents(idx1file, 
             "!!SCHEMAMATIC BE6095FA7C7B1C9BA3D3DA2F1D94FCBE 1D32C7EA 968DBEDC", 
-            idx1q);
+            sc.idx1q);
 
         string pk_name = CheckForPrimaryKey(schema, "Tab1");
         string pk_file = Path.Combine(tab1idxdir, pk_name + suffix);
@@ -846,12 +850,12 @@ class SchemamaticTests : VersaplexTester
         CheckExportedFileContents(tab1file, 
             "!!SCHEMAMATIC 3D05ABB172361D5BDC19DE2437C58F7E " + 
                 sums["Table/Tab1"].GetSumString(),
-            tab1q.Replace(" PRIMARY KEY", ""));
+            sc.tab1q.Replace(" PRIMARY KEY", ""));
 
         WVPASS(File.Exists(tab2file));
         CheckExportedFileContents(tab2file, 
             "!!SCHEMAMATIC 436EFDE94964E924CB0CCEDB96970AFF " + 
-            sums["Table/Tab2"].GetSumString(), tab2q);
+            sums["Table/Tab2"].GetSumString(), sc.tab2q);
 
         // XML Schemas
         WVPASSEQ(Directory.GetDirectories(xmldir).Length, 0);
@@ -899,8 +903,8 @@ class SchemamaticTests : VersaplexTester
             disk.Put(schema, sums, VxPutOpts.None);
 
             int backup_generation = 0;
-            VerifyExportedSchema(tmpdir, schema, sums, 
-                func1q, tab1q, tab2q, idx1q, xmlq, backup_generation);
+            VerifyExportedSchema(tmpdir, schema, sums, sc, xmlq, 
+                backup_generation);
 
             // Check that we read back the same stuff
             VxSchema schemafromdisk = disk.Get(null);
@@ -912,22 +916,22 @@ class SchemamaticTests : VersaplexTester
             // Doing it twice doesn't change anything.
             disk.Put(schema, sums, VxPutOpts.None);
 
-            VerifyExportedSchema(tmpdir, schema, sums, 
-                func1q, tab1q, tab2q, idx1q, xmlq, backup_generation);
+            VerifyExportedSchema(tmpdir, schema, sums, sc, xmlq, 
+                backup_generation);
 
             // Check backup mode
             disk.Put(schema, sums, VxPutOpts.IsBackup);
             backup_generation++;
 
-            VerifyExportedSchema(tmpdir, schema, sums, 
-                func1q, tab1q, tab2q, idx1q, xmlq, backup_generation);
+            VerifyExportedSchema(tmpdir, schema, sums, sc, xmlq, 
+                backup_generation);
 
             // Check backup mode again
             disk.Put(schema, sums, VxPutOpts.IsBackup);
             backup_generation++;
 
-            VerifyExportedSchema(tmpdir, schema, sums, 
-                func1q, tab1q, tab2q, idx1q, xmlq, backup_generation);
+            VerifyExportedSchema(tmpdir, schema, sums, sc, xmlq, 
+                backup_generation);
         }
         finally
         {
@@ -1108,7 +1112,7 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(diffschema["XMLSchema/TestSchema"].text, "");
         WVPASSEQ(diffschema["Index/Tab1/Idx1"].type, "Index");
         WVPASSEQ(diffschema["Index/Tab1/Idx1"].name, "Tab1/Idx1");
-        WVPASSEQ(diffschema["Index/Tab1/Idx1"].text, idx1q);
+        WVPASSEQ(diffschema["Index/Tab1/Idx1"].text, sc.idx1q);
         WVPASSEQ(diffschema["Procedure/Func1"].type, "Procedure");
         WVPASSEQ(diffschema["Procedure/Func1"].name, "Func1");
         WVPASSEQ(diffschema["Procedure/Func1"].text, func1q2);
