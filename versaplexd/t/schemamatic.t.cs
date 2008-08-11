@@ -75,6 +75,14 @@ class SchemamaticTests : VersaplexTester
         }
     }
 
+    public string GetTempDir()
+    {
+        string t = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        Console.WriteLine("Using temporary directory " + t);
+
+        return t;
+    }
+
     [Test, Category("Schemamatic"), Category("GetSchemaChecksums")]
     public void TestProcedureChecksums()
     {
@@ -537,12 +545,10 @@ class SchemamaticTests : VersaplexTester
     [Test, Category("Schemamatic"), Category("DropSchema")]
     public void TestDropSchemaFromDisk()
     {
-        string tmpdir = Path.Combine(Path.GetTempPath(), 
-            Path.GetRandomFileName());
-        Console.WriteLine("Using temporary directory " + tmpdir);
-        Directory.CreateDirectory(tmpdir);
+        string tmpdir = GetTempDir();
         try
         {
+            Directory.CreateDirectory(tmpdir);
             VxDiskSchema backend = new VxDiskSchema(tmpdir);
 
             VxSchema schema = new VxSchema();
@@ -731,13 +737,12 @@ class SchemamaticTests : VersaplexTester
     [Test, Category("Schemamatic"), Category("DiskBackend")]
     public void TestExportEmptySchema()
     {
-        string tmpdir = Path.Combine(Path.GetTempPath(), 
-            Path.GetRandomFileName());
-        Console.WriteLine("Using temporary directory " + tmpdir);
+        string tmpdir = GetTempDir();
 
-        Directory.CreateDirectory(tmpdir);
         try 
         {
+            Directory.CreateDirectory(tmpdir);
+
             VxSchema schema = new VxSchema();
             VxSchemaChecksums sums = new VxSchemaChecksums();
 
@@ -889,9 +894,7 @@ class SchemamaticTests : VersaplexTester
         string xmlq = CreateXmlSchemaQuery();
         WVASSERT(VxExec(xmlq));
         
-        string tmpdir = Path.Combine(Path.GetTempPath(), 
-            Path.GetRandomFileName());
-        Console.WriteLine("Using temporary directory " + tmpdir);
+        string tmpdir = GetTempDir();
 
         DirectoryInfo tmpdirinfo = new DirectoryInfo(tmpdir);
         try
@@ -984,9 +987,7 @@ class SchemamaticTests : VersaplexTester
         string xmlq = CreateXmlSchemaQuery();
         WVASSERT(VxExec(xmlq));
         
-        string tmpdir = Path.Combine(Path.GetTempPath(), 
-            Path.GetRandomFileName());
-        Console.WriteLine("Using temporary directory " + tmpdir);
+        string tmpdir = GetTempDir();
 
         DirectoryInfo tmpdirinfo = new DirectoryInfo(tmpdir);
         try
@@ -1196,12 +1197,10 @@ class SchemamaticTests : VersaplexTester
 
         Console.WriteLine("Testing applying diffs to the disk");
 
-        string tmpdir = Path.Combine(Path.GetTempPath(), 
-            Path.GetRandomFileName());
-        Console.WriteLine("Using temporary directory " + tmpdir);
-        Directory.CreateDirectory(tmpdir);
+        string tmpdir = GetTempDir();
         try
         {
+            Directory.CreateDirectory(tmpdir);
             VxDiskSchema disk = new VxDiskSchema(tmpdir);
 
             TestApplySchemaDiff(disk);
@@ -1331,12 +1330,10 @@ class SchemamaticTests : VersaplexTester
         VxSchema origschema = dbus.Get();
         VxSchemaChecksums origsums = dbus.GetChecksums();
 
-        string tmpdir = Path.Combine(Path.GetTempPath(), 
-            Path.GetRandomFileName());
-        Console.WriteLine("Using temporary directory " + tmpdir);
-        Directory.CreateDirectory(tmpdir);
+        string tmpdir = GetTempDir();
         try
         {
+            Directory.CreateDirectory(tmpdir);
             VxDiskSchema disk = new VxDiskSchema(tmpdir);
 
             // Test that the copy function will create new elements
