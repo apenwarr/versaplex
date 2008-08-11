@@ -131,13 +131,23 @@ internal class VxDiskSchema : ISchemaBackend
 
     // Static methods
 
+    // Adds the contents of extradir to the provided schema and sums.
+    // Throws an ArgumentException if the directory contains an entry that
+    // already exists in schema or sums.
+    public static void AddFromDir(string extradir, VxSchema schema, 
+        VxSchemaChecksums sums)
+    {
+        VxDiskSchema disk = new VxDiskSchema(extradir);
+
+        disk.ReadExportedDir(schema, sums);
+    }
+
     // Reads a file from an on-disk exported schema, and sets the schema
     // element parameter's text field and the sum parameter's checksums field.
     // If either parameter is null, just loads the other.
     // Returns true if the file passes its MD5 validation.  If it returns
     // false, still sets the element's text field, but the sum parameter
     // will have no sums in it.
-    // FIXME: Maybe return new objects in out parameters?
     public static bool ReadSchemaFile(string filename, VxSchemaElement elem, 
         VxSchemaChecksum sum)
     {
@@ -219,13 +229,24 @@ internal class VxDiskSchema : ISchemaBackend
 
     // Helper method to load a given on-disk element's schema and checksums
     // into the container objects.
+    // Throws an ArgumentException if the schema or sums already contains the
+    // given key.
     private static void AddFromFile(string path, string type, string name, 
         VxSchema schema, VxSchemaChecksums sums)
     {
         string key = wv.PathCombine(type, name);
+
+        // schema/sums.Add would throw an exception in this situation anyway, 
+        // but it's nice to provide a more helpful error message.
+        if (schema != null && schema.ContainsKey(key))
+            throw new ArgumentException("Conflicting schema key: " + key);
+        if (sums != null && sums.ContainsKey(key))
+            throw new ArgumentException("Conflicting sums key: " + key);
+
         VxSchemaChecksum sum = new VxSchemaChecksum(key);
         VxSchemaElement elem = new VxSchemaElement(type, name, "", false);
         ReadSchemaFile(path, elem, sum);
+
         if (schema != null)
             schema.Add(key, elem);
         if (sums != null)

@@ -1368,6 +1368,86 @@ class SchemamaticTests : VersaplexTester
         }
     }
 
+    [Test, Category("Schemamatic"), Category("DiskBackend")]
+    public void TestSubmoduleSupport()
+    {
+        VxSchema schema1 = new VxSchema();
+        VxSchemaChecksums sums1 = new VxSchemaChecksums();
+
+        VxSchema schema2 = new VxSchema();
+        VxSchemaChecksums sums2 = new VxSchemaChecksums();
+
+        schema1.Add("Tab1", "Table", "Random contents", false);
+        sums1.Add("Table/Tab1", 1);
+        schema2.Add("Tab2", "Table", "Random contents 2", false);
+        sums2.Add("Table/Tab2", 2);
+
+        string tmpdir = GetTempDir();
+        try
+        {
+            Directory.CreateDirectory(tmpdir);
+            VxDiskSchema disk = new VxDiskSchema(tmpdir);
+
+            disk.Put(schema2, sums2, VxPutOpts.None);
+
+            VxDiskSchema.AddFromDir(tmpdir, schema1, sums1);
+
+            WVPASSEQ(sums1["Table/Tab1"].GetSumString(), "00000001");
+            WVPASSEQ(schema1["Table/Tab1"].name, "Tab1");
+            WVPASSEQ(schema1["Table/Tab1"].type, "Table");
+            WVPASSEQ(schema1["Table/Tab1"].text, "Random contents");
+            WVPASSEQ(schema1["Table/Tab1"].encrypted, false);
+
+            WVPASSEQ(sums1["Table/Tab2"].GetSumString(), "00000002");
+            WVPASSEQ(schema1["Table/Tab2"].name, "Tab2");
+            WVPASSEQ(schema1["Table/Tab2"].type, "Table");
+            WVPASSEQ(schema1["Table/Tab2"].text, "Random contents 2");
+            WVPASSEQ(schema1["Table/Tab2"].encrypted, false);
+        }
+        finally
+        {
+            Directory.Delete(tmpdir, true);
+            WVPASS(!Directory.Exists(tmpdir));
+        }
+
+    }
+
+    [Test, Category("Schemamatic"), Category("DiskBackend")]
+    public void TestSubmoduleExceptions()
+    {
+        VxSchema schema1 = new VxSchema();
+        VxSchemaChecksums sums1 = new VxSchemaChecksums();
+
+        VxSchema schema2 = new VxSchema();
+        VxSchemaChecksums sums2 = new VxSchemaChecksums();
+
+        schema1.Add("Func1", "Procedure", "Random contents", false);
+        sums1.Add("Procedure/Func1", 1);
+        schema2.Add("Func1", "Procedure", "Random contents 2", false);
+        sums2.Add("Procedure/Func1", 2);
+
+        string tmpdir = GetTempDir();
+        try
+        {
+            Directory.CreateDirectory(tmpdir);
+            VxDiskSchema disk = new VxDiskSchema(tmpdir);
+
+            disk.Put(schema2, sums2, VxPutOpts.None);
+
+            try {
+                WVEXCEPT(VxDiskSchema.AddFromDir(tmpdir, schema1, sums1))
+            } catch (System.ArgumentException e) {
+                WVPASSEQ(e.Message, "Conflicting schema key: Procedure/Func1");
+            }
+        }
+        finally
+        {
+            Directory.Delete(tmpdir, true);
+            WVPASS(!Directory.Exists(tmpdir));
+        }
+
+    }
+
     public static void Main()
     {
         WvTest.DoMain();
