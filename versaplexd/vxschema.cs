@@ -134,9 +134,8 @@ internal class VxSchemaElement : IComparable
         bool isbackup)
     {
         MD5 md5summer = MD5.Create();
-        Encoding utf8 = Encoding.UTF8;
 
-        byte[] text = utf8.GetBytes(this.text);
+        byte[] text = this.text.ToUTF8();
         byte[] md5 = md5summer.ComputeHash(text);
 
         // Make some kind of attempt to run on Windows.  
@@ -158,9 +157,9 @@ internal class VxSchemaElement : IComparable
         using(BinaryWriter file = new BinaryWriter(
             File.Open(filename + suffix, FileMode.Create)))
         {
-            file.Write(utf8.GetBytes(
-                String.Format("!!SCHEMAMATIC {0} {1}\r\n",
-                md5.ToHex(), sum.GetSumString())));
+            file.Write(String.Format("!!SCHEMAMATIC {0} {1}\r\n",
+				     md5.ToHex(), sum.GetSumString())
+		       .ToUTF8());
             file.Write(text);
         }
     }

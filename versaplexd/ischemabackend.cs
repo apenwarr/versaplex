@@ -29,8 +29,9 @@ public enum VxPutOpts : int
     Destructive = 0x1,
     // If set, PutSchema will not attempt to do any retries.
     NoRetry = 0x2,
-    // If set, will make a backup copy instead of overwriting existing data,
-    // if possible.
+    // If set and the element already exists, will create the new element
+    // with a different name that doesn't already exist.
+    // Currently only applies to the disk backend; other backends ignore this.
     IsBackup = 0x4,
 }
 

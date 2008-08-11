@@ -33,7 +33,7 @@ internal class VxDiskSchema : ISchemaBackend
         DirectoryInfo dir = new DirectoryInfo(exportdir);
         dir.Create();
 
-        foreach (KeyValuePair<string,VxSchemaElement> p in schema)
+        foreach (var p in schema)
         {
             if (!sums.ContainsKey(p.Key))
                 throw new ArgumentException("Missing checksum for " + p.Key);

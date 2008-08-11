@@ -15,7 +15,7 @@ internal class VxDbSchema : ISchemaBackend
 {
     static WvLog log = new WvLog("VxDbSchema", WvLog.L.Debug2);
 
-    internal static string[] ProcedureTypes = new string[] { 
+    static string[] ProcedureTypes = new string[] { 
 //            "CheckCnst", 
 //            "Constraint",
 //            "Default",
@@ -346,7 +346,7 @@ internal class VxDbSchema : ISchemaBackend
 
     // Functions used for GetSchemaChecksums
 
-    internal void GetProcChecksums(VxSchemaChecksums sums, 
+    void GetProcChecksums(VxSchemaChecksums sums, 
             string type, int encrypted)
     {
         string encrypt_str = encrypted > 0 ? "-Encrypted" : "";
@@ -393,7 +393,7 @@ internal class VxDbSchema : ISchemaBackend
         }
     }
 
-    internal void GetTableChecksums(VxSchemaChecksums sums)
+    void GetTableChecksums(VxSchemaChecksums sums)
     {
         log.print("Indexing: Tables\n");
 
@@ -450,7 +450,7 @@ internal class VxDbSchema : ISchemaBackend
         }
     }
 
-    internal void GetIndexChecksums(VxSchemaChecksums sums)
+    void GetIndexChecksums(VxSchemaChecksums sums)
     {
         string query = @"
             select 
@@ -501,7 +501,7 @@ internal class VxDbSchema : ISchemaBackend
         }
     }
 
-    internal void GetXmlSchemaChecksums(VxSchemaChecksums sums)
+    void GetXmlSchemaChecksums(VxSchemaChecksums sums)
     {
         string query = @"
             select sch.name owner,
@@ -540,7 +540,7 @@ internal class VxDbSchema : ISchemaBackend
 
     // Functions used for GetSchema
 
-    internal static string RetrieveProcSchemasQuery(string type, int encrypted, 
+    static string RetrieveProcSchemasQuery(string type, int encrypted, 
         bool countonly, List<string> names)
     {
         string name_q = names.Count > 0 
@@ -557,7 +557,7 @@ internal class VxDbSchema : ISchemaBackend
                 "and encrypted = " + encrypted + name_q;
     }
 
-    internal void RetrieveProcSchemas(VxSchema schema, List<string> names, 
+    void RetrieveProcSchemas(VxSchema schema, List<string> names, 
         string type, int encrypted)
     {
         string query = RetrieveProcSchemasQuery(type, encrypted, false, names);
@@ -602,7 +602,7 @@ internal class VxDbSchema : ISchemaBackend
             encrypted > 0 ? "-Encrypted" : "");
     }
 
-    internal void RetrieveIndexSchemas(VxSchema schema, List<string> names)
+    void RetrieveIndexSchemas(VxSchema schema, List<string> names)
     {
         string idxnames = (names.Count > 0) ? 
             "and ((object_name(i.object_id)+'/'+i.name) in ('" + 
@@ -690,7 +690,7 @@ internal class VxDbSchema : ISchemaBackend
         }
     }
 
-    internal static string XmlSchemasQuery(int count, List<string> names)
+    static string XmlSchemasQuery(int count, List<string> names)
     {
         int start = count * 4000;
 
@@ -713,7 +713,7 @@ internal class VxDbSchema : ISchemaBackend
         return query;
     }
 
-    internal void RetrieveXmlSchemas(VxSchema schema, List<string> names)
+    void RetrieveXmlSchemas(VxSchema schema, List<string> names)
     {
         bool do_again = true;
         for (int count = 0; do_again; count++)
@@ -751,7 +751,7 @@ internal class VxDbSchema : ISchemaBackend
         }
     }
 
-    internal void RetrieveTableColumns(VxSchema schema, List<string> names)
+    void RetrieveTableColumns(VxSchema schema, List<string> names)
     {
         string tablenames = (names.Count > 0 
             ? "and t.name in ('" + names.Join("','") + "')"
@@ -853,7 +853,7 @@ internal class VxDbSchema : ISchemaBackend
 
     // Returns a blob of text that can be used with PutSchemaData to fill 
     // the given table.
-    internal string GetSchemaData(string tablename)
+    public string GetSchemaData(string tablename)
     {
         string query = "SELECT * FROM " + tablename;
 
@@ -916,7 +916,7 @@ internal class VxDbSchema : ISchemaBackend
 
     // Delete all rows from the given table and replace them with the given
     // data.  text is an opaque hunk of text returned from GetSchemaData.
-    internal void PutSchemaData(string tablename, string text)
+    public void PutSchemaData(string tablename, string text)
     {
         SqlExecScalar(String.Format("DELETE FROM [{0}]", tablename));
         SqlExecScalar(text);
