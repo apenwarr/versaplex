@@ -9,6 +9,8 @@ test: all t/test
 	
 tests: all t/all
 
+t/all: all
+
 versaplexd.exe: versaplexd.cs \
     dodgytransport.cs ischemabackend.cs PriorityQueue.cs \
     vxapi.cs vxbufferstream.cs \

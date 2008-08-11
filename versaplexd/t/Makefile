@@ -40,9 +40,16 @@ TESTSOURCES=$(wildcard *.t.cc)
 TESTHEADERS=$(wildcard *.h)
 TESTOBJS=$(patsubst %.cc,%.o,$(TESTSOURCES))
 
-all: test
+TESTS=versaplex.t.pass vxsanity.t.pass verifydata.t.pass schemamatic.t.pass
+TESTEXES=$(patsubst %.pass,%.exe,$(TESTS))
 
-test: versaplex.t.pass vxsanity.t.pass verifydata.t.pass schemamatic.t.pass all.t
+default: test
+
+all: tests
+
+tests: $(TESTEXES)
+
+test: $(TESTS) all.t
 	$(RUNTEST) $(VALGRIND) ./all.t $(TESTNAME)
 
 versaplex.t.exe: versaplex.t.cs.E versaplextester.cs.E dbuserror.cs \
