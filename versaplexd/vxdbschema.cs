@@ -191,13 +191,6 @@ internal class VxDbSchema : ISchemaBackend
                 ulong want_csum = 0x173d6ee8;
                 if (want_csum != got_csum)
                 {
-                    // FIXME
-                    /*
-                    reply = VxDbus.CreateError(
-                        "org.freedesktop.DBus.Error.Failed",
-                        String.Format("checksum_test mismatch! {0} != {1}", 
-                            got_csum, want_csum), call);
-                    */
                     throw new Exception(String.Format("checksum_test_mismatch!"
                         + " {0} != {1}", got_csum, want_csum));
                 }
