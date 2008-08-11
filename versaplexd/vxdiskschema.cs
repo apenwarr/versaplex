@@ -19,7 +19,9 @@ internal class VxDiskSchema : ISchemaBackend
         exportdir = _exportdir;
     }
 
-    // The ISchema interface
+    //
+    // The ISchemaBackend interface
+    //
 
     // Export the current schema to the backing directory, in a format that can
     // be read back later.  
@@ -88,6 +90,10 @@ internal class VxDiskSchema : ISchemaBackend
             File.Delete(fullpath);
     }
 
+    //
+    // Non-ISchemaBackend methods
+    //
+    
     // Retrieves both the schema and its checksums from exportdir, and puts
     // them into the parameters.
     private void ReadExportedDir(VxSchema schema, VxSchemaChecksums sums)
@@ -101,6 +107,8 @@ internal class VxDiskSchema : ISchemaBackend
                 if (dir1.Name == "DATA")
                     continue;
 
+                string type = dir1.Name;
+
                 foreach (DirectoryInfo dir2 in dir1.GetDirectories())
                 {
                     if (dir2.Name == "DATA")
@@ -109,33 +117,14 @@ internal class VxDiskSchema : ISchemaBackend
                     // This is the */*/* part
                     foreach (FileInfo file in dir2.GetFiles())
                     {
-                        string key = 
-                            wv.PathCombine(dir1.Name, dir2.Name, file.Name);
-                        VxSchemaChecksum sum = new VxSchemaChecksum(key);
-                        VxSchemaElement elem = new VxSchemaElement(
-                            dir1.Name, wv.PathCombine(dir2.Name, file.Name),
-                            "", false);
-                        ReadSchemaFile(file.FullName, elem, sum);
-                        if (schema != null)
-                            schema.Add(key, elem);
-                        if (sums != null)
-                            sums.Add(key, sum);
+                        string name = wv.PathCombine(dir2.Name, file.Name);
+                        AddFromFile(file.FullName, type, name, schema, sums);
                     }
                 }
 
                 // This is the */* part
                 foreach (FileInfo file in dir1.GetFiles())
-                {
-                    string key = wv.PathCombine(dir1.Name, file.Name);
-                    VxSchemaChecksum sum = new VxSchemaChecksum(key);
-                    VxSchemaElement elem = new VxSchemaElement(
-                        dir1.Name, file.Name, "", false);
-                    ReadSchemaFile(file.FullName, elem, sum);
-                    if (schema != null)
-                        schema.Add(key, elem);
-                    if (sums != null)
-                        sums.Add(key, sum);
-                }
+                    AddFromFile(file.FullName, type, file.Name, schema, sums);
             }
         }
     }
@@ -226,6 +215,21 @@ internal class VxDiskSchema : ISchemaBackend
         }
 
         return true;
+    }
+
+    // Helper method to load a given on-disk element's schema and checksums
+    // into the container objects.
+    private static void AddFromFile(string path, string type, string name, 
+        VxSchema schema, VxSchemaChecksums sums)
+    {
+        string key = wv.PathCombine(type, name);
+        VxSchemaChecksum sum = new VxSchemaChecksum(key);
+        VxSchemaElement elem = new VxSchemaElement(type, name, "", false);
+        ReadSchemaFile(path, elem, sum);
+        if (schema != null)
+            schema.Add(key, elem);
+        if (sums != null)
+            sums.Add(key, sum);
     }
 }
 
