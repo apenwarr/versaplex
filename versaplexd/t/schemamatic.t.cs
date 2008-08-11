@@ -15,6 +15,52 @@ using NDesk.DBus;
 [TestFixture]
 class SchemamaticTests : VersaplexTester
 {
+    class SchemaCreator
+    {
+        public string tab1q;
+        public string tab2q;
+        public string idx1q;
+        public string msg1;
+        public string func1q;
+
+        VersaplexTester t;
+
+        public SchemaCreator(VersaplexTester _t)
+        {
+            t = _t;
+
+            Cleanup();
+
+            tab1q = "CREATE TABLE [Tab1] (\n" + 
+                "\t[f1] [int] NOT NULL PRIMARY KEY,\n" +
+                "\t[f2] [money] NULL,\n" + 
+                "\t[f3] [varchar] (80) NULL);\n\n";
+            tab2q = "CREATE TABLE [Tab2] (\n" + 
+                "\t[f4] [binary] (1) NOT NULL);\n\n";
+            idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
+                "\t(f2,f3 DESC);\n\n";
+            msg1 = "Hello, world, this is Func1!";
+            func1q = "create procedure Func1 as select '" + msg1 + "'";
+        }
+
+        public void Create()
+        {
+            WVASSERT(t.VxExec(tab1q));
+            WVASSERT(t.VxExec(tab2q));
+            WVASSERT(t.VxExec(idx1q));
+            WVASSERT(t.VxExec(func1q));
+        }
+
+        public void Cleanup()
+        {
+            try { t.VxExec("drop index Tab1.Idx1"); } catch { }
+            try { t.VxExec("drop table Tab1"); } catch { }
+            try { t.VxExec("drop table Tab2"); } catch { }
+            try { t.VxExec("drop xml schema collection TestSchema"); } catch { }
+            try { t.VxExec("drop procedure Func1"); } catch { }
+        }
+    }
+
     VxDbusSchema dbus;
 
     public SchemamaticTests()
@@ -478,29 +524,9 @@ class SchemamaticTests : VersaplexTester
     [Test, Category("Schemamatic"), Category("DropSchema")]
     public void TestDropSchema()
     {
-        try { VxExec("drop index Tab1.Idx1"); } catch { }
-        try { VxExec("drop table Tab1"); } catch { }
-        try { VxExec("drop table Tab2"); } catch { }
-        try { VxExec("drop xml schema collection TestSchema"); } catch { }
-        try { VxExec("drop procedure Func1"); } catch { }
+        SchemaCreator sc = new SchemaCreator(this);
 
-        string tab1q = "CREATE TABLE [Tab1] (\n" + 
-            "\t[f1] [int] NOT NULL PRIMARY KEY,\n" +
-            "\t[f2] [money] NULL,\n" + 
-            "\t[f3] [varchar] (80) NULL);\n\n";
-        WVASSERT(VxExec(tab1q));
-
-        string tab2q = "CREATE TABLE [Tab2] (\n" + 
-            "\t[f4] [binary] (1) NOT NULL);\n\n";
-        WVASSERT(VxExec(tab2q));
-
-	string idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
-	    "\t(f2,f3 DESC);\n\n";
-        WVASSERT(VxExec(idx1q));
-
-        string msg = "Hello, world, this is Func1!";
-        WVASSERT(VxExec("create procedure Func1 as select '" + msg + "'"));
-
+        sc.Create();
         WVASSERT(VxExec(CreateXmlSchemaQuery()));
         
         VxSchemaChecksums sums = dbus.GetChecksums();
@@ -535,11 +561,7 @@ class SchemamaticTests : VersaplexTester
             Console.WriteLine(e.ToString());
         }
 
-        try { VxExec("drop index Tab1.Idx1"); } catch { }
-        try { VxExec("drop table Tab1"); } catch { }
-        try { VxExec("drop table Tab2"); } catch { }
-        try { VxExec("drop xml schema collection TestSchema"); } catch { }
-        try { VxExec("drop procedure Func1"); } catch { }
+        sc.Cleanup();
     }
 
     [Test, Category("Schemamatic"), Category("DropSchema")]
@@ -606,27 +628,12 @@ class SchemamaticTests : VersaplexTester
     [Test, Category("Schemamatic"), Category("PutSchema")]
     public void TestPutSchema()
     {
-        try { VxExec("drop index Tab1.Idx1"); } catch { }
-        try { VxExec("drop table Tab1"); } catch { }
-        try { VxExec("drop table Tab2"); } catch { }
-        try { VxExec("drop xml schema collection TestSchema"); } catch { }
-        try { VxExec("drop procedure Func1"); } catch { }
+        SchemaCreator sc = new SchemaCreator(this);
 
-        string tab1q = "CREATE TABLE [Tab1] (\n\t" + 
-            "[f1] [int] NOT NULL,\n\t" +
-            "[f2] [money] NULL,\n\t" + 
-            "[f3] [varchar] (80) NULL);\n\n";
         VxPutOpts no_opts = VxPutOpts.None;
-        WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q, no_opts), null);
-
-	string idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
-	    "\t(f2,f3 DESC);\n\n";
-        WVPASSEQ(VxPutSchema("Index", "Tab1/Idx1", idx1q, no_opts), null);
-
-        string msg = "Hello, world, this is Func1!";
-        string func1q = "create procedure Func1 as select '" + msg + "'";
-        WVPASSEQ(VxPutSchema("Procedure", "Func1", func1q, no_opts), null);
-
+        WVPASSEQ(VxPutSchema("Table", "Tab1", sc.tab1q, no_opts), null);
+        WVPASSEQ(VxPutSchema("Index", "Tab1/Idx1", sc.idx1q, no_opts), null);
+        WVPASSEQ(VxPutSchema("Procedure", "Func1", sc.func1q, no_opts), null);
         WVPASSEQ(VxPutSchema("XMLSchema", "TestSchema", 
             CreateXmlSchemaQuery(), no_opts), null);
         
@@ -681,24 +688,15 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(schema["Procedure/Func1"].type, "Procedure");
         WVPASSEQ(schema["Procedure/Func1"].text, func1q2);
 
-        try { VxExec("drop index Tab1.Idx1"); } catch { }
-        try { VxExec("drop table Tab1"); } catch { }
-        try { VxExec("drop table Tab2"); } catch { }
-        try { VxExec("drop xml schema collection TestSchema"); } catch { }
-        try { VxExec("drop procedure Func1"); } catch { }
+        sc.Cleanup();
     }
 
     [Test, Category("Schemamatic"), Category("SchemaData")]
     public void TestSchemaData()
     {
-        try { VxExec("drop table Tab1"); } catch { }
+        SchemaCreator sc = new SchemaCreator(this);
 
-        string tab1q = "CREATE TABLE [Tab1] (\n\t" + 
-            "[f1] [int] NOT NULL,\n\t" +
-            "[f2] [money] NULL,\n\t" + 
-            "[f3] [varchar] (80) NULL);\n\n";
-        VxPutOpts no_opts = VxPutOpts.None;
-        WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q, no_opts), null);
+        WVPASSEQ(VxPutSchema("Table", "Tab1", sc.tab1q, VxPutOpts.None), null);
 
         List<string> inserts = new List<string>();
         for (int ii = 0; ii < 22; ii++)
@@ -713,7 +711,7 @@ class SchemamaticTests : VersaplexTester
 
         WVPASSEQ(dbus.GetSchemaData("Tab1"), inserts.Join(""));
 
-        try { VxExec("drop table Tab1"); } catch { }
+        VxExec("drop table Tab1");
 
         try {
             WVEXCEPT(dbus.GetSchemaData("Tab1"));
@@ -732,6 +730,8 @@ class SchemamaticTests : VersaplexTester
 
         dbus.PutSchemaData("Tab1", inserts.Join(""));
         WVPASSEQ(dbus.GetSchemaData("Tab1"), inserts.Join(""));
+
+        sc.Cleanup();
     }
 
     [Test, Category("Schemamatic"), Category("DiskBackend")]
@@ -867,29 +867,8 @@ class SchemamaticTests : VersaplexTester
     [Test, Category("Schemamatic"), Category("DiskBackend")]
     public void TestExportSchema()
     {
-        try { VxExec("drop index Tab1.Idx1"); } catch { }
-        try { VxExec("drop table Tab1"); } catch { }
-        try { VxExec("drop table Tab2"); } catch { }
-        try { VxExec("drop xml schema collection TestSchema"); } catch { }
-        try { VxExec("drop procedure Func1"); } catch { }
-
-        string tab1q = "CREATE TABLE [Tab1] (\n" + 
-            "\t[f1] [int] NOT NULL PRIMARY KEY,\n" +
-            "\t[f2] [money] NULL,\n" + 
-            "\t[f3] [varchar] (80) NULL);\n\n";
-        WVASSERT(VxExec(tab1q));
-
-        string tab2q = "CREATE TABLE [Tab2] (\n" + 
-            "\t[f4] [binary] (1) NOT NULL);\n\n";
-        WVASSERT(VxExec(tab2q));
-
-	string idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
-	    "\t(f2,f3 DESC);\n\n";
-        WVASSERT(VxExec(idx1q));
-
-        string msg = "Hello, world, this is Func1!";
-        string func1q = "create procedure Func1 as select '" + msg + "'\n";
-        WVASSERT(VxExec(func1q));
+        SchemaCreator sc = new SchemaCreator(this);
+        sc.Create();
 
         string xmlq = CreateXmlSchemaQuery();
         WVASSERT(VxExec(xmlq));
@@ -954,35 +933,16 @@ class SchemamaticTests : VersaplexTester
         {
             tmpdirinfo.Delete(true);
             WVASSERT(!tmpdirinfo.Exists);
+
+            sc.Cleanup();
         }
     }
 
     [Test, Category("Schemamatic"), Category("DiskBackend")]
     public void TestReadChecksums()
     {
-        try { VxExec("drop index Tab1.Idx1"); } catch { }
-        try { VxExec("drop table Tab1"); } catch { }
-        try { VxExec("drop table Tab2"); } catch { }
-        try { VxExec("drop xml schema collection TestSchema"); } catch { }
-        try { VxExec("drop procedure Func1"); } catch { }
-
-        string tab1q = "CREATE TABLE [Tab1] (\n" + 
-            "\t[f1] [int] NOT NULL PRIMARY KEY,\n" +
-            "\t[f2] [money] NULL,\n" + 
-            "\t[f3] [varchar] (80) NULL);\n\n";
-        WVASSERT(VxExec(tab1q));
-
-        string tab2q = "CREATE TABLE [Tab2] (\n" + 
-            "\t[f4] [binary] (1) NOT NULL);\n\n";
-        WVASSERT(VxExec(tab2q));
-
-	string idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
-	    "\t(f2,f3 DESC);\n\n";
-        WVASSERT(VxExec(idx1q));
-
-        string msg = "Hello, world, this is Func1!";
-        string func1q = "create procedure Func1 as select '" + msg + "'\n";
-        WVASSERT(VxExec(func1q));
+        SchemaCreator sc = new SchemaCreator(this);
+        sc.Create();
 
         string xmlq = CreateXmlSchemaQuery();
         WVASSERT(VxExec(xmlq));
@@ -1042,6 +1002,8 @@ class SchemamaticTests : VersaplexTester
         {
             tmpdirinfo.Delete(true);
             WVASSERT(!tmpdirinfo.Exists);
+
+            sc.Cleanup();
         }
     }
 
@@ -1097,34 +1059,14 @@ class SchemamaticTests : VersaplexTester
 
     public void TestApplySchemaDiff(ISchemaBackend backend)
     {
-        try { VxExec("drop index Tab1.Idx1"); } catch { }
-        try { VxExec("drop table Tab1"); } catch { }
-        try { VxExec("drop table Tab2"); } catch { }
-        try { VxExec("drop xml schema collection TestSchema"); } catch { }
-        try { VxExec("drop procedure Func1"); } catch { }
-
-        string tab1q = "CREATE TABLE [Tab1] (\n" + 
-            "\t[f1] [int] NOT NULL PRIMARY KEY,\n" +
-            "\t[f2] [money] NULL,\n" + 
-            "\t[f3] [varchar] (80) NULL);\n\n";
-        WVASSERT(VxExec(tab1q));
-
-        string tab2q = "CREATE TABLE [Tab2] (\n" + 
-            "\t[f4] [binary] (1) NOT NULL);\n\n";
-        WVASSERT(VxExec(tab2q));
-
-	string idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
-	    "\t(f2,f3 DESC);\n\n";
-        WVASSERT(VxExec(idx1q));
-
-        string msg1 = "Hello, world, this is Func1!";
-        string msg2 = "Hello, world, this used to be Func1!";
-        string func1q = "create procedure Func1 as select '" + msg1 + "'\n";
-        string func1q2 = "create procedure Func1 as select '" + msg2 + "'\n";
-        WVASSERT(VxExec(func1q));
+        SchemaCreator sc = new SchemaCreator(this);
+        sc.Create();
 
         string xmlq = CreateXmlSchemaQuery();
         WVASSERT(VxExec(xmlq));
+
+        string msg2 = "Hello, world, this used to be Func1!";
+        string func1q2 = "create procedure Func1 as select '" + msg2 + "'\n";
         
         VxSchema origschema = dbus.Get();
         VxSchemaChecksums origsums = dbus.GetChecksums();
@@ -1182,11 +1124,7 @@ class SchemamaticTests : VersaplexTester
             newschema["Procedure/Func1"].text);
         WVPASSEQ(updated["Table/Tab1"].text, newschema["Table/Tab1"].text);
 
-        try { VxExec("drop index Tab1.Idx1"); } catch { }
-        try { VxExec("drop table Tab1"); } catch { }
-        try { VxExec("drop table Tab2"); } catch { }
-        try { VxExec("drop xml schema collection TestSchema"); } catch { }
-        try { VxExec("drop procedure Func1"); } catch { }
+        sc.Cleanup();
     }
 
     [Test, Category("Schemamatic"), Category("PutSchema")]
@@ -1215,18 +1153,11 @@ class SchemamaticTests : VersaplexTester
     [Test, Category("Schemamatic"), Category("PutSchema")]
     public void TestPutSchemaErrors()
     {
-        try { VxExec("drop table Tab1"); } catch { }
-        try { VxExec("drop table Tab2"); } catch { }
+        SchemaCreator sc = new SchemaCreator(this);
 
-        string tab1q = "CREATE TABLE [Tab1] (\n" + 
-            "\t[f1] [int] NOT NULL PRIMARY KEY,\n" +
-            "\t[f2] [money] NULL,\n" + 
-            "\t[f3] [varchar] (80) NULL);\n\n";
-        WVASSERT(VxExec(tab1q));
-
-        string tab2q = "CREATE TABLE [Tab2] (\n" + 
-            "\t[f4] [binary] (1) NOT NULL);\n\n";
-        WVASSERT(VxExec(tab2q));
+        // FIXME: Test with all the SchemaCreator elements
+        WVASSERT(VxExec(sc.tab1q));
+        WVASSERT(VxExec(sc.tab2q));
 
         VxSchema schema = dbus.Get();
         VxPutOpts no_opts = VxPutOpts.None;
@@ -1242,8 +1173,7 @@ class SchemamaticTests : VersaplexTester
             "There is already an object named 'Tab2' in the database.");
         WVPASSEQ(errs["Table/Tab2"].errnum, 2714);
 
-        try { VxExec("drop table Tab1"); } catch { }
-        try { VxExec("drop table Tab2"); } catch { }
+        sc.Cleanup();
     }
 
     [Test, Category("Schemamatic"), Category("PutSchema")]
@@ -1298,35 +1228,15 @@ class SchemamaticTests : VersaplexTester
     [Test, Category("Schemamatic"), Category("CopySchema")]
     public void TestCopySchema()
     {
-        try { VxExec("drop index Tab1.Idx1"); } catch { }
-        try { VxExec("drop table Tab1"); } catch { }
-        try { VxExec("drop table Tab2"); } catch { }
-        try { VxExec("drop xml schema collection TestSchema"); } catch { }
-        try { VxExec("drop procedure Func1"); } catch { }
-
-        string tab1q = "CREATE TABLE [Tab1] (\n" + 
-            "\t[f1] [int] NOT NULL PRIMARY KEY,\n" +
-            "\t[f2] [money] NULL,\n" + 
-            "\t[f3] [varchar] (80) NULL);\n\n";
-        WVASSERT(VxExec(tab1q));
-
-        string tab2q = "CREATE TABLE [Tab2] (\n" + 
-            "\t[f4] [binary] (1) NOT NULL);\n\n";
-        WVASSERT(VxExec(tab2q));
-
-	string idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
-	    "\t(f2,f3 DESC);\n\n";
-        WVASSERT(VxExec(idx1q));
-
-        string msg1 = "Hello, world, this is Func1!";
-        string msg2 = "Hello, world, this used to be Func1!";
-        string func1q = "create procedure Func1 as select '" + msg1 + "'\n";
-        string func1q2 = "create procedure Func1 as select '" + msg2 + "'\n";
-        WVASSERT(VxExec(func1q));
+        SchemaCreator sc = new SchemaCreator(this);
+        sc.Create();
 
         string xmlq = CreateXmlSchemaQuery();
         WVASSERT(VxExec(xmlq));
         
+        string msg2 = "Hello, world, this used to be Func1!";
+        string func1q2 = "create procedure Func1 as select '" + msg2 + "'\n";
+
         VxSchema origschema = dbus.Get();
         VxSchemaChecksums origsums = dbus.GetChecksums();
 
@@ -1366,6 +1276,8 @@ class SchemamaticTests : VersaplexTester
             Directory.Delete(tmpdir, true);
             WVPASS(!Directory.Exists(tmpdir));
         }
+
+        sc.Cleanup();
     }
 
     [Test, Category("Schemamatic"), Category("DiskBackend")]
