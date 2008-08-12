@@ -32,13 +32,21 @@ namespace NDesk.DBus
 			return argName;
 		}
 
+		//TODO: these two methods are quite messy and need review
 		public static IEnumerable<MemberInfo> GetPublicMembers (Type type)
 		{
+			//note that Type.GetInterfaces() returns all interfaces with flattened hierarchy
 			foreach (Type ifType in type.GetInterfaces ())
-				foreach (MemberInfo mi in GetPublicMembers (ifType))
+				foreach (MemberInfo mi in GetDeclaredPublicMembers (ifType))
 					yield return mi;
 
-			//TODO: will DeclaredOnly for inherited members? inheritance support isn't widely used or tested in other places though
+			if (IsPublic (type))
+				foreach (MemberInfo mi in GetDeclaredPublicMembers (type))
+					yield return mi;
+		}
+
+		static IEnumerable<MemberInfo> GetDeclaredPublicMembers (Type type)
+		{
 			if (IsPublic (type))
 				foreach (MemberInfo mi in type.GetMembers (BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
 					yield return mi;
@@ -66,7 +74,7 @@ namespace NDesk.DBus
 
 					if (getter != null && "Get" + prop.Name == method_call.Member) {
 						meth = getter;
-						inTypes = new Type[0];
+						inTypes = Type.EmptyTypes;
 					} else if (setter != null && "Set" + prop.Name == method_call.Member) {
 						meth = setter;
 						inTypes = new Type[] {prop.PropertyType};
@@ -164,6 +172,39 @@ namespace NDesk.DBus
 		public static bool IsDeprecated (ICustomAttributeProvider attrProvider)
 		{
 			return attrProvider.IsDefined (typeof (ObsoleteAttribute), true);
+		}
+
+		static bool AreEqual (Type[] a, Type[] b)
+		{
+			if (a.Length != b.Length)
+				return false;
+
+			for (int i = 0 ; i != a.Length ; i++)
+				if (a[i] != b[i])
+					return false;
+
+			return true;
+		}
+
+		//workaround for Mono bug #81035 (memory leak)
+		static List<Type> genTypes = new List<Type> ();
+		internal static Type GetGenericType (Type defType, Type[] parms)
+		{
+			foreach (Type genType in genTypes) {
+				if (genType.GetGenericTypeDefinition () != defType)
+					continue;
+
+				Type[] genParms = genType.GetGenericArguments ();
+
+				if (!AreEqual (genParms, parms))
+					continue;
+
+				return genType;
+			}
+
+			Type type = defType.MakeGenericType (parms);
+			genTypes.Add (type);
+			return type;
 		}
 	}
 

@@ -330,6 +330,8 @@ namespace NDesk.DBus
 			return hookupMethod;
 		}
 
+		static MethodInfo getMethodFromHandleMethod = typeof (MethodBase).GetMethod ("GetMethodFromHandle", new Type[] {typeof (RuntimeMethodHandle)});
+
 		public static void GenHookupMethod (ILGenerator ilg, MethodInfo declMethod, MethodInfo invokeMethod, string @interface, string member, Type[] hookupParms)
 		{
 			Type retType = declMethod.ReturnType;
@@ -339,7 +341,7 @@ namespace NDesk.DBus
 
 			//MethodInfo
 			ilg.Emit (OpCodes.Ldtoken, declMethod);
-			ilg.Emit (OpCodes.Call, typeof (MethodBase).GetMethod ("GetMethodFromHandle"));
+			ilg.Emit (OpCodes.Call, getMethodFromHandleMethod);
 
 			//interface
 			ilg.Emit (OpCodes.Ldstr, @interface);

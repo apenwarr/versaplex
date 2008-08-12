@@ -18,7 +18,9 @@ namespace NDesk.DBus
 		public ObjectPath Path;
 		public string Sender;
 		public string Destination;
-		public readonly SortedDictionary<int,string> Args = new SortedDictionary<int,string> ();
+		//workaround for old Mono: SortedDictionary was not available so we just use Dictionary
+		//public readonly SortedDictionary<int,string> Args = new SortedDictionary<int,string> ();
+		public readonly Dictionary<int,string> Args = new Dictionary<int,string> ();
 
 		public MatchRule ()
 		{
