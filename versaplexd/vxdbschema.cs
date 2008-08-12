@@ -39,11 +39,15 @@ internal class VxDbSchema : ISchemaBackend
 //            "OwnerId"
         };
 
+    WvDbi dbi;
     string connstr;
 
+    // _connstr connects to a MSSQL server (through a SqlConnection)
     public VxDbSchema(string _connstr)
     {
-        connstr = _connstr;
+        connstr = "mssql:" + _connstr;
+        log.print("Using connection string: {0}\n", connstr);
+        dbi = new WvDbi(connstr);
     }
 
     //
@@ -72,7 +76,8 @@ internal class VxDbSchema : ISchemaBackend
                     log.print("Calling PutSchema on {0}\n", key);
                     PutSchemaElement(schema[key], opts);
                 } catch (VxSqlException e) {
-                    log.print("Got error from {0}\n", key);
+                    log.print("Got error from {0}: {1} ({2})\n", key, 
+                        e.Message, e.GetFirstSqlErrno());
                     errs.Add(key, new VxSchemaError(key, e.Message, 
                         e.GetFirstSqlErrno()));
                 }
@@ -171,7 +176,7 @@ internal class VxDbSchema : ISchemaBackend
             if (type == "Procedure")
             {
                 // Set up self test
-                SqlExecScalar("create procedure schemamatic_checksum_test " + 
+                DbiExec("create procedure schemamatic_checksum_test " + 
                     "as print 'hello' ");
             }
 
@@ -179,7 +184,7 @@ internal class VxDbSchema : ISchemaBackend
 
             if (type == "Procedure")
             {
-                SqlExecScalar("drop procedure schemamatic_checksum_test");
+                DbiExec("drop procedure schemamatic_checksum_test");
 
                 // Self-test the checksum feature.  If mssql's checksum
                 // algorithm changes, we don't want to pretend our checksum
@@ -191,8 +196,9 @@ internal class VxDbSchema : ISchemaBackend
                 ulong want_csum = 0x173d6ee8;
                 if (want_csum != got_csum)
                 {
-                    throw new Exception(String.Format("checksum_test_mismatch!"
-                        + " {0} != {1}", got_csum, want_csum));
+                    throw new Exception(String.Format(
+                        "checksum_test_mismatch! {0} != {1}", 
+                        got_csum, want_csum));
                 }
                 sums.Remove(test_csum_label);
             }
@@ -220,7 +226,7 @@ internal class VxDbSchema : ISchemaBackend
 
         string query = GetDropCommand(type, name);
 
-        SqlExecScalar(query);
+        DbiExec(query);
     }
 
     // 
@@ -232,22 +238,20 @@ internal class VxDbSchema : ISchemaBackend
     // using (SqlConnection conn = GetConnection()) { ... }
     private SqlConnection GetConnection()
     {
-        SqlConnection con = new SqlConnection(connstr);
+        string foo = connstr;
+        if (connstr.StartsWith("mssql:"))
+            foo = connstr.Substring("mssql:".Length);
+        SqlConnection con = new SqlConnection(foo);
         con.Open();
         return con;
     }
 
-    // FIXME: An alarming duplicate of VxDb.ExecScalar.
-    private object SqlExecScalar(string query)
+    // Translate SqlExceptions from dbi.execute into VxSqlExceptions
+    private int DbiExec(string query, params string[] args)
     {
         try
         {
-            using (SqlConnection conn = GetConnection())
-            using (SqlCommand cmd = conn.CreateCommand())
-            {
-                cmd.CommandText = query;
-                return cmd.ExecuteScalar();
-            }
+            return dbi.execute(query, args);
         }
         catch (SqlException e)
         {
@@ -341,7 +345,7 @@ internal class VxDbSchema : ISchemaBackend
         }
 
         if (elem.text != null && elem.text != "")
-            SqlExecScalar(elem.text);
+            DbiExec(elem.text);
     }
 
     // Functions used for GetSchemaChecksums
@@ -918,8 +922,8 @@ internal class VxDbSchema : ISchemaBackend
     // data.  text is an opaque hunk of text returned from GetSchemaData.
     public void PutSchemaData(string tablename, string text)
     {
-        SqlExecScalar(String.Format("DELETE FROM [{0}]", tablename));
-        SqlExecScalar(text);
+        DbiExec(String.Format("DELETE FROM [{0}]", tablename));
+        DbiExec(text);
     }
 }
 
