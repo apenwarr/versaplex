@@ -7,28 +7,30 @@ using System.Collections.Generic;
 using NDesk.DBus;
 using org.freedesktop.DBus;
 
+//NOTE: MarshalByRefObject use is not recommended in new code
+//See TestExportInterface.cs for a more current example
 public class ManagedDBusTestExport
 {
 	public static void Main ()
 	{
 		Bus bus = Bus.Session;
 
-		ObjectPath myOpath = new ObjectPath ("/org/ndesk/test");
-		string myNameReq = "org.ndesk.test";
+		string bus_name = "org.ndesk.test";
+		ObjectPath path = new ObjectPath ("/org/ndesk/test");
 
 		DemoObject demo;
 
-		if (bus.NameHasOwner (myNameReq)) {
-			demo = bus.GetObject<DemoObject> (myNameReq, myOpath);
-		} else {
+		if (bus.RequestName (bus_name) == RequestNameReply.PrimaryOwner) {
+			//create a new instance of the object to be exported
 			demo = new DemoObject ();
-			bus.Register (myNameReq, myOpath, demo);
+			bus.Register (path, demo);
 
-			RequestNameReply nameReply = bus.RequestName (myNameReq);
-			Console.WriteLine ("RequestNameReply: " + nameReply);
-
+			//run the main loop
 			while (true)
 				bus.Iterate ();
+		} else {
+			//import a remote to a local proxy
+			demo = bus.GetObject<DemoObject> (bus_name, path);
 		}
 
 		demo.Say ("Hello world!");

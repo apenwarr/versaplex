@@ -13,44 +13,63 @@ public class ManagedDBusTestExport
 	{
 		Bus bus = Bus.Session;
 
-		ObjectPath myOpath = new ObjectPath ("/org/ndesk/test");
-		string myNameReq = "org.ndesk.test";
+		string bus_name = "org.ndesk.test";
+		ObjectPath path = new ObjectPath ("/org/ndesk/test");
 
-		IDemoObject demo;
+		IDemoOne demo;
 
-		if (bus.NameHasOwner (myNameReq)) {
-			demo = bus.GetObject<IDemoObject> (myNameReq, myOpath);
-		} else {
-			demo = new DemoObject ();
-			bus.Register (myNameReq, myOpath, demo);
+		if (bus.RequestName (bus_name) == RequestNameReply.PrimaryOwner) {
+			//create a new instance of the object to be exported
+			demo = new Demo ();
+			bus.Register (path, demo);
 
-			RequestNameReply nameReply = bus.RequestName (myNameReq);
-			Console.WriteLine ("RequestNameReply: " + nameReply);
-
+			//run the main loop
 			while (true)
 				bus.Iterate ();
+		} else {
+			//import a remote to a local proxy
+			demo = bus.GetObject<IDemo> (bus_name, path);
 		}
+
+		Console.WriteLine ();
+		demo.SomeEvent += HandleSomeEventA;
+		demo.FireOffSomeEvent ();
+
+		Console.WriteLine ();
+		demo.SomeEvent -= HandleSomeEventA;
+		demo.FireOffSomeEvent ();
 
 		Console.WriteLine ();
 		demo.SomeEvent += delegate (string arg1, object arg2, double arg3, MyTuple mt) {Console.WriteLine ("SomeEvent handler: " + arg1 + ", " + arg2 + ", " + arg3 + ", " + mt.A + ", " + mt.B);};
 		demo.SomeEvent += delegate (string arg1, object arg2, double arg3, MyTuple mt) {Console.WriteLine ("SomeEvent handler two: " + arg1 + ", " + arg2 + ", " + arg3 + ", " + mt.A + ", " + mt.B);};
 		demo.FireOffSomeEvent ();
-		//handle the raised signal
-		//bus.Iterate ();
 
 		Console.WriteLine ();
-		demo.SomeEvent += HandleSomeEventA;
-		demo.FireOffSomeEvent ();
-		//handle the raised signal
-		//bus.Iterate ();
+
+		Console.WriteLine (demo.GetSomeVariant ());
 
 		Console.WriteLine ();
-		demo.SomeEvent -= HandleSomeEventA;
-		demo.FireOffSomeEvent ();
-		//handle the raised signal
-		//bus.Iterate ();
 
-		Console.WriteLine ();
+		demo.Say2 ("demo.Say2");
+		((IDemoTwo)demo).Say2 ("((IDemoTwo)demo).Say2");
+
+		demo.SayEnum (DemoEnum.Bar, DemoEnum.Foo);
+
+		/*
+		uint n;
+		string ostr;
+		demo.WithOutParameters (out n, "21", out ostr);
+		Console.WriteLine ("n: " + n);
+		Console.WriteLine ("ostr: " + ostr);
+		*/
+
+		/*
+		IDemoOne[] objs = demo.GetObjArr ();
+		foreach (IDemoOne obj in objs)
+			obj.Say ("Some obj");
+		*/
+
+		demo.ThrowSomeException ();
 	}
 
 	public static void HandleSomeEventA (string arg1, object arg2, double arg3, MyTuple mt)
@@ -65,20 +84,40 @@ public class ManagedDBusTestExport
 }
 
 [Interface ("org.ndesk.test")]
-public interface IDemoObject
+public interface IDemoOne
 {
 	event SomeEventHandler SomeEvent;
 	void FireOffSomeEvent ();
 	void Say (object var);
+	void SayEnum (DemoEnum a, DemoEnum b);
+	void Say2 (string str);
+	object GetSomeVariant ();
+	void ThrowSomeException ();
+	void WithOutParameters (out uint n, string str, out string ostr);
+	IDemoOne[] GetEmptyObjArr ();
+	IDemoOne[] GetObjArr ();
 }
 
 [Interface ("org.ndesk.test2")]
-public interface IDemoObjectTwo
+public interface IDemoTwo
 {
 	int Say (string str);
+	void Say2 (string str);
 }
 
-public class DemoObject : IDemoObject, IDemoObjectTwo
+public interface IDemo : IDemoOne, IDemoTwo
+{
+}
+
+public class Demo : DemoBase
+{
+	public override void Say2 (string str)
+	{
+		Console.WriteLine ("Subclassed IDemoOne.Say2: " + str);
+	}
+}
+
+public class DemoBase : IDemo
 {
 	public event SomeEventHandler SomeEvent;
 
@@ -91,6 +130,21 @@ public class DemoObject : IDemoObject, IDemoObjectTwo
 	{
 		Console.WriteLine ("string: " + str);
 		return str.Length;
+	}
+
+	public void SayEnum (DemoEnum a, DemoEnum b)
+	{
+		Console.WriteLine ("SayEnum: " + a + ", " + b);
+	}
+
+	public virtual void Say2 (string str)
+	{
+		Console.WriteLine ("IDemoOne.Say2: " + str);
+	}
+
+	void IDemoTwo.Say2 (string str)
+	{
+		Console.WriteLine ("IDemoTwo.Say2: " + str);
 	}
 
 	public void FireOffSomeEvent ()
@@ -106,9 +160,37 @@ public class DemoObject : IDemoObject, IDemoObjectTwo
 			Console.WriteLine ("Fired off SomeEvent");
 		}
 	}
+
+	public object GetSomeVariant ()
+	{
+		Console.WriteLine ("GetSomeVariant()");
+
+		return new byte[0];
+	}
+
+	public void ThrowSomeException ()
+	{
+		throw new Exception ("Some exception");
+	}
+
+	public void WithOutParameters (out uint n, string str, out string ostr)
+	{
+		n = UInt32.Parse (str);
+		ostr = "." + str + ".";
+	}
+
+	public IDemoOne[] GetEmptyObjArr ()
+	{
+		return new Demo[] {};
+	}
+
+	public IDemoOne[] GetObjArr ()
+	{
+		return new IDemoOne[] {this};
+	}
 }
 
-public enum DemoEnum
+public enum DemoEnum : byte
 {
 	Foo,
 	Bar,
