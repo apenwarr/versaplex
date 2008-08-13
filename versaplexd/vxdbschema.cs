@@ -173,34 +173,40 @@ internal class VxDbSchema : ISchemaBackend
 
         foreach (string type in ProcedureTypes)
         {
-            if (type == "Procedure")
+            try
             {
-                // Set up self test
-                DbiExec("create procedure schemamatic_checksum_test " + 
-                    "as print 'hello' ");
-            }
-
-            GetProcChecksums(sums, type, 0);
-
-            if (type == "Procedure")
-            {
-                DbiExec("drop procedure schemamatic_checksum_test");
-
-                // Self-test the checksum feature.  If mssql's checksum
-                // algorithm changes, we don't want to pretend our checksum
-                // list makes any sense!
-                string test_csum_label = "Procedure/schemamatic_checksum_test";
-                ulong got_csum = 0;
-                if (sums.ContainsKey(test_csum_label))
-                    got_csum = sums[test_csum_label].checksums[0];
-                ulong want_csum = 0x173d6ee8;
-                if (want_csum != got_csum)
+                if (type == "Procedure")
                 {
-                    throw new Exception(String.Format(
-                        "checksum_test_mismatch! {0} != {1}", 
-                        got_csum, want_csum));
+                    // Set up self test
+                    DbiExec("create procedure schemamatic_checksum_test " + 
+                        "as print 'hello' ");
                 }
-                sums.Remove(test_csum_label);
+
+                GetProcChecksums(sums, type, 0);
+
+                if (type == "Procedure")
+                {
+                    // Self-test the checksum feature.  If mssql's checksum
+                    // algorithm changes, we don't want to pretend our checksum
+                    // list makes any sense!
+                    string test_csum = "Procedure/schemamatic_checksum_test";
+                    ulong got_csum = 0;
+                    if (sums.ContainsKey(test_csum))
+                        got_csum = sums[test_csum].checksums[0];
+                    ulong want_csum = 0x173d6ee8;
+                    if (want_csum != got_csum)
+                    {
+                        throw new Exception(String.Format(
+                            "checksum_test_mismatch! {0} != {1}", 
+                            got_csum, want_csum));
+                    }
+                    sums.Remove(test_csum);
+                }
+            }
+            finally
+            {
+                if (type == "Procedure")
+                    DbiExec("drop procedure schemamatic_checksum_test");
             }
 
             GetProcChecksums(sums, type, 1);
