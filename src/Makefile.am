@@ -35,6 +35,9 @@ CSFILES = \
 
 all: $(TARGET)
 
+test: all
+	$(MAKE) -C t test
+
 $(TARGET): $(CSFILES) AssemblyInfo.cs
 	$(GMCS) -out:$@ $(CSFLAGS) $(LIBFLAGS) $^
 
