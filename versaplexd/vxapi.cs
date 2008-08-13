@@ -1,9 +1,8 @@
 using System;
+using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Data;
 using System.Data.SqlClient;
-using System.Runtime.Serialization;
 using System.Collections.Generic;
 using NDesk.DBus;
 using Wv;
@@ -646,60 +645,12 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
-        VxSchemaChecksums sums = new VxSchemaChecksums();
-
-        foreach (string type in Schemamatic.ProcedureTypes)
-        {
-            if (type == "Procedure")
-            {
-                // Set up self test
-                object result;
-                VxDb.ExecScalar(clientid, "create procedure " + 
-                    "schemamatic_checksum_test as print 'hello' ", out result);
-            }
-
-            Schemamatic.GetProcChecksums(sums, clientid, type, 0);
-
-            if (type == "Procedure")
-            {
-                object result;
-                VxDb.ExecScalar(clientid, 
-                    "drop procedure schemamatic_checksum_test", out result);
-
-                // Self-test the checksum feature.  If mssql's checksum
-                // algorithm changes, we don't want to pretend our checksum
-                // list makes any sense!
-                string test_csum_label = "Procedure/schemamatic_checksum_test";
-                ulong got_csum = 0;
-                if (sums.ContainsKey(test_csum_label))
-                    got_csum = sums[test_csum_label].checksums[0];
-                ulong want_csum = 0x173d6ee8;
-                if (want_csum != got_csum)
-                {
-                    reply = VxDbus.CreateError(
-                        "org.freedesktop.DBus.Error.Failed",
-                        String.Format("checksum_test mismatch! {0} != {1}", 
-                            got_csum, want_csum), call);
-                    return;
-                }
-                sums.Remove(test_csum_label);
-            }
-
-            Schemamatic.GetProcChecksums(sums, clientid, type, 1);
-        }
-
-        // Do tables separately
-        Schemamatic.GetTableChecksums(sums, clientid);
-
-        // Do indexes separately
-        Schemamatic.GetIndexChecksums(sums, clientid);
-
-        // Do XML schema collections separately (FIXME: only if SQL2005)
-        Schemamatic.GetXmlSchemaChecksums(sums, clientid);
-
         // FIXME: Add vx.db.toomuchdata error
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
+        ISchemaBackend backend = new VxDbSchema(
+            VxSqlPool.GetConnInfoFromConnId(clientid).ConnectionString);
+        VxSchemaChecksums sums = backend.GetChecksums();
         sums.WriteChecksums(writer);
 
         reply = VxDbus.CreateReply(call, 
@@ -708,17 +659,6 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         // For debugging
         reply.WriteHeader();
         VxDbus.MessageDump(" >> ", reply);
-    }
-
-    // Escape the schema element names supplied, to make sure they don't have
-    // evil characters.
-    private static string EscapeSchemaElementName(string name)
-    {
-        // Replace any nasty non-ASCII characters with an !
-        string escaped = Regex.Replace(name, "[^\\p{IsBasicLatin}]", "!");
-
-        // Escape quote marks
-        return escaped.Replace("'", "''");
     }
 
     private static void CallGetSchema(Message call, out Message reply)
@@ -738,65 +678,13 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         }
 
         Array names_untyped;
-        List<string> all_names = new List<string>();
-        List<string> proc_names = new List<string>();
-        List<string> xml_names = new List<string>();
-        List<string> tab_names = new List<string>();
-        List<string> idx_names = new List<string>();
 
         MessageReader mr = new MessageReader(call);
         mr.GetValue(typeof(string[]), out names_untyped);
-        foreach (object nameobj in names_untyped)
-        {
-            string fullname = EscapeSchemaElementName((string)nameobj);
-            Console.WriteLine("CallGetSchema: Read name " + fullname);
-            all_names.Add(fullname);
 
-            string[] parts = fullname.Split(new char[] {'/'}, 2);
-            if (parts.Length == 2)
-            {
-                string type = parts[0];
-                string name = parts[1];
-                if (type == "Table")
-                    tab_names.Add(name);
-                else if (type == "Index")
-                    idx_names.Add(name);
-                else if (type == "XMLSchema")
-                    xml_names.Add(name);
-                else
-                    proc_names.Add(name);
-            }
-            else
-            {
-                // No type given, just try them all
-                proc_names.Add(fullname);
-                xml_names.Add(fullname);
-                tab_names.Add(fullname);
-                idx_names.Add(fullname);
-            }
-        }
-
-        VxSchema schema = new VxSchema();
-
-        if (proc_names.Count > 0 || all_names.Count == 0)
-        {
-            foreach (string type in Schemamatic.ProcedureTypes)
-            {
-                Schemamatic.RetrieveProcSchemas(schema, proc_names, 
-                    clientid, type, 0);
-                Schemamatic.RetrieveProcSchemas(schema, proc_names, 
-                    clientid, type, 1);
-            }
-        }
-
-        if (idx_names.Count > 0 || all_names.Count == 0)
-            Schemamatic.RetrieveIndexSchemas(schema, idx_names, clientid);
-
-        if (xml_names.Count > 0 || all_names.Count == 0)
-            Schemamatic.RetrieveXmlSchemas(schema, xml_names, clientid);
-
-        if (tab_names.Count > 0 || all_names.Count == 0)
-            Schemamatic.RetrieveTableColumns(schema, tab_names, clientid);
+        VxDbSchema backend = new VxDbSchema(
+            VxSqlPool.GetConnInfoFromConnId(clientid).ConnectionString);
+        VxSchema schema = backend.Get(names_untyped.Cast<string>());
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
@@ -831,7 +719,9 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         mr.GetValue(out type);
         mr.GetValue(out name);
 
-        Schemamatic.DropSchema(clientid, type, name);
+        VxDbSchema backend = new VxDbSchema(
+            VxSqlPool.GetConnInfoFromConnId(clientid).ConnectionString);
+        backend.DropSchema(type, name);
 
         reply = VxDbus.CreateReply(call);
     }
@@ -859,8 +749,9 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         VxSchema schema = new VxSchema(mr);
         mr.GetValue(out opts);
 
-        VxSchemaErrors errs = 
-            Schemamatic.PutSchema(clientid, schema, (VxPutOpts)opts);
+        VxDbSchema backend = new VxDbSchema(
+            VxSqlPool.GetConnInfoFromConnId(clientid).ConnectionString);
+        VxSchemaErrors errs = backend.Put(schema, null, (VxPutOpts)opts);
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
         VxSchemaErrors.WriteErrors(writer, errs);
@@ -896,7 +787,9 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         MessageReader mr = new MessageReader(call);
         mr.GetValue(out tablename);
 
-        string schemadata = Schemamatic.GetSchemaData(clientid, tablename);
+        VxDbSchema backend = new VxDbSchema(
+            VxSqlPool.GetConnInfoFromConnId(clientid).ConnectionString);
+        string schemadata = backend.GetSchemaData(tablename);
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
         writer.Write(schemadata);
@@ -926,154 +819,11 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         mr.GetValue(out tablename);
         mr.GetValue(out text);
 
-        Schemamatic.PutSchemaData(clientid, tablename, text);
+        VxDbSchema backend = new VxDbSchema(
+            VxSqlPool.GetConnInfoFromConnId(clientid).ConnectionString);
+        backend.PutSchemaData(tablename, text);
 
         reply = VxDbus.CreateReply(call);
     }
 }
 
-class VxRequestException : Exception {
-    public string DBusErrorType;
-
-    public VxRequestException(string errortype)
-        : base()
-    {
-        DBusErrorType = errortype;
-    }
-    
-    public VxRequestException(string errortype, string msg)
-        : base(msg)
-    {
-        DBusErrorType = errortype;
-    }
-
-    public VxRequestException(string errortype, SerializationInfo si, 
-            StreamingContext sc)
-        : base(si, sc)
-    {
-        DBusErrorType = errortype;
-    }
-
-    public VxRequestException(string errortype, string msg, Exception inner)
-        : base(msg, inner)
-    {
-        DBusErrorType = errortype;
-    }
-}
-
-class VxSqlException : VxRequestException {
-    public VxSqlException()
-        : base("vx.db.sqlerror")
-    {
-    }
-    
-    public VxSqlException(string msg)
-        : base("vx.db.sqlerror", msg)
-    {
-    }
-
-    public VxSqlException(SerializationInfo si, StreamingContext sc)
-        : base("vx.db.sqlerror", si, sc)
-    {
-    }
-
-    public VxSqlException(string msg, Exception inner)
-        : base("vx.db.sqlerror", msg, inner)
-    {
-    }
-
-    public bool ContainsSqlError(int errno)
-    {
-        if (!(InnerException is SqlException))
-            return false;
-
-        SqlException sqle = (SqlException)InnerException;
-        foreach (SqlError err in sqle.Errors)
-        {
-            if (err.Number == errno)
-                return true;
-        }
-        return false;
-    }
-
-    // Returns the SQL error number of the first SQL Exception in the list, or
-    // -1 if none can be found.
-    public int GetFirstSqlErrno()
-    {
-        if (!(InnerException is SqlException))
-            return -1;
-
-        SqlException sqle = (SqlException)InnerException;
-        foreach (SqlError err in sqle.Errors)
-        {
-            return err.Number;
-        }
-        return -1;
-    }
-}
-
-class VxTooMuchDataException : VxRequestException {
-    public VxTooMuchDataException()
-        : base("vx.db.toomuchdata")
-    {
-    }
-    
-    public VxTooMuchDataException(string msg)
-        : base("vx.db.toomuchdata", msg)
-    {
-    }
-
-    public VxTooMuchDataException(SerializationInfo si, StreamingContext sc)
-        : base("vx.db.toomuchdata", si, sc)
-    {
-    }
-
-    public VxTooMuchDataException(string msg, Exception inner)
-        : base("vx.db.toomuchdata", msg, inner)
-    {
-    }
-}
-
-class VxBadSchemaException : VxRequestException {
-    public VxBadSchemaException()
-        : base("vx.db.badschema")
-    {
-    }
-    
-    public VxBadSchemaException(string msg)
-        : base("vx.db.badschema", msg)
-    {
-    }
-
-    public VxBadSchemaException(SerializationInfo si, StreamingContext sc)
-        : base("vx.db.badschema", si, sc)
-    {
-    }
-
-    public VxBadSchemaException(string msg, Exception inner)
-        : base("vx.db.badschema", msg, inner)
-    {
-    }
-}
-
-class VxConfigException : VxRequestException {
-    public VxConfigException()
-        : base("vx.db.configerror")
-    {
-    }
-    
-    public VxConfigException(string msg)
-        : base("vx.db.configerror", msg)
-    {
-    }
-
-    public VxConfigException(SerializationInfo si, StreamingContext sc)
-        : base("vx.db.configerror", si, sc)
-    {
-    }
-
-    public VxConfigException(string msg, Exception inner)
-        : base("vx.db.configerror", msg, inner)
-    {
-    }
-}

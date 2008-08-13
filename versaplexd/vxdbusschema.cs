@@ -44,7 +44,6 @@ internal class VxDbusSchema : ISchemaBackend
         call.Body = writer.ToArray();
 
         Message reply = call.Connection.SendWithReplyAndBlock(call);
-        Console.WriteLine("Got reply");
 
         switch (reply.Header.MessageType) {
         case MessageType.MethodReturn:
@@ -77,11 +76,15 @@ internal class VxDbusSchema : ISchemaBackend
         }
     }
 
+    // Utility API so you can say Get("foo").
     public VxSchema Get(params string[] keys)
     {
         Message call = CreateMethodCall("GetSchema", "as");
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+
+        if (keys == null)
+            keys = new string[0];
 
         writer.Write(typeof(string[]), (Array)keys);
         call.Body = writer.ToArray();
@@ -114,6 +117,8 @@ internal class VxDbusSchema : ISchemaBackend
 
     public VxSchema Get(IEnumerable<string> keys)
     {
+        if (keys == null)
+            keys = new string[0];
         return Get(keys.ToArray());
     }
 
@@ -122,7 +127,6 @@ internal class VxDbusSchema : ISchemaBackend
         Message call = CreateMethodCall("GetSchemaChecksums", "");
 
         Message reply = call.Connection.SendWithReplyAndBlock(call);
-        Console.WriteLine("Got reply");
 
         switch (reply.Header.MessageType) {
         case MessageType.MethodReturn:
@@ -148,10 +152,6 @@ internal class VxDbusSchema : ISchemaBackend
         }
     }
 
-    //
-    // Non-ISchemaBackend methods
-    //
-
     // A method exported over DBus but not exposed in ISchemaBackend
     public void DropSchema(string type, string name)
     {
@@ -164,7 +164,6 @@ internal class VxDbusSchema : ISchemaBackend
         call.Body = writer.ToArray();
 
         Message reply = call.Connection.SendWithReplyAndBlock(call);
-        Console.WriteLine("Got reply");
 
         switch (reply.Header.MessageType) {
         case MessageType.MethodReturn:
@@ -185,6 +184,10 @@ internal class VxDbusSchema : ISchemaBackend
         }
     }
     
+    //
+    // Non-ISchemaBackend methods
+    //
+
     // A method exported over DBus but not exposed in ISchemaBackend
     public string GetSchemaData(string tablename)
     {
@@ -196,7 +199,6 @@ internal class VxDbusSchema : ISchemaBackend
         call.Body = writer.ToArray();
 
         Message reply = call.Connection.SendWithReplyAndBlock(call);
-        Console.WriteLine("Got reply");
 
         switch (reply.Header.MessageType) {
         case MessageType.MethodReturn:
@@ -235,7 +237,6 @@ internal class VxDbusSchema : ISchemaBackend
         call.Body = writer.ToArray();
 
         Message reply = call.Connection.SendWithReplyAndBlock(call);
-        Console.WriteLine("Got reply");
 
         switch (reply.Header.MessageType) {
         case MessageType.MethodReturn:

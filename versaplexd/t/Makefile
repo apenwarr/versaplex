@@ -40,9 +40,16 @@ TESTSOURCES=$(wildcard *.t.cc)
 TESTHEADERS=$(wildcard *.h)
 TESTOBJS=$(patsubst %.cc,%.o,$(TESTSOURCES))
 
-all: test
+TESTS=versaplex.t.pass vxsanity.t.pass verifydata.t.pass schemamatic.t.pass
+TESTEXES=$(patsubst %.pass,%.exe,$(TESTS))
 
-test: versaplex.t.pass vxsanity.t.pass verifydata.t.pass schemamatic.t.pass all.t
+default: test
+
+all: tests
+
+tests: $(TESTEXES)
+
+test: $(TESTS) all.t
 	$(RUNTEST) $(VALGRIND) ./all.t $(TESTNAME)
 
 versaplex.t.exe: versaplex.t.cs.E versaplextester.cs.E dbuserror.cs \
@@ -65,7 +72,7 @@ schemamatic.t.exe: schemamatic.t.cs.E versaplextester.cs.E dbuserror.cs \
 	../vxcolumninfo.cs ../vxdbusdatetime.cs ../vxschemachecksums.cs \
 	../vxschema.cs ../vxschemachecksums.cs ../vxschemaerrors.cs \
 	../ischemabackend.cs ../vxdiskschema.cs ../vxdbusschema.cs \
-	../vxdbusutils.cs \
+	../vxdbschema.cs ../vxdbusutils.cs ../vxexceptions.cs \
 	../wv.dll ../NDesk.DBus.dll
 
 %.o: %.cc

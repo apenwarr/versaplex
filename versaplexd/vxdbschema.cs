@@ -1,16 +1,21 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Data;
+using System.Data.SqlClient;
 using System.Linq;
 using System.Text;
-using NDesk.DBus;
+using System.Text.RegularExpressions;
 using Wv;
 using Wv.Extensions;
 
-internal static class Schemamatic
+// An ISchemaBackend that uses a direct database connection as a backing
+// store.
+internal class VxDbSchema : ISchemaBackend
 {
-    static WvLog log = new WvLog("Schemamatic", WvLog.L.Debug2);
+    static WvLog log = new WvLog("VxDbSchema", WvLog.L.Debug2);
 
-    internal static string[] ProcedureTypes = new string[] { 
+    static string[] ProcedureTypes = new string[] { 
 //            "CheckCnst", 
 //            "Constraint",
 //            "Default",
@@ -34,8 +39,315 @@ internal static class Schemamatic
 //            "OwnerId"
         };
 
-    internal static void GetProcChecksums(VxSchemaChecksums sums, 
-            string clientid, string type, int encrypted)
+    string connstr;
+
+    public VxDbSchema(string _connstr)
+    {
+        connstr = _connstr;
+    }
+
+    //
+    // The ISchema interface
+    //
+
+    public VxSchemaErrors Put(VxSchema schema, VxSchemaChecksums sums, 
+        VxPutOpts opts)
+    {
+        bool no_retry = (opts & VxPutOpts.NoRetry) != 0;
+        int old_err_count = -1;
+        IEnumerable<string> keys = schema.Keys;
+        VxSchemaErrors errs = new VxSchemaErrors();
+
+        // Sometimes we'll get schema elements in the wrong order, so retry
+        // until the number of errors stops decreasing.
+        while (errs.Count != old_err_count)
+        {
+            log.print("Calling Put on {0} entries\n", 
+                old_err_count == -1 ? schema.Count : errs.Count);
+            old_err_count = errs.Count;
+            errs.Clear();
+            foreach (string key in keys)
+            {
+                try {
+                    log.print("Calling PutSchema on {0}\n", key);
+                    PutSchemaElement(schema[key], opts);
+                } catch (VxSqlException e) {
+                    log.print("Got error from {0}\n", key);
+                    errs.Add(key, new VxSchemaError(key, e.Message, 
+                        e.GetFirstSqlErrno()));
+                }
+            }
+            // If we only had one schema element, retrying it isn't going to
+            // fix anything.  We retry to fix ordering problems.
+            if (no_retry || errs.Count == 0 || schema.Count == 1)
+                break;
+
+            log.print("Got {0} errors, old_errs={1}, retrying\n", 
+                errs.Count, old_err_count);
+
+            keys = errs.Keys.ToList();
+        }
+        return errs.Count > 0 ? errs : null;
+    }
+
+    // Escape the schema element names supplied, to make sure they don't have
+    // evil characters.
+    private static string EscapeSchemaElementName(string name)
+    {
+        // Replace any nasty non-ASCII characters with an !
+        string escaped = Regex.Replace(name, "[^\\p{IsBasicLatin}]", "!");
+
+        // Escape quote marks
+        return escaped.Replace("'", "''");
+    }
+
+    public VxSchema Get(IEnumerable<string> keys)
+    {
+        List<string> all_names = new List<string>();
+        List<string> proc_names = new List<string>();
+        List<string> xml_names = new List<string>();
+        List<string> tab_names = new List<string>();
+        List<string> idx_names = new List<string>();
+
+        foreach (string key in keys)
+        {
+            string fullname = EscapeSchemaElementName(key);
+            Console.WriteLine("CallGetSchema: Read name " + fullname);
+            all_names.Add(fullname);
+
+            string[] parts = fullname.Split(new char[] {'/'}, 2);
+            if (parts.Length == 2)
+            {
+                string type = parts[0];
+                string name = parts[1];
+                if (type == "Table")
+                    tab_names.Add(name);
+                else if (type == "Index")
+                    idx_names.Add(name);
+                else if (type == "XMLSchema")
+                    xml_names.Add(name);
+                else
+                    proc_names.Add(name);
+            }
+            else
+            {
+                // No type given, just try them all
+                proc_names.Add(fullname);
+                xml_names.Add(fullname);
+                tab_names.Add(fullname);
+                idx_names.Add(fullname);
+            }
+        }
+
+        VxSchema schema = new VxSchema();
+
+        if (proc_names.Count > 0 || all_names.Count == 0)
+        {
+            foreach (string type in ProcedureTypes)
+            {
+                RetrieveProcSchemas(schema, proc_names, type, 0);
+                RetrieveProcSchemas(schema, proc_names, type, 1);
+            }
+        }
+
+        if (idx_names.Count > 0 || all_names.Count == 0)
+            RetrieveIndexSchemas(schema, idx_names);
+
+        if (xml_names.Count > 0 || all_names.Count == 0)
+            RetrieveXmlSchemas(schema, xml_names);
+
+        if (tab_names.Count > 0 || all_names.Count == 0)
+            RetrieveTableColumns(schema, tab_names);
+
+        return schema;
+    }
+
+    public VxSchemaChecksums GetChecksums()
+    {
+        VxSchemaChecksums sums = new VxSchemaChecksums();
+
+        foreach (string type in ProcedureTypes)
+        {
+            if (type == "Procedure")
+            {
+                // Set up self test
+                SqlExecScalar("create procedure schemamatic_checksum_test " + 
+                    "as print 'hello' ");
+            }
+
+            GetProcChecksums(sums, type, 0);
+
+            if (type == "Procedure")
+            {
+                SqlExecScalar("drop procedure schemamatic_checksum_test");
+
+                // Self-test the checksum feature.  If mssql's checksum
+                // algorithm changes, we don't want to pretend our checksum
+                // list makes any sense!
+                string test_csum_label = "Procedure/schemamatic_checksum_test";
+                ulong got_csum = 0;
+                if (sums.ContainsKey(test_csum_label))
+                    got_csum = sums[test_csum_label].checksums[0];
+                ulong want_csum = 0x173d6ee8;
+                if (want_csum != got_csum)
+                {
+                    throw new Exception(String.Format("checksum_test_mismatch!"
+                        + " {0} != {1}", got_csum, want_csum));
+                }
+                sums.Remove(test_csum_label);
+            }
+
+            GetProcChecksums(sums, type, 1);
+        }
+
+        // Do tables separately
+        GetTableChecksums(sums);
+
+        // Do indexes separately
+        GetIndexChecksums(sums);
+
+        // Do XML schema collections separately (FIXME: only if SQL2005)
+        GetXmlSchemaChecksums(sums);
+
+        return sums;
+    }
+
+    // Deletes the named object in the database.
+    public void DropSchema(string type, string name)
+    {
+        if (type == null || name == null)
+            return;
+
+        string query = GetDropCommand(type, name);
+
+        SqlExecScalar(query);
+    }
+
+    // 
+    // Non-ISchemaBackend methods
+    //
+
+    // Note: You must call Close() or Finalize() on the returned object.  The
+    // easiest and most reliable way is to put it in a using() block, e.g. 
+    // using (SqlConnection conn = GetConnection()) { ... }
+    private SqlConnection GetConnection()
+    {
+        SqlConnection con = new SqlConnection(connstr);
+        con.Open();
+        return con;
+    }
+
+    // FIXME: An alarming duplicate of VxDb.ExecScalar.
+    private object SqlExecScalar(string query)
+    {
+        try
+        {
+            using (SqlConnection conn = GetConnection())
+            using (SqlCommand cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = query;
+                return cmd.ExecuteScalar();
+            }
+        }
+        catch (SqlException e)
+        {
+            throw new VxSqlException(e.Message, e);
+        }
+    }
+
+    // Like VxDb.ExecRecordset, except we don't care about colinfo or nullity
+    private object[][] SqlExecRecordset(string query)
+    {
+        List<object[]> result = new List<object[]>();
+        try
+        {
+            using (SqlConnection conn = GetConnection())
+            using (SqlCommand cmd = new SqlCommand(query, conn))
+            using (SqlDataReader reader = cmd.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    object[] row = new object[reader.FieldCount];
+                    reader.GetValues(row);
+                    for (int i = 0; i < reader.FieldCount; i++)
+                        if (reader.IsDBNull(i))
+                            row[i] = null;
+                    result.Add(row);
+                }
+            }
+        }
+        catch (SqlException e)
+        {
+            throw new VxSqlException(e.Message, e);
+        }
+
+        return result.ToArray();
+    }
+
+    private static string GetDropCommand(string type, string name)
+    {
+        if (type.StartsWith("Function"))
+            type = "Function";
+        else if (type == "XMLSchema")
+            type = "XML Schema Collection";
+        else if (type == "Index")
+        {
+            string[] parts = name.Split(new char[] {'/'}, 2);
+            if (parts.Length == 2)
+            {
+                string tabname = parts[0];
+                string idxname = parts[1];
+                return String.Format(
+                    @"declare @x int;
+                      select @x = is_primary_key 
+                          from sys.indexes 
+                          where object_name(object_id) = '{0}' 
+                            and name = '{1}';
+                      if @x = 1 
+                          ALTER TABLE [{0}] DROP CONSTRAINT [{1}]; 
+                      else 
+                          DROP {2} [{0}].[{1}]", 
+                    tabname, idxname, type);
+            } 
+            else 
+                throw new ArgumentException(String.Format(
+                    "Invalid index name '{0}'!", name));
+        }
+
+        return String.Format("DROP {0} [{1}]", type, name);
+    }
+
+    // Replaces the named object in the database.  elem.text is a verbatim
+    // hunk of text returned earlier by GetSchema.  'destructive' says whether
+    // or not to perform potentially destructive operations while making the
+    // change, e.g. dropping a table so we can re-add it with the right
+    // columns.
+    private void PutSchemaElement(VxSchemaElement elem, VxPutOpts opts)
+    {
+        bool destructive = (opts & VxPutOpts.Destructive) != 0;
+        if (destructive || !elem.type.StartsWith("Table"))
+        {
+            try { 
+                DropSchema(elem.type, elem.name); 
+            } catch (VxSqlException e) {
+                // Check if it's a "didn't exist" error, rethrow if not.
+                // SQL Error 3701 means "can't drop sensible item because
+                // it doesn't exist or you don't have permission."
+                // SQL Error 15151 means "can't drop XML Schema collection 
+                // because it doesn't exist or you don't have permission."
+                if (!e.ContainsSqlError(3701) && !e.ContainsSqlError(15151))
+                    throw e;
+            }
+        }
+
+        if (elem.text != null && elem.text != "")
+            SqlExecScalar(elem.text);
+    }
+
+    // Functions used for GetSchemaChecksums
+
+    void GetProcChecksums(VxSchemaChecksums sums, 
+            string type, int encrypted)
     {
         string encrypt_str = encrypted > 0 ? "-Encrypted" : "";
 
@@ -55,11 +367,7 @@ internal static class Schemamatic
                 order by name, colid
             drop table #checksum_calc";
 
-        VxColumnInfo[] colinfo;
-        object[][] data;
-        byte[][] nullity;
-        
-        VxDb.ExecRecordset(clientid, query, out colinfo, out data, out nullity);
+        object[][] data = SqlExecRecordset(query);
 
         foreach (object[] row in data)
         {
@@ -85,8 +393,7 @@ internal static class Schemamatic
         }
     }
 
-    internal static void GetTableChecksums(VxSchemaChecksums sums, 
-            string clientid)
+    void GetTableChecksums(VxSchemaChecksums sums)
     {
         log.print("Indexing: Tables\n");
 
@@ -120,11 +427,7 @@ internal static class Schemamatic
                from #checksum_calc
            drop table #checksum_calc";
 
-        VxColumnInfo[] colinfo;
-        object[][] data;
-        byte[][] nullity;
-        
-        VxDb.ExecRecordset(clientid, query, out colinfo, out data, out nullity);
+        object[][] data = SqlExecRecordset(query);
 
         foreach (object[] row in data)
         {
@@ -147,8 +450,7 @@ internal static class Schemamatic
         }
     }
 
-    internal static void GetIndexChecksums(VxSchemaChecksums sums, 
-            string clientid)
+    void GetIndexChecksums(VxSchemaChecksums sums)
     {
         string query = @"
             select 
@@ -178,11 +480,7 @@ internal static class Schemamatic
               from #checksum_calc
             drop table #checksum_calc";
 
-        VxColumnInfo[] colinfo;
-        object[][] data;
-        byte[][] nullity;
-        
-        VxDb.ExecRecordset(clientid, query, out colinfo, out data, out nullity);
+        object[][] data = SqlExecRecordset(query);
 
         foreach (object[] row in data)
         {
@@ -203,8 +501,7 @@ internal static class Schemamatic
         }
     }
 
-    internal static void GetXmlSchemaChecksums(VxSchemaChecksums sums, 
-            string clientid)
+    void GetXmlSchemaChecksums(VxSchemaChecksums sums)
     {
         string query = @"
             select sch.name owner,
@@ -221,11 +518,7 @@ internal static class Schemamatic
                 from #checksum_calc
             drop table #checksum_calc";
 
-        VxColumnInfo[] colinfo;
-        object[][] data;
-        byte[][] nullity;
-        
-        VxDb.ExecRecordset(clientid, query, out colinfo, out data, out nullity);
+        object[][] data = SqlExecRecordset(query);
 
         foreach (object[] row in data)
         {
@@ -245,7 +538,9 @@ internal static class Schemamatic
         }
     }
 
-    internal static string RetrieveProcSchemasQuery(string type, int encrypted, 
+    // Functions used for GetSchema
+
+    static string RetrieveProcSchemasQuery(string type, int encrypted, 
         bool countonly, List<string> names)
     {
         string name_q = names.Count > 0 
@@ -262,16 +557,13 @@ internal static class Schemamatic
                 "and encrypted = " + encrypted + name_q;
     }
 
-    internal static void RetrieveProcSchemas(VxSchema schema, List<string> names, 
-        string clientid, string type, int encrypted)
+    void RetrieveProcSchemas(VxSchema schema, List<string> names, 
+        string type, int encrypted)
     {
         string query = RetrieveProcSchemasQuery(type, encrypted, false, names);
+        log.print("Query={0}\n", query);
 
-        VxColumnInfo[] colinfo;
-        object[][] data;
-        byte[][] nullity;
-        
-        VxDb.ExecRecordset(clientid, query, out colinfo, out data, out nullity);
+        object[][] data = SqlExecRecordset(query);
 
         int num = 0;
         int total = data.Length;
@@ -283,7 +575,7 @@ internal static class Schemamatic
             string text;
             if (encrypted > 0)
             {
-                byte[] bytes = (byte[])row[2];
+                byte[] bytes = row[2] == null ?  new byte[0] : (byte[])row[2];
                 // BitConverter.ToString formats the bytes as "01-23-cd-ef", 
                 // but we want to have them as just straight "0123cdef".
                 text = System.BitConverter.ToString(bytes);
@@ -310,8 +602,7 @@ internal static class Schemamatic
             encrypted > 0 ? "-Encrypted" : "");
     }
 
-    internal static void RetrieveIndexSchemas(VxSchema schema, List<string> names, 
-        string clientid)
+    void RetrieveIndexSchemas(VxSchema schema, List<string> names)
     {
         string idxnames = (names.Count > 0) ? 
             "and ((object_name(i.object_id)+'/'+i.name) in ('" + 
@@ -340,11 +631,7 @@ internal static class Schemamatic
             idxnames + 
           @" order by i.name, i.object_id, ic.index_column_id";
 
-        VxColumnInfo[] colinfo;
-        object[][] data;
-        byte[][] nullity;
-        
-        VxDb.ExecRecordset(clientid, query, out colinfo, out data, out nullity);
+        object[][] data = SqlExecRecordset(query);
 
         int old_colid = 0;
         List<string> cols = new List<string>();
@@ -403,7 +690,7 @@ internal static class Schemamatic
         }
     }
 
-    internal static string XmlSchemasQuery(int count, List<string> names)
+    static string XmlSchemasQuery(int count, List<string> names)
     {
         int start = count * 4000;
 
@@ -426,8 +713,7 @@ internal static class Schemamatic
         return query;
     }
 
-    internal static void RetrieveXmlSchemas(VxSchema schema, List<string> names, 
-        string clientid)
+    void RetrieveXmlSchemas(VxSchema schema, List<string> names)
     {
         bool do_again = true;
         for (int count = 0; do_again; count++)
@@ -435,12 +721,7 @@ internal static class Schemamatic
             do_again = false;
             string query = XmlSchemasQuery(count, names);
 
-            VxColumnInfo[] colinfo;
-            object[][] data;
-            byte[][] nullity;
-            
-            VxDb.ExecRecordset(clientid, query, out colinfo, out data, 
-                out nullity);
+            object[][] data = SqlExecRecordset(query);
 
             foreach (object[] row in data)
             {
@@ -470,8 +751,7 @@ internal static class Schemamatic
         }
     }
 
-    internal static void RetrieveTableColumns(VxSchema schema, 
-        List<string> names, string clientid)
+    void RetrieveTableColumns(VxSchema schema, List<string> names)
     {
         string tablenames = (names.Count > 0 
             ? "and t.name in ('" + names.Join("','") + "')"
@@ -496,11 +776,7 @@ internal static class Schemamatic
 	    tablenames + @"
 	  order by tabname, c.colorder, typ.status";
 
-        VxColumnInfo[] colinfo;
-        object[][] data;
-        byte[][] nullity;
-        
-        VxDb.ExecRecordset(clientid, query, out colinfo, out data, out nullity);
+        object[][] data = SqlExecRecordset(query);
 
         List<string> cols = new List<string>();
         for (int ii = 0; ii < data.Length; ii++)
@@ -513,11 +789,13 @@ internal static class Schemamatic
             short len = (short)row[3];
             byte xprec = (byte)row[4];
             byte xscale = (byte)row[5];
-            string defval = (string)row[6];
+            string defval = row[6] == null ? "" : (string)row[6];
             int isnullable = (int)row[7];
             int isident = (int)row[8];
-            string ident_seed = (string)row[9];
-            string ident_incr = (string)row[10];
+            string ident_seed = row[9] == null ? null : 
+                ((Decimal)row[9]).ToString();
+            string ident_incr = row[10] == null ? null : 
+                ((Decimal)row[10]).ToString();
 
             if (isident == 0)
                 ident_seed = ident_incr = null;
@@ -573,162 +851,64 @@ internal static class Schemamatic
         }
     }
 
-    private static string GetDropCommand(string type, string name)
-    {
-        if (type.StartsWith("Function"))
-            type = "Function";
-        else if (type == "XMLSchema")
-            type = "XML Schema Collection";
-        else if (type == "Index")
-        {
-            string[] parts = name.Split(new char[] {'/'}, 2);
-            if (parts.Length == 2)
-            {
-                string tabname = parts[0];
-                string idxname = parts[1];
-                return String.Format(
-                    @"declare @x int;
-                      select @x = is_primary_key 
-                          from sys.indexes 
-                          where object_name(object_id) = '{0}' 
-                            and name = '{1}';
-                      if @x = 1 
-                          ALTER TABLE [{0}] DROP CONSTRAINT [{1}]; 
-                      else 
-                          DROP {2} [{0}].[{1}]", 
-                    tabname, idxname, type);
-            } 
-            else 
-                throw new ArgumentException(String.Format(
-                    "Invalid index name '{0}'!", name));
-        }
-
-        return String.Format("DROP {0} [{1}]", type, name);
-    }
-
-    // Deletes the named object in the database.
-    internal static void DropSchema(string clientid, 
-        string type, string name)
-    {
-        string query = GetDropCommand(type, name);
-
-        object result;
-        VxDb.ExecScalar(clientid, query, out result);
-    }
-
-    // Replaces the named object in the database.  elem.text is a verbatim
-    // hunk of text returned earlier by GetSchema.  'destructive' says whether
-    // or not to perform potentially destructive operations while making the
-    // change, e.g. dropping a table so we can re-add it with the right
-    // columns.
-    internal static void PutSchemaElement(string clientid, 
-        VxSchemaElement elem, VxPutOpts opts)
-    {
-        bool destructive = (opts & VxPutOpts.Destructive) != 0;
-        if (destructive || !elem.type.StartsWith("Table"))
-        {
-            try { 
-                DropSchema(clientid, elem.type, elem.name); 
-            } catch (VxSqlException e) {
-                // Check if it's a "didn't exist" error, rethrow if not.
-                // SQL Error 3701 means "can't drop sensible item because
-                // it doesn't exist or you don't have permission."
-                // SQL Error 15151 means "can't drop XML Schema collection 
-                // because it doesn't exist or you don't have permission."
-                if (!e.ContainsSqlError(3701) && !e.ContainsSqlError(15151))
-                    throw e;
-            }
-        }
-
-        object result;
-        if (elem.text != null && elem.text != "")
-            VxDb.ExecScalar(clientid, elem.text, out result);
-    }
-
-    internal static VxSchemaErrors PutSchema(string clientid, 
-        VxSchema schema, VxPutOpts opts)
-    {
-        bool no_retry = (opts & VxPutOpts.NoRetry) != 0;
-        int old_err_count = -1;
-        IEnumerable<string> keys = schema.Keys;
-        VxSchemaErrors errs = new VxSchemaErrors();
-
-        // Sometimes we'll get schema elements in the wrong order, so retry
-        // until the number of errors stops decreasing.
-        while (errs.Count != old_err_count)
-        {
-            log.print("Calling PutSchema on {0} entries\n", 
-                old_err_count == -1 ? schema.Count : errs.Count);
-            old_err_count = errs.Count;
-            errs.Clear();
-            foreach (string key in keys)
-            {
-                try {
-                    log.print("Calling PutSchema on {0}\n", key);
-                    PutSchemaElement(clientid, schema[key], opts);
-                } catch (VxSqlException e) {
-                    log.print("Got error from {0}\n", key);
-                    errs.Add(key, new VxSchemaError(key, e.Message, 
-                        e.GetFirstSqlErrno()));
-                }
-            }
-            // If we only had one schema element, retrying it isn't going to
-            // fix anything.  We retry to fix ordering problems.
-            if (no_retry || errs.Count == 0 || schema.Count == 1)
-                break;
-
-            log.print("Got {0} errors, old_errs={1}, retrying\n", 
-                errs.Count, old_err_count);
-
-            keys = errs.Keys.ToList();
-        }
-        return errs.Count > 0 ? errs : null;
-    }
-
     // Returns a blob of text that can be used with PutSchemaData to fill 
     // the given table.
-    internal static string GetSchemaData(string clientid, string tablename)
+    public string GetSchemaData(string tablename)
     {
         string query = "SELECT * FROM " + tablename;
 
-        VxColumnInfo[] colinfo;
-        object[][] data;
-        byte[][] nullity;
-        
-        VxDb.ExecRecordset(clientid, query, out colinfo, out data, out nullity);
-
-        List<string> cols = new List<string>();
-        foreach (VxColumnInfo ci in colinfo)
-            cols.Add("[" + ci.ColumnName + "]");
-
-        string prefix = String.Format("INSERT INTO {0} ({1}) VALUES (", 
-            tablename, cols.Join(","));
-
         StringBuilder result = new StringBuilder();
         List<string> values = new List<string>();
-        for(int ii = 0; ii < data.Length; ii++)
+        try
         {
-            object[] row = data[ii];
-            values.Clear();
-            for (int jj = 0; jj < row.Length; jj++)
+            // We need to get type information too, so we can't just call
+            // SqlExecRecordset.  This duplicates some of VxDb.ExecRecordset.
+            using (SqlConnection conn = GetConnection())
+            using (SqlCommand cmd = new SqlCommand(query, conn))
+            using (SqlDataReader reader = cmd.ExecuteReader())
             {
-                object elem = row[jj];
-                VxColumnInfo ci = colinfo[jj];
-                log.print("Col {0}, name={1}, type={2}\n", jj, 
-                    ci.ColumnName, ci.VxColumnType.ToString());
-                if (elem == null)
-                    values.Add("NULL");
-                else if (ci.VxColumnType == VxColumnType.String ||
-                    ci.VxColumnType == VxColumnType.DateTime)
+                List<string> cols = new List<string>();
+                System.Type[] types = new System.Type[reader.FieldCount];
+                using (DataTable schema = reader.GetSchemaTable())
                 {
-                    // Double-quote chars for SQL safety
-                    string esc = elem.ToString().Replace("'", "''");
-                    values.Add("'" + esc + "'");
+                    for (int ii = 0; ii < schema.DefaultView.Count; ii++)
+                    {
+                        DataRowView col = schema.DefaultView[ii];
+                        cols.Add("[" + col["ColumnName"].ToString() + "]");
+                        types[ii] = (System.Type)col["DataType"];
+                    }
                 }
-                else
-                    values.Add(elem.ToString());
+
+                string prefix = String.Format("INSERT INTO {0} ({1}) VALUES (", 
+                    tablename, cols.Join(","));
+
+                while (reader.Read())
+                {
+                    values.Clear();
+                    for (int ii = 0; ii < reader.FieldCount; ii++)
+                    {
+                        bool isnull = reader.IsDBNull(ii);
+
+                        string elem = reader.GetValue(ii).ToString();
+                        if (isnull)
+                            values.Add("NULL");
+                        else if (types[ii] == typeof(System.String) || 
+                            types[ii] == typeof(System.DateTime))
+                        {
+                            // Double-quote chars for SQL safety
+                            string esc = elem.Replace("'", "''");
+                            values.Add("'" + esc + "'");
+                        }
+                        else
+                            values.Add(elem);
+                    }
+                    result.Append(prefix + values.Join(",") + ");\n");
+                }
             }
-            result.Append(prefix + values.Join(",") + ");\n");
+        }
+        catch (SqlException e)
+        {
+            throw new VxSqlException(e.Message, e);
         }
 
         return result.ToString();
@@ -736,12 +916,10 @@ internal static class Schemamatic
 
     // Delete all rows from the given table and replace them with the given
     // data.  text is an opaque hunk of text returned from GetSchemaData.
-    internal static void PutSchemaData(string clientid, string tablename, 
-        string text)
+    public void PutSchemaData(string tablename, string text)
     {
-        object result;
-        VxDb.ExecScalar(clientid, String.Format("DELETE FROM [{0}]", tablename),
-            out result);
-        VxDb.ExecScalar(clientid, text, out result);
+        SqlExecScalar(String.Format("DELETE FROM [{0}]", tablename));
+        SqlExecScalar(text);
     }
 }
+

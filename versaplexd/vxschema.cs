@@ -134,9 +134,8 @@ internal class VxSchemaElement : IComparable
         bool isbackup)
     {
         MD5 md5summer = MD5.Create();
-        Encoding utf8 = Encoding.UTF8;
 
-        byte[] text = utf8.GetBytes(this.text);
+        byte[] text = this.text.ToUTF8();
         byte[] md5 = md5summer.ComputeHash(text);
 
         // Make some kind of attempt to run on Windows.  
@@ -158,9 +157,9 @@ internal class VxSchemaElement : IComparable
         using(BinaryWriter file = new BinaryWriter(
             File.Open(filename + suffix, FileMode.Create)))
         {
-            file.Write(utf8.GetBytes(
-                String.Format("!!SCHEMAMATIC {0} {1}\r\n",
-                md5.ToHex(), sum.GetSumString())));
+            file.Write(String.Format("!!SCHEMAMATIC {0} {1}\r\n",
+				     md5.ToHex(), sum.GetSumString())
+		       .ToUTF8());
             file.Write(text);
         }
     }
@@ -232,8 +231,8 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
 
     // Returns only the elements of the schema that are affected by the diff.
     // If an element is scheduled to be removed, clear its text field.
-    // Produces a VxSchema that, if sent to PutSchema, will update the
-    // database as indicated by the diff.
+    // Produces a VxSchema that, if sent to a schema backend's Put, will
+    // update the schema as indicated by the diff.
     public VxSchema GetDiffElements(VxSchemaDiff diff)
     {
         VxSchema diffschema = new VxSchema();
@@ -276,8 +275,56 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
         return String.Format("{0}{1}/{2}", type, enc_str, name);
     }
 
+    private static char[] slash = new char[] {'/'};
+    public static void ParseKey(string key, out string type, out string name)
+    {
+        string[] parts = key.Split(slash, 2);
+        if (parts.Length != 2)
+        {
+            type = name = null;
+            return;
+        }
+        type = parts[0];
+        name = parts[1];
+        return;
+    }
+
     public static string GetDbusSignature()
     {
         return String.Format("a({0})", VxSchemaElement.GetDbusSignature());
+    }
+
+    // Make dest look like source.  Only copies the bits that need updating.
+    // Note: this is a slightly funny spot to put this method; it really
+    // belongs in ISchemaBackend, but you can't put methods in interfaces.
+    public static VxSchemaErrors CopySchema(ISchemaBackend source, 
+        ISchemaBackend dest)
+    {
+        VxSchemaChecksums srcsums = source.GetChecksums();
+        VxSchemaChecksums destsums = dest.GetChecksums();
+
+        List<string> names = new List<string>();
+
+        VxSchemaDiff diff = new VxSchemaDiff(destsums, srcsums);
+        foreach (KeyValuePair<string,VxDiffType> p in diff)
+        {
+            switch (p.Value)
+            {
+            case VxDiffType.Remove:
+                string type, name;
+                VxSchema.ParseKey(p.Key, out type, out name);
+                if (type != null && name != null)
+                    dest.DropSchema(type, name);
+                break;
+            case VxDiffType.Add:
+            case VxDiffType.Change:
+                names.Add(p.Key);
+                break;
+            }
+        }
+
+        VxSchema to_put = source.Get(names);
+
+        return dest.Put(to_put, srcsums, VxPutOpts.None);
     }
 }

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 internal interface ISchemaBackend  
 {
     // Update the backing store with all current elements.
+    // If an element's text is empty, it will be deleted.
     VxSchemaErrors Put(VxSchema schema, VxSchemaChecksums sums, VxPutOpts opts);
 
     // Get elements from the backing store.
@@ -14,6 +15,9 @@ internal interface ISchemaBackend
 
     // Gets the checksums for all elements from the backing store.
     VxSchemaChecksums GetChecksums();
+
+    // Removes the given element from the schema.
+    void DropSchema(string type, string name);
 }
 
 [Flags]
@@ -25,8 +29,9 @@ public enum VxPutOpts : int
     Destructive = 0x1,
     // If set, PutSchema will not attempt to do any retries.
     NoRetry = 0x2,
-    // If set, will make a backup copy instead of overwriting existing data,
-    // if possible.
+    // If set and the element already exists, will create the new element
+    // with a different name that doesn't already exist.
+    // Currently only applies to the disk backend; other backends ignore this.
     IsBackup = 0x4,
 }
 

@@ -15,6 +15,57 @@ using NDesk.DBus;
 [TestFixture]
 class SchemamaticTests : VersaplexTester
 {
+    class SchemaCreator
+    {
+        public string tab1q;
+        public string tab1q_nopk;
+        public string tab2q;
+        public string idx1q;
+        public string msg1;
+        public string func1q;
+
+        VersaplexTester t;
+
+        public SchemaCreator(VersaplexTester _t)
+        {
+            t = _t;
+
+            Cleanup();
+
+            tab1q = "CREATE TABLE [Tab1] (\n" + 
+                "\t[f1] [int] NOT NULL PRIMARY KEY,\n" +
+                "\t[f2] [money] NULL,\n" + 
+                "\t[f3] [varchar] (80) NULL);\n\n";
+            tab1q_nopk = "CREATE TABLE [Tab1] (\n" + 
+                "\t[f1] [int] NOT NULL,\n" +
+                "\t[f2] [money] NULL,\n" + 
+                "\t[f3] [varchar] (80) NULL);\n\n";
+            tab2q = "CREATE TABLE [Tab2] (\n" + 
+                "\t[f4] [binary] (1) NOT NULL);\n\n";
+            idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
+                "\t(f2,f3 DESC);\n\n";
+            msg1 = "Hello, world, this is Func1!";
+            func1q = "create procedure Func1 as select '" + msg1 + "'\n";
+        }
+
+        public void Create()
+        {
+            WVASSERT(t.VxExec(tab1q));
+            WVASSERT(t.VxExec(tab2q));
+            WVASSERT(t.VxExec(idx1q));
+            WVASSERT(t.VxExec(func1q));
+        }
+
+        public void Cleanup()
+        {
+            try { t.VxExec("drop index Tab1.Idx1"); } catch { }
+            try { t.VxExec("drop table Tab1"); } catch { }
+            try { t.VxExec("drop table Tab2"); } catch { }
+            try { t.VxExec("drop xml schema collection TestSchema"); } catch { }
+            try { t.VxExec("drop procedure Func1"); } catch { }
+        }
+    }
+
     VxDbusSchema dbus;
 
     public SchemamaticTests()
@@ -51,6 +102,36 @@ class SchemamaticTests : VersaplexTester
 	Console.WriteLine(" + VxPutSchema");
 
         return dbus.Put(schema, null, opts);
+    }
+
+    public void TestSchemaEquality(VxSchema left, VxSchema right)
+    {
+        WVPASSEQ(left.Count, right.Count);
+        foreach (KeyValuePair<string,VxSchemaElement> p in right)
+        {
+            WVPASSEQ(left[p.Key].type, p.Value.type);
+            WVPASSEQ(left[p.Key].name, p.Value.name);
+            WVPASSEQ(left[p.Key].text, p.Value.text);
+            WVPASSEQ(left[p.Key].encrypted, p.Value.encrypted);
+        }
+    }
+
+    public void TestChecksumEquality(VxSchemaChecksums left, 
+        VxSchemaChecksums right)
+    {
+        WVPASSEQ(left.Count, right.Count);
+        foreach (KeyValuePair<string,VxSchemaChecksum> p in right)
+        {
+            WVPASSEQ(left[p.Key].GetSumString(), p.Value.GetSumString());
+        }
+    }
+
+    public string GetTempDir()
+    {
+        string t = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        Console.WriteLine("Using temporary directory " + t);
+
+        return t;
     }
 
     [Test, Category("Schemamatic"), Category("GetSchemaChecksums")]
@@ -448,29 +529,9 @@ class SchemamaticTests : VersaplexTester
     [Test, Category("Schemamatic"), Category("DropSchema")]
     public void TestDropSchema()
     {
-        try { VxExec("drop index Tab1.Idx1"); } catch { }
-        try { VxExec("drop table Tab1"); } catch { }
-        try { VxExec("drop table Tab2"); } catch { }
-        try { VxExec("drop xml schema collection TestSchema"); } catch { }
-        try { VxExec("drop procedure Func1"); } catch { }
+        SchemaCreator sc = new SchemaCreator(this);
 
-        string tab1q = "CREATE TABLE [Tab1] (\n" + 
-            "\t[f1] [int] NOT NULL PRIMARY KEY,\n" +
-            "\t[f2] [money] NULL,\n" + 
-            "\t[f3] [varchar] (80) NULL);\n\n";
-        WVASSERT(VxExec(tab1q));
-
-        string tab2q = "CREATE TABLE [Tab2] (\n" + 
-            "\t[f4] [binary] (1) NOT NULL);\n\n";
-        WVASSERT(VxExec(tab2q));
-
-	string idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
-	    "\t(f2,f3 DESC);\n\n";
-        WVASSERT(VxExec(idx1q));
-
-        string msg = "Hello, world, this is Func1!";
-        WVASSERT(VxExec("create procedure Func1 as select '" + msg + "'"));
-
+        sc.Create();
         WVASSERT(VxExec(CreateXmlSchemaQuery()));
         
         VxSchemaChecksums sums = dbus.GetChecksums();
@@ -481,10 +542,10 @@ class SchemamaticTests : VersaplexTester
         WVASSERT(sums.ContainsKey("Table/Tab2"));
         WVASSERT(sums.ContainsKey("XMLSchema/TestSchema"));
 
-        VxDropSchema("Index", "Tab1/Idx1");
-        VxDropSchema("Procedure", "Func1");
-        VxDropSchema("Table", "Tab2");
-        VxDropSchema("XMLSchema", "TestSchema");
+        dbus.DropSchema("Index", "Tab1/Idx1");
+        dbus.DropSchema("Procedure", "Func1");
+        dbus.DropSchema("Table", "Tab2");
+        dbus.DropSchema("XMLSchema", "TestSchema");
 
         sums = dbus.GetChecksums();
 
@@ -495,7 +556,7 @@ class SchemamaticTests : VersaplexTester
         WVASSERT(!sums.ContainsKey("XMLSchema/TestSchema"));
 
         try {
-            WVEXCEPT(VxDropSchema("Procedure", "Func1"));
+            WVEXCEPT(dbus.DropSchema("Procedure", "Func1"));
         } catch (Wv.Test.WvAssertionFailure e) {
             throw e;
         } catch (System.Exception e) {
@@ -505,37 +566,79 @@ class SchemamaticTests : VersaplexTester
             Console.WriteLine(e.ToString());
         }
 
-        try { VxExec("drop index Tab1.Idx1"); } catch { }
-        try { VxExec("drop table Tab1"); } catch { }
-        try { VxExec("drop table Tab2"); } catch { }
-        try { VxExec("drop xml schema collection TestSchema"); } catch { }
-        try { VxExec("drop procedure Func1"); } catch { }
+        sc.Cleanup();
+    }
+
+    [Test, Category("Schemamatic"), Category("DropSchema")]
+    public void TestDropSchemaFromDisk()
+    {
+        string tmpdir = GetTempDir();
+        try
+        {
+            Directory.CreateDirectory(tmpdir);
+            VxDiskSchema backend = new VxDiskSchema(tmpdir);
+
+            VxSchema schema = new VxSchema();
+            schema.Add("Foo", "Table", "Foo contents", false);
+            schema.Add("Bar", "Table", "Bar contents", false);
+            schema.Add("Func1", "Procedure", "Func1 contents", false);
+
+            VxSchemaChecksums sums = new VxSchemaChecksums();
+            sums.Add("Table/Foo", 1);
+            sums.Add("Table/Bar", 2);
+            sums.Add("Procedure/Func1", 3);
+
+            backend.Put(schema, sums, VxPutOpts.None);
+
+            WVPASS(File.Exists(Path.Combine(tmpdir, "Table/Foo")));
+            WVPASS(File.Exists(Path.Combine(tmpdir, "Table/Bar")));
+            WVPASS(File.Exists(Path.Combine(tmpdir, "Procedure/Func1")));
+
+            VxSchema newschema = backend.Get(null);
+            VxSchemaChecksums newsums = backend.GetChecksums();
+
+            WVPASSEQ(newschema.Count, schema.Count);
+            WVPASSEQ(newsums.Count, sums.Count);
+            WVPASS(newschema.ContainsKey("Table/Foo"));
+            WVPASS(newschema.ContainsKey("Table/Bar"));
+            WVPASS(newschema.ContainsKey("Procedure/Func1"));
+
+            backend.DropSchema("Table", "Foo");
+
+            newschema = backend.Get(null);
+            newsums = backend.GetChecksums();
+            WVPASSEQ(newschema.Count, 2);
+            WVPASSEQ(newsums.Count, 2);
+            WVPASS(!newschema.ContainsKey("Table/Foo"));
+            WVPASS(newschema.ContainsKey("Table/Bar"));
+            WVPASS(newschema.ContainsKey("Procedure/Func1"));
+
+            backend.DropSchema("Procedure", "Func1");
+
+            newschema = backend.Get(null);
+            newsums = backend.GetChecksums();
+            WVPASSEQ(newschema.Count, 1);
+            WVPASSEQ(newsums.Count, 1);
+            WVPASS(!newschema.ContainsKey("Table/Foo"));
+            WVPASS(newschema.ContainsKey("Table/Bar"));
+            WVPASS(!newschema.ContainsKey("Procedure/Func1"));
+        }
+        finally
+        {
+            Directory.Delete(tmpdir, true);
+            WVPASS(!Directory.Exists(tmpdir));
+        }
     }
 
     [Test, Category("Schemamatic"), Category("PutSchema")]
     public void TestPutSchema()
     {
-        try { VxExec("drop index Tab1.Idx1"); } catch { }
-        try { VxExec("drop table Tab1"); } catch { }
-        try { VxExec("drop table Tab2"); } catch { }
-        try { VxExec("drop xml schema collection TestSchema"); } catch { }
-        try { VxExec("drop procedure Func1"); } catch { }
+        SchemaCreator sc = new SchemaCreator(this);
 
-        string tab1q = "CREATE TABLE [Tab1] (\n\t" + 
-            "[f1] [int] NOT NULL,\n\t" +
-            "[f2] [money] NULL,\n\t" + 
-            "[f3] [varchar] (80) NULL);\n\n";
         VxPutOpts no_opts = VxPutOpts.None;
-        WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q, no_opts), null);
-
-	string idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
-	    "\t(f2,f3 DESC);\n\n";
-        WVPASSEQ(VxPutSchema("Index", "Tab1/Idx1", idx1q, no_opts), null);
-
-        string msg = "Hello, world, this is Func1!";
-        string func1q = "create procedure Func1 as select '" + msg + "'";
-        WVPASSEQ(VxPutSchema("Procedure", "Func1", func1q, no_opts), null);
-
+        WVPASSEQ(VxPutSchema("Table", "Tab1", sc.tab1q, no_opts), null);
+        WVPASSEQ(VxPutSchema("Index", "Tab1/Idx1", sc.idx1q, no_opts), null);
+        WVPASSEQ(VxPutSchema("Procedure", "Func1", sc.func1q, no_opts), null);
         WVPASSEQ(VxPutSchema("XMLSchema", "TestSchema", 
             CreateXmlSchemaQuery(), no_opts), null);
         
@@ -544,15 +647,15 @@ class SchemamaticTests : VersaplexTester
         WVASSERT(schema.ContainsKey("Index/Tab1/Idx1"));
         WVPASSEQ(schema["Index/Tab1/Idx1"].name, "Tab1/Idx1");
         WVPASSEQ(schema["Index/Tab1/Idx1"].type, "Index");
-        WVPASSEQ(schema["Index/Tab1/Idx1"].text, idx1q);
+        WVPASSEQ(schema["Index/Tab1/Idx1"].text, sc.idx1q);
         WVASSERT(schema.ContainsKey("Procedure/Func1"));
         WVPASSEQ(schema["Procedure/Func1"].name, "Func1");
         WVPASSEQ(schema["Procedure/Func1"].type, "Procedure");
-        WVPASSEQ(schema["Procedure/Func1"].text, func1q);
+        WVPASSEQ(schema["Procedure/Func1"].text, sc.func1q);
         WVASSERT(schema.ContainsKey("Table/Tab1"));
         WVPASSEQ(schema["Table/Tab1"].name, "Tab1");
         WVPASSEQ(schema["Table/Tab1"].type, "Table");
-        WVPASSEQ(schema["Table/Tab1"].text, tab1q);
+        WVPASSEQ(schema["Table/Tab1"].text, sc.tab1q_nopk);
         WVASSERT(schema.ContainsKey("XMLSchema/TestSchema"));
         WVPASSEQ(schema["XMLSchema/TestSchema"].name, "TestSchema");
         WVPASSEQ(schema["XMLSchema/TestSchema"].type, "XMLSchema");
@@ -571,7 +674,7 @@ class SchemamaticTests : VersaplexTester
         schema = dbus.Get("Table/Tab1");
         WVPASSEQ(schema["Table/Tab1"].name, "Tab1");
         WVPASSEQ(schema["Table/Tab1"].type, "Table");
-        WVPASSEQ(schema["Table/Tab1"].text, tab1q);
+        WVPASSEQ(schema["Table/Tab1"].text, sc.tab1q_nopk);
 
         WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q2, VxPutOpts.Destructive), 
             null);
@@ -590,24 +693,15 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(schema["Procedure/Func1"].type, "Procedure");
         WVPASSEQ(schema["Procedure/Func1"].text, func1q2);
 
-        try { VxExec("drop index Tab1.Idx1"); } catch { }
-        try { VxExec("drop table Tab1"); } catch { }
-        try { VxExec("drop table Tab2"); } catch { }
-        try { VxExec("drop xml schema collection TestSchema"); } catch { }
-        try { VxExec("drop procedure Func1"); } catch { }
+        sc.Cleanup();
     }
 
     [Test, Category("Schemamatic"), Category("SchemaData")]
     public void TestSchemaData()
     {
-        try { VxExec("drop table Tab1"); } catch { }
+        SchemaCreator sc = new SchemaCreator(this);
 
-        string tab1q = "CREATE TABLE [Tab1] (\n\t" + 
-            "[f1] [int] NOT NULL,\n\t" +
-            "[f2] [money] NULL,\n\t" + 
-            "[f3] [varchar] (80) NULL);\n\n";
-        VxPutOpts no_opts = VxPutOpts.None;
-        WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q, no_opts), null);
+        WVPASSEQ(VxPutSchema("Table", "Tab1", sc.tab1q, VxPutOpts.None), null);
 
         List<string> inserts = new List<string>();
         for (int ii = 0; ii < 22; ii++)
@@ -622,7 +716,7 @@ class SchemamaticTests : VersaplexTester
 
         WVPASSEQ(dbus.GetSchemaData("Tab1"), inserts.Join(""));
 
-        try { VxExec("drop table Tab1"); } catch { }
+        VxExec("drop table Tab1");
 
         try {
             WVEXCEPT(dbus.GetSchemaData("Tab1"));
@@ -635,36 +729,43 @@ class SchemamaticTests : VersaplexTester
             Console.WriteLine(e.ToString());
 	}
 
-        WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q, no_opts), null);
+        WVPASSEQ(VxPutSchema("Table", "Tab1", sc.tab1q, VxPutOpts.None), null);
 
         WVPASSEQ(dbus.GetSchemaData("Tab1"), "");
 
         dbus.PutSchemaData("Tab1", inserts.Join(""));
         WVPASSEQ(dbus.GetSchemaData("Tab1"), inserts.Join(""));
+
+        sc.Cleanup();
     }
 
     [Test, Category("Schemamatic"), Category("DiskBackend")]
     public void TestExportEmptySchema()
     {
-        string tmpdir = Path.Combine(Path.GetTempPath(), 
-            Path.GetRandomFileName());
-        Console.WriteLine("Using temporary directory " + tmpdir);
+        string tmpdir = GetTempDir();
 
-        Directory.CreateDirectory(tmpdir);
-        VxSchema schema = new VxSchema();
-        VxSchemaChecksums sums = new VxSchemaChecksums();
+        try 
+        {
+            Directory.CreateDirectory(tmpdir);
 
-        // Check that exporting an empty schema doesn't touch anything.
-        VxDiskSchema backend = new VxDiskSchema(tmpdir);
-        backend.Put(schema, sums, VxPutOpts.None);
-        WVPASSEQ(Directory.GetDirectories(tmpdir).Length, 0);
-        WVPASSEQ(Directory.GetFiles(tmpdir).Length, 0);
+            VxSchema schema = new VxSchema();
+            VxSchemaChecksums sums = new VxSchemaChecksums();
 
-        Directory.Delete(tmpdir);
-        WVASSERT(!Directory.Exists(tmpdir));
+            // Check that exporting an empty schema doesn't touch anything.
+            VxDiskSchema backend = new VxDiskSchema(tmpdir);
+            backend.Put(schema, sums, VxPutOpts.None);
+            WVPASSEQ(Directory.GetDirectories(tmpdir).Length, 0);
+            WVPASSEQ(Directory.GetFiles(tmpdir).Length, 0);
+        }
+        finally
+        {
+            Directory.Delete(tmpdir);
+            WVASSERT(!Directory.Exists(tmpdir));
+        }
     }
 
-    private void CheckExportedFileContents(string filename, string header, string text)
+    private void CheckExportedFileContents(string filename, string header, 
+        string text)
     {
         WVPASS(File.Exists(filename));
         using (StreamReader sr = new StreamReader(filename))
@@ -679,8 +780,7 @@ class SchemamaticTests : VersaplexTester
     }
 
     private void VerifyExportedSchema(string exportdir, VxSchema schema, 
-        VxSchemaChecksums sums, string func1q, string tab1q, string tab2q,
-        string idx1q, string xmlq, int backupnum)
+        VxSchemaChecksums sums, SchemaCreator sc, string xmlq, int backupnum)
     {
         DirectoryInfo dirinfo = new DirectoryInfo(exportdir);
 
@@ -705,7 +805,7 @@ class SchemamaticTests : VersaplexTester
         string func1file = Path.Combine(procdir, "Func1" + suffix);
         CheckExportedFileContents(func1file, 
             "!!SCHEMAMATIC 2AE46AC0748AEDE839FB9CD167EA1180 D983A305",
-            func1q);
+            sc.func1q);
 
         // Indexes
         WVPASSEQ(Directory.GetDirectories(idxdir).Length, 1);
@@ -719,7 +819,7 @@ class SchemamaticTests : VersaplexTester
         string idx1file = Path.Combine(tab1idxdir, "Idx1" + suffix);
         CheckExportedFileContents(idx1file, 
             "!!SCHEMAMATIC BE6095FA7C7B1C9BA3D3DA2F1D94FCBE 1D32C7EA 968DBEDC", 
-            idx1q);
+            sc.idx1q);
 
         string pk_name = CheckForPrimaryKey(schema, "Tab1");
         string pk_file = Path.Combine(tab1idxdir, pk_name + suffix);
@@ -750,12 +850,12 @@ class SchemamaticTests : VersaplexTester
         CheckExportedFileContents(tab1file, 
             "!!SCHEMAMATIC 3D05ABB172361D5BDC19DE2437C58F7E " + 
                 sums["Table/Tab1"].GetSumString(),
-            tab1q.Replace(" PRIMARY KEY", ""));
+            sc.tab1q.Replace(" PRIMARY KEY", ""));
 
         WVPASS(File.Exists(tab2file));
         CheckExportedFileContents(tab2file, 
             "!!SCHEMAMATIC 436EFDE94964E924CB0CCEDB96970AFF " + 
-            sums["Table/Tab2"].GetSumString(), tab2q);
+            sums["Table/Tab2"].GetSumString(), sc.tab2q);
 
         // XML Schemas
         WVPASSEQ(Directory.GetDirectories(xmldir).Length, 0);
@@ -771,36 +871,13 @@ class SchemamaticTests : VersaplexTester
     [Test, Category("Schemamatic"), Category("DiskBackend")]
     public void TestExportSchema()
     {
-        try { VxExec("drop index Tab1.Idx1"); } catch { }
-        try { VxExec("drop table Tab1"); } catch { }
-        try { VxExec("drop table Tab2"); } catch { }
-        try { VxExec("drop xml schema collection TestSchema"); } catch { }
-        try { VxExec("drop procedure Func1"); } catch { }
-
-        string tab1q = "CREATE TABLE [Tab1] (\n" + 
-            "\t[f1] [int] NOT NULL PRIMARY KEY,\n" +
-            "\t[f2] [money] NULL,\n" + 
-            "\t[f3] [varchar] (80) NULL);\n\n";
-        WVASSERT(VxExec(tab1q));
-
-        string tab2q = "CREATE TABLE [Tab2] (\n" + 
-            "\t[f4] [binary] (1) NOT NULL);\n\n";
-        WVASSERT(VxExec(tab2q));
-
-	string idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
-	    "\t(f2,f3 DESC);\n\n";
-        WVASSERT(VxExec(idx1q));
-
-        string msg = "Hello, world, this is Func1!";
-        string func1q = "create procedure Func1 as select '" + msg + "'\n";
-        WVASSERT(VxExec(func1q));
+        SchemaCreator sc = new SchemaCreator(this);
+        sc.Create();
 
         string xmlq = CreateXmlSchemaQuery();
         WVASSERT(VxExec(xmlq));
         
-        string tmpdir = Path.Combine(Path.GetTempPath(), 
-            Path.GetRandomFileName());
-        Console.WriteLine("Using temporary directory " + tmpdir);
+        string tmpdir = GetTempDir();
 
         DirectoryInfo tmpdirinfo = new DirectoryInfo(tmpdir);
         try
@@ -811,9 +888,9 @@ class SchemamaticTests : VersaplexTester
             VxSchema schema = dbus.Get();
             VxSchemaChecksums sums = new VxSchemaChecksums();
 
-            VxDiskSchema backend = new VxDiskSchema(tmpdir);
+            VxDiskSchema disk = new VxDiskSchema(tmpdir);
             try {
-                WVEXCEPT(backend.Put(schema, sums, VxPutOpts.None));
+                WVEXCEPT(disk.Put(schema, sums, VxPutOpts.None));
             } catch (Wv.Test.WvAssertionFailure e) {
                 throw e;
             } catch (System.Exception e) {
@@ -823,86 +900,58 @@ class SchemamaticTests : VersaplexTester
 
             // Check that the normal exporting works.
             sums = dbus.GetChecksums();
-            backend.Put(schema, sums, VxPutOpts.None);
+            disk.Put(schema, sums, VxPutOpts.None);
 
             int backup_generation = 0;
-            VerifyExportedSchema(tmpdir, schema, sums, 
-                func1q, tab1q, tab2q, idx1q, xmlq, backup_generation);
+            VerifyExportedSchema(tmpdir, schema, sums, sc, xmlq, 
+                backup_generation);
 
             // Check that we read back the same stuff
-            VxSchema schemafromdisk = backend.Get(null);
-            foreach (KeyValuePair<string,VxSchemaElement> p in schema)
-                WVPASSEQ(schemafromdisk[p.Key].CompareTo(p.Value), 0);
+            VxSchema schemafromdisk = disk.Get(null);
+            VxSchemaChecksums sumsfromdisk = disk.GetChecksums();
 
-            VxSchemaChecksums sumsfromdisk = backend.GetChecksums();
-
-            WVPASSEQ(sumsfromdisk.Count, sums.Count);
-            foreach (KeyValuePair<string,VxSchemaChecksum> p in sums)
-            {
-                WVPASSEQ(sumsfromdisk[p.Key].GetSumString(), 
-                    p.Value.GetSumString());
-            }
+            TestSchemaEquality(schema, schemafromdisk);
+            TestChecksumEquality(sums, sumsfromdisk);
 
             // Doing it twice doesn't change anything.
-            backend.Put(schema, sums, VxPutOpts.None);
+            disk.Put(schema, sums, VxPutOpts.None);
 
-            VerifyExportedSchema(tmpdir, schema, sums, 
-                func1q, tab1q, tab2q, idx1q, xmlq, backup_generation);
+            VerifyExportedSchema(tmpdir, schema, sums, sc, xmlq, 
+                backup_generation);
 
             // Check backup mode
-            backend.Put(schema, sums, VxPutOpts.IsBackup);
+            disk.Put(schema, sums, VxPutOpts.IsBackup);
             backup_generation++;
 
-            VerifyExportedSchema(tmpdir, schema, sums, 
-                func1q, tab1q, tab2q, idx1q, xmlq, backup_generation);
+            VerifyExportedSchema(tmpdir, schema, sums, sc, xmlq, 
+                backup_generation);
 
             // Check backup mode again
-            backend.Put(schema, sums, VxPutOpts.IsBackup);
+            disk.Put(schema, sums, VxPutOpts.IsBackup);
             backup_generation++;
 
-            VerifyExportedSchema(tmpdir, schema, sums, 
-                func1q, tab1q, tab2q, idx1q, xmlq, backup_generation);
+            VerifyExportedSchema(tmpdir, schema, sums, sc, xmlq, 
+                backup_generation);
         }
         finally
         {
             tmpdirinfo.Delete(true);
             WVASSERT(!tmpdirinfo.Exists);
+
+            sc.Cleanup();
         }
     }
 
     [Test, Category("Schemamatic"), Category("DiskBackend")]
     public void TestReadChecksums()
     {
-        try { VxExec("drop index Tab1.Idx1"); } catch { }
-        try { VxExec("drop table Tab1"); } catch { }
-        try { VxExec("drop table Tab2"); } catch { }
-        try { VxExec("drop xml schema collection TestSchema"); } catch { }
-        try { VxExec("drop procedure Func1"); } catch { }
-
-        string tab1q = "CREATE TABLE [Tab1] (\n" + 
-            "\t[f1] [int] NOT NULL PRIMARY KEY,\n" +
-            "\t[f2] [money] NULL,\n" + 
-            "\t[f3] [varchar] (80) NULL);\n\n";
-        WVASSERT(VxExec(tab1q));
-
-        string tab2q = "CREATE TABLE [Tab2] (\n" + 
-            "\t[f4] [binary] (1) NOT NULL);\n\n";
-        WVASSERT(VxExec(tab2q));
-
-	string idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
-	    "\t(f2,f3 DESC);\n\n";
-        WVASSERT(VxExec(idx1q));
-
-        string msg = "Hello, world, this is Func1!";
-        string func1q = "create procedure Func1 as select '" + msg + "'\n";
-        WVASSERT(VxExec(func1q));
+        SchemaCreator sc = new SchemaCreator(this);
+        sc.Create();
 
         string xmlq = CreateXmlSchemaQuery();
         WVASSERT(VxExec(xmlq));
         
-        string tmpdir = Path.Combine(Path.GetTempPath(), 
-            Path.GetRandomFileName());
-        Console.WriteLine("Using temporary directory " + tmpdir);
+        string tmpdir = GetTempDir();
 
         DirectoryInfo tmpdirinfo = new DirectoryInfo(tmpdir);
         try
@@ -957,6 +1006,8 @@ class SchemamaticTests : VersaplexTester
         {
             tmpdirinfo.Delete(true);
             WVASSERT(!tmpdirinfo.Exists);
+
+            sc.Cleanup();
         }
     }
 
@@ -1010,125 +1061,107 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(diff.ToString(), expected);
     }
 
-    [Test, Category("Schemamatic"), Category("PutSchema")]
-    public void TestApplySchemaDiff()
+    public void TestApplySchemaDiff(ISchemaBackend backend)
     {
-        try { VxExec("drop index Tab1.Idx1"); } catch { }
-        try { VxExec("drop table Tab1"); } catch { }
-        try { VxExec("drop table Tab2"); } catch { }
-        try { VxExec("drop xml schema collection TestSchema"); } catch { }
-        try { VxExec("drop procedure Func1"); } catch { }
-
-        string tab1q = "CREATE TABLE [Tab1] (\n" + 
-            "\t[f1] [int] NOT NULL PRIMARY KEY,\n" +
-            "\t[f2] [money] NULL,\n" + 
-            "\t[f3] [varchar] (80) NULL);\n\n";
-        WVASSERT(VxExec(tab1q));
-
-        string tab2q = "CREATE TABLE [Tab2] (\n" + 
-            "\t[f4] [binary] (1) NOT NULL);\n\n";
-        WVASSERT(VxExec(tab2q));
-
-	string idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
-	    "\t(f2,f3 DESC);\n\n";
-        WVASSERT(VxExec(idx1q));
-
-        string msg1 = "Hello, world, this is Func1!";
-        string msg2 = "Hello, world, this used to be Func1!";
-        string func1q = "create procedure Func1 as select '" + msg1 + "'\n";
-        string func1q2 = "create procedure Func1 as select '" + msg2 + "'\n";
-        WVASSERT(VxExec(func1q));
+        SchemaCreator sc = new SchemaCreator(this);
+        sc.Create();
 
         string xmlq = CreateXmlSchemaQuery();
         WVASSERT(VxExec(xmlq));
-        
-        string tmpdir = Path.Combine(Path.GetTempPath(), 
-            Path.GetRandomFileName());
-        Console.WriteLine("Using temporary directory " + tmpdir);
 
-        DirectoryInfo tmpdirinfo = new DirectoryInfo(tmpdir);
+        string msg2 = "Hello, world, this used to be Func1!";
+        string func1q2 = "create procedure Func1 as select '" + msg2 + "'\n";
+        
+        VxSchema origschema = dbus.Get();
+        VxSchemaChecksums origsums = dbus.GetChecksums();
+        VxSchema newschema = new VxSchema(origschema);
+        VxSchemaChecksums newsums = new VxSchemaChecksums(origsums);
+
+        // Don't bother putting the data again if we're talking to dbus: 
+        // we already snuck it in the back door.
+        if (backend != dbus)
+            backend.Put(origschema, origsums, VxPutOpts.None);
+
+        VxSchemaChecksums diffsums = new VxSchemaChecksums(newsums);
+
+        newschema["Procedure/Func1"].text = func1q2;
+        newsums["Procedure/Func1"].checksums.Clear();
+        newsums["Procedure/Func1"].checksums.Add(123);
+        newsums.Remove("XMLSchema/TestSchema");
+        origsums.Remove("Index/Tab1/Idx1");
+
+        VxSchemaDiff diff = new VxSchemaDiff(origsums, newsums);
+        using (IEnumerator<KeyValuePair<string,VxDiffType>> iter = 
+            diff.GetEnumerator())
+        {
+            WVPASS(iter.MoveNext());
+            WVPASSEQ(iter.Current.Key, "XMLSchema/TestSchema");
+            WVPASSEQ((char)iter.Current.Value, (char)VxDiffType.Remove);
+            WVPASS(iter.MoveNext());
+            WVPASSEQ(iter.Current.Key, "Index/Tab1/Idx1");
+            WVPASSEQ((char)iter.Current.Value, (char)VxDiffType.Add);
+            WVPASS(iter.MoveNext());
+            WVPASSEQ(iter.Current.Key, "Procedure/Func1");
+            WVPASSEQ((char)iter.Current.Value, (char)VxDiffType.Change);
+            WVFAIL(iter.MoveNext());
+        }
+
+        VxSchema diffschema = newschema.GetDiffElements(diff);
+        WVPASSEQ(diffschema["XMLSchema/TestSchema"].type, "XMLSchema");
+        WVPASSEQ(diffschema["XMLSchema/TestSchema"].name, "TestSchema");
+        WVPASSEQ(diffschema["XMLSchema/TestSchema"].text, "");
+        WVPASSEQ(diffschema["Index/Tab1/Idx1"].type, "Index");
+        WVPASSEQ(diffschema["Index/Tab1/Idx1"].name, "Tab1/Idx1");
+        WVPASSEQ(diffschema["Index/Tab1/Idx1"].text, sc.idx1q);
+        WVPASSEQ(diffschema["Procedure/Func1"].type, "Procedure");
+        WVPASSEQ(diffschema["Procedure/Func1"].name, "Func1");
+        WVPASSEQ(diffschema["Procedure/Func1"].text, func1q2);
+
+        VxSchemaErrors errs = backend.Put(diffschema, diffsums, VxPutOpts.None);
+        WVPASSEQ(errs.Count, 0);
+
+        VxSchema updated = backend.Get(null);
+        WVASSERT(!updated.ContainsKey("XMLSchema/TestSchema"));
+        WVPASSEQ(updated["Index/Tab1/Idx1"].text, 
+            newschema["Index/Tab1/Idx1"].text);
+        WVPASSEQ(updated["Procedure/Func1"].text, 
+            newschema["Procedure/Func1"].text);
+        WVPASSEQ(updated["Table/Tab1"].text, newschema["Table/Tab1"].text);
+
+        sc.Cleanup();
+    }
+
+    [Test, Category("Schemamatic"), Category("PutSchema")]
+    public void TestApplySchemaDiff()
+    {
+        Console.WriteLine("Testing applying diffs through DBus");
+        TestApplySchemaDiff(dbus);
+
+        Console.WriteLine("Testing applying diffs to the disk");
+
+        string tmpdir = GetTempDir();
         try
         {
-            tmpdirinfo.Create();
+            Directory.CreateDirectory(tmpdir);
+            VxDiskSchema disk = new VxDiskSchema(tmpdir);
 
-            VxSchema origschema = dbus.Get();
-            VxSchemaChecksums origsums = dbus.GetChecksums();
-            VxSchema newschema = new VxSchema(origschema);
-            VxSchemaChecksums newsums = new VxSchemaChecksums(origsums);
-
-            newschema["Procedure/Func1"].text = func1q2;
-            newsums["Procedure/Func1"].checksums.Clear();
-            newsums["Procedure/Func1"].checksums.Add(123);
-            newsums.Remove("XMLSchema/TestSchema");
-            origsums.Remove("Index/Tab1/Idx1");
-
-            VxSchemaDiff diff = new VxSchemaDiff(origsums, newsums);
-            using (IEnumerator<KeyValuePair<string,VxDiffType>> iter = 
-                diff.GetEnumerator())
-            {
-                WVPASS(iter.MoveNext());
-                WVPASSEQ(iter.Current.Key, "XMLSchema/TestSchema");
-                WVPASSEQ((char)iter.Current.Value, (char)VxDiffType.Remove);
-                WVPASS(iter.MoveNext());
-                WVPASSEQ(iter.Current.Key, "Index/Tab1/Idx1");
-                WVPASSEQ((char)iter.Current.Value, (char)VxDiffType.Add);
-                WVPASS(iter.MoveNext());
-                WVPASSEQ(iter.Current.Key, "Procedure/Func1");
-                WVPASSEQ((char)iter.Current.Value, (char)VxDiffType.Change);
-                WVFAIL(iter.MoveNext());
-            }
-
-            VxSchema diffschema = newschema.GetDiffElements(diff);
-            WVPASSEQ(diffschema["XMLSchema/TestSchema"].type, "XMLSchema");
-            WVPASSEQ(diffschema["XMLSchema/TestSchema"].name, "TestSchema");
-            WVPASSEQ(diffschema["XMLSchema/TestSchema"].text, "");
-            WVPASSEQ(diffschema["Index/Tab1/Idx1"].type, "Index");
-            WVPASSEQ(diffschema["Index/Tab1/Idx1"].name, "Tab1/Idx1");
-            WVPASSEQ(diffschema["Index/Tab1/Idx1"].text, idx1q);
-            WVPASSEQ(diffschema["Procedure/Func1"].type, "Procedure");
-            WVPASSEQ(diffschema["Procedure/Func1"].name, "Func1");
-            WVPASSEQ(diffschema["Procedure/Func1"].text, func1q2);
-
-            VxPutOpts no_opts = VxPutOpts.None;
-            VxSchemaErrors errs = VxPutSchema(diffschema, no_opts);
-            WVPASSEQ(errs.Count, 0);
-
-            VxSchema updated = dbus.Get();
-            WVASSERT(!updated.ContainsKey("XMLSchema/TestSchema"));
-            WVPASSEQ(updated["Index/Tab1/Idx1"].text, 
-                newschema["Index/Tab1/Idx1"].text);
-            WVPASSEQ(updated["Procedure/Func1"].text, 
-                newschema["Procedure/Func1"].text);
-            WVPASSEQ(updated["Table/Tab1"].text, newschema["Table/Tab1"].text);
+            TestApplySchemaDiff(disk);
         }
         finally
         {
-            tmpdirinfo.Delete(true);
-            WVASSERT(!tmpdirinfo.Exists);
+            Directory.Delete(tmpdir, true);
+            WVPASS(!Directory.Exists(tmpdir));
         }
-
-        try { VxExec("drop index Tab1.Idx1"); } catch { }
-        try { VxExec("drop table Tab1"); } catch { }
-        try { VxExec("drop table Tab2"); } catch { }
-        try { VxExec("drop xml schema collection TestSchema"); } catch { }
-        try { VxExec("drop procedure Func1"); } catch { }
     }
 
     [Test, Category("Schemamatic"), Category("PutSchema")]
     public void TestPutSchemaErrors()
     {
-        try { VxExec("drop table Tab1"); } catch { }
-        try { VxExec("drop table Tab2"); } catch { }
+        SchemaCreator sc = new SchemaCreator(this);
 
-        string tab1q = "CREATE TABLE [Tab1] (\n" + 
-            "\t[f1] [int] NOT NULL PRIMARY KEY,\n" +
-            "\t[f2] [money] NULL,\n" + 
-            "\t[f3] [varchar] (80) NULL);\n\n";
-        WVASSERT(VxExec(tab1q));
-
-        string tab2q = "CREATE TABLE [Tab2] (\n" + 
-            "\t[f4] [binary] (1) NOT NULL);\n\n";
-        WVASSERT(VxExec(tab2q));
+        // FIXME: Test with all the SchemaCreator elements
+        WVASSERT(VxExec(sc.tab1q));
+        WVASSERT(VxExec(sc.tab2q));
 
         VxSchema schema = dbus.Get();
         VxPutOpts no_opts = VxPutOpts.None;
@@ -1144,8 +1177,7 @@ class SchemamaticTests : VersaplexTester
             "There is already an object named 'Tab2' in the database.");
         WVPASSEQ(errs["Table/Tab2"].errnum, 2714);
 
-        try { VxExec("drop table Tab1"); } catch { }
-        try { VxExec("drop table Tab2"); } catch { }
+        sc.Cleanup();
     }
 
     [Test, Category("Schemamatic"), Category("PutSchema")]
@@ -1195,6 +1227,141 @@ class SchemamaticTests : VersaplexTester
         try { VxExec("drop view View2"); } catch { }
         try { VxExec("drop view View3"); } catch { }
         try { VxExec("drop view View4"); } catch { }
+    }
+
+    [Test, Category("Schemamatic"), Category("CopySchema")]
+    public void TestCopySchema()
+    {
+        SchemaCreator sc = new SchemaCreator(this);
+        sc.Create();
+
+        string xmlq = CreateXmlSchemaQuery();
+        WVASSERT(VxExec(xmlq));
+        
+        string msg2 = "Hello, world, this used to be Func1!";
+        string func1q2 = "create procedure Func1 as select '" + msg2 + "'\n";
+
+        VxSchema origschema = dbus.Get();
+        VxSchemaChecksums origsums = dbus.GetChecksums();
+
+        string tmpdir = GetTempDir();
+        try
+        {
+            Directory.CreateDirectory(tmpdir);
+            VxDiskSchema disk = new VxDiskSchema(tmpdir);
+
+            // Test that the copy function will create new elements
+            VxSchema.CopySchema(dbus, disk);
+
+            VxSchema newschema = disk.Get(null);
+            VxSchemaChecksums newsums = disk.GetChecksums();
+
+            TestSchemaEquality(origschema, newschema);
+            TestChecksumEquality(origsums, newsums);
+
+            // Test that the copy function updates changed elements, and
+            // deletes old ones.
+            origschema["Procedure/Func1"].text = func1q2;
+
+            dbus.Put(origschema, null, VxPutOpts.None);
+            dbus.DropSchema("Index", "Tab1/Idx1");
+            origschema.Remove("Index/Tab1/Idx1");
+            origsums = dbus.GetChecksums();
+
+            VxSchema.CopySchema(dbus, disk);
+            newschema = disk.Get(null);
+            newsums = disk.GetChecksums();
+
+            TestSchemaEquality(origschema, newschema);
+            TestChecksumEquality(origsums, newsums);
+        }
+        finally
+        {
+            Directory.Delete(tmpdir, true);
+            WVPASS(!Directory.Exists(tmpdir));
+        }
+
+        sc.Cleanup();
+    }
+
+    [Test, Category("Schemamatic"), Category("DiskBackend")]
+    public void TestSubmoduleSupport()
+    {
+        VxSchema schema1 = new VxSchema();
+        VxSchemaChecksums sums1 = new VxSchemaChecksums();
+
+        VxSchema schema2 = new VxSchema();
+        VxSchemaChecksums sums2 = new VxSchemaChecksums();
+
+        schema1.Add("Tab1", "Table", "Random contents", false);
+        sums1.Add("Table/Tab1", 1);
+        schema2.Add("Tab2", "Table", "Random contents 2", false);
+        sums2.Add("Table/Tab2", 2);
+
+        string tmpdir = GetTempDir();
+        try
+        {
+            Directory.CreateDirectory(tmpdir);
+            VxDiskSchema disk = new VxDiskSchema(tmpdir);
+
+            disk.Put(schema2, sums2, VxPutOpts.None);
+
+            VxDiskSchema.AddFromDir(tmpdir, schema1, sums1);
+
+            WVPASSEQ(sums1["Table/Tab1"].GetSumString(), "00000001");
+            WVPASSEQ(schema1["Table/Tab1"].name, "Tab1");
+            WVPASSEQ(schema1["Table/Tab1"].type, "Table");
+            WVPASSEQ(schema1["Table/Tab1"].text, "Random contents");
+            WVPASSEQ(schema1["Table/Tab1"].encrypted, false);
+
+            WVPASSEQ(sums1["Table/Tab2"].GetSumString(), "00000002");
+            WVPASSEQ(schema1["Table/Tab2"].name, "Tab2");
+            WVPASSEQ(schema1["Table/Tab2"].type, "Table");
+            WVPASSEQ(schema1["Table/Tab2"].text, "Random contents 2");
+            WVPASSEQ(schema1["Table/Tab2"].encrypted, false);
+        }
+        finally
+        {
+            Directory.Delete(tmpdir, true);
+            WVPASS(!Directory.Exists(tmpdir));
+        }
+
+    }
+
+    [Test, Category("Schemamatic"), Category("DiskBackend")]
+    public void TestSubmoduleExceptions()
+    {
+        VxSchema schema1 = new VxSchema();
+        VxSchemaChecksums sums1 = new VxSchemaChecksums();
+
+        VxSchema schema2 = new VxSchema();
+        VxSchemaChecksums sums2 = new VxSchemaChecksums();
+
+        schema1.Add("Func1", "Procedure", "Random contents", false);
+        sums1.Add("Procedure/Func1", 1);
+        schema2.Add("Func1", "Procedure", "Random contents 2", false);
+        sums2.Add("Procedure/Func1", 2);
+
+        string tmpdir = GetTempDir();
+        try
+        {
+            Directory.CreateDirectory(tmpdir);
+            VxDiskSchema disk = new VxDiskSchema(tmpdir);
+
+            disk.Put(schema2, sums2, VxPutOpts.None);
+
+            try {
+                WVEXCEPT(VxDiskSchema.AddFromDir(tmpdir, schema1, sums1))
+            } catch (System.ArgumentException e) {
+                WVPASSEQ(e.Message, "Conflicting schema key: Procedure/Func1");
+            }
+        }
+        finally
+        {
+            Directory.Delete(tmpdir, true);
+            WVPASS(!Directory.Exists(tmpdir));
+        }
+
     }
 
     public static void Main()

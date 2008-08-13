@@ -9,11 +9,13 @@ test: all t/test
 	
 tests: all t/all
 
+t/all: all
+
 versaplexd.exe: versaplexd.cs \
-    dodgytransport.cs ischemabackend.cs PriorityQueue.cs schemamatic.cs \
+    dodgytransport.cs ischemabackend.cs PriorityQueue.cs \
     vxapi.cs vxbufferstream.cs \
-    vxcolumninfo.cs vxdbus.cs vxdbusdatetime.cs \
-    vxdiskschema.cs vxevent.cs vxeventloop.cs vxnotifysocket.cs \
+    vxcolumninfo.cs vxdbus.cs vxdbusdatetime.cs vxdbschema.cs \
+    vxevent.cs vxeventloop.cs vxexceptions.cs vxnotifysocket.cs \
     vxschema.cs vxschemachecksums.cs vxschemaerrors.cs vxsocket.cs \
     vxsqlpool.cs wvdbusserver.cs \
     ../dbus-sharp/src/NDesk.DBus.dll \
