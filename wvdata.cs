@@ -53,6 +53,11 @@ namespace Wv
 		return wv.date(o.v);
 	}
 
+        public static implicit operator byte[](WvAutoCast o)
+        {
+            return (byte[])o.v;
+        }
+
 	Int64 intify()
 	{
 	    if (v == null)
