@@ -22,6 +22,7 @@ namespace Wv
 	    string real;
 	    bool use_mssql = false;
 	    
+            string mssql_moniker_name = "mssql:";
 	    if (settings[odbcstr].Count > 0)
 	    {
 		StringDictionary sect = settings[odbcstr];
@@ -44,6 +45,12 @@ namespace Wv
 				  sect["user"], sect["password"]);
 		log.print("Generated ODBC string: {0}\n", real);
 	    }
+            else if (odbcstr.StartsWith(mssql_moniker_name))
+            {
+                use_mssql = true;
+                fake_bind = true;
+                real = odbcstr.Substring(mssql_moniker_name.Length);
+            }
 	    else if (String.Compare(odbcstr, 0, "dsn=", 0, 4, true) == 0)
 		real = odbcstr;
 	    else if (String.Compare(odbcstr, 0, "driver=", 0, 7, true) == 0)
@@ -51,6 +58,7 @@ namespace Wv
 	    else
 		throw new ArgumentException
 		   ("unrecognized odbc string '" + odbcstr + "'");
+
 	    if (use_mssql)
 		db = new SqlConnection(real);
 	    else
