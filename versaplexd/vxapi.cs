@@ -676,7 +676,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         Array names_untyped;
 
         MessageReader mr = new MessageReader(call);
-        names_untyped = mr.ReadArray(typeof(object));
+        names_untyped = mr.ReadArray(typeof(string));
 
         VxDbSchema backend = new VxDbSchema(
             VxSqlPool.GetConnInfoFromConnId(clientid).ConnectionString);
