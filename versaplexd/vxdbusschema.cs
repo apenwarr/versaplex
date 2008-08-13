@@ -213,9 +213,7 @@ internal class VxDbusSchema : ISchemaBackend
                     replysig);
 
             MessageReader reader = new MessageReader(reply);
-            string schemadata;
-            reader.GetValue(out schemadata);
-            return schemadata;
+            return reader.ReadString();
         }
         case MessageType.Error:
             throw VxDbusUtils.GetDbusException(reply);

@@ -427,8 +427,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 
         MessageReader reader = new MessageReader(call);
 
-        object query;
-        reader.GetValue(typeof(string), out query);
+        string query = reader.ReadString();
 
         object result;
         VxDb.ExecScalar(clientid, (string)query, out result);
@@ -482,8 +481,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 
         MessageReader reader = new MessageReader(call);
 
-        object query;
-        reader.GetValue(typeof(string), out query);
+        string query = reader.ReadString();
 
         VxColumnInfo[] colinfo;
         object[][] data;
@@ -513,7 +511,6 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         reply = VxDbus.CreateReply(call, "a(issnny)vaay", writer);
 
         // For debugging
-        reply.WriteHeader();
         VxDbus.MessageDump(" >> ", reply);
     }
 
@@ -657,7 +654,6 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             VxSchemaChecksums.GetDbusSignature(), writer);
 
         // For debugging
-        reply.WriteHeader();
         VxDbus.MessageDump(" >> ", reply);
     }
 
@@ -680,7 +676,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         Array names_untyped;
 
         MessageReader mr = new MessageReader(call);
-        mr.GetValue(typeof(string[]), out names_untyped);
+        names_untyped = mr.ReadArray(typeof(object));
 
         VxDbSchema backend = new VxDbSchema(
             VxSqlPool.GetConnInfoFromConnId(clientid).ConnectionString);
@@ -693,7 +689,6 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         reply = VxDbus.CreateReply(call, VxSchema.GetDbusSignature(), writer);
 
         // For debugging
-        reply.WriteHeader();
         VxDbus.MessageDump(" >> ", reply);
     }
 
@@ -716,8 +711,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         string type, name;
 
         MessageReader mr = new MessageReader(call);
-        mr.GetValue(out type);
-        mr.GetValue(out name);
+        type = mr.ReadString();
+        name = mr.ReadString();
 
         VxDbSchema backend = new VxDbSchema(
             VxSqlPool.GetConnInfoFromConnId(clientid).ConnectionString);
@@ -743,11 +738,9 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
-        int opts;
-
         MessageReader mr = new MessageReader(call);
         VxSchema schema = new VxSchema(mr);
-        mr.GetValue(out opts);
+        int opts = mr.ReadInt32();
 
         VxDbSchema backend = new VxDbSchema(
             VxSqlPool.GetConnInfoFromConnId(clientid).ConnectionString);
@@ -782,10 +775,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
-        string tablename;
-
         MessageReader mr = new MessageReader(call);
-        mr.GetValue(out tablename);
+        string tablename = mr.ReadString();
 
         VxDbSchema backend = new VxDbSchema(
             VxSqlPool.GetConnInfoFromConnId(clientid).ConnectionString);
@@ -813,11 +804,9 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
-        string tablename, text;
-
         MessageReader mr = new MessageReader(call);
-        mr.GetValue(out tablename);
-        mr.GetValue(out text);
+        string tablename = mr.ReadString();
+        string text = mr.ReadString();
 
         VxDbSchema backend = new VxDbSchema(
             VxSqlPool.GetConnInfoFromConnId(clientid).ConnectionString);

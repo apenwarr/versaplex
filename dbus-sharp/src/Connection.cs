@@ -17,7 +17,7 @@ namespace NDesk.DBus
 	public partial class Connection
 	{
 		//TODO: reconsider this field
-		internal Stream ns = null;
+		public Stream ns = null;
 
 		Transport transport;
 		public Transport Transport {

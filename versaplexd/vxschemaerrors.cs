@@ -18,9 +18,9 @@ internal class VxSchemaError
 
     public VxSchemaError(MessageReader reader)
     {
-        reader.GetValue(out key);
-        reader.GetValue(out msg);
-        reader.GetValue(out errnum);
+        key = reader.ReadString();
+        msg = reader.ReadString();
+        errnum = reader.ReadInt32();
     }
 
     public void WriteError(MessageWriter writer)
