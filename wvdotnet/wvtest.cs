@@ -36,7 +36,8 @@ namespace Wv.Test
 				// variable.
 				Type t2 = t;
 				MethodInfo m2 = m;
-				RegisterTest(wv.fmt("{0}/{1}", t.Name, m.Name),
+				RegisterTest(String.Format("{0}/{1}",
+				                t.Name, m.Name),
 				     delegate() {
 					 try {
 					     m2.Invoke(Activator.CreateInstance(t2),
