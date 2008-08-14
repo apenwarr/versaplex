@@ -46,9 +46,9 @@ public class VersaplexTester: IDisposable
         WvIni cfg = new WvIni(cfgfile);
             
         string uname = Mono.Unix.UnixUserInfo.GetRealUser().UserName;
-        string dbname = cfg["User Map"][uname];
+        string dbname = cfg["ConnId Map"][uname];
 	if (dbname == null)
-	    dbname = cfg["User Map"]["*"];
+	    dbname = cfg["ConnId Map"]["*"];
         if (dbname == null)
             throw new Exception(String.Format(
                 "User '{0}' (and '*') missing from config.", uname));
