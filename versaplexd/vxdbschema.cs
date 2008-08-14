@@ -57,6 +57,7 @@ internal class VxDbSchema : ISchemaBackend
     public VxSchemaErrors Put(VxSchema schema, VxSchemaChecksums sums, 
         VxPutOpts opts)
     {
+        log.print("Put");
         bool no_retry = (opts & VxPutOpts.NoRetry) != 0;
         int old_err_count = -1;
         IEnumerable<string> keys = schema.Keys;
@@ -108,6 +109,7 @@ internal class VxDbSchema : ISchemaBackend
 
     public VxSchema Get(IEnumerable<string> keys)
     {
+        log.print("Get");
         List<string> all_names = new List<string>();
         List<string> proc_names = new List<string>();
         List<string> xml_names = new List<string>();
@@ -169,6 +171,7 @@ internal class VxDbSchema : ISchemaBackend
 
     public VxSchemaChecksums GetChecksums()
     {
+        log.print("GetChecksums");
         VxSchemaChecksums sums = new VxSchemaChecksums();
 
         foreach (string type in ProcedureTypes)
@@ -206,7 +209,9 @@ internal class VxDbSchema : ISchemaBackend
             finally
             {
                 if (type == "Procedure")
+                {
                     DbiExec("drop procedure schemamatic_checksum_test");
+                }
             }
 
             GetProcChecksums(sums, type, 1);
@@ -227,6 +232,7 @@ internal class VxDbSchema : ISchemaBackend
     // Deletes the named object in the database.
     public void DropSchema(string type, string name)
     {
+        log.print("DropSchema({0}, {1})", type, name);
         if (type == null || name == null)
             return;
 
@@ -269,6 +275,7 @@ internal class VxDbSchema : ISchemaBackend
     private IEnumerable<WvAutoCast[]> DbiSelect(string query, 
         params object[] bound_vars)
     {
+        log.print("In DbiSelect\n");
         try
         {
             return dbi.select(query, bound_vars).ToArray();
@@ -361,6 +368,7 @@ internal class VxDbSchema : ISchemaBackend
                 from #checksum_calc
                 order by name, colid
             drop table #checksum_calc";
+
 
         foreach (WvAutoCast[] row in DbiSelect(query, encrypted))
         {
@@ -824,6 +832,7 @@ internal class VxDbSchema : ISchemaBackend
     // the given table.
     public string GetSchemaData(string tablename)
     {
+        log.print("GetSchemaData({0})", tablename);
         string query = "SELECT * FROM " + tablename;
 
         StringBuilder result = new StringBuilder();
