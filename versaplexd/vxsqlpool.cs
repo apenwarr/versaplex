@@ -23,18 +23,18 @@ public static class VxSqlPool
         //conStr.Enlist = false;
 
         // At the moment, a connection ID is just a username
-        string dbname = inifile["ConnId Map"][connid];
+        string dbname = inifile["User Map"][connid];
 	if (dbname == null)
-	    dbname = inifile["ConnId Map"]["*"]; // try default
+	    dbname = inifile["User Map"]["*"]; // try default
         if (dbname == null)
             throw new VxConfigException(
-		String.Format("No conn id '{0}' found.",
+		String.Format("No user '{0}' found.",
                 connid));
 
         string cfgval = inifile["Connections"][dbname];
         if (cfgval == null)
             throw new VxConfigException(String.Format(
-                "No connection found for conn id {0}", connid));
+                "No connection found for user {0}", connid));
 
         string moniker_name = "mssql:";
         if (cfgval.IndexOf(moniker_name) == 0)
@@ -46,6 +46,15 @@ public static class VxSqlPool
         log.print("Connection string: {0}\n", conStr.ConnectionString);
 
         return conStr;
+    }
+public static string GetUsernameForCert(string cert)
+    {
+	string username = inifile["Cert Map"][cert];
+	if (username == null)
+            throw new VxConfigException(String.Format(
+                "No user found for cert with fingerprint '{0}'.", cert));
+
+	return username;
     }
 
     public static SqlConnection TakeConnection(string connid)
