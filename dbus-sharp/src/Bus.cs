@@ -144,6 +144,11 @@ namespace NDesk.DBus
 			return bus.GetConnectionCert (name);
                 }
 
+		public string GetCertFingerprint (string name)
+                {
+			return bus.GetConnectionCertFingerprint (name);
+                }
+
 		public RequestNameReply RequestName (string name)
 		{
 			return RequestName (name, NameFlag.None);
