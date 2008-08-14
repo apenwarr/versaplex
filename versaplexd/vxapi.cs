@@ -313,26 +313,39 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         {
 	    try
 	    {
-		// FIXME: This system call isn't actually standard
-		// FIXME: we should be using VersaMain.conn here,
+		// FIXME:  We should be using VersaMain.conn here,
 		//   not the session bus!!
-		username = Bus.Session.GetUnixUserName(sender);
+		// FIXME:  This will likely change as we find a more
+		//   universal way to do SSL authentication via D-Bus.
+		username = Bus.Session.GetCertFingerprint(sender);
 	    }
 	    catch
 	    {
 		try
 		{
-		    // FIXME: This system call is standard, but not useful
-		    //   on Windows.
+		    // FIXME: This system call isn't actually standard
 		    // FIXME: we should be using VersaMain.conn here,
 		    //   not the session bus!!
-		    username = Bus.Session.GetUnixUser(sender).ToString();
+		    username = Bus.Session.GetUnixUserName(sender);
 		}
 		catch
 		{
-		    username = "*"; // use default connection, if any
+		    try
+		    {
+			// FIXME: This system call is standard, but not useful
+			//   on Windows.
+			// FIXME: we should be using VersaMain.conn here,
+			//   not the session bus!!
+			username = Bus.Session.GetUnixUser(sender).ToString();
+		    }
+		    catch
+		    {
+			username = "*"; // use default connection, if any
+		    }
 		}
 	    }
+
+
 	    
             // Remember the result, so we don't have to ask DBus all the time
             usernames[sender] = username;

@@ -4,8 +4,10 @@
 ;
 ; testdb = mssql:User Id=sa;Password=mypass;Server=myserver;Initial Catalog=mydbname
 
-[User Map]
-; Maps user names to the database they're allowed to use.  For example:
+[ConnId Map]
+; Maps user names or SHA1 certificate fingerprints (get_fingerprint() in
+; WvX509) to the database they're allowed to use.  For example:
 ;
 ; pmccurdy = testdb
 ; * = testdb
+; 85:DD:67:D3:ED:8F:39:58:E5:4A:E9:88:0D:22:C9:E5:70:41:71:75 = testdb
