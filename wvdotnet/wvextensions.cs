@@ -145,6 +145,20 @@ namespace Wv.Extensions
 	    return a;
 	}
 
+        // Combines ExecuteReader and ToWvAutoReader, so that we can control
+        // the lifetime of the DataReader.  MSSQL gets mad if a connection has
+        // multiple open DataReaders.
+        public static IEnumerable<WvAutoCast[]> 
+            ExecuteToWvAutoReader(this IDbCommand cmd)
+        {
+            // Note: don't put this in a using() block - they get complicated
+            // with yield return.
+            IDataReader e = cmd.ExecuteReader();
+            while (e.Read())
+                yield return e.ToWvAutoCasts();
+            e.Close();
+        }
+
 	public static IEnumerable<WvAutoCast[]>
 	    ToWvAutoReader(this IDataReader e)
 	{
