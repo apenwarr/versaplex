@@ -87,10 +87,12 @@ class SchemamaticTests : VersaplexTester
     }
 
     VxDbusSchema dbus;
+    WvLog log;
 
     public SchemamaticTests()
     {
         dbus = new VxDbusSchema(bus);
+        log = new WvLog("Schemamatic Tests");
     }
 
     // Utility function to put a single schema element.
@@ -119,7 +121,7 @@ class SchemamaticTests : VersaplexTester
 
     VxSchemaErrors VxPutSchema(VxSchema schema, VxPutOpts opts)
     {
-	Console.WriteLine(" + VxPutSchema");
+	log.print(" + VxPutSchema");
 
         return dbus.Put(schema, null, opts);
     }
@@ -149,7 +151,7 @@ class SchemamaticTests : VersaplexTester
     public string GetTempDir()
     {
         string t = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-        Console.WriteLine("Using temporary directory " + t);
+        log.print("Using temporary directory " + t);
 
         return t;
     }
@@ -164,9 +166,9 @@ class SchemamaticTests : VersaplexTester
         sums = dbus.GetChecksums();
         if (sums.Count != 0)
         {
-            Console.WriteLine("Found entries:");
+            log.print("Found entries:");
             foreach (KeyValuePair<string,VxSchemaChecksum> p in sums)
-                Console.WriteLine(p.Key);
+                log.print(p.Key);
         }
         //WVPASSEQ(sums.Count, 0);
 
@@ -353,12 +355,12 @@ class SchemamaticTests : VersaplexTester
 	// that we only got one back, and that it looks like the right one.
 	foreach (string key in schema.Keys)
         {
-            Console.WriteLine("Looking at " + key);
+            log.print("Looking at " + key);
 	    if (key.StartsWith(prefix + "PK__" + tablename))
 	    {
 		WVASSERT(pk_name == null)
 		pk_name = key.Substring(prefix.Length);
-		Console.WriteLine("Found primary key index " + pk_name);
+		log.print("Found primary key index " + pk_name);
 		// Note: don't break here, so we can check there aren't others.
 	    }
         }
@@ -564,7 +566,7 @@ class SchemamaticTests : VersaplexTester
             // FIXME: This should check for a vx.db.sqlerror
             // rather than any dbus error
             WVPASS(e is DbusError);
-            Console.WriteLine(e.ToString());
+            log.print(e.ToString());
         }
 
         sc.Cleanup();
@@ -726,7 +728,7 @@ class SchemamaticTests : VersaplexTester
             // FIXME: This should check for a vx.db.sqlerror
             // rather than any dbus error
 	    WVPASS(e is DbusError);
-            Console.WriteLine(e.ToString());
+            log.print(e.ToString());
 	}
 
         WVPASSEQ(VxPutSchema("Table", "Tab1", sc.tab1q, VxPutOpts.None), null);
@@ -892,7 +894,7 @@ class SchemamaticTests : VersaplexTester
                 throw e;
             } catch (System.Exception e) {
                 WVPASS(e is ArgumentException);
-                Console.WriteLine(e.ToString());
+                log.print(e.ToString());
             }
 
             // Check that the normal exporting works.
@@ -1053,6 +1055,7 @@ class SchemamaticTests : VersaplexTester
 
     public void TestApplySchemaDiff(ISchemaBackend backend)
     {
+        log.print("In TestApplySchemaDiff({0})\n", backend.GetType().ToString());
         SchemaCreator sc = new SchemaCreator(this);
         sc.Create();
 
@@ -1121,10 +1124,10 @@ class SchemamaticTests : VersaplexTester
     [Test, Category("Schemamatic"), Category("PutSchema")]
     public void TestApplySchemaDiff()
     {
-        Console.WriteLine("Testing applying diffs through DBus");
+        log.print("Testing applying diffs through DBus");
         TestApplySchemaDiff(dbus);
 
-        Console.WriteLine("Testing applying diffs to the disk");
+        log.print("Testing applying diffs to the disk");
 
         string tmpdir = GetTempDir();
         try
