@@ -17,8 +17,15 @@ namespace Wv
 	WvLog log = new WvLog("WvDbi");
 	bool fake_bind = false;
 	
+        // MSSQL freaks out if there are more than 100 connections open at a
+        // time.  Give ourselves a safety margin.
+        static int num_active = 0;
+        static int max_active = 50;
+
 	public WvDbi(string odbcstr)
 	{
+            wv.assert(num_active < max_active, "Too many open connections");
+            num_active++;
 	    string real;
 	    bool use_mssql = false;
 	    
@@ -83,6 +90,7 @@ namespace Wv
 	// Implement IDisposable.
 	public void Dispose() 
 	{
+            num_active--;
 	    db.Dispose();
 	    GC.SuppressFinalize(this); 
 	}
