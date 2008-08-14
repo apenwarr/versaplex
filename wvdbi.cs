@@ -147,7 +147,7 @@ namespace Wv
 						params object[] args)
 	{
 	    bind(cmd, args);
-	    return cmd.ExecuteReader().ToWvAutoReader();
+	    return cmd.ExecuteToWvAutoReader();
 	}
 	
 	public WvAutoCast[] select_onerow(string sql, params object[] args)
