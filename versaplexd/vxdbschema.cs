@@ -40,14 +40,10 @@ internal class VxDbSchema : ISchemaBackend
         };
 
     WvDbi dbi;
-    string connstr;
 
-    // _connstr connects to a MSSQL server (through a SqlConnection)
-    public VxDbSchema(string _connstr)
+    public VxDbSchema(WvDbi _dbi)
     {
-        connstr = "mssql:" + _connstr;
-        log.print("Using connection string: {0}\n", connstr);
-        dbi = new WvDbi(connstr);
+        dbi = _dbi;
     }
 
     //
@@ -244,19 +240,6 @@ internal class VxDbSchema : ISchemaBackend
     // 
     // Non-ISchemaBackend methods
     //
-
-    // Note: You must call Close() or Finalize() on the returned object.  The
-    // easiest and most reliable way is to put it in a using() block, e.g. 
-    // using (SqlConnection conn = GetConnection()) { ... }
-    private SqlConnection GetConnection()
-    {
-        string foo = connstr;
-        if (connstr.StartsWith("mssql:"))
-            foo = connstr.Substring("mssql:".Length);
-        SqlConnection con = new SqlConnection(foo);
-        con.Open();
-        return con;
-    }
 
     // Translate SqlExceptions from dbi.execute into VxSqlExceptions
     private int DbiExec(string query, params string[] args)
@@ -841,9 +824,9 @@ internal class VxDbSchema : ISchemaBackend
         {
             // We need to get type information too, so we can't just call
             // DbiExec.  This duplicates some of VxDb.ExecRecordset.
-            using (SqlConnection conn = GetConnection())
-            using (SqlCommand cmd = new SqlCommand(query, conn))
-            using (SqlDataReader reader = cmd.ExecuteReader())
+            IDbCommand cmd = dbi.Conn.CreateCommand();
+            cmd.CommandText = query;
+            using (IDataReader reader = cmd.ExecuteReader())
             {
                 List<string> cols = new List<string>();
                 System.Type[] types = new System.Type[reader.FieldCount];
