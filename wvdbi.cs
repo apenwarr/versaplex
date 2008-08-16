@@ -72,11 +72,24 @@ namespace Wv
 		db = new OdbcConnection(real);
 	    db.Open();
 	}
+
+        public WvDbi(SqlConnection conn)
+        {
+            db = conn;
+            fake_bind = true;
+            if ((db.State & System.Data.ConnectionState.Open) == 0)
+                db.Open();
+        }
 	
 	~WvDbi()
 	{
 	    wv.assert(false, "A WvDbi object was not Dispose()d");
 	}
+
+        public IDbConnection Conn
+        {
+            get { return db; }
+        }
 	
 	IDbCommand prepare(string sql, int nargs)
 	{
