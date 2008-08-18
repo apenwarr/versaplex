@@ -3,10 +3,11 @@ include ../../monorules.mk
 
 BINS = export.exe
 
-# FIXME: Move dbuserror.cs from ../t/ to ../
+PKGS += /r:System.Data
+
 SCHEMAMATIC_SOURCES = \
     ../dodgytransport.cs ../ischemabackend.cs ../vxdbusutils.cs \
-    ../t/dbuserror.cs ../vxnotifysocket.cs  ../vxsocket.cs \
+    ../vxexceptions.cs ../vxnotifysocket.cs  ../vxsocket.cs \
     ../vxdiskschema.cs ../vxdbusschema.cs ../vxschema.cs \
     ../vxschemachecksums.cs ../vxschemadiff.cs ../vxschemaerrors.cs
 
