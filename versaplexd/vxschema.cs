@@ -130,40 +130,6 @@ internal class VxSchemaElement : IComparable
         return GetKey().CompareTo(other.GetKey());
     }
 
-    public void ExportToDisk(string exportdir, VxSchemaChecksum sum, 
-        bool isbackup)
-    {
-        MD5 md5summer = MD5.Create();
-
-        byte[] text = this.text.ToUTF8();
-        byte[] md5 = md5summer.ComputeHash(text);
-
-        // Make some kind of attempt to run on Windows.  
-        string filename = (exportdir + "/" + this.key).Replace( 
-            '/', Path.DirectorySeparatorChar);
-
-        // Make directories
-        Directory.CreateDirectory(Path.GetDirectoryName(filename));
-
-        string suffix = "";
-        if (isbackup)
-        {
-            int i = 1;
-            while(File.Exists(filename + "-" + i))
-                i++;
-            suffix = "-" + i;
-        }
-            
-        using(BinaryWriter file = new BinaryWriter(
-            File.Open(filename + suffix, FileMode.Create)))
-        {
-            file.Write(String.Format("!!SCHEMAMATIC {0} {1}\r\n",
-				     md5.ToHex(), sum.GetSumString())
-		       .ToUTF8());
-            file.Write(text);
-        }
-    }
-
     public static string GetDbusSignature()
     {
         return "sssy";

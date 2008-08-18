@@ -42,7 +42,7 @@ internal class VxDiskSchema : ISchemaBackend
             if (elem.text == null || elem.text == "")
                 DropSchema(elem.type, elem.name);
             else
-                p.Value.ExportToDisk(exportdir, sums[p.Key], isbackup);
+                ExportToDisk(p.Value, sums[p.Key], isbackup);
         }
 
         // Writing schemas to disk doesn't give us any per-element errors.
@@ -252,5 +252,38 @@ internal class VxDiskSchema : ISchemaBackend
         if (sums != null)
             sums.Add(key, sum);
     }
+
+    private void ExportToDisk(VxSchemaElement elem, VxSchemaChecksum sum, 
+        bool isbackup)
+    {
+        byte[] raw = elem.text.ToUTF8();
+        byte[] md5 = MD5.Create().ComputeHash(raw);
+
+        // Make some kind of attempt to run on Windows.  
+        string filename = (exportdir + "/" + elem.key).Replace( 
+            '/', Path.DirectorySeparatorChar);
+
+        // Make directories
+        Directory.CreateDirectory(Path.GetDirectoryName(filename));
+
+        string suffix = "";
+        if (isbackup)
+        {
+            int i = 1;
+            while(File.Exists(filename + "-" + i))
+                i++;
+            suffix = "-" + i;
+        }
+            
+        using(BinaryWriter file = new BinaryWriter(
+            File.Open(filename + suffix, FileMode.Create)))
+        {
+            file.Write(String.Format("!!SCHEMAMATIC {0} {1}\r\n",
+				     md5.ToHex(), sum.GetSumString())
+		       .ToUTF8());
+            file.Write(raw);
+        }
+    }
+
 }
 
