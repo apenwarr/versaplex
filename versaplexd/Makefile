@@ -1,7 +1,7 @@
 include ../rules.mk
 include ../monorules.mk
 
-all: versaplexd
+all: versaplexd schemamatic-utils/all
 
 PKGS += /unsafe /r:System.Data
 
@@ -26,5 +26,5 @@ nativecall.exe: nativecall.cs wvdbusserver.cs ../wvdotnet/wv.dll
 nativelib.so: nativelib.c
 	gcc -shared -Wall -o $@ $^
 
-clean:: t/clean
+clean:: t/clean schemamatic-utils/clean
 	rm -f versaplexd
