@@ -121,6 +121,17 @@ internal class VxSchemaElement : IComparable
         return VxSchema.GetKey(type, name, encrypted);
     }
 
+    // Returns the element's text, along with a header line containing the MD5
+    // sum of the text, and the provided database checksums.  This format is
+    // suitable for serializing to disk.
+    public string ToStringWithHeader(VxSchemaChecksum sum)
+    {
+        byte[] md5 = MD5.Create().ComputeHash(text.ToUTF8());
+
+        return String.Format("!!SCHEMAMATIC {0} {1}\r\n{2}",
+            md5.ToHex(), sum.GetSumString(), text);
+    }
+
     public int CompareTo(object obj)
     {
         if (!(obj is VxSchemaElement))

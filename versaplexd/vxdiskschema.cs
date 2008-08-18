@@ -256,9 +256,6 @@ internal class VxDiskSchema : ISchemaBackend
     private void ExportToDisk(VxSchemaElement elem, VxSchemaChecksum sum, 
         bool isbackup)
     {
-        byte[] raw = elem.text.ToUTF8();
-        byte[] md5 = MD5.Create().ComputeHash(raw);
-
         // Make some kind of attempt to run on Windows.  
         string filename = (exportdir + "/" + elem.key).Replace( 
             '/', Path.DirectorySeparatorChar);
@@ -278,10 +275,8 @@ internal class VxDiskSchema : ISchemaBackend
         using(BinaryWriter file = new BinaryWriter(
             File.Open(filename + suffix, FileMode.Create)))
         {
-            file.Write(String.Format("!!SCHEMAMATIC {0} {1}\r\n",
-				     md5.ToHex(), sum.GetSumString())
-		       .ToUTF8());
-            file.Write(raw);
+            log.print("Writing {0}\n", filename + suffix);
+            file.Write(elem.ToStringWithHeader(sum).ToUTF8());
         }
     }
 
