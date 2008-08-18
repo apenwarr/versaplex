@@ -36,6 +36,14 @@ export LD_LIBRARY_PATH=..:$(WVLIBDIR):$(WVSTREAMS)
 LIBS+=-L$(WVSTREAMS) -lwvdbus 
 endif
 
+VX_SOURCES = ../dodgytransport.cs ../vxnotifysocket.cs ../vxsocket.cs \
+	../vxcolumninfo.cs ../vxdbusdatetime.cs ../vxdbusutils.cs
+
+SCHEMAMATIC_SOURCES = ../vxschema.cs ../vxschemachecksums.cs \
+	../vxschemadiff.cs ../vxschemaerrors.cs ../ischemabackend.cs \
+	../vxdiskschema.cs ../vxdbusschema.cs ../vxdbschema.cs \
+	../vxexceptions.cs
+
 TESTSOURCES=$(wildcard *.t.cc)
 TESTHEADERS=$(wildcard *.h)
 TESTOBJS=$(patsubst %.cc,%.o,$(TESTSOURCES))
@@ -53,26 +61,19 @@ test: $(TESTS) all.t
 	$(RUNTEST) $(VALGRIND) ./all.t $(TESTNAME)
 
 versaplex.t.exe: versaplex.t.cs.E versaplextester.cs.E dbuserror.cs \
-	../dodgytransport.cs ../vxnotifysocket.cs ../vxsocket.cs \
-	../vxcolumninfo.cs ../vxdbusdatetime.cs ../vxdbusutils.cs \
+	$(VX_SOURCES) \
 	../wv.dll ../NDesk.DBus.dll
 
 vxsanity.t.exe: vxsanity.t.cs.E versaplextester.cs.E dbuserror.cs \
-	../dodgytransport.cs ../vxnotifysocket.cs ../vxsocket.cs \
-	../vxcolumninfo.cs ../vxdbusdatetime.cs ../vxdbusutils.cs \
+	$(VX_SOURCES) \
 	../wv.dll ../NDesk.DBus.dll
 
 verifydata.t.exe: verifydata.t.cs.E versaplextester.cs.E dbuserror.cs \
-	../dodgytransport.cs ../vxnotifysocket.cs ../vxsocket.cs \
-	../vxcolumninfo.cs ../vxdbusdatetime.cs ../vxdbusutils.cs \
+	$(VX_SOURCES) \
 	../wv.dll ../NDesk.DBus.dll
 
 schemamatic.t.exe: schemamatic.t.cs.E versaplextester.cs.E dbuserror.cs \
-	../dodgytransport.cs ../vxnotifysocket.cs ../vxsocket.cs \
-	../vxcolumninfo.cs ../vxdbusdatetime.cs ../vxschema.cs \
-	../vxschemachecksums.cs ../vxschemadiff.cs ../vxschemaerrors.cs \
-	../ischemabackend.cs ../vxdiskschema.cs ../vxdbusschema.cs \
-	../vxdbschema.cs ../vxdbusutils.cs ../vxexceptions.cs \
+	$(VX_SOURCES) $(SCHEMAMATIC_SOURCES) \
 	../wv.dll ../NDesk.DBus.dll
 
 %.o: %.cc
