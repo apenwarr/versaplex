@@ -14,16 +14,26 @@ internal class VxDbusSchema : ISchemaBackend
     {
         if (Address.Session == null)
             throw new Exception ("DBUS_SESSION_BUS_ADDRESS not set");
-        AddressEntry aent = AddressEntry.Parse(Address.Session);
-        DodgyTransport trans = new DodgyTransport();
-        trans.Open(aent);
-        bus = new Bus(trans);
+        Connect(Address.Session);
+    }
+
+    public VxDbusSchema(string bus_moniker)
+    {
+        Connect(bus_moniker);
     }
 
     // If you've already got a Bus you'd like to use.
     public VxDbusSchema(Bus _bus)
     {
         bus = _bus;
+    }
+
+    private void Connect(string bus_moniker)
+    {
+        AddressEntry aent = AddressEntry.Parse(bus_moniker);
+        DodgyTransport trans = new DodgyTransport();
+        trans.Open(aent);
+        bus = new Bus(trans);
     }
 
     // 
