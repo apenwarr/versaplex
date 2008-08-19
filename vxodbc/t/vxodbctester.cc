@@ -67,6 +67,15 @@ VxOdbcTester::~VxOdbcTester()
     // lazily after the open file detector does its initial check.  
     wvlog_close();
 #endif
+    
+    /* HACK HACK HACK HACK... need to do this to flush vxserver_conn out,
+     * so that the WvDBusServer object we are connected to removes it from its
+     * internal list and decreases its refcount, thus avoiding valgrind
+     * freaking out claiming there's a loose DBus server with open file
+     * descriptors left over
+     */
+    vxserver_conn.close();
+    WvIStreamList::globallist.runonce();
 }
 
 bool VxOdbcTester::msg_received(WvDBusMsg &msg)
