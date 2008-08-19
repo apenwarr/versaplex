@@ -561,7 +561,7 @@ class SchemamaticTests : VersaplexTester
         sc.Cleanup();
     }
 
-    [Test, Category("Schemamatic"), Category("DropSchema")]
+    [Test, Category("Schemamatic"), Category("DropSchema"), Category("DiskBackend")]
     public void TestDropSchemaFromDisk()
     {
         string tmpdir = GetTempDir();
@@ -574,17 +574,20 @@ class SchemamaticTests : VersaplexTester
             schema.Add("Foo", "Table", "Foo contents", false);
             schema.Add("Bar", "Table", "Bar contents", false);
             schema.Add("Func1", "Procedure", "Func1 contents", false);
+            schema.Add("Foo/Index1", "Index", "Index1 contents", false);
 
             VxSchemaChecksums sums = new VxSchemaChecksums();
             sums.Add("Table/Foo", 1);
             sums.Add("Table/Bar", 2);
             sums.Add("Procedure/Func1", 3);
+            sums.Add("Index/Foo/Index1", 4);
 
             backend.Put(schema, sums, VxPutOpts.None);
 
             WVPASS(File.Exists(Path.Combine(tmpdir, "Table/Foo")));
             WVPASS(File.Exists(Path.Combine(tmpdir, "Table/Bar")));
             WVPASS(File.Exists(Path.Combine(tmpdir, "Procedure/Func1")));
+            WVPASS(File.Exists(Path.Combine(tmpdir, "Index/Foo/Index1")));
 
             VxSchema newschema = backend.Get(null);
             VxSchemaChecksums newsums = backend.GetChecksums();
@@ -594,8 +597,16 @@ class SchemamaticTests : VersaplexTester
             WVPASS(newschema.ContainsKey("Table/Foo"));
             WVPASS(newschema.ContainsKey("Table/Bar"));
             WVPASS(newschema.ContainsKey("Procedure/Func1"));
+            WVPASS(newschema.ContainsKey("Index/Foo/Index1"));
 
             backend.DropSchema("Table", "Foo");
+            backend.DropSchema("Index", "Foo/Index1");
+
+            WVPASS(!File.Exists(Path.Combine(tmpdir, "Table/Foo")))
+            WVPASS(File.Exists(Path.Combine(tmpdir, "Table/Bar")))
+            WVPASS(File.Exists(Path.Combine(tmpdir, "Procedure/Func1")))
+            WVPASS(!File.Exists(Path.Combine(tmpdir, "Index/Foo/Index1")))
+            WVPASS(!Directory.Exists(Path.Combine(tmpdir, "Index/Foo")))
 
             newschema = backend.Get(null);
             newsums = backend.GetChecksums();
@@ -604,8 +615,15 @@ class SchemamaticTests : VersaplexTester
             WVPASS(!newschema.ContainsKey("Table/Foo"));
             WVPASS(newschema.ContainsKey("Table/Bar"));
             WVPASS(newschema.ContainsKey("Procedure/Func1"));
+            WVPASS(!newschema.ContainsKey("Index/Foo/Index1"));
 
             backend.DropSchema("Procedure", "Func1");
+
+            WVPASS(!File.Exists(Path.Combine(tmpdir, "Table/Foo")))
+            WVPASS(File.Exists(Path.Combine(tmpdir, "Table/Bar")))
+            WVPASS(!File.Exists(Path.Combine(tmpdir, "Procedure/Func1")))
+            WVPASS(!File.Exists(Path.Combine(tmpdir, "Index/Foo/Index1")))
+            WVPASS(!Directory.Exists(Path.Combine(tmpdir, "Index/Foo")))
 
             newschema = backend.Get(null);
             newsums = backend.GetChecksums();

@@ -88,6 +88,23 @@ internal class VxDiskSchema : ISchemaBackend
         log.print("Removing {0}\n", fullpath);
         if (File.Exists(fullpath))
             File.Delete(fullpath);
+        if (type == "Index")
+        {
+            // If it was the last index for a table, remove the empty dir.
+            string[] split = name.Split('/');
+            if (split.Length > 0)
+            {
+                string table = split[0];
+                string tabpath = wv.PathCombine(exportdir, type, table);
+                // Directory.Delete won't delete non-empty dirs, but we still
+                // check both for safety and to write a sensible message.
+                if (Directory.GetFileSystemEntries(tabpath).Length == 0)
+                {
+                    log.print("Removing empty directory {0}\n", tabpath);
+                    Directory.Delete(tabpath);
+                }
+            }
+        }
     }
 
     //
