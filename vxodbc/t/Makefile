@@ -25,10 +25,10 @@ CC=i586-mingw32msvc-g++
 CXX=i586-mingw32msvc-g++
 CFLAGS+= -D_MSC_VER=1300 -D_WIN32_WINNT=0x0501 -DWIN_MULTITHREAD_SUPPORT
 LIBS+=-L. -L.. -L$(WVSTREAMS) -L$(WVLIBDIR)
-LIBS+=-lwvwin32 -lssl -lcrypto -lxplc-cxx 
+LIBS+=-lwvstatic -lssl -lcrypto -lxplc-cxx 
 LIBS+=../vxodbc.a $(DBUS)/dbus/.libs/libdbus-1.a $(ARGP)/libargp.a
 LIBS+=$(WVSTREAMS)/wvtestmain.o $(WVSTREAMS)/utils/wvcrash.o 
-LIBS+=-lwsock32 -lgdi32 -lrpcrt4 -lole32 -lodbc32 -limagehlp
+LIBS+=-lwsock32 -lgdi32 -lrpcrt4 -lole32 -lodbc32 -limagehlp -lcrypt32
 VALGRIND=
 RUNTEST=wine
 else

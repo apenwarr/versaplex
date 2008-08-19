@@ -317,7 +317,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 		//   not the session bus!!
 		// FIXME:  This will likely change as we find a more
 		//   universal way to do SSL authentication via D-Bus.
-		username = Bus.Session.GetCertFingerprint(sender);
+		username = VxSqlPool.GetUsernameForCert(
+				Bus.Session.GetCertFingerprint(sender));
 	    }
 	    catch
 	    {
