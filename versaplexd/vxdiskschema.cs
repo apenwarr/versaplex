@@ -204,11 +204,17 @@ internal class VxDiskSchema : ISchemaBackend
             string[] sums = dbsum.Split(' ');
             foreach (string sumstr in sums)
             {
-                // Ignore trailing spaces
+                // Ignore trailing spaces.
                 if (sumstr.Length == 0)
                     continue;
+
+                // C#'s hex parser doesn't like 0x prefixes.
+                string stripped = sumstr.ToLower();
+                if (stripped.StartsWith("0x"))
+                    stripped = stripped.Remove(0, 2);
+
                 ulong longsum;
-                if (!UInt64.TryParse(sumstr.ToUpper(), 
+                if (!UInt64.TryParse(stripped,
                         System.Globalization.NumberStyles.HexNumber, null, 
                         out longsum))
                 {

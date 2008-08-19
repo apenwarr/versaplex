@@ -806,7 +806,7 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(Directory.GetFiles(procdir).Length, 1 * filemultiplier);
         string func1file = Path.Combine(procdir, "Func1" + suffix);
         CheckExportedFileContents(func1file, 
-            "!!SCHEMAMATIC 2ae46ac0748aede839fb9cd167ea1180 d983a305 ",
+            "!!SCHEMAMATIC 2ae46ac0748aede839fb9cd167ea1180 0xd983a305 ",
             sc.func1q);
 
         // Indexes
@@ -820,7 +820,7 @@ class SchemamaticTests : VersaplexTester
 
         string idx1file = Path.Combine(tab1idxdir, "Idx1" + suffix);
         CheckExportedFileContents(idx1file, 
-            "!!SCHEMAMATIC 7dddb8e70153e62bb6bb3c59b7f53a4c 1d32c7ea 968dbedc ", 
+            "!!SCHEMAMATIC 7dddb8e70153e62bb6bb3c59b7f53a4c 0x1d32c7ea 0x968dbedc ", 
             sc.idx1q);
 
         string pk_name = CheckForPrimaryKey(schema, "Tab1");
@@ -866,7 +866,7 @@ class SchemamaticTests : VersaplexTester
         string testschemafile = Path.Combine(xmldir, "TestSchema" + suffix);
         WVPASS(File.Exists(testschemafile));
         CheckExportedFileContents(testschemafile, 
-            "!!SCHEMAMATIC 3d84628c4c6a7805cb9bf97b432d2268 fa7736b3 ",
+            "!!SCHEMAMATIC 3d84628c4c6a7805cb9bf97b432d2268 0xfa7736b3 ",
             sc.xmlq);
     }
 
@@ -1295,13 +1295,13 @@ class SchemamaticTests : VersaplexTester
 
             VxDiskSchema.AddFromDir(tmpdir, schema1, sums1);
 
-            WVPASSEQ(sums1["Table/Tab1"].GetSumString(), "00000001");
+            WVPASSEQ(sums1["Table/Tab1"].GetSumString(), "0x00000001");
             WVPASSEQ(schema1["Table/Tab1"].name, "Tab1");
             WVPASSEQ(schema1["Table/Tab1"].type, "Table");
             WVPASSEQ(schema1["Table/Tab1"].text, "Random contents");
             WVPASSEQ(schema1["Table/Tab1"].encrypted, false);
 
-            WVPASSEQ(sums1["Table/Tab2"].GetSumString(), "00000002");
+            WVPASSEQ(sums1["Table/Tab2"].GetSumString(), "0x00000002");
             WVPASSEQ(schema1["Table/Tab2"].name, "Tab2");
             WVPASSEQ(schema1["Table/Tab2"].type, "Table");
             WVPASSEQ(schema1["Table/Tab2"].text, "Random contents 2");
