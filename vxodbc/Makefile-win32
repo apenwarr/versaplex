@@ -26,7 +26,7 @@ LIBS=\
 	-limagehlp \
 	-lole32 -lrpcrt4 \
 	-lodbc32 -lodbccp32 \
-	-lws2_32 -lwinmm -lgdi32 -lkernel32 
+	-lws2_32 -lwinmm -lgdi32 -lkernel32  -lcrypt32
 LDFLAGS=--enable-stdcall-fixup -s
 
 OBJS+=\
