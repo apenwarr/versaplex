@@ -30,6 +30,7 @@
 #include "wvdbusconn.h"
 
 #include "dlg_specific.h"
+#include "wvssl_necessities.h"
 
 #define	NULL_IF_NULL(a) (a ? a : "(NULL)")
 
@@ -102,6 +103,7 @@ PGAPI_DriverConnect(HDBC hdbc,
 
 
     mylog("%s: entering...\n", func);
+    init_wvssl();
 
     if (!conn)
     {

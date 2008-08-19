@@ -31,7 +31,8 @@ OBJS=\
 	odbcapi30w.o \
 	inouealc.o \
 	win_unicode.o \
-	wvlogger.o
+	wvlogger.o \
+	wvssl_necessities.o
 
 # Files made by configure
 CONFIGUREFILES=\

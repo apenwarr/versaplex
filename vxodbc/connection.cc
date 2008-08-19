@@ -24,6 +24,7 @@
 
 #include <wvdbusconn.h>
 #include <wvistreamlist.h>
+#include "wvssl_necessities.h"
 
 #define STMT_INCREMENT 16	/* how many statement holders to allocate
 				 * at a time */
@@ -86,6 +87,7 @@ PGAPI_Connect(HDBC hdbc,
     char fchar;
 
     mylog("%s: entering..cbDSN=%hi.\n", func, cbDSN);
+    init_wvssl();
 
     if (!conn)
     {
