@@ -34,17 +34,17 @@ class SchemamaticTests : VersaplexTester
             Cleanup();
 
             tab1q = "CREATE TABLE [Tab1] (\n" + 
-                "\t[f1] [int] NOT NULL PRIMARY KEY,\n" +
-                "\t[f2] [money] NULL,\n" + 
+                "\t[f1] [int]  NOT NULL PRIMARY KEY,\n" +
+                "\t[f2] [money]  NULL,\n" + 
                 "\t[f3] [varchar] (80) NULL);\n\n";
             tab1q_nopk = "CREATE TABLE [Tab1] (\n" + 
-                "\t[f1] [int] NOT NULL,\n" +
-                "\t[f2] [money] NULL,\n" + 
+                "\t[f1] [int]  NOT NULL,\n" +
+                "\t[f2] [money]  NULL,\n" + 
                 "\t[f3] [varchar] (80) NULL);\n\n";
             tab2q = "CREATE TABLE [Tab2] (\n" + 
                 "\t[f4] [binary] (1) NOT NULL);\n\n";
             idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
-                "\t(f2,f3 DESC);\n\n";
+                "\t(f2, f3 DESC);\n\n";
             msg1 = "Hello, world, this is Func1!";
             func1q = "create procedure Func1 as select '" + msg1 + "'\n";
             xmlq = "CREATE XML SCHEMA COLLECTION [dbo].[TestSchema] AS " + 
@@ -390,7 +390,7 @@ class SchemamaticTests : VersaplexTester
         WVASSERT(VxExec(query));
 
 	string idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
-	    "\t(f2,f3 DESC);\n\n";
+	    "\t(f2, f3 DESC);\n\n";
         WVASSERT(VxExec(idx1q));
 
         // Check that the query limiting works
@@ -502,12 +502,12 @@ class SchemamaticTests : VersaplexTester
     {
         try { VxExec("drop table Table1"); } catch { }
         string query = "CREATE TABLE [Table1] (\n\t" + 
-            "[f1] [int] NOT NULL PRIMARY KEY,\n\t" +
-            "[f2] [money] NULL,\n\t" + 
+            "[f1] [int]  NOT NULL PRIMARY KEY,\n\t" +
+            "[f2] [money]  NULL,\n\t" + 
             "[f3] [varchar] (80) NOT NULL,\n\t" +
             "[f4] [varchar] (max) DEFAULT 'Default Value' NULL,\n\t" + 
             "[f5] [decimal] (3,2),\n\t" + 
-            "[f6] [bigint] NOT NULL IDENTITY(4,5));\n\n";
+            "[f6] [bigint]  NOT NULL IDENTITY(4, 5));\n\n";
         WVASSERT(VxExec(query));
 
         VxSchema schema = dbus.Get();
@@ -820,7 +820,7 @@ class SchemamaticTests : VersaplexTester
 
         string idx1file = Path.Combine(tab1idxdir, "Idx1" + suffix);
         CheckExportedFileContents(idx1file, 
-            "!!SCHEMAMATIC be6095fa7c7b1c9ba3d3da2f1d94fcbe 1d32c7ea 968dbedc ", 
+            "!!SCHEMAMATIC 7dddb8e70153e62bb6bb3c59b7f53a4c 1d32c7ea 968dbedc ", 
             sc.idx1q);
 
         string pk_name = CheckForPrimaryKey(schema, "Tab1");
@@ -850,7 +850,7 @@ class SchemamaticTests : VersaplexTester
 
         WVPASS(File.Exists(tab1file));
         CheckExportedFileContents(tab1file, 
-            "!!SCHEMAMATIC 3d05abb172361d5bdc19de2437c58f7e " + 
+            "!!SCHEMAMATIC 5f79eae887634d744f1ea2db7a25994d " + 
                 sums["Table/Tab1"].GetSumString() + " ",
             sc.tab1q.Replace(" PRIMARY KEY", ""));
 

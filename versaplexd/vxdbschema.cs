@@ -625,7 +625,7 @@ internal class VxDbSchema : ISchemaBackend
             // index to the schema.  Note: depends on the statement's ORDER BY.
             if (tabname != next_tabname || idxname != next_idxname)
             {
-                string colstr = cols.Join(",");
+                string colstr = cols.Join(", ");
                 string indexstr;
                 if (idxprimary != 0)
                 {
@@ -753,7 +753,6 @@ internal class VxDbSchema : ISchemaBackend
             string defval = row[6];
             int isnullable = row[7];
             int isident = row[8];
-            // FIXME: Decimals
             string ident_seed = row[9];
             string ident_incr = row[10];
 
@@ -788,13 +787,12 @@ internal class VxDbSchema : ISchemaBackend
                     defval = defval.Substring(1, defval.Length - 2);
             }
 
-            cols.Add(String.Format("[{0}] [{1}]{2}{3}{4}{5}",
-                colname, typename, 
-                ((lenstr != "") ? " " + lenstr : ""),
+            cols.Add(String.Format("[{0}] [{1}] {2}{3}{4}{5}",
+                colname, typename, lenstr,
                 ((defval != "") ? " DEFAULT " + defval : ""),
                 ((isnullable != 0) ? " NULL" : " NOT NULL"),
                 ((isident != 0) ?  String.Format(
-                    " IDENTITY({0},{1})", ident_seed, ident_incr) :
+                    " IDENTITY({0}, {1})", ident_seed, ident_incr) :
                     "")));
 
             string next_tabname = ((ii+1) < data.Length ? 
