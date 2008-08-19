@@ -40,7 +40,7 @@ public:
 
     ~TestDBusServer()
     {
-        delete s;
+        WVRELEASE(s);
     }
 };
 
