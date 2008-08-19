@@ -217,12 +217,8 @@ class SchemamaticTests : VersaplexTester
     [Test, Category("Schemamatic"), Category("GetSchemaChecksums")]
     public void TestTableChecksums()
     {
-        try { VxExec("drop table Tab1"); } catch { }
-        string query = "CREATE TABLE [Tab1] (\n" + 
-            "\t[f1] [int] NOT NULL PRIMARY KEY,\n" +
-            "\t[f2] [money] NULL,\n" + 
-            "\t[f3] [varchar] (80) NULL);\n\n";
-        WVASSERT(VxExec(query));
+        SchemaCreator sc = new SchemaCreator(this);
+        sc.Create();
 
         VxSchemaChecksums sums;
         sums = dbus.GetChecksums();
@@ -234,6 +230,8 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(sums["Table/Tab1"].checksums[2], 0xE50EE702)
 
         WVASSERT(VxExec("drop table Tab1"));
+
+        sc.Cleanup();
     }
 
     [Test, Category("Schemamatic"), Category("GetSchemaChecksums")]
@@ -382,16 +380,8 @@ class SchemamaticTests : VersaplexTester
     [Test, Category("Schemamatic"), Category("GetSchema")]
     public void TestGetIndexSchema()
     {
-        try { VxExec("drop table Tab1"); } catch { }
-        string query = "CREATE TABLE [Tab1] (\n" + 
-            "\t[f1] [int] NOT NULL PRIMARY KEY,\n" +
-            "\t[f2] [money] NULL,\n" + 
-            "\t[f3] [varchar] (80) NULL);\n\n";
-        WVASSERT(VxExec(query));
-
-	string idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
-	    "\t(f2, f3 DESC);\n\n";
-        WVASSERT(VxExec(idx1q));
+        SchemaCreator sc = new SchemaCreator(this);
+        sc.Create();
 
         // Check that the query limiting works
 	VxSchema schema = dbus.Get("Index/Tab1/Idx1");
@@ -401,8 +391,8 @@ class SchemamaticTests : VersaplexTester
 	WVPASSEQ(schema["Index/Tab1/Idx1"].name, "Tab1/Idx1");
 	WVPASSEQ(schema["Index/Tab1/Idx1"].type, "Index");
 	WVPASSEQ(schema["Index/Tab1/Idx1"].encrypted, false);
-	WVPASSEQ(schema["Index/Tab1/Idx1"].text.Length, idx1q.Length);
-	WVPASSEQ(schema["Index/Tab1/Idx1"].text, idx1q);
+	WVPASSEQ(schema["Index/Tab1/Idx1"].text.Length, sc.idx1q.Length);
+	WVPASSEQ(schema["Index/Tab1/Idx1"].text, sc.idx1q);
 
         // Now get everything, since we don't know the primary key's name
         schema = dbus.Get();
@@ -412,13 +402,12 @@ class SchemamaticTests : VersaplexTester
 	WVPASSEQ(schema["Index/Tab1/Idx1"].name, "Tab1/Idx1");
 	WVPASSEQ(schema["Index/Tab1/Idx1"].type, "Index");
 	WVPASSEQ(schema["Index/Tab1/Idx1"].encrypted, false);
-	WVPASSEQ(schema["Index/Tab1/Idx1"].text.Length, idx1q.Length);
-	WVPASSEQ(schema["Index/Tab1/Idx1"].text, idx1q);
+	WVPASSEQ(schema["Index/Tab1/Idx1"].text.Length, sc.idx1q.Length);
+	WVPASSEQ(schema["Index/Tab1/Idx1"].text, sc.idx1q);
 
         CheckForPrimaryKey(schema, "Tab1");
 
-        WVASSERT(VxExec("drop index Tab1.Idx1"));
-        WVASSERT(VxExec("drop table Tab1"));
+        sc.Cleanup();
     }
 
     [Test, Category("Schemamatic"), Category("GetSchema")]
