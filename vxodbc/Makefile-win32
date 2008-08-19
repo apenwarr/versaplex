@@ -64,3 +64,4 @@ vxodbc.dll: $(OBJS)
 		$(LIBS) \
 		2>&1 | grep -v '^Warning: resolving .* by linking to' >&2
 
+test: vxodbc.dll vxodbc.a

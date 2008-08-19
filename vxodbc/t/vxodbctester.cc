@@ -9,6 +9,10 @@
 #include "odbcinst.h"
 
 #include "../wvlogger.h"
+#include "wvlinkerhack.h"
+
+WV_LINK_TO(WvTCPConn);
+WV_LINK_TO(WvSSLStream);
 
 int VxOdbcTester::num_names_registered = 0;
 
