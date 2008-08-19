@@ -7,4 +7,9 @@ extern WvX509Mgr *clicert;
 
 void init_wvssl();
 
+/* You don't have to call this unless you're a stupid unit test checking
+ * for valgrind errors.
+ */
+void cleanup_wvssl();
+
 #endif

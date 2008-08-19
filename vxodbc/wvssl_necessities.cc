@@ -25,7 +25,7 @@ static IWvStream *create_ssl(WvStringParm s, IObject *obj)
 
 static WvMoniker<IWvStream> ssl_override("ssl", create_ssl, true);
 
-static UniConfRoot conf;
+static char *dbus_cert = NULL;
 
 #ifdef _WIN32
     #define data_decrypt(x) wvunprotectdata(x)
@@ -35,24 +35,24 @@ static UniConfRoot conf;
 
 static bool verify_server(WvX509 *, WvSSLStream *s)
 {
-    if (conf["dbuscert"].exists())
+    if (dbus_cert)
     {
-	WvString dcert = data_decrypt(*conf["dbuscert"]);
 	WvString pcert = s->getattr("peercert");
-	if (!strcmp(trim_string(dcert.edit()), trim_string(pcert.edit())))
+	if (!strcmp(dbus_cert, trim_string(pcert.edit())))
 	    return true;
     }
 
     return false;
 }
 
+static bool inited = false;
+
 void init_wvssl()
 {
-    static bool inited = false;
-
     if (inited)
 	return;
 
+    UniConfRoot conf;
 #ifndef _WIN32
     #warning On Linux, testing SSL requires a vxodbc.ini file.  Check template.
     conf.mount("ini:vxodbc.ini");
@@ -70,6 +70,21 @@ void init_wvssl()
 	    WVRELEASE(clicert);
     }
 
-    WvSSLStream::global_vcb = verify_server;
+    if (conf.isok() && conf["dbuscert"].exists())
+    {
+	WvString dcert = *conf["dbuscert"];
+	dbus_cert = new char[dcert.len() + 1];
+	dbus_cert = trim_string(strcpy(dbus_cert, dcert.cstr()));
+	WvSSLStream::global_vcb = verify_server;
+    }
+
     inited = true;
+}
+
+void cleanup_wvssl()
+{
+    WVRELEASE(clicert);
+    WvSSLStream::global_vcb = NULL;
+    delete [] dbus_cert;
+    inited = false;
 }
