@@ -4,6 +4,7 @@ using System.Text;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 using NDesk.DBus;
+using Wv;
 using Wv.Extensions;
 
 internal class VxSchemaErrors : Dictionary<string, VxSchemaError>
@@ -277,12 +278,17 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
     public static VxSchemaErrors CopySchema(ISchemaBackend source, 
         ISchemaBackend dest)
     {
+        WvLog log = new WvLog("CopySchema");
+        log.print("Retrieving schema checksums from source.\n");
         VxSchemaChecksums srcsums = source.GetChecksums();
+        log.print("Retrieving schema checksums from dest.\n");
         VxSchemaChecksums destsums = dest.GetChecksums();
 
         List<string> names = new List<string>();
 
+        log.print("Computing diff.\n");
         VxSchemaDiff diff = new VxSchemaDiff(destsums, srcsums);
+        log.print("Parsing diff.\n");
         foreach (KeyValuePair<string,VxDiffType> p in diff)
         {
             switch (p.Value)
@@ -291,7 +297,10 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
                 string type, name;
                 VxSchema.ParseKey(p.Key, out type, out name);
                 if (type != null && name != null)
+                {
+                    log.print("Dropping {0}\n", p.Key);
                     dest.DropSchema(type, name);
+                }
                 break;
             case VxDiffType.Add:
             case VxDiffType.Change:
@@ -300,8 +309,10 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
             }
         }
 
+        log.print("Preparing updated schema.\n");
         VxSchema to_put = source.Get(names);
 
+        log.print("Writing result.\n");
         return dest.Put(to_put, srcsums, VxPutOpts.None);
     }
 }
