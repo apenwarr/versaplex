@@ -23,6 +23,7 @@ class SchemamaticTests : VersaplexTester
         public string idx1q;
         public string msg1;
         public string func1q;
+        public string xmlq;
 
         VersaplexTester t;
 
@@ -46,6 +47,24 @@ class SchemamaticTests : VersaplexTester
                 "\t(f2,f3 DESC);\n\n";
             msg1 = "Hello, world, this is Func1!";
             func1q = "create procedure Func1 as select '" + msg1 + "'\n";
+            xmlq = "CREATE XML SCHEMA COLLECTION [dbo].[TestSchema] AS " + 
+                "'<xsd:schema xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">" +
+                 "<xsd:element name=\"Employee\">" + 
+                  "<xsd:complexType>" + 
+                   "<xsd:complexContent>" + 
+                    "<xsd:restriction base=\"xsd:anyType\">" + 
+                     "<xsd:sequence>" + 
+                      "<xsd:element name=\"SIN\" type=\"xsd:string\"/>" + 
+                      "<xsd:element name=\"Name\" type=\"xsd:string\"/>" +
+                      "<xsd:element name=\"DateOfBirth\" type=\"xsd:date\"/>" +
+                      "<xsd:element name=\"EmployeeType\" type=\"xsd:string\"/>" +
+                      "<xsd:element name=\"Salary\" type=\"xsd:long\"/>" +
+                     "</xsd:sequence>" +
+                    "</xsd:restriction>" + 
+                   "</xsd:complexContent>" + 
+                  "</xsd:complexType>" +
+                 "</xsd:element>" +
+                "</xsd:schema>'\n";
         }
 
         public void Create()
@@ -54,6 +73,7 @@ class SchemamaticTests : VersaplexTester
             WVASSERT(t.VxExec(tab2q));
             WVASSERT(t.VxExec(idx1q));
             WVASSERT(t.VxExec(func1q));
+            WVASSERT(t.VxExec(xmlq));
         }
 
         public void Cleanup()
@@ -67,10 +87,12 @@ class SchemamaticTests : VersaplexTester
     }
 
     VxDbusSchema dbus;
+    WvLog log;
 
     public SchemamaticTests()
     {
         dbus = new VxDbusSchema(bus);
+        log = new WvLog("Schemamatic Tests");
     }
 
     // Utility function to put a single schema element.
@@ -99,7 +121,7 @@ class SchemamaticTests : VersaplexTester
 
     VxSchemaErrors VxPutSchema(VxSchema schema, VxPutOpts opts)
     {
-	Console.WriteLine(" + VxPutSchema");
+	log.print(" + VxPutSchema");
 
         return dbus.Put(schema, null, opts);
     }
@@ -129,7 +151,7 @@ class SchemamaticTests : VersaplexTester
     public string GetTempDir()
     {
         string t = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-        Console.WriteLine("Using temporary directory " + t);
+        log.print("Using temporary directory " + t);
 
         return t;
     }
@@ -144,9 +166,9 @@ class SchemamaticTests : VersaplexTester
         sums = dbus.GetChecksums();
         if (sums.Count != 0)
         {
-            Console.WriteLine("Found entries:");
+            log.print("Found entries:");
             foreach (KeyValuePair<string,VxSchemaChecksum> p in sums)
-                Console.WriteLine(p.Key);
+                log.print(p.Key);
         }
         //WVPASSEQ(sums.Count, 0);
 
@@ -243,33 +265,11 @@ class SchemamaticTests : VersaplexTester
         WVASSERT(VxExec("drop table Tab1"));
     }
 
-    string CreateXmlSchemaQuery()
-    {
-        return "CREATE XML SCHEMA COLLECTION [dbo].[TestSchema] AS " + 
-            "'<xsd:schema xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">" +
-             "<xsd:element name=\"Employee\">" + 
-              "<xsd:complexType>" + 
-               "<xsd:complexContent>" + 
-                "<xsd:restriction base=\"xsd:anyType\">" + 
-                 "<xsd:sequence>" + 
-                  "<xsd:element name=\"SIN\" type=\"xsd:string\"/>" + 
-                  "<xsd:element name=\"Name\" type=\"xsd:string\"/>" +
-                  "<xsd:element name=\"DateOfBirth\" type=\"xsd:date\"/>" +
-                  "<xsd:element name=\"EmployeeType\" type=\"xsd:string\"/>" +
-                  "<xsd:element name=\"Salary\" type=\"xsd:long\"/>" +
-                 "</xsd:sequence>" +
-                "</xsd:restriction>" + 
-               "</xsd:complexContent>" + 
-              "</xsd:complexType>" +
-             "</xsd:element>" +
-            "</xsd:schema>'\n";
-    }
-
     [Test, Category("Schemamatic"), Category("GetSchemaChecksums")]
     public void TestXmlSchemaChecksums()
     {
-        try { VxExec("drop xml schema collection TestSchema"); } catch { }
-        WVASSERT(VxExec(CreateXmlSchemaQuery()));
+        SchemaCreator sc = new SchemaCreator(this);
+        WVASSERT(VxExec(sc.xmlq));
 
         VxSchemaChecksums sums;
         sums = dbus.GetChecksums();
@@ -278,6 +278,8 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(sums["XMLSchema/TestSchema"].checksums[0], 0xFA7736B3);
 
         WVASSERT(VxExec("drop xml schema collection TestSchema"));
+
+        sc.Cleanup();
     }
 
     [Test, Category("Schemamatic"), Category("GetSchema")]
@@ -353,12 +355,12 @@ class SchemamaticTests : VersaplexTester
 	// that we only got one back, and that it looks like the right one.
 	foreach (string key in schema.Keys)
         {
-            Console.WriteLine("Looking at " + key);
+            log.print("Looking at " + key);
 	    if (key.StartsWith(prefix + "PK__" + tablename))
 	    {
 		WVASSERT(pk_name == null)
 		pk_name = key.Substring(prefix.Length);
-		Console.WriteLine("Found primary key index " + pk_name);
+		log.print("Found primary key index " + pk_name);
 		// Note: don't break here, so we can check there aren't others.
 	    }
         }
@@ -422,10 +424,12 @@ class SchemamaticTests : VersaplexTester
     [Test, Category("Schemamatic"), Category("GetSchema")]
     public void TestGetXmlSchemas()
     {
+        SchemaCreator sc = new SchemaCreator(this);
+
         try { VxExec("drop xml schema collection TestSchema"); } catch { }
         try { VxExec("drop xml schema collection TestSchema2"); } catch { }
 
-        string query1 = CreateXmlSchemaQuery();
+        string query1 = sc.xmlq;
         WVASSERT(VxExec(query1));
 
 	// Make a long XML Schema, to test the 4000-character chunking
@@ -532,7 +536,6 @@ class SchemamaticTests : VersaplexTester
         SchemaCreator sc = new SchemaCreator(this);
 
         sc.Create();
-        WVASSERT(VxExec(CreateXmlSchemaQuery()));
         
         VxSchemaChecksums sums = dbus.GetChecksums();
 
@@ -563,7 +566,7 @@ class SchemamaticTests : VersaplexTester
             // FIXME: This should check for a vx.db.sqlerror
             // rather than any dbus error
             WVPASS(e is DbusError);
-            Console.WriteLine(e.ToString());
+            log.print(e.ToString());
         }
 
         sc.Cleanup();
@@ -639,8 +642,7 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(VxPutSchema("Table", "Tab1", sc.tab1q, no_opts), null);
         WVPASSEQ(VxPutSchema("Index", "Tab1/Idx1", sc.idx1q, no_opts), null);
         WVPASSEQ(VxPutSchema("Procedure", "Func1", sc.func1q, no_opts), null);
-        WVPASSEQ(VxPutSchema("XMLSchema", "TestSchema", 
-            CreateXmlSchemaQuery(), no_opts), null);
+        WVPASSEQ(VxPutSchema("XMLSchema", "TestSchema", sc.xmlq, no_opts), null);
         
         VxSchema schema = dbus.Get();
 
@@ -659,7 +661,7 @@ class SchemamaticTests : VersaplexTester
         WVASSERT(schema.ContainsKey("XMLSchema/TestSchema"));
         WVPASSEQ(schema["XMLSchema/TestSchema"].name, "TestSchema");
         WVPASSEQ(schema["XMLSchema/TestSchema"].type, "XMLSchema");
-        WVPASSEQ(schema["XMLSchema/TestSchema"].text, CreateXmlSchemaQuery());
+        WVPASSEQ(schema["XMLSchema/TestSchema"].text, sc.xmlq);
 
         string tab1q2 = "CREATE TABLE [Tab1] (\n\t" + 
             "[f4] [binary] (1) NOT NULL);\n\n";
@@ -726,7 +728,7 @@ class SchemamaticTests : VersaplexTester
             // FIXME: This should check for a vx.db.sqlerror
             // rather than any dbus error
 	    WVPASS(e is DbusError);
-            Console.WriteLine(e.ToString());
+            log.print(e.ToString());
 	}
 
         WVPASSEQ(VxPutSchema("Table", "Tab1", sc.tab1q, VxPutOpts.None), null);
@@ -780,7 +782,7 @@ class SchemamaticTests : VersaplexTester
     }
 
     private void VerifyExportedSchema(string exportdir, VxSchema schema, 
-        VxSchemaChecksums sums, SchemaCreator sc, string xmlq, int backupnum)
+        VxSchemaChecksums sums, SchemaCreator sc, int backupnum)
     {
         DirectoryInfo dirinfo = new DirectoryInfo(exportdir);
 
@@ -865,7 +867,7 @@ class SchemamaticTests : VersaplexTester
         WVPASS(File.Exists(testschemafile));
         CheckExportedFileContents(testschemafile, 
             "!!SCHEMAMATIC 3D84628C4C6A7805CB9BF97B432D2268 FA7736B3", 
-            xmlq);
+            sc.xmlq);
     }
 
     [Test, Category("Schemamatic"), Category("DiskBackend")]
@@ -874,9 +876,6 @@ class SchemamaticTests : VersaplexTester
         SchemaCreator sc = new SchemaCreator(this);
         sc.Create();
 
-        string xmlq = CreateXmlSchemaQuery();
-        WVASSERT(VxExec(xmlq));
-        
         string tmpdir = GetTempDir();
 
         DirectoryInfo tmpdirinfo = new DirectoryInfo(tmpdir);
@@ -895,7 +894,7 @@ class SchemamaticTests : VersaplexTester
                 throw e;
             } catch (System.Exception e) {
                 WVPASS(e is ArgumentException);
-                Console.WriteLine(e.ToString());
+                log.print(e.ToString());
             }
 
             // Check that the normal exporting works.
@@ -903,8 +902,7 @@ class SchemamaticTests : VersaplexTester
             disk.Put(schema, sums, VxPutOpts.None);
 
             int backup_generation = 0;
-            VerifyExportedSchema(tmpdir, schema, sums, sc, xmlq, 
-                backup_generation);
+            VerifyExportedSchema(tmpdir, schema, sums, sc, backup_generation);
 
             // Check that we read back the same stuff
             VxSchema schemafromdisk = disk.Get(null);
@@ -916,22 +914,19 @@ class SchemamaticTests : VersaplexTester
             // Doing it twice doesn't change anything.
             disk.Put(schema, sums, VxPutOpts.None);
 
-            VerifyExportedSchema(tmpdir, schema, sums, sc, xmlq, 
-                backup_generation);
+            VerifyExportedSchema(tmpdir, schema, sums, sc, backup_generation);
 
             // Check backup mode
             disk.Put(schema, sums, VxPutOpts.IsBackup);
             backup_generation++;
 
-            VerifyExportedSchema(tmpdir, schema, sums, sc, xmlq, 
-                backup_generation);
+            VerifyExportedSchema(tmpdir, schema, sums, sc, backup_generation);
 
             // Check backup mode again
             disk.Put(schema, sums, VxPutOpts.IsBackup);
             backup_generation++;
 
-            VerifyExportedSchema(tmpdir, schema, sums, sc, xmlq, 
-                backup_generation);
+            VerifyExportedSchema(tmpdir, schema, sums, sc, backup_generation);
         }
         finally
         {
@@ -948,9 +943,6 @@ class SchemamaticTests : VersaplexTester
         SchemaCreator sc = new SchemaCreator(this);
         sc.Create();
 
-        string xmlq = CreateXmlSchemaQuery();
-        WVASSERT(VxExec(xmlq));
-        
         string tmpdir = GetTempDir();
 
         DirectoryInfo tmpdirinfo = new DirectoryInfo(tmpdir);
@@ -1063,11 +1055,9 @@ class SchemamaticTests : VersaplexTester
 
     public void TestApplySchemaDiff(ISchemaBackend backend)
     {
+        log.print("In TestApplySchemaDiff({0})\n", backend.GetType().ToString());
         SchemaCreator sc = new SchemaCreator(this);
         sc.Create();
-
-        string xmlq = CreateXmlSchemaQuery();
-        WVASSERT(VxExec(xmlq));
 
         string msg2 = "Hello, world, this used to be Func1!";
         string func1q2 = "create procedure Func1 as select '" + msg2 + "'\n";
@@ -1134,10 +1124,10 @@ class SchemamaticTests : VersaplexTester
     [Test, Category("Schemamatic"), Category("PutSchema")]
     public void TestApplySchemaDiff()
     {
-        Console.WriteLine("Testing applying diffs through DBus");
+        log.print("Testing applying diffs through DBus");
         TestApplySchemaDiff(dbus);
 
-        Console.WriteLine("Testing applying diffs to the disk");
+        log.print("Testing applying diffs to the disk");
 
         string tmpdir = GetTempDir();
         try
@@ -1235,9 +1225,6 @@ class SchemamaticTests : VersaplexTester
         SchemaCreator sc = new SchemaCreator(this);
         sc.Create();
 
-        string xmlq = CreateXmlSchemaQuery();
-        WVASSERT(VxExec(xmlq));
-        
         string msg2 = "Hello, world, this used to be Func1!";
         string func1q2 = "create procedure Func1 as select '" + msg2 + "'\n";
 

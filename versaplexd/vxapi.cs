@@ -662,10 +662,12 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         // FIXME: Add vx.db.toomuchdata error
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
-        ISchemaBackend backend = new VxDbSchema(
-            VxSqlPool.GetConnInfoFromConnId(clientid).ConnectionString);
-        VxSchemaChecksums sums = backend.GetChecksums();
-        sums.WriteChecksums(writer);
+        using (WvDbi dbi = new WvDbi(VxSqlPool.TakeConnection(clientid)))
+        {
+            VxDbSchema backend = new VxDbSchema(dbi);
+            VxSchemaChecksums sums = backend.GetChecksums();
+            sums.WriteChecksums(writer);
+        }
 
         reply = VxDbus.CreateReply(call, 
             VxSchemaChecksums.GetDbusSignature(), writer);
@@ -696,13 +698,14 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         MessageReader mr = new MessageReader(call);
         mr.GetValue(typeof(string[]), out names_untyped);
 
-        VxDbSchema backend = new VxDbSchema(
-            VxSqlPool.GetConnInfoFromConnId(clientid).ConnectionString);
-        VxSchema schema = backend.Get(names_untyped.Cast<string>());
-
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
-        schema.WriteSchema(writer);
+        using (WvDbi dbi = new WvDbi(VxSqlPool.TakeConnection(clientid)))
+        {
+            VxDbSchema backend = new VxDbSchema(dbi);
+            VxSchema schema = backend.Get(names_untyped.Cast<string>());
+            schema.WriteSchema(writer);
+        }
 
         reply = VxDbus.CreateReply(call, VxSchema.GetDbusSignature(), writer);
 
@@ -733,9 +736,11 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         mr.GetValue(out type);
         mr.GetValue(out name);
 
-        VxDbSchema backend = new VxDbSchema(
-            VxSqlPool.GetConnInfoFromConnId(clientid).ConnectionString);
-        backend.DropSchema(type, name);
+        using (WvDbi dbi = new WvDbi(VxSqlPool.TakeConnection(clientid)))
+        {
+            VxDbSchema backend = new VxDbSchema(dbi);
+            backend.DropSchema(type, name);
+        }
 
         reply = VxDbus.CreateReply(call);
     }
@@ -763,13 +768,16 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         VxSchema schema = new VxSchema(mr);
         mr.GetValue(out opts);
 
-        VxDbSchema backend = new VxDbSchema(
-            VxSqlPool.GetConnInfoFromConnId(clientid).ConnectionString);
-        VxSchemaErrors errs = backend.Put(schema, null, (VxPutOpts)opts);
-
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
-        VxSchemaErrors.WriteErrors(writer, errs);
+        VxSchemaErrors errs;
         
+        using (WvDbi dbi = new WvDbi(VxSqlPool.TakeConnection(clientid)))
+        {
+            VxDbSchema backend = new VxDbSchema(dbi);
+            errs = backend.Put(schema, null, (VxPutOpts)opts);
+            VxSchemaErrors.WriteErrors(writer, errs);
+        }
+
         reply = VxDbus.CreateReply(call, VxSchemaErrors.GetDbusSignature(), 
             writer);
         if (errs != null && errs.Count > 0)
@@ -801,12 +809,14 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         MessageReader mr = new MessageReader(call);
         mr.GetValue(out tablename);
 
-        VxDbSchema backend = new VxDbSchema(
-            VxSqlPool.GetConnInfoFromConnId(clientid).ConnectionString);
-        string schemadata = backend.GetSchemaData(tablename);
-
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
-        writer.Write(schemadata);
+
+        using (WvDbi dbi = new WvDbi(VxSqlPool.TakeConnection(clientid)))
+        {
+            VxDbSchema backend = new VxDbSchema(dbi);
+            string schemadata = backend.GetSchemaData(tablename);
+            writer.Write(schemadata);
+        }
 
         reply = VxDbus.CreateReply(call, "s", writer);
     }
@@ -833,9 +843,11 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         mr.GetValue(out tablename);
         mr.GetValue(out text);
 
-        VxDbSchema backend = new VxDbSchema(
-            VxSqlPool.GetConnInfoFromConnId(clientid).ConnectionString);
-        backend.PutSchemaData(tablename, text);
+        using (WvDbi dbi = new WvDbi(VxSqlPool.TakeConnection(clientid)))
+        {
+            VxDbSchema backend = new VxDbSchema(dbi);
+            backend.PutSchemaData(tablename, text);
+        }
 
         reply = VxDbus.CreateReply(call);
     }

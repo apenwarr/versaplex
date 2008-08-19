@@ -17,11 +17,19 @@ namespace Wv
 	WvLog log = new WvLog("WvDbi");
 	bool fake_bind = false;
 	
+        // MSSQL freaks out if there are more than 100 connections open at a
+        // time.  Give ourselves a safety margin.
+        static int num_active = 0;
+        static int max_active = 50;
+
 	public WvDbi(string odbcstr)
 	{
+            wv.assert(num_active < max_active, "Too many open connections");
+            num_active++;
 	    string real;
 	    bool use_mssql = false;
 	    
+            string mssql_moniker_name = "mssql:";
 	    if (settings[odbcstr].Count > 0)
 	    {
 		StringDictionary sect = settings[odbcstr];
@@ -44,6 +52,12 @@ namespace Wv
 				  sect["user"], sect["password"]);
 		log.print("Generated ODBC string: {0}\n", real);
 	    }
+            else if (odbcstr.StartsWith(mssql_moniker_name))
+            {
+                use_mssql = true;
+                fake_bind = true;
+                real = odbcstr.Substring(mssql_moniker_name.Length);
+            }
 	    else if (String.Compare(odbcstr, 0, "dsn=", 0, 4, true) == 0)
 		real = odbcstr;
 	    else if (String.Compare(odbcstr, 0, "driver=", 0, 7, true) == 0)
@@ -51,17 +65,31 @@ namespace Wv
 	    else
 		throw new ArgumentException
 		   ("unrecognized odbc string '" + odbcstr + "'");
+
 	    if (use_mssql)
 		db = new SqlConnection(real);
 	    else
 		db = new OdbcConnection(real);
 	    db.Open();
 	}
+
+        public WvDbi(SqlConnection conn)
+        {
+            db = conn;
+            fake_bind = true;
+            if ((db.State & System.Data.ConnectionState.Open) == 0)
+                db.Open();
+        }
 	
 	~WvDbi()
 	{
 	    wv.assert(false, "A WvDbi object was not Dispose()d");
 	}
+
+        public IDbConnection Conn
+        {
+            get { return db; }
+        }
 	
 	IDbCommand prepare(string sql, int nargs)
 	{
@@ -75,6 +103,7 @@ namespace Wv
 	// Implement IDisposable.
 	public void Dispose() 
 	{
+            num_active--;
 	    db.Dispose();
 	    GC.SuppressFinalize(this); 
 	}
@@ -139,7 +168,7 @@ namespace Wv
 						params object[] args)
 	{
 	    bind(cmd, args);
-	    return cmd.ExecuteReader().ToWvAutoReader();
+	    return cmd.ExecuteToWvAutoReader();
 	}
 	
 	public WvAutoCast[] select_onerow(string sql, params object[] args)

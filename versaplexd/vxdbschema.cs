@@ -39,11 +39,11 @@ internal class VxDbSchema : ISchemaBackend
 //            "OwnerId"
         };
 
-    string connstr;
+    WvDbi dbi;
 
-    public VxDbSchema(string _connstr)
+    public VxDbSchema(WvDbi _dbi)
     {
-        connstr = _connstr;
+        dbi = _dbi;
     }
 
     //
@@ -53,6 +53,7 @@ internal class VxDbSchema : ISchemaBackend
     public VxSchemaErrors Put(VxSchema schema, VxSchemaChecksums sums, 
         VxPutOpts opts)
     {
+        log.print("Put");
         bool no_retry = (opts & VxPutOpts.NoRetry) != 0;
         int old_err_count = -1;
         IEnumerable<string> keys = schema.Keys;
@@ -72,7 +73,8 @@ internal class VxDbSchema : ISchemaBackend
                     log.print("Calling PutSchema on {0}\n", key);
                     PutSchemaElement(schema[key], opts);
                 } catch (VxSqlException e) {
-                    log.print("Got error from {0}\n", key);
+                    log.print("Got error from {0}: {1} ({2})\n", key, 
+                        e.Message, e.GetFirstSqlErrno());
                     errs.Add(key, new VxSchemaError(key, e.Message, 
                         e.GetFirstSqlErrno()));
                 }
@@ -103,6 +105,7 @@ internal class VxDbSchema : ISchemaBackend
 
     public VxSchema Get(IEnumerable<string> keys)
     {
+        log.print("Get");
         List<string> all_names = new List<string>();
         List<string> proc_names = new List<string>();
         List<string> xml_names = new List<string>();
@@ -164,37 +167,47 @@ internal class VxDbSchema : ISchemaBackend
 
     public VxSchemaChecksums GetChecksums()
     {
+        log.print("GetChecksums");
         VxSchemaChecksums sums = new VxSchemaChecksums();
 
         foreach (string type in ProcedureTypes)
         {
-            if (type == "Procedure")
+            try
             {
-                // Set up self test
-                SqlExecScalar("create procedure schemamatic_checksum_test " + 
-                    "as print 'hello' ");
-            }
-
-            GetProcChecksums(sums, type, 0);
-
-            if (type == "Procedure")
-            {
-                SqlExecScalar("drop procedure schemamatic_checksum_test");
-
-                // Self-test the checksum feature.  If mssql's checksum
-                // algorithm changes, we don't want to pretend our checksum
-                // list makes any sense!
-                string test_csum_label = "Procedure/schemamatic_checksum_test";
-                ulong got_csum = 0;
-                if (sums.ContainsKey(test_csum_label))
-                    got_csum = sums[test_csum_label].checksums[0];
-                ulong want_csum = 0x173d6ee8;
-                if (want_csum != got_csum)
+                if (type == "Procedure")
                 {
-                    throw new Exception(String.Format("checksum_test_mismatch!"
-                        + " {0} != {1}", got_csum, want_csum));
+                    // Set up self test
+                    DbiExec("create procedure schemamatic_checksum_test " + 
+                        "as print 'hello' ");
                 }
-                sums.Remove(test_csum_label);
+
+                GetProcChecksums(sums, type, 0);
+
+                if (type == "Procedure")
+                {
+                    // Self-test the checksum feature.  If mssql's checksum
+                    // algorithm changes, we don't want to pretend our checksum
+                    // list makes any sense!
+                    string test_csum = "Procedure/schemamatic_checksum_test";
+                    ulong got_csum = 0;
+                    if (sums.ContainsKey(test_csum))
+                        got_csum = sums[test_csum].checksums[0];
+                    ulong want_csum = 0x173d6ee8;
+                    if (want_csum != got_csum)
+                    {
+                        throw new Exception(String.Format(
+                            "checksum_test_mismatch! {0} != {1}", 
+                            got_csum, want_csum));
+                    }
+                    sums.Remove(test_csum);
+                }
+            }
+            finally
+            {
+                if (type == "Procedure")
+                {
+                    DbiExec("drop procedure schemamatic_checksum_test");
+                }
             }
 
             GetProcChecksums(sums, type, 1);
@@ -215,39 +228,25 @@ internal class VxDbSchema : ISchemaBackend
     // Deletes the named object in the database.
     public void DropSchema(string type, string name)
     {
+        log.print("DropSchema({0}, {1})", type, name);
         if (type == null || name == null)
             return;
 
         string query = GetDropCommand(type, name);
 
-        SqlExecScalar(query);
+        DbiExec(query);
     }
 
     // 
     // Non-ISchemaBackend methods
     //
 
-    // Note: You must call Close() or Finalize() on the returned object.  The
-    // easiest and most reliable way is to put it in a using() block, e.g. 
-    // using (SqlConnection conn = GetConnection()) { ... }
-    private SqlConnection GetConnection()
-    {
-        SqlConnection con = new SqlConnection(connstr);
-        con.Open();
-        return con;
-    }
-
-    // FIXME: An alarming duplicate of VxDb.ExecScalar.
-    private object SqlExecScalar(string query)
+    // Translate SqlExceptions from dbi.execute into VxSqlExceptions
+    private int DbiExec(string query, params string[] args)
     {
         try
         {
-            using (SqlConnection conn = GetConnection())
-            using (SqlCommand cmd = conn.CreateCommand())
-            {
-                cmd.CommandText = query;
-                return cmd.ExecuteScalar();
-            }
+            return dbi.execute(query, args);
         }
         catch (SqlException e)
         {
@@ -255,33 +254,19 @@ internal class VxDbSchema : ISchemaBackend
         }
     }
 
-    // Like VxDb.ExecRecordset, except we don't care about colinfo or nullity
-    private object[][] SqlExecRecordset(string query)
+    // Translate SqlExceptions from dbi.select into VxSqlExceptions.
+    private IEnumerable<WvAutoCast[]> DbiSelect(string query, 
+        params object[] bound_vars)
     {
-        List<object[]> result = new List<object[]>();
+        log.print("In DbiSelect\n");
         try
         {
-            using (SqlConnection conn = GetConnection())
-            using (SqlCommand cmd = new SqlCommand(query, conn))
-            using (SqlDataReader reader = cmd.ExecuteReader())
-            {
-                while (reader.Read())
-                {
-                    object[] row = new object[reader.FieldCount];
-                    reader.GetValues(row);
-                    for (int i = 0; i < reader.FieldCount; i++)
-                        if (reader.IsDBNull(i))
-                            row[i] = null;
-                    result.Add(row);
-                }
-            }
+            return dbi.select(query, bound_vars).ToArray();
         }
         catch (SqlException e)
         {
             throw new VxSqlException(e.Message, e);
         }
-
-        return result.ToArray();
     }
 
     private static string GetDropCommand(string type, string name)
@@ -341,7 +326,7 @@ internal class VxDbSchema : ISchemaBackend
         }
 
         if (elem.text != null && elem.text != "")
-            SqlExecScalar(elem.text);
+            DbiExec(elem.text);
     }
 
     // Functions used for GetSchemaChecksums
@@ -360,18 +345,17 @@ internal class VxDbSchema : ISchemaBackend
                 into #checksum_calc
                 from syscomments
                 where objectproperty(id, 'Is" + type + @"') = 1
-                    and encrypted = " + encrypted + @"
+                    and encrypted = {0}
                     and object_name(id) like '%'
             select name, convert(varbinary(8), getchecksum(text))
                 from #checksum_calc
                 order by name, colid
             drop table #checksum_calc";
 
-        object[][] data = SqlExecRecordset(query);
 
-        foreach (object[] row in data)
+        foreach (WvAutoCast[] row in DbiSelect(query, encrypted))
         {
-            string name = (string)row[0];
+            string name = row[0];
             ulong checksum = 0;
             foreach (byte b in (byte[])row[1])
             {
@@ -427,11 +411,9 @@ internal class VxDbSchema : ISchemaBackend
                from #checksum_calc
            drop table #checksum_calc";
 
-        object[][] data = SqlExecRecordset(query);
-
-        foreach (object[] row in data)
+        foreach (WvAutoCast[] row in DbiSelect(query))
         {
-            string name = (string)row[0];
+            string name = row[0];
             ulong checksum = 0;
             foreach (byte b in (byte[])row[1])
             {
@@ -480,12 +462,10 @@ internal class VxDbSchema : ISchemaBackend
               from #checksum_calc
             drop table #checksum_calc";
 
-        object[][] data = SqlExecRecordset(query);
-
-        foreach (object[] row in data)
+        foreach (WvAutoCast[] row in DbiSelect(query))
         {
-            string tablename = (string)row[0];
-            string indexname = (string)row[1];
+            string tablename = row[0];
+            string indexname = row[1];
             ulong checksum = 0;
             foreach (byte b in (byte[])row[3])
             {
@@ -518,11 +498,9 @@ internal class VxDbSchema : ISchemaBackend
                 from #checksum_calc
             drop table #checksum_calc";
 
-        object[][] data = SqlExecRecordset(query);
-
-        foreach (object[] row in data)
+        foreach (WvAutoCast[] row in DbiSelect(query))
         {
-            string schemaname = (string)row[0];
+            string schemaname = row[0];
             ulong checksum = 0;
             foreach (byte b in (byte[])row[1])
             {
@@ -563,43 +541,28 @@ internal class VxDbSchema : ISchemaBackend
         string query = RetrieveProcSchemasQuery(type, encrypted, false, names);
         log.print("Query={0}\n", query);
 
-        object[][] data = SqlExecRecordset(query);
-
-        int num = 0;
-        int total = data.Length;
-        foreach (object[] row in data)
+        foreach (WvAutoCast[] row in DbiSelect(query))
         {
-            num++;
-            string name = (string)row[0];
-            short colid = (short)row[1];
+            string name = row[0];
+            short colid = row[1];
             string text;
+            // FIXME: Retrieving encrypted data is kind of broken anyway.
             if (encrypted > 0)
-            {
-                byte[] bytes = row[2] == null ?  new byte[0] : (byte[])row[2];
-                // BitConverter.ToString formats the bytes as "01-23-cd-ef", 
-                // but we want to have them as just straight "0123cdef".
-                text = System.BitConverter.ToString(bytes);
-                text = text.Replace("-", "");
-                log.print("bytes.Length = {0}, text={1}\n", bytes.Length, text);
-            }
+                text = row[2];//.ToHex();
             else
-                text = (string)row[2];
+                text = row[2];
 
 
             // Skip dt_* functions and sys_* views
             if (name.StartsWith("dt_") || name.StartsWith("sys_"))
                 continue;
 
-            log.print("{0}/{1} {2}{3}/{4} #{5}\n", num, total, type, 
-                encrypted > 0 ? "-Encrypted" : "", name, colid);
             // Fix characters not allowed in filenames
             name.Replace('/', '!');
             name.Replace('\n', '!');
 
             schema.Add(name, type, text, encrypted > 0);
         }
-        log.print("{0}/{1} {2}{3} done\n", num, total, type, 
-            encrypted > 0 ? "-Encrypted" : "");
     }
 
     void RetrieveIndexSchemas(VxSchema schema, List<string> names)
@@ -631,22 +594,22 @@ internal class VxDbSchema : ISchemaBackend
             idxnames + 
           @" order by i.name, i.object_id, ic.index_column_id";
 
-        object[][] data = SqlExecRecordset(query);
+        WvAutoCast[][] data = DbiSelect(query).ToArray();
 
         int old_colid = 0;
         List<string> cols = new List<string>();
         for (int ii = 0; ii < data.Length; ii++)
         {
-            object[] row = data[ii];
+            WvAutoCast[] row = data[ii];
 
-            string tabname = (string)row[0];
-            string idxname = (string)row[1];
-            int idxtype = (int)row[2];
-            int idxunique = (int)row[3];
-            int idxprimary = (int)row[4];
-            string colname = (string)row[5];
-            int colid = (int)row[6];
-            int coldesc = (int)row[7];
+            string tabname = row[0];
+            string idxname = row[1];
+            int idxtype = row[2];
+            int idxunique = row[3];
+            int idxprimary = row[4];
+            string colname = row[5];
+            int colid = row[6];
+            int coldesc = row[7];
 
             // Check that we're getting the rows in order.
             wv.assert(colid == old_colid + 1 || colid == 1);
@@ -654,7 +617,7 @@ internal class VxDbSchema : ISchemaBackend
 
             cols.Add(coldesc == 0 ? colname : colname + " DESC");
 
-            object[] nextrow = ((ii+1) < data.Length) ? data[ii+1] : null;
+            WvAutoCast[] nextrow = ((ii+1) < data.Length) ? data[ii+1] : null;
             string next_tabname = (nextrow != null) ? (string)nextrow[0] : null;
             string next_idxname = (nextrow != null) ? (string)nextrow[1] : null;
             
@@ -721,13 +684,11 @@ internal class VxDbSchema : ISchemaBackend
             do_again = false;
             string query = XmlSchemasQuery(count, names);
 
-            object[][] data = SqlExecRecordset(query);
-
-            foreach (object[] row in data)
+            foreach (WvAutoCast[] row in DbiSelect(query))
             {
-                string owner = (string)row[0];
-                string name = (string)row[1];
-                string contents = (string)row[2];
+                string owner = row[0];
+                string name = row[1];
+                string contents = row[2];
 
                 if (contents == "")
                     continue;
@@ -776,26 +737,25 @@ internal class VxDbSchema : ISchemaBackend
 	    tablenames + @"
 	  order by tabname, c.colorder, typ.status";
 
-        object[][] data = SqlExecRecordset(query);
+        WvAutoCast[][] data = DbiSelect(query).ToArray();
 
         List<string> cols = new List<string>();
         for (int ii = 0; ii < data.Length; ii++)
         {
-            object[] row = data[ii];
+            WvAutoCast[] row = data[ii];
 
-            string tabname = (string)row[0];
-            string colname = (string)row[1];
-            string typename = (string)row[2];
-            short len = (short)row[3];
-            byte xprec = (byte)row[4];
-            byte xscale = (byte)row[5];
-            string defval = row[6] == null ? "" : (string)row[6];
-            int isnullable = (int)row[7];
-            int isident = (int)row[8];
-            string ident_seed = row[9] == null ? null : 
-                ((Decimal)row[9]).ToString();
-            string ident_incr = row[10] == null ? null : 
-                ((Decimal)row[10]).ToString();
+            string tabname = row[0];
+            string colname = row[1];
+            string typename = row[2];
+            short len = row[3];
+            byte xprec = row[4];
+            byte xscale = row[5];
+            string defval = row[6];
+            int isnullable = row[7];
+            int isident = row[8];
+            // FIXME: Decimals
+            string ident_seed = row[9];
+            string ident_incr = row[10];
 
             if (isident == 0)
                 ident_seed = ident_incr = null;
@@ -855,6 +815,7 @@ internal class VxDbSchema : ISchemaBackend
     // the given table.
     public string GetSchemaData(string tablename)
     {
+        log.print("GetSchemaData({0})", tablename);
         string query = "SELECT * FROM " + tablename;
 
         StringBuilder result = new StringBuilder();
@@ -862,10 +823,10 @@ internal class VxDbSchema : ISchemaBackend
         try
         {
             // We need to get type information too, so we can't just call
-            // SqlExecRecordset.  This duplicates some of VxDb.ExecRecordset.
-            using (SqlConnection conn = GetConnection())
-            using (SqlCommand cmd = new SqlCommand(query, conn))
-            using (SqlDataReader reader = cmd.ExecuteReader())
+            // DbiExec.  This duplicates some of VxDb.ExecRecordset.
+            IDbCommand cmd = dbi.Conn.CreateCommand();
+            cmd.CommandText = query;
+            using (IDataReader reader = cmd.ExecuteReader())
             {
                 List<string> cols = new List<string>();
                 System.Type[] types = new System.Type[reader.FieldCount];
@@ -918,8 +879,9 @@ internal class VxDbSchema : ISchemaBackend
     // data.  text is an opaque hunk of text returned from GetSchemaData.
     public void PutSchemaData(string tablename, string text)
     {
-        SqlExecScalar(String.Format("DELETE FROM [{0}]", tablename));
-        SqlExecScalar(text);
+        log.print("Calling PutSchemaData on {0}\n", tablename);
+        DbiExec(String.Format("DELETE FROM [{0}]", tablename));
+        DbiExec(text);
     }
 }
 

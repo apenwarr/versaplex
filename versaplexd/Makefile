@@ -16,8 +16,8 @@ versaplexd.exe: versaplexd.cs \
     vxapi.cs vxbufferstream.cs \
     vxcolumninfo.cs vxdbus.cs vxdbusdatetime.cs vxdbschema.cs \
     vxevent.cs vxeventloop.cs vxexceptions.cs vxnotifysocket.cs \
-    vxschema.cs vxschemachecksums.cs vxschemaerrors.cs vxsocket.cs \
-    vxsqlpool.cs wvdbusserver.cs \
+    vxschema.cs vxschemachecksums.cs vxschemadiff.cs vxschemaerrors.cs \
+    vxsocket.cs vxsqlpool.cs wvdbusserver.cs \
     ../dbus-sharp/src/NDesk.DBus.dll \
     ../wvdotnet/wv.dll
 
