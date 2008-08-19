@@ -151,7 +151,7 @@ class SchemamaticTests : VersaplexTester
     public string GetTempDir()
     {
         string t = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-        log.print("Using temporary directory " + t);
+        log.print("Using temporary directory " + t + "\n");
 
         return t;
     }
@@ -806,7 +806,7 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(Directory.GetFiles(procdir).Length, 1 * filemultiplier);
         string func1file = Path.Combine(procdir, "Func1" + suffix);
         CheckExportedFileContents(func1file, 
-            "!!SCHEMAMATIC 2AE46AC0748AEDE839FB9CD167EA1180 D983A305",
+            "!!SCHEMAMATIC 2ae46ac0748aede839fb9cd167ea1180 d983a305 ",
             sc.func1q);
 
         // Indexes
@@ -820,7 +820,7 @@ class SchemamaticTests : VersaplexTester
 
         string idx1file = Path.Combine(tab1idxdir, "Idx1" + suffix);
         CheckExportedFileContents(idx1file, 
-            "!!SCHEMAMATIC BE6095FA7C7B1C9BA3D3DA2F1D94FCBE 1D32C7EA 968DBEDC", 
+            "!!SCHEMAMATIC be6095fa7c7b1c9ba3d3da2f1d94fcbe 1d32c7ea 968dbedc ", 
             sc.idx1q);
 
         string pk_name = CheckForPrimaryKey(schema, "Tab1");
@@ -834,10 +834,10 @@ class SchemamaticTests : VersaplexTester
         // it ourselves.
         byte[] md5 = MD5.Create().ComputeHash(Encoding.UTF8.GetBytes(
             pk_query));
-        string md5str = md5.ToHex();
+        string md5str = md5.ToHex().ToLower();
 
         CheckExportedFileContents(pk_file, 
-            String.Format("!!SCHEMAMATIC {0} {1}", 
+            String.Format("!!SCHEMAMATIC {0} {1} ", 
                 md5str, sums["Index/Tab1/" + pk_name].GetSumString()),
             pk_query);
 
@@ -850,14 +850,14 @@ class SchemamaticTests : VersaplexTester
 
         WVPASS(File.Exists(tab1file));
         CheckExportedFileContents(tab1file, 
-            "!!SCHEMAMATIC 3D05ABB172361D5BDC19DE2437C58F7E " + 
-                sums["Table/Tab1"].GetSumString(),
+            "!!SCHEMAMATIC 3d05abb172361d5bdc19de2437c58f7e " + 
+                sums["Table/Tab1"].GetSumString() + " ",
             sc.tab1q.Replace(" PRIMARY KEY", ""));
 
         WVPASS(File.Exists(tab2file));
         CheckExportedFileContents(tab2file, 
-            "!!SCHEMAMATIC 436EFDE94964E924CB0CCEDB96970AFF " + 
-            sums["Table/Tab2"].GetSumString(), sc.tab2q);
+            "!!SCHEMAMATIC 436efde94964e924cb0ccedb96970aff " +
+            sums["Table/Tab2"].GetSumString() + " ", sc.tab2q);
 
         // XML Schemas
         WVPASSEQ(Directory.GetDirectories(xmldir).Length, 0);
@@ -866,7 +866,7 @@ class SchemamaticTests : VersaplexTester
         string testschemafile = Path.Combine(xmldir, "TestSchema" + suffix);
         WVPASS(File.Exists(testschemafile));
         CheckExportedFileContents(testschemafile, 
-            "!!SCHEMAMATIC 3D84628C4C6A7805CB9BF97B432D2268 FA7736B3", 
+            "!!SCHEMAMATIC 3d84628c4c6a7805cb9bf97b432d2268 fa7736b3 ",
             sc.xmlq);
     }
 

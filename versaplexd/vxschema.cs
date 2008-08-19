@@ -128,8 +128,8 @@ internal class VxSchemaElement : IComparable
     {
         byte[] md5 = MD5.Create().ComputeHash(text.ToUTF8());
 
-        return String.Format("!!SCHEMAMATIC {0} {1}\r\n{2}",
-            md5.ToHex(), sum.GetSumString(), text);
+        return String.Format("!!SCHEMAMATIC {0} {1} \r\n{2}",
+            md5.ToHex().ToLower(), sum.GetSumString(), text);
     }
 
     public int CompareTo(object obj)

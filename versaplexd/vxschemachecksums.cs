@@ -66,7 +66,7 @@ internal class VxSchemaChecksum
     {
         List<string> l = new List<string>();
         foreach (ulong sum in checksums)
-            l.Add(sum.ToString("X8"));
+            l.Add(sum.ToString("x8"));
         return l.Join(" ");
     }
 

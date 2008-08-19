@@ -199,21 +199,28 @@ internal class VxDiskSchema : ISchemaBackend
         // Compute the hash of the rest of the file
         byte[] md5 = MD5.Create().ComputeHash(bytes, ii, 
             (int)fileinfo.Length - ii);
-        string content_md5 = md5.ToHex();
+        string content_md5 = md5.ToHex().ToLower();
 
         // If the MD5 sums don't match, we want to make it obvious that the
         // database and local file aren't in sync, so we don't load any actual
         // checksums.  
-        if (header_md5 == content_md5)
+        if (String.Compare(header_md5, content_md5, true) == 0)
         {
             string[] sums = dbsum.Split(' ');
             foreach (string sumstr in sums)
             {
+                // Ignore trailing spaces
+                if (sumstr.Length == 0)
+                    continue;
                 ulong longsum;
-                if (!UInt64.TryParse(sumstr, 
+                if (!UInt64.TryParse(sumstr.ToUpper(), 
                         System.Globalization.NumberStyles.HexNumber, null, 
                         out longsum))
                 {
+                    log.print(WvLog.L.Error, 
+                        "Failed to parse header line: " + 
+                        "malformed element '{0}' in {1}\n", 
+                        sumstr, filename);
                     // A bad checksum means the whole file is bad.
                     if (sum != null)
                         sum.checksums.Clear();
@@ -223,6 +230,8 @@ internal class VxDiskSchema : ISchemaBackend
                     sum.AddChecksum(longsum);
             }
         }
+        else
+            log.print(WvLog.L.Info, "Checksum mismatch for {0}\n", filename);
 
         return true;
     }
