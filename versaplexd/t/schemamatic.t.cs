@@ -47,7 +47,7 @@ class SchemamaticTests : VersaplexTester
                 "\t(f2, f3 DESC);\n\n";
             msg1 = "Hello, world, this is Func1!";
             func1q = "create procedure Func1 as select '" + msg1 + "'\n";
-            xmlq = "CREATE XML SCHEMA COLLECTION [dbo].[TestSchema] AS " + 
+            xmlq = "\nCREATE XML SCHEMA COLLECTION [dbo].[TestSchema] AS " + 
                 "'<xsd:schema xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">" +
                  "<xsd:element name=\"Employee\">" + 
                   "<xsd:complexType>" + 
@@ -422,7 +422,7 @@ class SchemamaticTests : VersaplexTester
         WVASSERT(VxExec(query1));
 
 	// Make a long XML Schema, to test the 4000-character chunking
-        string query2 = @"CREATE XML SCHEMA COLLECTION [dbo].[TestSchema2] AS " + 
+        string query2 = "\nCREATE XML SCHEMA COLLECTION [dbo].[TestSchema2] AS " + 
             "'<xsd:schema xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">" + 
             "<xsd:element name=\"Employee\">" +
              "<xsd:complexType>" +
@@ -855,7 +855,7 @@ class SchemamaticTests : VersaplexTester
         string testschemafile = Path.Combine(xmldir, "TestSchema" + suffix);
         WVPASS(File.Exists(testschemafile));
         CheckExportedFileContents(testschemafile, 
-            "!!SCHEMAMATIC 3d84628c4c6a7805cb9bf97b432d2268 0xfa7736b3 ",
+            "!!SCHEMAMATIC f45c4ea54c268c91f41c7054c8f20bc9 0xfa7736b3 ",
             sc.xmlq);
     }
 

@@ -697,7 +697,7 @@ internal class VxDbSchema : ISchemaBackend
 
                 if (count == 0)
                     schema.Add(name, "XMLSchema", String.Format(
-                        "CREATE XML SCHEMA COLLECTION [{0}].[{1}] AS '", 
+                        "\nCREATE XML SCHEMA COLLECTION [{0}].[{1}] AS '", 
                         owner, name), false);
 
                 schema.Add(name, "XMLSchema", contents, false);
