@@ -154,12 +154,7 @@ internal class VxDiskSchema : ISchemaBackend
         FileInfo fileinfo = new FileInfo(filename);
 
         // Read the entire file into memory.  C#'s file IO sucks.
-        // FIXME: Replace with File.ReadAllBytes
-        byte[] bytes = new byte[fileinfo.Length];
-        using (FileStream fs = fileinfo.OpenRead())
-        {
-            fs.Read(bytes, 0, bytes.Length);
-        }
+        byte[] bytes = File.ReadAllBytes(filename);
         
         // Find the header line
         int ii;
