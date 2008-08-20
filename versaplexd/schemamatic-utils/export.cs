@@ -6,19 +6,28 @@ using NDesk.DBus;
 
 public static class Export
 {
-    static void DoExport(string bus_moniker, string exportdir)
+    static void DoExport(string bus_moniker, string exportdir, bool dry_run)
     {
         VxDbusSchema dbus = new VxDbusSchema(bus_moniker);
         VxDiskSchema disk = new VxDiskSchema(exportdir);
 
-        VxSchema.CopySchema(dbus, disk);
+        VxCopyOpts opts = VxCopyOpts.Verbose;
+        if (dry_run)
+            opts |= VxCopyOpts.DryRun;
+
+        VxSchema.CopySchema(dbus, disk, opts);
     }
 
     static void ShowHelp()
     {
-        Console.Error.WriteLine("Usage: export [-b dbus-moniker] <outputdir>\n" + 
-            "  Updates an SQL schema from Versaplex into the outputdir.\n" + 
-            "  If dbus-moniker is not specified, uses DBUS_SESSION_BUS_ADDRESS.\n");
+        Console.Error.WriteLine(
+            @"Usage: export [-b dbus-moniker] [--dry-run] <outputdir>
+  Updates an SQL schema from Versaplex into the outputdir.
+
+  -b: specifies the dbus moniker to connect to.  If not provided, uses
+      DBUS_SESSION_BUS_ADDRESS.
+  --dry-run: lists the files that would be changed but doesn't modify them.
+");
     }
 
     public static void Main(string[] args)
@@ -27,8 +36,11 @@ public static class Export
 
         string bus = null;
         string exportdir = null;
+        bool dry_run = false;
+
         var extra = new OptionSet()
-            .Add("b=|bus=", delegate(string v) { bus = v; })
+            .Add("b=|bus=", delegate(string v) { bus = v; } )
+            .Add("dry-run", delegate(string v) { dry_run = (v != null); } )
             .Parse(args);
 
         if (extra.Count != 1)
@@ -52,6 +64,6 @@ public static class Export
         log.print("Exporting to '{0}'\n", exportdir);
         log.print("Connecting to '{0}'\n", bus);
 
-        DoExport(bus, exportdir);
+        DoExport(bus, exportdir, dry_run);
     }
 }

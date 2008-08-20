@@ -7,6 +7,17 @@ using NDesk.DBus;
 using Wv;
 using Wv.Extensions;
 
+[Flags]
+public enum VxCopyOpts : int
+{
+    None = 0,
+    DryRun = 0x1,
+    ShowProgress = 0x2, 
+    ShowDiff = 0x4, 
+
+    Verbose = ShowProgress | ShowDiff,
+}
+
 internal class VxSchemaErrors : Dictionary<string, VxSchemaError>
 {
     public VxSchemaErrors()
@@ -278,7 +289,20 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
     public static VxSchemaErrors CopySchema(ISchemaBackend source, 
         ISchemaBackend dest)
     {
+        return VxSchema.CopySchema(source, dest, VxCopyOpts.None);
+    }
+
+    public static VxSchemaErrors CopySchema(ISchemaBackend source, 
+        ISchemaBackend dest, VxCopyOpts opts)
+    {
         WvLog log = new WvLog("CopySchema");
+
+        if ((opts & VxCopyOpts.ShowProgress) == 0)
+            log = new WvLog("CopySchema", WvLog.L.Debug5);
+
+        bool show_diff = (opts & VxCopyOpts.ShowDiff) != 0;
+        bool dry_run = (opts & VxCopyOpts.DryRun) != 0;
+
         log.print("Retrieving schema checksums from source.\n");
         VxSchemaChecksums srcsums = source.GetChecksums();
         log.print("Retrieving schema checksums from dest.\n");
@@ -288,6 +312,13 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
 
         log.print("Computing diff.\n");
         VxSchemaDiff diff = new VxSchemaDiff(destsums, srcsums);
+
+        if (diff.Count == 0)
+        {
+            log.print("No changes.\n");
+            return new VxSchemaErrors();
+        }
+
         log.print("Parsing diff.\n");
         foreach (KeyValuePair<string,VxDiffType> p in diff)
         {
@@ -311,6 +342,15 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
 
         log.print("Preparing updated schema.\n");
         VxSchema to_put = source.Get(names);
+
+        if (show_diff)
+        {
+            log.print("Changes to apply:\n");
+            log.print(WvLog.L.Info, diff.ToString());
+        }
+
+        if (dry_run)
+            return new VxSchemaErrors();
 
         log.print("Writing result.\n");
         return dest.Put(to_put, srcsums, VxPutOpts.None);
