@@ -1,7 +1,7 @@
 include ../../rules.mk
 include ../../monorules.mk
 
-BINS = export.exe
+BINS = export.exe apply.exe
 
 PKGS += /r:System.Data
 
@@ -16,6 +16,7 @@ LIBS = ../wv.dll ../NDesk.DBus.dll
 all: $(BINS)
 
 export.exe: $(SCHEMAMATIC_SOURCES) $(LIBS)
+apply.exe: $(SCHEMAMATIC_SOURCES) $(LIBS)
 
 clean:: 
 	rm -f $(BINS)
