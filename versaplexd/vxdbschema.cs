@@ -89,7 +89,7 @@ internal class VxDbSchema : ISchemaBackend
 
             keys = errs.Keys.ToList();
         }
-        return errs.Count > 0 ? errs : null;
+        return errs;
     }
 
     // Escape the schema element names supplied, to make sure they don't have
