@@ -167,7 +167,8 @@ namespace Wv
 	public IEnumerable<WvAutoCast[]> select(IDbCommand cmd,
 						params object[] args)
 	{
-	    bind(cmd, args);
+            if (args.Count() > 0)
+                bind(cmd, args);
 	    return cmd.ExecuteToWvAutoReader();
 	}
 	
@@ -195,7 +196,8 @@ namespace Wv
 	
 	public int execute(IDbCommand cmd, params object[] args)
 	{
-	    bind(cmd, args);
+            if (args.Count() > 0)
+                bind(cmd, args);
 	    return cmd.ExecuteNonQuery();
 	}
 	
