@@ -582,11 +582,11 @@ class SchemamaticTests : VersaplexTester
             VxDiskSchema backend = new VxDiskSchema(tmpdir);
 
             VxSchema schema = new VxSchema();
-            schema.Add("Foo", "Table", "Foo contents", false);
-            schema.Add("Bar", "Table", "Bar contents", false);
-            schema.Add("Func1", "Procedure", "Func1 contents", false);
-            schema.Add("Foo/Index1", "Index", "Index1 contents", false);
-            schema.Add("Func2", "ScalarFunction", "Func2 contents", false);
+            schema.Add("Table", "Foo", "Foo contents", false);
+            schema.Add("Table", "Bar", "Bar contents", false);
+            schema.Add("Procedure", "Func1", "Func1 contents", false);
+            schema.Add("Index", "Foo/Index1", "Index1 contents", false);
+            schema.Add("ScalarFunction", "Func2", "Func2 contents", false);
 
             VxSchemaChecksums sums = new VxSchemaChecksums();
             sums.Add("Table/Foo", 1);
@@ -1224,10 +1224,10 @@ class SchemamaticTests : VersaplexTester
         string view4q = "create view View4(viewcol1) as select 42";
 
         VxSchema schema = new VxSchema();
-        schema.Add("View1", "View", view1q, false);
-        schema.Add("View2", "View", view2q, false);
-        schema.Add("View3", "View", view3q, false);
-        schema.Add("View4", "View", view4q, false);
+        schema.Add("View", "View1", view1q, false);
+        schema.Add("View", "View2", view2q, false);
+        schema.Add("View", "View3", view3q, false);
+        schema.Add("View", "View4", view4q, false);
 
         VxSchemaErrors errs = VxPutSchema(schema, VxPutOpts.NoRetry);
 
@@ -1317,9 +1317,9 @@ class SchemamaticTests : VersaplexTester
         VxSchema schema2 = new VxSchema();
         VxSchemaChecksums sums2 = new VxSchemaChecksums();
 
-        schema1.Add("Tab1", "Table", "Random contents", false);
+        schema1.Add("Table", "Tab1", "Random contents", false);
         sums1.Add("Table/Tab1", 1);
-        schema2.Add("Tab2", "Table", "Random contents 2", false);
+        schema2.Add("Table", "Tab2", "Random contents 2", false);
         sums2.Add("Table/Tab2", 2);
 
         string tmpdir = GetTempDir();
@@ -1361,9 +1361,9 @@ class SchemamaticTests : VersaplexTester
         VxSchema schema2 = new VxSchema();
         VxSchemaChecksums sums2 = new VxSchemaChecksums();
 
-        schema1.Add("Func1", "Procedure", "Random contents", false);
+        schema1.Add("Procedure", "Func1", "Random contents", false);
         sums1.Add("Procedure/Func1", 1);
-        schema2.Add("Func1", "Procedure", "Random contents 2", false);
+        schema2.Add("Procedure", "Func1", "Random contents 2", false);
         sums2.Add("Procedure/Func1", 2);
 
         string tmpdir = GetTempDir();

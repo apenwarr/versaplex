@@ -561,7 +561,7 @@ internal class VxDbSchema : ISchemaBackend
             name.Replace('/', '!');
             name.Replace('\n', '!');
 
-            schema.Add(name, type, text, encrypted > 0);
+            schema.Add(type, name, text, encrypted > 0);
         }
     }
 
@@ -647,7 +647,7 @@ internal class VxDbSchema : ISchemaBackend
                         tabname,
                         colstr);
                 }
-                schema.Add(tabname + "/" + idxname, "Index", indexstr, false);
+                schema.Add("Index", tabname + "/" + idxname, indexstr, false);
                 cols.Clear();
             }
         }
@@ -696,11 +696,11 @@ internal class VxDbSchema : ISchemaBackend
                 do_again = true;
 
                 if (count == 0)
-                    schema.Add(name, "XMLSchema", String.Format(
+                    schema.Add("XMLSchema", name, String.Format(
                         "\nCREATE XML SCHEMA COLLECTION [{0}].[{1}] AS '", 
                         owner, name), false);
 
-                schema.Add(name, "XMLSchema", contents, false);
+                schema.Add("XMLSchema", name, contents, false);
             }
         }
 
@@ -802,7 +802,7 @@ internal class VxDbSchema : ISchemaBackend
                 string tablestr = String.Format(
                     "CREATE TABLE [{0}] (\n\t{1});\n\n",
                     tabname, cols.Join(",\n\t"));
-                schema.Add(tabname, "Table", tablestr, false);
+                schema.Add("Table", tabname, tablestr, false);
 
                 cols.Clear();
             }

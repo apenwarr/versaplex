@@ -244,7 +244,7 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
         return diffschema;
     }
 
-    public void Add(string name, string type, string text, bool encrypted)
+    public void Add(string type, string name, string text, bool encrypted)
     {
         string key = GetKey(type, name, encrypted);
         if (this.ContainsKey(key))
