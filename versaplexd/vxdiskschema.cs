@@ -144,6 +144,9 @@ internal class VxDiskSchema : ISchemaBackend
                     // This is the */*/* part
                     foreach (FileInfo file in dir2.GetFiles())
                     {
+                        if (!IsFileNameUseful(file.Name))
+                            continue;
+
                         string name = wv.PathCombine(dir2.Name, file.Name);
                         AddFromFile(file.FullName, type, name, schema, sums);
                     }
@@ -151,12 +154,23 @@ internal class VxDiskSchema : ISchemaBackend
 
                 // This is the */* part
                 foreach (FileInfo file in dir1.GetFiles())
+                {
+                    if (!IsFileNameUseful(file.Name))
+                        continue;
+
                     AddFromFile(file.FullName, type, file.Name, schema, sums);
+                }
             }
         }
     }
 
     // Static methods
+
+    // We want to ignore hidden files, and backup files left by editors.
+    private static bool IsFileNameUseful(string filename)
+    {
+        return !filename.StartsWith(".") && !filename.EndsWith("~");
+    }
 
     // Adds the contents of extradir to the provided schema and sums.
     // Throws an ArgumentException if the directory contains an entry that
