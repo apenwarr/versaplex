@@ -22,7 +22,9 @@ class SchemamaticTests : VersaplexTester
         public string tab2q;
         public string idx1q;
         public string msg1;
+        public string msg2;
         public string func1q;
+        public string func2q;
         public string xmlq;
 
         VersaplexTester t;
@@ -46,7 +48,10 @@ class SchemamaticTests : VersaplexTester
             idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
                 "\t(f2, f3 DESC);\n\n";
             msg1 = "Hello, world, this is Func1!";
+            msg2 = "Hello, world, this is Func2!";
             func1q = "create procedure Func1 as select '" + msg1 + "'\n";
+            func2q = "create function Func2 () returns varchar as begin " + 
+                "return '" + msg2 + "'; end\n";
             xmlq = "\nCREATE XML SCHEMA COLLECTION [dbo].[TestSchema] AS " + 
                 "'<xsd:schema xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">" +
                  "<xsd:element name=\"Employee\">" + 
@@ -73,6 +78,7 @@ class SchemamaticTests : VersaplexTester
             WVASSERT(t.VxExec(tab2q));
             WVASSERT(t.VxExec(idx1q));
             WVASSERT(t.VxExec(func1q));
+            WVASSERT(t.VxExec(func2q));
             WVASSERT(t.VxExec(xmlq));
         }
 
@@ -83,6 +89,7 @@ class SchemamaticTests : VersaplexTester
             try { t.VxExec("drop table Tab2"); } catch { }
             try { t.VxExec("drop xml schema collection TestSchema"); } catch { }
             try { t.VxExec("drop procedure Func1"); } catch { }
+            try { t.VxExec("drop function Func2"); } catch { }
         }
     }
 
@@ -530,12 +537,14 @@ class SchemamaticTests : VersaplexTester
 
         WVASSERT(sums.ContainsKey("Index/Tab1/Idx1"));
         WVASSERT(sums.ContainsKey("Procedure/Func1"));
+        WVASSERT(sums.ContainsKey("ScalarFunction/Func2"));
         WVASSERT(sums.ContainsKey("Table/Tab1"));
         WVASSERT(sums.ContainsKey("Table/Tab2"));
         WVASSERT(sums.ContainsKey("XMLSchema/TestSchema"));
 
         dbus.DropSchema("Index", "Tab1/Idx1");
         dbus.DropSchema("Procedure", "Func1");
+        dbus.DropSchema("ScalarFunction", "Func2");
         dbus.DropSchema("Table", "Tab2");
         dbus.DropSchema("XMLSchema", "TestSchema");
 
@@ -543,6 +552,7 @@ class SchemamaticTests : VersaplexTester
 
         WVASSERT(!sums.ContainsKey("Index/Tab1/Idx1"));
         WVASSERT(!sums.ContainsKey("Procedure/Func1"));
+        WVASSERT(!sums.ContainsKey("ScalarFunction/Func2"));
         WVASSERT(sums.ContainsKey("Table/Tab1"));
         WVASSERT(!sums.ContainsKey("Table/Tab2"));
         WVASSERT(!sums.ContainsKey("XMLSchema/TestSchema"));
@@ -576,12 +586,14 @@ class SchemamaticTests : VersaplexTester
             schema.Add("Bar", "Table", "Bar contents", false);
             schema.Add("Func1", "Procedure", "Func1 contents", false);
             schema.Add("Foo/Index1", "Index", "Index1 contents", false);
+            schema.Add("Func2", "ScalarFunction", "Func2 contents", false);
 
             VxSchemaChecksums sums = new VxSchemaChecksums();
             sums.Add("Table/Foo", 1);
             sums.Add("Table/Bar", 2);
             sums.Add("Procedure/Func1", 3);
             sums.Add("Index/Foo/Index1", 4);
+            sums.Add("ScalarFunction/Func2", 5);
 
             backend.Put(schema, sums, VxPutOpts.None);
 
@@ -589,6 +601,7 @@ class SchemamaticTests : VersaplexTester
             WVPASS(File.Exists(Path.Combine(tmpdir, "Table/Bar")));
             WVPASS(File.Exists(Path.Combine(tmpdir, "Procedure/Func1")));
             WVPASS(File.Exists(Path.Combine(tmpdir, "Index/Foo/Index1")));
+            WVPASS(File.Exists(Path.Combine(tmpdir, "ScalarFunction/Func2")));
 
             VxSchema newschema = backend.Get(null);
             VxSchemaChecksums newsums = backend.GetChecksums();
@@ -599,6 +612,7 @@ class SchemamaticTests : VersaplexTester
             WVPASS(newschema.ContainsKey("Table/Bar"));
             WVPASS(newschema.ContainsKey("Procedure/Func1"));
             WVPASS(newschema.ContainsKey("Index/Foo/Index1"));
+            WVPASS(newschema.ContainsKey("ScalarFunction/Func2"));
 
             backend.DropSchema("Table", "Foo");
             backend.DropSchema("Index", "Foo/Index1");
@@ -608,23 +622,27 @@ class SchemamaticTests : VersaplexTester
             WVPASS(File.Exists(Path.Combine(tmpdir, "Procedure/Func1")))
             WVPASS(!File.Exists(Path.Combine(tmpdir, "Index/Foo/Index1")))
             WVPASS(!Directory.Exists(Path.Combine(tmpdir, "Index/Foo")))
+            WVPASS(File.Exists(Path.Combine(tmpdir, "ScalarFunction/Func2")))
 
             newschema = backend.Get(null);
             newsums = backend.GetChecksums();
-            WVPASSEQ(newschema.Count, 2);
-            WVPASSEQ(newsums.Count, 2);
+            WVPASSEQ(newschema.Count, 3);
+            WVPASSEQ(newsums.Count, 3);
             WVPASS(!newschema.ContainsKey("Table/Foo"));
             WVPASS(newschema.ContainsKey("Table/Bar"));
             WVPASS(newschema.ContainsKey("Procedure/Func1"));
             WVPASS(!newschema.ContainsKey("Index/Foo/Index1"));
+            WVPASS(newschema.ContainsKey("ScalarFunction/Func2"));
 
             backend.DropSchema("Procedure", "Func1");
+            backend.DropSchema("ScalarFunction", "Func2");
 
             WVPASS(!File.Exists(Path.Combine(tmpdir, "Table/Foo")))
             WVPASS(File.Exists(Path.Combine(tmpdir, "Table/Bar")))
             WVPASS(!File.Exists(Path.Combine(tmpdir, "Procedure/Func1")))
             WVPASS(!File.Exists(Path.Combine(tmpdir, "Index/Foo/Index1")))
             WVPASS(!Directory.Exists(Path.Combine(tmpdir, "Index/Foo")))
+            WVPASS(!File.Exists(Path.Combine(tmpdir, "ScalarFunction/Func2")))
 
             newschema = backend.Get(null);
             newsums = backend.GetChecksums();
@@ -633,6 +651,7 @@ class SchemamaticTests : VersaplexTester
             WVPASS(!newschema.ContainsKey("Table/Foo"));
             WVPASS(newschema.ContainsKey("Table/Bar"));
             WVPASS(!newschema.ContainsKey("Procedure/Func1"));
+            WVPASS(!newschema.ContainsKey("ScalarFunction/Func2"));
         }
         finally
         {
@@ -797,13 +816,15 @@ class SchemamaticTests : VersaplexTester
         string suffix = backupnum == 0 ? "" : "-" + backupnum;
 
         string procdir = Path.Combine(exportdir, "Procedure");
+        string scalardir = Path.Combine(exportdir, "ScalarFunction");
         string idxdir = Path.Combine(exportdir, "Index");
         string tabdir = Path.Combine(exportdir, "Table");
         string xmldir = Path.Combine(exportdir, "XMLSchema");
 
-        WVPASSEQ(dirinfo.GetDirectories().Length, 4);
+        WVPASSEQ(dirinfo.GetDirectories().Length, 5);
         WVPASSEQ(dirinfo.GetFiles().Length, 0);
         WVPASS(Directory.Exists(procdir));
+        WVPASS(Directory.Exists(scalardir));
         WVPASS(Directory.Exists(idxdir));
         WVPASS(Directory.Exists(tabdir));
         WVPASS(Directory.Exists(xmldir));
@@ -815,6 +836,14 @@ class SchemamaticTests : VersaplexTester
         CheckExportedFileContents(func1file, 
             "!!SCHEMAMATIC 2ae46ac0748aede839fb9cd167ea1180 0xd983a305 ",
             sc.func1q);
+
+        // Scalar functions
+        WVPASSEQ(Directory.GetDirectories(scalardir).Length, 0);
+        WVPASSEQ(Directory.GetFiles(scalardir).Length, 1 * filemultiplier);
+        string func2file = Path.Combine(scalardir, "Func2" + suffix);
+        CheckExportedFileContents(func2file, 
+            "!!SCHEMAMATIC c7c257ba4f7817e4e460a3cef0c78985 0xd6fe554f ",
+            sc.func2q);
 
         // Indexes
         WVPASSEQ(Directory.GetDirectories(idxdir).Length, 1);

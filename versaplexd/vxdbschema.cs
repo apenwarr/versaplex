@@ -228,7 +228,7 @@ internal class VxDbSchema : ISchemaBackend
     // Deletes the named object in the database.
     public void DropSchema(string type, string name)
     {
-        log.print("DropSchema({0}, {1})", type, name);
+        log.print("DropSchema({0}, {1})\n", type, name);
         if (type == null || name == null)
             return;
 
@@ -271,7 +271,7 @@ internal class VxDbSchema : ISchemaBackend
 
     private static string GetDropCommand(string type, string name)
     {
-        if (type.StartsWith("Function"))
+        if (type.EndsWith("Function"))
             type = "Function";
         else if (type == "XMLSchema")
             type = "XML Schema Collection";
