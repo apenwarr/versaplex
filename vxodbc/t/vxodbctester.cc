@@ -75,7 +75,8 @@ VxOdbcTester::~VxOdbcTester()
      * descriptors left over
      */
     vxserver_conn.close();
-    WvIStreamList::globallist.runonce();
+    for (int i = 0; i < 5; ++i)
+	WvIStreamList::globallist.runonce(10);
 }
 
 bool VxOdbcTester::msg_received(WvDBusMsg &msg)
