@@ -552,10 +552,11 @@ class SchemamaticTests : VersaplexTester
         } catch (Wv.Test.WvAssertionFailure e) {
             throw e;
         } catch (System.Exception e) {
-            // FIXME: This should check for a vx.db.sqlerror
-            // rather than any dbus error
             WVPASS(e is DbusError);
-            log.print(e.ToString());
+            WVPASSEQ(e.Message, "vx.db.sqlerror: Cannot drop the procedure " + 
+                "'Func1', because it does not exist or you do not have " + 
+                "permission.");
+            log.print(e.ToString() + "\n");
         }
 
         sc.Cleanup();
@@ -732,10 +733,9 @@ class SchemamaticTests : VersaplexTester
 	} catch (Wv.Test.WvAssertionFailure e) {
 	    throw e;
 	} catch (System.Exception e) {
-            // FIXME: This should check for a vx.db.sqlerror
-            // rather than any dbus error
 	    WVPASS(e is DbusError);
-            log.print(e.ToString());
+            WVPASSEQ(e.Message, "vx.db.sqlerror: Invalid object name 'Tab1'.");
+            log.print(e.ToString() + "\n");
 	}
 
         WVPASSEQ(VxPutSchema("Table", "Tab1", sc.tab1q, VxPutOpts.None), null);
@@ -901,7 +901,8 @@ class SchemamaticTests : VersaplexTester
                 throw e;
             } catch (System.Exception e) {
                 WVPASS(e is ArgumentException);
-                log.print(e.ToString());
+                WVPASS(e.Message.StartsWith("Missing checksum for "));
+                log.print(e.ToString() + "\n");
             }
 
             // Check that the normal exporting works.
