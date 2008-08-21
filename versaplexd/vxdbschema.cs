@@ -582,7 +582,7 @@ internal class VxDbSchema : ISchemaBackend
         foreach (WvAutoCast[] row in DbiSelect(query))
         {
             string name = row[0];
-            short colid = row[1];
+            //short colid = row[1];
             string text;
             // FIXME: Retrieving encrypted data is kind of broken anyway.
             if (encrypted > 0)
