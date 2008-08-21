@@ -15,7 +15,14 @@ public static class Apply
         if (dry_run)
             opts |= VxCopyOpts.DryRun;
 
-        VxSchema.CopySchema(disk, dbus, opts);
+        VxSchemaErrors errs = VxSchema.CopySchema(disk, dbus, opts);
+
+        foreach (var p in errs)
+        {
+            VxSchemaError err = p.Value;
+            Console.WriteLine("Error applying {0}: {1} ({2})", 
+                err.key, err.msg, err.errnum);
+        }
     }
 
     static void ShowHelp()
