@@ -71,7 +71,7 @@ internal class VxDbusSchema : ISchemaBackend
             if (replysig.ToString() == "s")
                 throw VxDbusUtils.GetDbusException(reply);
 
-            if (replysig.ToString() != "a(ssi)")
+            if (replysig.ToString() != VxSchemaErrors.GetDbusSignature())
                 throw new Exception("D-Bus reply had invalid signature: " +
                     replysig);
 
@@ -162,32 +162,49 @@ internal class VxDbusSchema : ISchemaBackend
         }
     }
 
-    // A method exported over DBus but not exposed in ISchemaBackend
-    public void DropSchema(string type, string name)
+    public VxSchemaErrors DropSchema(IEnumerable<string> keys)
     {
-        Message call = CreateMethodCall("DropSchema", "ss");
+        if (keys == null)
+            keys = new string[0];
+        return DropSchema(keys.ToArray());
+    }
+
+    // A method exported over DBus but not exposed in ISchemaBackend
+    public VxSchemaErrors DropSchema(params string[] keys)
+    {
+        Message call = CreateMethodCall("DropSchema", "as");
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
-        writer.Write(typeof(string), type);
-        writer.Write(typeof(string), name);
+        writer.Write(typeof(string[]), keys);
         call.Body = writer.ToArray();
 
         Message reply = call.Connection.SendWithReplyAndBlock(call);
 
         switch (reply.Header.MessageType) {
         case MessageType.MethodReturn:
+        case MessageType.Error:
         {
             object replysig;
-            if (reply.Header.Fields.TryGetValue(FieldCode.Signature,
+            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
                         out replysig))
-                throw new Exception("D-Bus reply had unexpected signature" + 
+                throw new Exception("D-Bus reply had no signature.");
+
+            if (replysig == null)
+                throw new Exception("D-Bus reply had null signature");
+
+            if (replysig.ToString() == "s")
+                throw VxDbusUtils.GetDbusException(reply);
+
+            if (replysig.ToString() != VxSchemaErrors.GetDbusSignature())
+                throw new Exception("D-Bus reply had invalid signature: " +
                     replysig);
 
-            return;
+            MessageReader reader = new MessageReader(reply);
+            VxSchemaErrors errors = new VxSchemaErrors(reader);
+
+            return errors;
         }
-        case MessageType.Error:
-            throw VxDbusUtils.GetDbusException(reply);
         default:
             throw new Exception("D-Bus response was not a method return or "
                     + "error");

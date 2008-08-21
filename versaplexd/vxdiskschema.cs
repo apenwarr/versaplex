@@ -40,7 +40,7 @@ internal class VxDiskSchema : ISchemaBackend
 
             VxSchemaElement elem = p.Value;
             if (elem.text == null || elem.text == "")
-                DropSchema(elem.type, elem.name);
+                DropSchema(new string[] {elem.key});
             else
                 ExportToDisk(p.Value, sums[p.Key], isbackup);
         }
@@ -79,32 +79,42 @@ internal class VxDiskSchema : ISchemaBackend
         return sums;
     }
 
-    public void DropSchema(string type, string name)
+    public VxSchemaErrors DropSchema(IEnumerable<string> keys)
     {
-        if (type == null || name == null)
-            return;
+        VxSchemaErrors errs = new VxSchemaErrors();
 
-        string fullpath = wv.PathCombine(exportdir, type, name);
-        log.print("Removing {0}\n", fullpath);
-        if (File.Exists(fullpath))
-            File.Delete(fullpath);
-        if (type == "Index")
+        foreach (string key in keys)
         {
-            // If it was the last index for a table, remove the empty dir.
-            string[] split = name.Split('/');
-            if (split.Length > 0)
+            string fullpath = wv.PathCombine(exportdir, key);
+            log.print("Removing {0}\n", fullpath);
+            if (File.Exists(fullpath))
+                File.Delete(fullpath);
+            if (key.StartsWith("Index"))
             {
-                string table = split[0];
-                string tabpath = wv.PathCombine(exportdir, type, table);
-                // Directory.Delete won't delete non-empty dirs, but we still
-                // check both for safety and to write a sensible message.
-                if (Directory.GetFileSystemEntries(tabpath).Length == 0)
+                string type, name;
+                VxSchema.ParseKey(key, out type, out name);
+                if (type != "Index")
+                    continue;
+
+                // If it was the last index for a table, remove the empty dir.
+                string[] split = name.Split('/');
+                if (split.Length > 0)
                 {
-                    log.print("Removing empty directory {0}\n", tabpath);
-                    Directory.Delete(tabpath);
+                    string table = split[0];
+                    string tabpath = wv.PathCombine(exportdir, type, table);
+                    // Directory.Delete won't delete non-empty dirs, but we
+                    // still check both for safety and to write a sensible
+                    // message.
+                    if (Directory.GetFileSystemEntries(tabpath).Length == 0)
+                    {
+                        log.print("Removing empty directory {0}\n", tabpath);
+                        Directory.Delete(tabpath);
+                    }
                 }
             }
         }
+
+        return errs;
     }
 
     //

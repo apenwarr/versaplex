@@ -69,15 +69,10 @@ internal class VxDbSchema : ISchemaBackend
             errs.Clear();
             foreach (string key in keys)
             {
-                try {
-                    log.print("Calling PutSchema on {0}\n", key);
-                    PutSchemaElement(schema[key], opts);
-                } catch (VxSqlException e) {
-                    log.print("Got error from {0}: {1} ({2})\n", key, 
-                        e.Message, e.GetFirstSqlErrno());
-                    errs.Add(key, new VxSchemaError(key, e.Message, 
-                        e.GetFirstSqlErrno()));
-                }
+                log.print("Calling PutSchema on {0}\n", key);
+                VxSchemaError e = PutSchemaElement(schema[key], opts);
+                if (e != null)
+                    errs.Add(key, e);
             }
             // If we only had one schema element, retrying it isn't going to
             // fix anything.  We retry to fix ordering problems.
@@ -225,21 +220,53 @@ internal class VxDbSchema : ISchemaBackend
         return sums;
     }
 
-    // Deletes the named object in the database.
-    public void DropSchema(string type, string name)
+    // Deletes the named objects in the database.
+    public VxSchemaErrors DropSchema(IEnumerable<string> keys)
     {
-        log.print("DropSchema({0}, {1})\n", type, name);
-        if (type == null || name == null)
-            return;
+        return DropSchema(keys.ToArray());
+    }
 
-        string query = GetDropCommand(type, name);
+    // Deletes the named objects in the database.
+    public VxSchemaErrors DropSchema(params string[] keys)
+    {
+        VxSchemaErrors errs = new VxSchemaErrors();
+        foreach (string key in keys)
+        {
+            VxSchemaError e = DropSchemaElement(key);
+            if (e != null)
+                errs.Add(key, e);
+        }
 
-        DbiExec(query);
+        return errs;
     }
 
     // 
     // Non-ISchemaBackend methods
     //
+    
+    public VxSchemaError DropSchemaElement(string key)
+    {
+        log.print("DropSchemaElement({0})\n", key);
+        if (key == null)
+            return null;
+
+        string type, name;
+        VxSchema.ParseKey(key, out type, out name);
+        if (type == null || name == null)
+            return new VxSchemaError(key, "Malformed key: " + key, -1);
+
+        string query = GetDropCommand(type, name);
+
+        try {
+            DbiExec(query);
+        } catch (VxSqlException e) {
+            log.print("Got error dropping {0}: {1} ({2})\n", key, 
+                e.Message, e.GetFirstSqlErrno());
+            return new VxSchemaError(key, e.Message, e.GetFirstSqlErrno());
+        }
+
+        return null;
+    }
 
     // Translate SqlExceptions from dbi.execute into VxSqlExceptions
     private int DbiExec(string query, params string[] args)
@@ -307,26 +334,37 @@ internal class VxDbSchema : ISchemaBackend
     // or not to perform potentially destructive operations while making the
     // change, e.g. dropping a table so we can re-add it with the right
     // columns.
-    private void PutSchemaElement(VxSchemaElement elem, VxPutOpts opts)
+    private VxSchemaError PutSchemaElement(VxSchemaElement elem, VxPutOpts opts)
     {
-        bool destructive = (opts & VxPutOpts.Destructive) != 0;
-        if (destructive || !elem.type.StartsWith("Table"))
+        try 
         {
-            try { 
-                DropSchema(elem.type, elem.name); 
-            } catch (VxSqlException e) {
-                // Check if it's a "didn't exist" error, rethrow if not.
-                // SQL Error 3701 means "can't drop sensible item because
-                // it doesn't exist or you don't have permission."
-                // SQL Error 15151 means "can't drop XML Schema collection 
-                // because it doesn't exist or you don't have permission."
-                if (!e.ContainsSqlError(3701) && !e.ContainsSqlError(15151))
-                    throw e;
+            bool destructive = (opts & VxPutOpts.Destructive) != 0;
+            if (destructive || !elem.type.StartsWith("Table"))
+            {
+                try { 
+                    DropSchema(elem.key);
+                } catch (VxSqlException e) {
+                    // Check if it's a "didn't exist" error, rethrow if not.
+                    // SQL Error 3701 means "can't drop sensible item because
+                    // it doesn't exist or you don't have permission."
+                    // SQL Error 15151 means "can't drop XML Schema collection 
+                    // because it doesn't exist or you don't have permission."
+                    if (!e.ContainsSqlError(3701) && !e.ContainsSqlError(15151))
+                        throw e;
+                }
             }
+
+            if (elem.text != null && elem.text != "")
+                DbiExec(elem.text);
+        } 
+        catch (VxSqlException e) 
+        {
+            log.print("Got error from {0}: {1} ({2})\n", elem.key, 
+                e.Message, e.GetFirstSqlErrno());
+            return new VxSchemaError(elem.key, e.Message, e.GetFirstSqlErrno());
         }
 
-        if (elem.text != null && elem.text != "")
-            DbiExec(elem.text);
+        return null;
     }
 
     // Functions used for GetSchemaChecksums

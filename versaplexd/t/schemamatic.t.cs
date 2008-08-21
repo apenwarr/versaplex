@@ -135,7 +135,6 @@ class SchemamaticTests : VersaplexTester
 
     public void TestSchemaEquality(VxSchema left, VxSchema right)
     {
-        WVPASSEQ(left.Count, right.Count);
         foreach (KeyValuePair<string,VxSchemaElement> p in right)
         {
             WVPASSEQ(left[p.Key].type, p.Value.type);
@@ -143,6 +142,7 @@ class SchemamaticTests : VersaplexTester
             WVPASSEQ(left[p.Key].text, p.Value.text);
             WVPASSEQ(left[p.Key].encrypted, p.Value.encrypted);
         }
+        WVPASSEQ(left.Count, right.Count);
     }
 
     public void TestChecksumEquality(VxSchemaChecksums left, 
@@ -542,11 +542,8 @@ class SchemamaticTests : VersaplexTester
         WVASSERT(sums.ContainsKey("Table/Tab2"));
         WVASSERT(sums.ContainsKey("XMLSchema/TestSchema"));
 
-        dbus.DropSchema("Index", "Tab1/Idx1");
-        dbus.DropSchema("Procedure", "Func1");
-        dbus.DropSchema("ScalarFunction", "Func2");
-        dbus.DropSchema("Table", "Tab2");
-        dbus.DropSchema("XMLSchema", "TestSchema");
+        dbus.DropSchema("Index/Tab1/Idx1", "Procedure/Func1", 
+            "ScalarFunction/Func2", "Table/Tab2", "XMLSchema/TestSchema");
 
         sums = dbus.GetChecksums();
 
@@ -557,17 +554,11 @@ class SchemamaticTests : VersaplexTester
         WVASSERT(!sums.ContainsKey("Table/Tab2"));
         WVASSERT(!sums.ContainsKey("XMLSchema/TestSchema"));
 
-        try {
-            WVEXCEPT(dbus.DropSchema("Procedure", "Func1"));
-        } catch (Wv.Test.WvAssertionFailure e) {
-            throw e;
-        } catch (System.Exception e) {
-            WVPASS(e is DbusError);
-            WVPASSEQ(e.Message, "vx.db.sqlerror: Cannot drop the procedure " + 
-                "'Func1', because it does not exist or you do not have " + 
-                "permission.");
-            log.print(e.ToString() + "\n");
-        }
+        VxSchemaErrors errs = dbus.DropSchema("Procedure/Func1");
+        WVPASSEQ(errs.Count, 1);
+        WVPASSEQ(errs["Procedure/Func1"].msg, 
+            "Cannot drop the procedure 'Func1', because it does not exist " + 
+            "or you do not have permission.");
 
         sc.Cleanup();
     }
@@ -614,8 +605,8 @@ class SchemamaticTests : VersaplexTester
             WVPASS(newschema.ContainsKey("Index/Foo/Index1"));
             WVPASS(newschema.ContainsKey("ScalarFunction/Func2"));
 
-            backend.DropSchema("Table", "Foo");
-            backend.DropSchema("Index", "Foo/Index1");
+            string[] todrop = { "Table/Foo", "Index/Foo/Index1" };
+            backend.DropSchema(todrop);
 
             WVPASS(!File.Exists(Path.Combine(tmpdir, "Table/Foo")))
             WVPASS(File.Exists(Path.Combine(tmpdir, "Table/Bar")))
@@ -634,8 +625,8 @@ class SchemamaticTests : VersaplexTester
             WVPASS(!newschema.ContainsKey("Index/Foo/Index1"));
             WVPASS(newschema.ContainsKey("ScalarFunction/Func2"));
 
-            backend.DropSchema("Procedure", "Func1");
-            backend.DropSchema("ScalarFunction", "Func2");
+            todrop = new string[] { "Procedure/Func1", "ScalarFunction/Func2" };
+            backend.DropSchema(todrop);
 
             WVPASS(!File.Exists(Path.Combine(tmpdir, "Table/Foo")))
             WVPASS(File.Exists(Path.Combine(tmpdir, "Table/Bar")))
@@ -1288,7 +1279,7 @@ class SchemamaticTests : VersaplexTester
             origschema["Procedure/Func1"].text = func1q2;
 
             dbus.Put(origschema, null, VxPutOpts.None);
-            dbus.DropSchema("Index", "Tab1/Idx1");
+            dbus.DropSchema("Index/Tab1/Idx1");
             origschema.Remove("Index/Tab1/Idx1");
             origsums = dbus.GetChecksums();
 

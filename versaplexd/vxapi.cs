@@ -716,7 +716,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 
     private static void CallDropSchema(Message call, out Message reply)
     {
-        if (call.Signature.ToString() != "ss") {
+        if (call.Signature.ToString() != "as") {
             reply = CreateUnknownMethodReply(call, "DropSchema");
             return;
         }
@@ -730,19 +730,29 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
-        string type, name;
+        Array keys;
 
         MessageReader mr = new MessageReader(call);
-        mr.GetValue(out type);
-        mr.GetValue(out name);
+        mr.GetValue(typeof(string[]), out keys);
 
+        VxSchemaErrors errs;
         using (WvDbi dbi = new WvDbi(VxSqlPool.TakeConnection(clientid)))
         {
             VxDbSchema backend = new VxDbSchema(dbi);
-            backend.DropSchema(type, name);
+            errs = backend.DropSchema(keys.Cast<string>());
         }
 
-        reply = VxDbus.CreateReply(call);
+        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+        VxSchemaErrors.WriteErrors(writer, errs);
+
+        reply = VxDbus.CreateReply(call, VxSchemaErrors.GetDbusSignature(), 
+            writer);
+        if (errs != null && errs.Count > 0)
+        {
+            reply.Header.MessageType = MessageType.Error;
+            reply.Header.Fields[FieldCode.ErrorName] = 
+                "org.freedesktop.DBus.Error.Failed";
+        }
     }
 
     private static void CallPutSchema(Message call, out Message reply)
@@ -768,15 +778,16 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         VxSchema schema = new VxSchema(mr);
         mr.GetValue(out opts);
 
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
         VxSchemaErrors errs;
         
         using (WvDbi dbi = new WvDbi(VxSqlPool.TakeConnection(clientid)))
         {
             VxDbSchema backend = new VxDbSchema(dbi);
             errs = backend.Put(schema, null, (VxPutOpts)opts);
-            VxSchemaErrors.WriteErrors(writer, errs);
         }
+
+        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+        VxSchemaErrors.WriteErrors(writer, errs);
 
         reply = VxDbus.CreateReply(call, VxSchemaErrors.GetDbusSignature(), 
             writer);

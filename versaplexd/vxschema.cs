@@ -319,19 +319,20 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
             return new VxSchemaErrors();
         }
 
+        if (show_diff)
+        {
+            log.print("Changes to apply:\n");
+            log.print(WvLog.L.Info, diff.ToString());
+        }
+
         log.print("Parsing diff.\n");
+        List<string> to_drop = new List<string>();
         foreach (KeyValuePair<string,VxDiffType> p in diff)
         {
             switch (p.Value)
             {
             case VxDiffType.Remove:
-                string type, name;
-                VxSchema.ParseKey(p.Key, out type, out name);
-                if (type != null && name != null)
-                {
-                    log.print("Dropping {0}\n", p.Key);
-                    dest.DropSchema(type, name);
-                }
+                to_drop.Add(p.Key);
                 break;
             case VxDiffType.Add:
             case VxDiffType.Change:
@@ -343,16 +344,31 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
         log.print("Preparing updated schema.\n");
         VxSchema to_put = source.Get(names);
 
-        if (show_diff)
-        {
-            log.print("Changes to apply:\n");
-            log.print(WvLog.L.Info, diff.ToString());
-        }
-
         if (dry_run)
             return new VxSchemaErrors();
 
-        log.print("Writing result.\n");
-        return dest.Put(to_put, srcsums, VxPutOpts.None);
+        VxSchemaErrors drop_errs = new VxSchemaErrors();
+        VxSchemaErrors put_errs = new VxSchemaErrors();
+
+        // We know at least one of to_drop and to_put must have something in
+        // it, otherwise the diff would have been empty.
+
+        if (to_drop.Count > 0)
+        {
+            log.print("Dropping deleted elements.\n");
+            drop_errs = dest.DropSchema(to_drop);
+        }
+
+        if (names.Count > 0)
+        {
+            log.print("Updating and adding elements.\n");
+            put_errs = dest.Put(to_put, srcsums, VxPutOpts.None);
+        }
+
+        // Combine the two sets of errors.
+        foreach (var kvp in drop_errs)
+            put_errs.Add(kvp.Key, kvp.Value);
+
+        return put_errs;
     }
 }
