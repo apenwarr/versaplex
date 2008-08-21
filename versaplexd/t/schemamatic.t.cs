@@ -167,7 +167,7 @@ class SchemamaticTests : VersaplexTester
     public void TestProcedureChecksums()
     {
         try { VxExec("drop procedure Func1"); } catch { }
-        try { VxExec("drop procedure Func2"); } catch { }
+        try { VxExec("drop procedure EncFunc"); } catch { }
 
         VxSchemaChecksums sums;
         sums = dbus.GetChecksums();
@@ -192,29 +192,29 @@ class SchemamaticTests : VersaplexTester
         WVPASSEQ(sums["Procedure/Func1"].checksums.Count, 1);
         WVPASSEQ(sums["Procedure/Func1"].checksums[0], 0x55F9D9E3);
 
-        WVASSERT(VxExec("create procedure Func2 with encryption as select '" + 
+        WVASSERT(VxExec("create procedure EncFunc with encryption as select '" + 
             msg2 + "'"));
 
-        WVASSERT(VxScalar("exec Func2", out outmsg));
+        WVASSERT(VxScalar("exec EncFunc", out outmsg));
         WVPASSEQ(msg2, (string)outmsg);
 
         sums = dbus.GetChecksums();
         //WVPASSEQ(sums.Count, 2);
 
         WVASSERT(sums.ContainsKey("Procedure/Func1"));
-        WVASSERT(sums.ContainsKey("Procedure-Encrypted/Func2"));
+        WVASSERT(sums.ContainsKey("Procedure-Encrypted/EncFunc"));
         WVPASSEQ(sums["Procedure/Func1"].checksums.Count, 1);
-        WVPASSEQ(sums["Procedure-Encrypted/Func2"].checksums.Count, 1);
+        WVPASSEQ(sums["Procedure-Encrypted/EncFunc"].checksums.Count, 1);
         WVPASSEQ(sums["Procedure/Func1"].checksums[0], 0x55F9D9E3);
-        WVPASSEQ(sums["Procedure-Encrypted/Func2"].checksums[0], 0x458D4283);
+        WVPASSEQ(sums["Procedure-Encrypted/EncFunc"].checksums[0], 0xE5E9304F);
 
-        WVASSERT(VxExec("drop procedure Func2"));
+        WVASSERT(VxExec("drop procedure EncFunc"));
 
         sums = dbus.GetChecksums();
         //WVPASSEQ(sums.Count, 1);
 
         WVASSERT(sums.ContainsKey("Procedure/Func1"));
-        WVFAIL(sums.ContainsKey("Procedure/Func2"));
+        WVFAIL(sums.ContainsKey("Procedure/EncFunc"));
         WVPASSEQ(sums["Procedure/Func1"].checksums.Count, 1);
         WVPASSEQ(sums["Procedure/Func1"].checksums[0], 0x55F9D9E3);
 
