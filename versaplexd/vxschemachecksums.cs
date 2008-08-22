@@ -10,15 +10,16 @@ using Wv.Extensions;
 // The checksums for a single database element (table, procedure, etc).
 // Can have multiple checksum values - a table has one checksum per column,
 // for instance.
+// Note: This class is immutable.  
 // FIXME: Have separate type member?
 internal class VxSchemaChecksum
 {
-    string _name;
+    readonly string _name;
     public string name {
         get { return _name; }
     }
 
-    IEnumerable<ulong> _checksums;
+    readonly IEnumerable<ulong> _checksums;
     public IEnumerable<ulong> checksums {
         get { return _checksums; }
     }
@@ -96,21 +97,16 @@ internal class VxSchemaChecksum
             }, 8);
     }
 
-    public void AddChecksum(ulong checksum)
+    // Note: this is only safe to override because the class is immutable.
+    public override bool Equals(object other_obj)
     {
-        ulong[] sumarr = {checksum};
-        _checksums = _checksums.Concat(sumarr);
-    }
-
-    // Note: it's unwise to override Object.Equals for mutable classes.
-    // Overriding Object.Equals means also overriding Object.GetHashCode,
-    // otherwise finding elements in hash tables would break.  But then
-    // changing the hash code of an element in a hash table also makes things
-    // unhappy.
-    public bool IsEqual(VxSchemaChecksum other)
-    {
-        if (other == null)
+        if (other_obj == null)
             return false;
+
+        if (!(other_obj is VxSchemaChecksum))
+            return false;
+
+        var other = (VxSchemaChecksum)other_obj;
 
         if (this.name != other.name)
             return false;
@@ -128,6 +124,12 @@ internal class VxSchemaChecksum
                 return false;
 
         return true;
+    }
+
+    public override int GetHashCode() 
+    {
+        ulong xor = checksums.Aggregate((cur, next) => cur ^ next);
+        return ((int)xor ^ (int)(xor>>32));
     }
 
     // Given a string containing database sums, returns their parsed version.
@@ -235,7 +237,14 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
     public void AddSum(string name, ulong checksum)
     {
         if (this.ContainsKey(name))
-            this[name].AddChecksum(checksum);
+        {
+            VxSchemaChecksum old = this[name];
+
+            List<ulong> list = new List<ulong>(old.checksums);
+            list.Add(checksum);
+
+            this[name] = new VxSchemaChecksum(name, list);
+        }
         else
             this.Add(name, new VxSchemaChecksum(name, checksum));
     }

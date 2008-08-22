@@ -30,7 +30,7 @@ internal class VxSchemaDiff : SortedList<string, VxDiffType>
                 this.Add(key, VxDiffType.Add);
             else if (!goalsums.ContainsKey(key))
                 this.Add(key, VxDiffType.Remove);
-            else if (!srcsums[key].IsEqual(goalsums[key]))
+            else if (!srcsums[key].Equals(goalsums[key]))
             {
                 if (!this.ContainsKey(key))
                     this.Add(key, VxDiffType.Change);
