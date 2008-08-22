@@ -116,7 +116,7 @@ namespace Wv.Extensions
             return String.Join(sep, list.ToStringArray());
         }
 
-        public static string Join<T>(this List<string> list, string sep)
+        public static string Join<T>(this IEnumerable<string> list, string sep)
         {
             return String.Join(sep, list.ToArray());
         }
