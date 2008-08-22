@@ -158,13 +158,13 @@ namespace Wv
 		cmd.Prepare();
 	}
 	
-	public IEnumerable<WvAutoCast[]> select(string sql,
+	public IEnumerable<WvSqlRow> select(string sql,
 					       params object[] args)
 	{
 	    return select(prepare(sql, args.Length), args);
 	}
 	
-	public IEnumerable<WvAutoCast[]> select(IDbCommand cmd,
+	public IEnumerable<WvSqlRow> select(IDbCommand cmd,
 						params object[] args)
 	{
             if (args.Count() > 0)
@@ -172,10 +172,10 @@ namespace Wv
 	    return cmd.ExecuteToWvAutoReader();
 	}
 	
-	public WvAutoCast[] select_onerow(string sql, params object[] args)
+	public WvSqlRow select_onerow(string sql, params object[] args)
 	{
 	    // only iterates a single row, if it exists
-	    foreach (WvAutoCast[] r in select(sql, args))
+	    foreach (WvSqlRow r in select(sql, args))
 		return r; // only return the first one
 	    return null;
 	}

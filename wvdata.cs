@@ -1,5 +1,6 @@
 using System;
 using System.Data;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -164,5 +165,42 @@ namespace Wv
 	}
 	
 	public int Length { get { return a.Length; } }
+    }
+
+    public class WvSqlRow : IEnumerable<WvAutoCast>
+    {
+	private object[] columns;
+	private int curindex = -1;
+	
+	public DataTable schema;
+	
+	public WvSqlRow(object[] _columns, DataTable _schema)
+	{
+	    columns = _columns;
+	    schema = _schema;
+	}
+
+	public WvAutoCast this[int i]
+	    { get { return new WvAutoCast(columns[i]); } }
+
+	public int Length
+	    { get { return columns.Length; } }
+
+	public IEnumerator<WvAutoCast> GetEnumerator()
+	{
+	    for (int i = 0; i < columns.Length; ++i)
+	    {
+		yield return new WvAutoCast(columns[i]);
+	    }
+	}
+
+	IEnumerator IEnumerable.GetEnumerator()
+	{
+	    // I really hope nobody ever needs to use this
+	    for (int i = 0; i < columns.Length; ++i)
+	    {
+		yield return columns[i];
+	    }
+	}
     }
 }
