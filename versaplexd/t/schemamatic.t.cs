@@ -1378,6 +1378,54 @@ class SchemamaticTests : VersaplexTester
 
     }
 
+    [Test, Category("Schemamatic"), Category("VxSchemaChecksum")]
+    public void TestParseSumString()
+    {
+        IEnumerable<ulong> list;
+        list = VxSchemaChecksum.ParseSumString(null);
+        WVPASSEQ(list.Count(), 0);
+
+        list = VxSchemaChecksum.ParseSumString("");
+        WVPASSEQ(list.Count(), 0);
+
+        list = VxSchemaChecksum.ParseSumString(" ");
+        WVPASSEQ(list.Count(), 0);
+
+        list = VxSchemaChecksum.ParseSumString("  ");
+        WVPASSEQ(list.Count(), 0);
+
+        list = VxSchemaChecksum.ParseSumString("0x10");
+        WVPASSEQ(list.Count(), 1);
+        WVPASSEQ(list.First(), 16);
+
+        list = VxSchemaChecksum.ParseSumString("10");
+        WVPASSEQ(list.Count(), 1);
+        WVPASSEQ(list.First(), 16);
+
+        list = VxSchemaChecksum.ParseSumString("0x10 0x20");
+        WVPASSEQ(list.Count(), 2);
+        WVPASSEQ(list.ElementAt(0), 16);
+        WVPASSEQ(list.ElementAt(1), 32);
+
+        list = VxSchemaChecksum.ParseSumString("20 10");
+        WVPASSEQ(list.Count(), 2);
+        WVPASSEQ(list.ElementAt(0), 32);
+        WVPASSEQ(list.ElementAt(1), 16);
+
+        list = VxSchemaChecksum.ParseSumString("0x10 20 0X3a 0x4B ");
+        WVPASSEQ(list.Count(), 4);
+        WVPASSEQ(list.ElementAt(0), 16);
+        WVPASSEQ(list.ElementAt(1), 32);
+        WVPASSEQ(list.ElementAt(2), 58);
+        WVPASSEQ(list.ElementAt(3), 75);
+
+        // Test ignoring invalid elements
+        list = VxSchemaChecksum.ParseSumString("0x10 0xasdf 0x20");
+        WVPASSEQ(list.Count(), 2);
+        WVPASSEQ(list.ElementAt(0), 16);
+        WVPASSEQ(list.ElementAt(1), 32);
+    }
+
     public static void Main()
     {
         WvTest.DoMain();

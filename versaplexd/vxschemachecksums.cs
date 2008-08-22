@@ -46,13 +46,19 @@ internal class VxSchemaChecksum
         _checksums = list;
     }
 
+    public VxSchemaChecksum(string newname, IEnumerable<ulong> sumlist)
+    {
+        _name = newname;
+        _checksums = sumlist;
+    }
+
     // Read a set of checksums from a DBus message into a VxSchemaChecksum.
     public VxSchemaChecksum(MessageReader reader)
     {
         reader.GetValue(out _name);
-        _checksums = new List<ulong>();
 
         // Fill the list
+        List<ulong> list = new List<ulong>();
         int size;
         reader.GetValue(out size);
         int endpos = reader.Position + size;
@@ -61,8 +67,9 @@ internal class VxSchemaChecksum
             reader.ReadPad(8);
             ulong sum;
             reader.GetValue(out sum);
-            AddChecksum(sum);
+            list.Add(sum);
         }
+        _checksums = list;
     }
 
     public string GetSumString()
@@ -121,6 +128,57 @@ internal class VxSchemaChecksum
                 return false;
 
         return true;
+    }
+
+    // Given a string containing database sums, returns their parsed version.
+    // Leading "0x" prefixes are optional, though all numbers are assumed to
+    // be hex.  The sums must be separated by spaces, e.g. "0xdeadbeef badf00d"
+    // Prints an error message and ignores any unparseable elements.
+    public static IEnumerable<ulong> ParseSumString(string dbsums)
+    {
+        return ParseSumString(dbsums, null);
+    }
+
+    // Acts just like ParseSumString(dbsums), but allows for providing 
+    // some context for errors.  If errctx isn't null, it's printed before any
+    // error messages produced.  A suitable string might be "Error while 
+    // reading file $filename: ".
+    public static IEnumerable<ulong> ParseSumString(string dbsums, 
+        string errctx)
+    {
+        if (dbsums == null)
+            return new List<ulong>();
+
+        string[] sums = dbsums.Split(' ');
+        var sumlist = new List<ulong>();
+        foreach (string sumstr in sums)
+        {
+            // Ignore trailing spaces.
+            if (sumstr.Length == 0)
+                continue;
+
+            // C#'s hex parser doesn't like 0x prefixes.
+            string stripped = sumstr.ToLower();
+            if (stripped.StartsWith("0x"))
+                stripped = stripped.Remove(0, 2);
+
+            ulong longsum;
+            if (UInt64.TryParse(stripped,
+                    System.Globalization.NumberStyles.HexNumber, null, 
+                    out longsum))
+            {
+                sumlist.Add(longsum);
+            }
+            else
+            {
+                WvLog log = new WvLog("ParseSumString");
+                string msg = wv.fmt("Failed to parse database sums '{0}' " + 
+                    "due to the malformed element '{1}'.\n", 
+                    dbsums, sumstr);
+                log.print("{0}{1}", errctx == null ? "" : errctx, msg);
+            }
+        }
+        return sumlist;
     }
 
     public static string GetDbusSignature()
