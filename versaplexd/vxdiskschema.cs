@@ -184,14 +184,16 @@ internal class VxDiskSchema : ISchemaBackend
     }
 
     // Reads a file from an on-disk exported schema, and sets the schema
-    // element parameter's text field and the sum parameter's checksums field.
-    // If either parameter is null, just loads the other.
-    // Returns true if the file passes its MD5 validation.  If it returns
-    // false, still sets the element's text field, but the sum parameter
-    // will have no sums in it.
-    public static bool ReadSchemaFile(string filename, VxSchemaElement elem, 
-        ref VxSchemaChecksum sum)
+    // element parameter's text field, if the schema element isn't null.
+    // Returns a new VxSchemaChecksum object containing the checksum.
+    // Returns true if the file passes its MD5 validation.  
+    // If it returns false, elem and sum may be set to null.  
+    private static bool ReadSchemaFile(string filename, string type, 
+        string name, out VxSchemaElement elem, out VxSchemaChecksum sum)
     {
+        elem = null;
+        sum = null;
+
         FileInfo fileinfo = new FileInfo(filename);
 
         // Read the entire file into memory.  C#'s file IO sucks.
@@ -216,8 +218,7 @@ internal class VxDiskSchema : ISchemaBackend
 
         // Read the body
         string body = utf8.GetString(bytes, ii, bytes.Length - ii);
-        if (elem != null)
-            elem.text = body;
+        elem = new VxSchemaElement(type, name, body, false);
 
         // Parse the header line
         char[] space = {' '};
@@ -273,13 +274,13 @@ internal class VxDiskSchema : ISchemaBackend
         if (sums != null && sums.ContainsKey(key))
             throw new ArgumentException("Conflicting sums key: " + key);
 
-        VxSchemaChecksum sum = new VxSchemaChecksum(key);
-        VxSchemaElement elem = new VxSchemaElement(type, name, "", false);
-        ReadSchemaFile(path, elem, ref sum);
+        VxSchemaChecksum sum;
+        VxSchemaElement elem;
+        ReadSchemaFile(path, type, name, out elem, out sum);
 
-        if (schema != null)
+        if (schema != null && elem != null)
             schema.Add(key, elem);
-        if (sums != null)
+        if (sums != null && sum != null)
             sums.Add(key, sum);
     }
 
