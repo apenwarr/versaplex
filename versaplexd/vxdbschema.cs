@@ -282,7 +282,7 @@ internal class VxDbSchema : ISchemaBackend
     }
 
     // Translate SqlExceptions from dbi.select into VxSqlExceptions.
-    private IEnumerable<WvAutoCast[]> DbiSelect(string query, 
+    private IEnumerable<WvSqlRow> DbiSelect(string query, 
         params object[] bound_vars)
     {
         log.print("In DbiSelect\n");
@@ -391,7 +391,7 @@ internal class VxDbSchema : ISchemaBackend
             drop table #checksum_calc";
 
 
-        foreach (WvAutoCast[] row in DbiSelect(query, encrypted))
+        foreach (WvSqlRow row in DbiSelect(query, encrypted))
         {
             string name = row[0];
             ulong checksum = 0;
@@ -449,7 +449,7 @@ internal class VxDbSchema : ISchemaBackend
                from #checksum_calc
            drop table #checksum_calc";
 
-        foreach (WvAutoCast[] row in DbiSelect(query))
+        foreach (WvSqlRow row in DbiSelect(query))
         {
             string name = row[0];
             ulong checksum = 0;
@@ -500,7 +500,7 @@ internal class VxDbSchema : ISchemaBackend
               from #checksum_calc
             drop table #checksum_calc";
 
-        foreach (WvAutoCast[] row in DbiSelect(query))
+        foreach (WvSqlRow row in DbiSelect(query))
         {
             string tablename = row[0];
             string indexname = row[1];
@@ -536,7 +536,7 @@ internal class VxDbSchema : ISchemaBackend
                 from #checksum_calc
             drop table #checksum_calc";
 
-        foreach (WvAutoCast[] row in DbiSelect(query))
+        foreach (WvSqlRow row in DbiSelect(query))
         {
             string schemaname = row[0];
             ulong checksum = 0;
@@ -579,7 +579,7 @@ internal class VxDbSchema : ISchemaBackend
         string query = RetrieveProcSchemasQuery(type, encrypted, false, names);
         log.print("Query={0}\n", query);
 
-        foreach (WvAutoCast[] row in DbiSelect(query))
+        foreach (WvSqlRow row in DbiSelect(query))
         {
             string name = row[0];
             //short colid = row[1];
@@ -632,13 +632,13 @@ internal class VxDbSchema : ISchemaBackend
             idxnames + 
           @" order by i.name, i.object_id, ic.index_column_id";
 
-        WvAutoCast[][] data = DbiSelect(query).ToArray();
+        WvSqlRow[] data = DbiSelect(query).ToArray();
 
         int old_colid = 0;
         List<string> cols = new List<string>();
         for (int ii = 0; ii < data.Length; ii++)
         {
-            WvAutoCast[] row = data[ii];
+            WvSqlRow row = data[ii];
 
             string tabname = row[0];
             string idxname = row[1];
@@ -655,7 +655,7 @@ internal class VxDbSchema : ISchemaBackend
 
             cols.Add(coldesc == 0 ? colname : colname + " DESC");
 
-            WvAutoCast[] nextrow = ((ii+1) < data.Length) ? data[ii+1] : null;
+            WvSqlRow nextrow = ((ii+1) < data.Length) ? data[ii+1] : null;
             string next_tabname = (nextrow != null) ? (string)nextrow[0] : null;
             string next_idxname = (nextrow != null) ? (string)nextrow[1] : null;
             
@@ -722,7 +722,7 @@ internal class VxDbSchema : ISchemaBackend
             do_again = false;
             string query = XmlSchemasQuery(count, names);
 
-            foreach (WvAutoCast[] row in DbiSelect(query))
+            foreach (WvSqlRow row in DbiSelect(query))
             {
                 string owner = row[0];
                 string name = row[1];
@@ -775,12 +775,12 @@ internal class VxDbSchema : ISchemaBackend
 	    tablenames + @"
 	  order by tabname, c.colorder, typ.status";
 
-        WvAutoCast[][] data = DbiSelect(query).ToArray();
+        WvSqlRow[] data = DbiSelect(query).ToArray();
 
         List<string> cols = new List<string>();
         for (int ii = 0; ii < data.Length; ii++)
         {
-            WvAutoCast[] row = data[ii];
+            WvSqlRow row = data[ii];
 
             string tabname = row[0];
             string colname = row[1];

@@ -131,16 +131,15 @@ namespace Wv.Extensions
 	    return wv.atod(o);
 	}
 	
-	public static WvAutoCast[] ToWvAutoCasts(this IDataRecord r)
+	public static WvSqlRow ToWvSqlRow(this IDataRecord r,
+						    DataTable s)
 	{
 	    int max = r.FieldCount;
 	    
 	    object[] oa = new object[max];
 	    r.GetValues(oa);
-	    
-	    WvAutoCast[] a = new WvAutoCast[max];
-	    for (int i = 0; i < max; i++)
-		a[i] = new WvAutoCast(oa[i]);
+
+	    WvSqlRow a = new WvSqlRow(oa, s);
 	    
 	    return a;
 	}
@@ -148,21 +147,22 @@ namespace Wv.Extensions
         // Combines ExecuteReader and ToWvAutoReader, so that we can control
         // the lifetime of the DataReader.  MSSQL gets mad if a connection has
         // multiple open DataReaders.
-        public static IEnumerable<WvAutoCast[]> 
-            ExecuteToWvAutoReader(this IDbCommand cmd)
+        public static IEnumerable<WvSqlRow>
+	    ExecuteToWvAutoReader(this IDbCommand cmd)
         {
             using (IDataReader e = cmd.ExecuteReader())
             {
+		DataTable s = e.GetSchemaTable();
                 while (e.Read())
-                    yield return e.ToWvAutoCasts();
+                    yield return e.ToWvSqlRow(s);
             }
         }
 
-	public static IEnumerable<WvAutoCast[]>
-	    ToWvAutoReader(this IDataReader e)
+	public static IEnumerable<WvSqlRow> ToWvAutoReader(this IDataReader e)
 	{
+	    DataTable s = e.GetSchemaTable();
 	    while (e.Read())
-		yield return e.ToWvAutoCasts();
+		yield return e.ToWvSqlRow(s);
 	}
     }
 }
