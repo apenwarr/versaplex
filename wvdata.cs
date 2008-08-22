@@ -188,18 +188,18 @@ namespace Wv
 
 	public IEnumerator<WvAutoCast> GetEnumerator()
 	{
-	    for (int i = 0; i < columns.Length; ++i)
+	    foreach (object colval in columns)
 	    {
-		yield return new WvAutoCast(columns[i]);
+		yield return new WvAutoCast(colval);
 	    }
 	}
 
 	IEnumerator IEnumerable.GetEnumerator()
 	{
 	    // I really hope nobody ever needs to use this
-	    for (int i = 0; i < columns.Length; ++i)
+	    foreach (object colval in columns)
 	    {
-		yield return columns[i];
+		yield return colval;
 	    }
 	}
     }
