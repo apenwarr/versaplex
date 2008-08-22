@@ -190,7 +190,7 @@ internal class VxDiskSchema : ISchemaBackend
     // false, still sets the element's text field, but the sum parameter
     // will have no sums in it.
     public static bool ReadSchemaFile(string filename, VxSchemaElement elem, 
-        VxSchemaChecksum sum)
+        ref VxSchemaChecksum sum)
     {
         FileInfo fileinfo = new FileInfo(filename);
 
@@ -265,7 +265,7 @@ internal class VxDiskSchema : ISchemaBackend
                         sumstr, filename);
                     // A bad checksum means the whole file is bad.
                     if (sum != null)
-                        sum.checksums.Clear();
+                        sum = new VxSchemaChecksum(sum.name);
                     return false;
                 }
                 if (sum != null)
@@ -296,7 +296,7 @@ internal class VxDiskSchema : ISchemaBackend
 
         VxSchemaChecksum sum = new VxSchemaChecksum(key);
         VxSchemaElement elem = new VxSchemaElement(type, name, "", false);
-        ReadSchemaFile(path, elem, sum);
+        ReadSchemaFile(path, elem, ref sum);
 
         if (schema != null)
             schema.Add(key, elem);

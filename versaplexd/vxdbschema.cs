@@ -186,7 +186,7 @@ internal class VxDbSchema : ISchemaBackend
                     string test_csum = "Procedure/schemamatic_checksum_test";
                     ulong got_csum = 0;
                     if (sums.ContainsKey(test_csum))
-                        got_csum = sums[test_csum].checksums[0];
+                        got_csum = sums[test_csum].checksums.First();
                     ulong want_csum = 0x173d6ee8;
                     if (want_csum != got_csum)
                     {

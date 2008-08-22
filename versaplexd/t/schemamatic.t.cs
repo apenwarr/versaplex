@@ -189,8 +189,8 @@ class SchemamaticTests : VersaplexTester
         sums = dbus.GetChecksums();
 
         WVASSERT(sums.ContainsKey("Procedure/Func1"));
-        WVPASSEQ(sums["Procedure/Func1"].checksums.Count, 1);
-        WVPASSEQ(sums["Procedure/Func1"].checksums[0], 0x55F9D9E3);
+        WVPASSEQ(sums["Procedure/Func1"].checksums.Count(), 1);
+        WVPASSEQ(sums["Procedure/Func1"].checksums.First(), 0x55F9D9E3);
 
         WVASSERT(VxExec("create procedure EncFunc with encryption as select '" + 
             msg2 + "'"));
@@ -203,10 +203,10 @@ class SchemamaticTests : VersaplexTester
 
         WVASSERT(sums.ContainsKey("Procedure/Func1"));
         WVASSERT(sums.ContainsKey("Procedure-Encrypted/EncFunc"));
-        WVPASSEQ(sums["Procedure/Func1"].checksums.Count, 1);
-        WVPASSEQ(sums["Procedure-Encrypted/EncFunc"].checksums.Count, 1);
-        WVPASSEQ(sums["Procedure/Func1"].checksums[0], 0x55F9D9E3);
-        WVPASSEQ(sums["Procedure-Encrypted/EncFunc"].checksums[0], 0xE5E9304F);
+        WVPASSEQ(sums["Procedure/Func1"].checksums.Count(), 1);
+        WVPASSEQ(sums["Procedure-Encrypted/EncFunc"].checksums.Count(), 1);
+        WVPASSEQ(sums["Procedure/Func1"].checksums.First(), 0x55F9D9E3);
+        WVPASSEQ(sums["Procedure-Encrypted/EncFunc"].checksums.First(), 0xE5E9304F);
 
         WVASSERT(VxExec("drop procedure EncFunc"));
 
@@ -215,8 +215,8 @@ class SchemamaticTests : VersaplexTester
 
         WVASSERT(sums.ContainsKey("Procedure/Func1"));
         WVFAIL(sums.ContainsKey("Procedure/EncFunc"));
-        WVPASSEQ(sums["Procedure/Func1"].checksums.Count, 1);
-        WVPASSEQ(sums["Procedure/Func1"].checksums[0], 0x55F9D9E3);
+        WVPASSEQ(sums["Procedure/Func1"].checksums.Count(), 1);
+        WVPASSEQ(sums["Procedure/Func1"].checksums.First(), 0x55F9D9E3);
 
         WVASSERT(VxExec("drop procedure Func1"));
     }
@@ -231,10 +231,10 @@ class SchemamaticTests : VersaplexTester
         sums = dbus.GetChecksums();
 
         // Three columns gives us three checksums
-        WVPASSEQ(sums["Table/Tab1"].checksums.Count, 3);
-        WVPASSEQ(sums["Table/Tab1"].checksums[0], 0xE8634548)
-        WVPASSEQ(sums["Table/Tab1"].checksums[1], 0xA5F77357)
-        WVPASSEQ(sums["Table/Tab1"].checksums[2], 0xE50EE702)
+        WVPASSEQ(sums["Table/Tab1"].checksums.Count(), 3);
+        WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(0), 0xE8634548)
+        WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(1), 0xA5F77357)
+        WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(2), 0xE50EE702)
 
         WVASSERT(VxExec("drop table Tab1"));
 
@@ -260,12 +260,12 @@ class SchemamaticTests : VersaplexTester
         VxSchemaChecksums sums;
         sums = dbus.GetChecksums();
 
-        WVPASSEQ(sums["Index/Tab1/Index1"].checksums.Count, 1);
-        WVPASSEQ(sums["Index/Tab1/Index1"].checksums[0], 0x62781FDD);
+        WVPASSEQ(sums["Index/Tab1/Index1"].checksums.Count(), 1);
+        WVPASSEQ(sums["Index/Tab1/Index1"].checksums.First(), 0x62781FDD);
         // An index on two columns will include two checksums
-        WVPASSEQ(sums["Index/Tab1/Index2"].checksums.Count, 2);
-        WVPASSEQ(sums["Index/Tab1/Index2"].checksums[0], 0x603EA184);
-        WVPASSEQ(sums["Index/Tab1/Index2"].checksums[1], 0x8FD2C903);
+        WVPASSEQ(sums["Index/Tab1/Index2"].checksums.Count(), 2);
+        WVPASSEQ(sums["Index/Tab1/Index2"].checksums.ElementAt(0), 0x603EA184);
+        WVPASSEQ(sums["Index/Tab1/Index2"].checksums.ElementAt(1), 0x8FD2C903);
 
         WVASSERT(VxExec("drop table Tab1"));
     }
@@ -279,8 +279,8 @@ class SchemamaticTests : VersaplexTester
         VxSchemaChecksums sums;
         sums = dbus.GetChecksums();
 
-        WVPASSEQ(sums["XMLSchema/TestSchema"].checksums.Count, 1);
-        WVPASSEQ(sums["XMLSchema/TestSchema"].checksums[0], 0xFA7736B3);
+        WVPASSEQ(sums["XMLSchema/TestSchema"].checksums.Count(), 1);
+        WVPASSEQ(sums["XMLSchema/TestSchema"].checksums.First(), 0xFA7736B3);
 
         WVASSERT(VxExec("drop xml schema collection TestSchema"));
 
@@ -1103,8 +1103,7 @@ class SchemamaticTests : VersaplexTester
         VxSchemaChecksums diffsums = new VxSchemaChecksums(newsums);
 
         newschema["Procedure/Func1"].text = func1q2;
-        newsums["Procedure/Func1"].checksums.Clear();
-        newsums["Procedure/Func1"].checksums.Add(123);
+        newsums.Add("Procedure/Func1", 123);
         newsums.Remove("XMLSchema/TestSchema");
         origsums.Remove("Index/Tab1/Idx1");
 

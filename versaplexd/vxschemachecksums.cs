@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 using NDesk.DBus;
@@ -17,17 +18,18 @@ internal class VxSchemaChecksum
         get { return _name; }
     }
 
-    List<ulong> _checksums;
-    public List<ulong> checksums {
+    IEnumerable<ulong> _checksums;
+    public IEnumerable<ulong> checksums {
         get { return _checksums; }
     }
 
     public VxSchemaChecksum(VxSchemaChecksum copy)
     {
         _name = copy.name;
-        _checksums = new List<ulong>();
+        var list = new List<ulong>();
         foreach (ulong sum in copy.checksums)
-            _checksums.Add(sum);
+            list.Add(sum);
+        _checksums = list;
     }
 
     public VxSchemaChecksum(string newname)
@@ -39,8 +41,9 @@ internal class VxSchemaChecksum
     public VxSchemaChecksum(string newname, ulong newchecksum)
     {
         _name = newname;
-        _checksums = new List<ulong>();
-        AddChecksum(newchecksum);
+        var list = new List<ulong>();
+        list.Add(newchecksum);
+        _checksums = list;
     }
 
     // Read a set of checksums from a DBus message into a VxSchemaChecksum.
@@ -88,7 +91,8 @@ internal class VxSchemaChecksum
 
     public void AddChecksum(ulong checksum)
     {
-        _checksums.Add(checksum);
+        ulong[] sumarr = {checksum};
+        _checksums = _checksums.Concat(sumarr);
     }
 
     // Note: it's unwise to override Object.Equals for mutable classes.
@@ -104,11 +108,16 @@ internal class VxSchemaChecksum
         if (this.name != other.name)
             return false;
 
-        if (this.checksums.Count != other.checksums.Count)
+        // FIXME: This can be replaced with Linq's SequenceEquals(), once
+        // we're using a version of mono that implements it (>= 1.9).
+        ulong[] mysums = this.checksums.ToArray();
+        ulong[] theirsums = other.checksums.ToArray();
+
+        if (mysums.Count() != theirsums.Count())
             return false;
 
-        for (int i = 0; i < this.checksums.Count; i++)
-            if (this.checksums[i] != other.checksums[i])
+        for (int i = 0; i < mysums.Count(); i++)
+            if (mysums[i] != theirsums[i])
                 return false;
 
         return true;
