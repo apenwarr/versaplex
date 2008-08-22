@@ -174,7 +174,7 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
             }, 8);
     }
 
-    public void Add(string name, ulong checksum)
+    public void AddSum(string name, ulong checksum)
     {
         if (this.ContainsKey(name))
             this[name].AddChecksum(checksum);

@@ -394,6 +394,11 @@ internal class VxDbSchema : ISchemaBackend
         foreach (WvSqlRow row in DbiSelect(query, encrypted))
         {
             string name = row[0];
+
+            // Ignore dt_* functions and sys* views
+            if (name.StartsWith("dt_") || name.StartsWith("sys"))
+                continue;
+
             ulong checksum = 0;
             foreach (byte b in (byte[])row[1])
             {
@@ -401,17 +406,13 @@ internal class VxDbSchema : ISchemaBackend
                 checksum |= b;
             }
 
-            // Ignore dt_* functions and sys* views
-            if (name.StartsWith("dt_") || name.StartsWith("sys"))
-                continue;
-
             // Fix characters not allowed in filenames
             name.Replace('/', '!');
             name.Replace('\n', '!');
             string key = String.Format("{0}{1}/{2}", type, encrypt_str, name);
 
             log.print("name={0}, checksum={1}, key={2}\n", name, checksum, key);
-            sums.Add(key, checksum);
+            sums.AddSum(key, checksum);
         }
     }
 
@@ -466,7 +467,7 @@ internal class VxDbSchema : ISchemaBackend
             string key = String.Format("Table/{0}", name);
 
             log.print("name={0}, checksum={1}, key={2}\n", name, checksum, key);
-            sums.Add(key, checksum);
+            sums.AddSum(key, checksum);
         }
     }
 
@@ -515,7 +516,7 @@ internal class VxDbSchema : ISchemaBackend
 
             log.print("tablename={0}, indexname={1}, checksum={2}, key={3}, colid={4}\n", 
                 tablename, indexname, checksum, key, (int)row[2]);
-            sums.Add(key, checksum);
+            sums.AddSum(key, checksum);
         }
     }
 
@@ -550,7 +551,7 @@ internal class VxDbSchema : ISchemaBackend
 
             log.print("schemaname={0}, checksum={1}, key={2}\n", 
                 schemaname, checksum, key);
-            sums.Add(key, checksum);
+            sums.AddSum(key, checksum);
         }
     }
 

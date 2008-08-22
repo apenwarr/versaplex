@@ -580,11 +580,11 @@ class SchemamaticTests : VersaplexTester
             schema.Add("ScalarFunction", "Func2", "Func2 contents", false);
 
             VxSchemaChecksums sums = new VxSchemaChecksums();
-            sums.Add("Table/Foo", 1);
-            sums.Add("Table/Bar", 2);
-            sums.Add("Procedure/Func1", 3);
-            sums.Add("Index/Foo/Index1", 4);
-            sums.Add("ScalarFunction/Func2", 5);
+            sums.AddSum("Table/Foo", 1);
+            sums.AddSum("Table/Bar", 2);
+            sums.AddSum("Procedure/Func1", 3);
+            sums.AddSum("Index/Foo/Index1", 4);
+            sums.AddSum("ScalarFunction/Func2", 5);
 
             backend.Put(schema, sums, VxPutOpts.None);
 
@@ -1038,15 +1038,15 @@ class SchemamaticTests : VersaplexTester
         VxSchemaChecksums goalsums = new VxSchemaChecksums();
         VxSchemaChecksums emptysums = new VxSchemaChecksums();
 
-        srcsums.Add("XMLSchema/secondxml", 2);
-        srcsums.Add("XMLSchema/firstxml", 1);
-        srcsums.Add("Index/Tab1/ConflictIndex", 3);
-        srcsums.Add("Table/HarmonyTable", 6);
+        srcsums.AddSum("XMLSchema/secondxml", 2);
+        srcsums.AddSum("XMLSchema/firstxml", 1);
+        srcsums.AddSum("Index/Tab1/ConflictIndex", 3);
+        srcsums.AddSum("Table/HarmonyTable", 6);
 
-        goalsums.Add("Table/NewTable", 3);
-        goalsums.Add("Procedure/NewFunc", 4);
-        goalsums.Add("Index/Tab1/ConflictIndex", 5);
-        goalsums.Add("Table/HarmonyTable", 6);
+        goalsums.AddSum("Table/NewTable", 3);
+        goalsums.AddSum("Procedure/NewFunc", 4);
+        goalsums.AddSum("Index/Tab1/ConflictIndex", 5);
+        goalsums.AddSum("Table/HarmonyTable", 6);
 
         VxSchemaDiff diff = new VxSchemaDiff(srcsums, goalsums);
 
@@ -1103,7 +1103,7 @@ class SchemamaticTests : VersaplexTester
         VxSchemaChecksums diffsums = new VxSchemaChecksums(newsums);
 
         newschema["Procedure/Func1"].text = func1q2;
-        newsums.Add("Procedure/Func1", 123);
+        newsums.AddSum("Procedure/Func1", 123);
         newsums.Remove("XMLSchema/TestSchema");
         origsums.Remove("Index/Tab1/Idx1");
 
@@ -1308,9 +1308,9 @@ class SchemamaticTests : VersaplexTester
         VxSchemaChecksums sums2 = new VxSchemaChecksums();
 
         schema1.Add("Table", "Tab1", "Random contents", false);
-        sums1.Add("Table/Tab1", 1);
+        sums1.AddSum("Table/Tab1", 1);
         schema2.Add("Table", "Tab2", "Random contents 2", false);
-        sums2.Add("Table/Tab2", 2);
+        sums2.AddSum("Table/Tab2", 2);
 
         string tmpdir = GetTempDir();
         try
@@ -1352,9 +1352,9 @@ class SchemamaticTests : VersaplexTester
         VxSchemaChecksums sums2 = new VxSchemaChecksums();
 
         schema1.Add("Procedure", "Func1", "Random contents", false);
-        sums1.Add("Procedure/Func1", 1);
+        sums1.AddSum("Procedure/Func1", 1);
         schema2.Add("Procedure", "Func1", "Random contents 2", false);
-        sums2.Add("Procedure/Func1", 2);
+        sums2.AddSum("Procedure/Func1", 2);
 
         string tmpdir = GetTempDir();
         try
