@@ -855,58 +855,54 @@ internal class VxDbSchema : ISchemaBackend
         log.print("GetSchemaData({0})", tablename);
         string query = "SELECT * FROM " + tablename;
 
+        bool did_preamble = false;
+        string prefix = "";
+        System.Type[] types = null;
+
         StringBuilder result = new StringBuilder();
         List<string> values = new List<string>();
-        try
+
+        foreach (WvSqlRow row in DbiSelect(query))
         {
-            // We need to get type information too, so we can't just call
-            // DbiExec.  This duplicates some of VxDb.ExecRecordset.
-            IDbCommand cmd = dbi.Conn.CreateCommand();
-            cmd.CommandText = query;
-            using (IDataReader reader = cmd.ExecuteReader())
+            if (!did_preamble)
             {
+                // Read the column name and type information for the query.
+                // We only need to do this once.
                 List<string> cols = new List<string>();
-                System.Type[] types = new System.Type[reader.FieldCount];
-                using (DataTable schema = reader.GetSchemaTable())
+                types = new System.Type[row.Length];
+
+                for (int ii = 0; ii < row.schema.DefaultView.Count; ii++)
                 {
-                    for (int ii = 0; ii < schema.DefaultView.Count; ii++)
-                    {
-                        DataRowView col = schema.DefaultView[ii];
-                        cols.Add("[" + col["ColumnName"].ToString() + "]");
-                        types[ii] = (System.Type)col["DataType"];
-                    }
+                    DataRowView col = row.schema.DefaultView[ii];
+                    cols.Add("[" + col["ColumnName"].ToString() + "]");
+                    types[ii] = (System.Type)col["DataType"];
                 }
 
-                string prefix = String.Format("INSERT INTO {0} ({1}) VALUES (", 
+                prefix = String.Format("INSERT INTO {0} ({1}) VALUES (", 
                     tablename, cols.Join(","));
 
-                while (reader.Read())
-                {
-                    values.Clear();
-                    for (int ii = 0; ii < reader.FieldCount; ii++)
-                    {
-                        bool isnull = reader.IsDBNull(ii);
-
-                        string elem = reader.GetValue(ii).ToString();
-                        if (isnull)
-                            values.Add("NULL");
-                        else if (types[ii] == typeof(System.String) || 
-                            types[ii] == typeof(System.DateTime))
-                        {
-                            // Double-quote chars for SQL safety
-                            string esc = elem.Replace("'", "''");
-                            values.Add("'" + esc + "'");
-                        }
-                        else
-                            values.Add(elem);
-                    }
-                    result.Append(prefix + values.Join(",") + ");\n");
-                }
+                did_preamble = true;
             }
-        }
-        catch (SqlException e)
-        {
-            throw new VxSqlException(e.Message, e);
+
+            values.Clear();
+            int colnum = 0;
+            foreach (WvAutoCast elem in row)
+            {
+                if (elem.IsNull)
+                    values.Add("NULL");
+                else if (types[colnum] == typeof(System.String) || 
+                    types[colnum] == typeof(System.DateTime))
+                {
+                    // Double-quote chars for SQL safety
+                    string esc = ((string)elem).Replace("'", "''");
+                    values.Add("'" + esc + "'");
+                }
+                else
+                    values.Add(elem);
+
+                colnum++;
+            }
+            result.Append(prefix + values.Join(",") + ");\n");
         }
 
         return result.ToString();

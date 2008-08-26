@@ -731,6 +731,12 @@ class SchemamaticTests : VersaplexTester
                 ii, ii + ".3400", "Hi" + ii));
         }
 
+        inserts.Add("INSERT INTO Tab1 ([f1],[f2],[f3]) " +
+            "VALUES (100,NULL,'');\n");
+        inserts.Add("INSERT INTO Tab1 ([f1],[f2],[f3]) " +
+            "VALUES (101,NULL," + 
+            "'This string''s good for \"testing\" escaping, isn''t it?');\n");
+
         foreach (string ins in inserts)
             WVASSERT(VxExec(ins));
 
