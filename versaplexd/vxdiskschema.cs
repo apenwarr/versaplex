@@ -117,6 +117,25 @@ internal class VxDiskSchema : ISchemaBackend
         return errs;
     }
 
+    public string GetSchemaData(string tablename, int seqnum)
+    {
+        string datadir = Path.Combine(exportdir, "DATA");
+        string filename = wv.fmt("{0}-{1}.sql", seqnum, tablename);
+        string fullpath = Path.Combine(datadir, filename);
+
+        return File.ReadAllText(fullpath);
+    }
+
+    public void PutSchemaData(string tablename, string text, int seqnum)
+    {
+        string datadir = Path.Combine(exportdir, "DATA");
+        string filename = wv.fmt("{0}-{1}.sql", seqnum, tablename);
+        string fullpath = Path.Combine(datadir, filename);
+
+        Directory.CreateDirectory(datadir);
+        File.WriteAllBytes(fullpath, text.ToUTF8());
+    }
+
     //
     // Non-ISchemaBackend methods
     //

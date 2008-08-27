@@ -850,7 +850,7 @@ internal class VxDbSchema : ISchemaBackend
 
     // Returns a blob of text that can be used with PutSchemaData to fill 
     // the given table.
-    public string GetSchemaData(string tablename)
+    public string GetSchemaData(string tablename, int seqnum)
     {
         log.print("GetSchemaData({0})", tablename);
         string query = "SELECT * FROM " + tablename;
@@ -910,7 +910,7 @@ internal class VxDbSchema : ISchemaBackend
 
     // Delete all rows from the given table and replace them with the given
     // data.  text is an opaque hunk of text returned from GetSchemaData.
-    public void PutSchemaData(string tablename, string text)
+    public void PutSchemaData(string tablename, string text, int seqnum)
     {
         log.print("Calling PutSchemaData on {0}\n", tablename);
         DbiExec(String.Format("DELETE FROM [{0}]", tablename));

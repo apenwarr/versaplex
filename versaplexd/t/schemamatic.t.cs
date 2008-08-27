@@ -651,6 +651,35 @@ class SchemamaticTests : VersaplexTester
         }
     }
 
+    [Test, Category("Schemamatic"), Category("PutSchemaData"), Category("DiskBackend")]
+    public void TestDiskPutData()
+    {
+        string tmpdir = GetTempDir();
+        try
+        {
+            Directory.CreateDirectory(tmpdir);
+            VxDiskSchema backend = new VxDiskSchema(tmpdir);
+
+            string filename = "10100-TestTable.sql";
+            string datadir = Path.Combine(tmpdir, "DATA");
+            string fullpath = Path.Combine(datadir, filename);
+            string contents = "Random\nContents\n";
+
+            backend.PutSchemaData("TestTable", contents, 10100);
+            WVPASS(Directory.Exists(datadir));
+            WVPASS(File.Exists(fullpath));
+            WVPASSEQ(File.ReadAllText(fullpath), contents);
+
+            WVPASSEQ(backend.GetSchemaData("TestTable", 10100), contents);
+        }
+        finally
+        {
+            Directory.Delete(tmpdir, true);
+            WVPASS(!Directory.Exists(tmpdir));
+        }
+
+    }
+
     [Test, Category("Schemamatic"), Category("PutSchema")]
     public void TestPutSchema()
     {
@@ -740,12 +769,12 @@ class SchemamaticTests : VersaplexTester
         foreach (string ins in inserts)
             WVASSERT(VxExec(ins));
 
-        WVPASSEQ(dbus.GetSchemaData("Tab1"), inserts.Join(""));
+        WVPASSEQ(dbus.GetSchemaData("Tab1", 0), inserts.Join(""));
 
         VxExec("drop table Tab1");
 
         try {
-            WVEXCEPT(dbus.GetSchemaData("Tab1"));
+            WVEXCEPT(dbus.GetSchemaData("Tab1", 0));
 	} catch (Wv.Test.WvAssertionFailure e) {
 	    throw e;
 	} catch (System.Exception e) {
@@ -756,10 +785,10 @@ class SchemamaticTests : VersaplexTester
 
         WVPASSEQ(VxPutSchema("Table", "Tab1", sc.tab1q, VxPutOpts.None), null);
 
-        WVPASSEQ(dbus.GetSchemaData("Tab1"), "");
+        WVPASSEQ(dbus.GetSchemaData("Tab1", 0), "");
 
-        dbus.PutSchemaData("Tab1", inserts.Join(""));
-        WVPASSEQ(dbus.GetSchemaData("Tab1"), inserts.Join(""));
+        dbus.PutSchemaData("Tab1", inserts.Join(""), 0);
+        WVPASSEQ(dbus.GetSchemaData("Tab1", 0), inserts.Join(""));
 
         sc.Cleanup();
     }

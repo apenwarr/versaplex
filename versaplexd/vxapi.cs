@@ -825,7 +825,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         using (WvDbi dbi = new WvDbi(VxSqlPool.TakeConnection(clientid)))
         {
             VxDbSchema backend = new VxDbSchema(dbi);
-            string schemadata = backend.GetSchemaData(tablename);
+            string schemadata = backend.GetSchemaData(tablename, 0);
             writer.Write(schemadata);
         }
 
@@ -857,7 +857,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         using (WvDbi dbi = new WvDbi(VxSqlPool.TakeConnection(clientid)))
         {
             VxDbSchema backend = new VxDbSchema(dbi);
-            backend.PutSchemaData(tablename, text);
+            backend.PutSchemaData(tablename, text, 0);
         }
 
         reply = VxDbus.CreateReply(call);

@@ -216,7 +216,7 @@ internal class VxDbusSchema : ISchemaBackend
     //
 
     // A method exported over DBus but not exposed in ISchemaBackend
-    public string GetSchemaData(string tablename)
+    public string GetSchemaData(string tablename, int seqnum)
     {
         Message call = CreateMethodCall("GetSchemaData", "s");
 
@@ -253,7 +253,7 @@ internal class VxDbusSchema : ISchemaBackend
     }
 
     // A method exported over DBus but not exposed in ISchemaBackend
-    public void PutSchemaData(string tablename, string text)
+    public void PutSchemaData(string tablename, string text, int seqnum)
     {
         Message call = CreateMethodCall("PutSchemaData", "ss");
 

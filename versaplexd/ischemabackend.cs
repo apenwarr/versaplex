@@ -18,6 +18,18 @@ internal interface ISchemaBackend
 
     // Removes the given elements from the schema.
     VxSchemaErrors DropSchema(IEnumerable<string> keys);
+
+    // Returns a blob of text that can be used with PutSchemaData to fill 
+    // the given table.
+    // Seqnum provides a hint about the priority of the table when batch
+    // processing, and is used to locate the file on disk.
+    string GetSchemaData(string tablename, int seqnum);
+
+    // Delete all rows from the given table and replace them with the given
+    // data.  text is an opaque hunk of text returned from GetSchemaData.
+    // Seqnum provides a hint about the priority of the table when batch
+    // processing, and is used to locate the file on disk.
+    void PutSchemaData(string tablename, string text, int seqnum);
 }
 
 [Flags]
