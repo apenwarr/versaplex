@@ -321,13 +321,11 @@ internal class VxDiskSchema : ISchemaBackend
                 i++;
             suffix = "-" + i;
         }
+
+        filename += suffix;
             
-        using(BinaryWriter file = new BinaryWriter(
-            File.Open(filename + suffix, FileMode.Create)))
-        {
-            log.print("Writing {0}\n", filename + suffix);
-            file.Write(elem.ToStringWithHeader(sum).ToUTF8());
-        }
+        log.print("Writing {0}\n", filename);
+        File.WriteAllBytes(filename, elem.ToStringWithHeader(sum).ToUTF8());
     }
 
 }
