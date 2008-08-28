@@ -29,7 +29,7 @@ namespace Wv
 	    this.v = v;
 	}
 	
-	public bool IsNull { get { return v == null; } }
+	public bool IsNull { get {return v == null || DBNull.Value.Equals(v);} }
 	
 	public static implicit operator string(WvAutoCast o)
 	{
@@ -126,6 +126,15 @@ namespace Wv
 		return (char)o.v;
 	    else
 		return Char.MinValue;
+	}
+
+	public static implicit operator Decimal(WvAutoCast o)
+	{
+	    // FIXME:  double/int to decimal conversions?
+	    if (o.v is Decimal)
+		return (Decimal)o.v;
+	    else
+		return Decimal.MinValue;
 	}
     }
     
