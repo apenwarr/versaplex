@@ -170,7 +170,6 @@ namespace Wv
     public class WvSqlRow : IEnumerable<WvAutoCast>
     {
 	private object[] columns;
-	private int curindex = -1;
 	
 	public DataTable schema;
 	
