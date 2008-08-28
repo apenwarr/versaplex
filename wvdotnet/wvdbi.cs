@@ -157,6 +157,24 @@ namespace Wv
 	    if (need_add)
 		cmd.Prepare();
 	}
+
+	// WvSqlRows know their schema.  But, what if you get no rows back,
+	// and you REALLY need that schema information?  THEN you call this.
+	public DataTable statement_schema(string sql, params object[] args)
+	{
+	    IDbCommand cmd = prepare(sql, args.Length);
+	    if (args.Count() > 0)
+		bind(cmd, args);
+
+	    DataTable ret;
+	    // Kill that data reader in case it tries to stick around
+	    using (IDataReader e = cmd.ExecuteReader())
+	    {
+		ret = e.GetSchemaTable();
+	    }
+
+	    return ret;
+	}
 	
 	public IEnumerable<WvSqlRow> select(string sql,
 					       params object[] args)
