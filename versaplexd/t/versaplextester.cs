@@ -268,6 +268,261 @@ public class VersaplexTester: IDisposable
         return colinfolist.ToArray();
     }
 
+    internal bool VxChunkRecordset(string query, out VxColumnInfo[] colinfo,
+				    out object[][]data, out bool[][] nullity)
+    {
+	Console.WriteLine(" + VxChunkRecordset SQL Query: {0}", query);
+
+	Message call = VxDbusUtils.CreateMethodCall(bus, "ExecChunkRecordset", "s");
+	call.Header.Flags = HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
+
+	MessageWriter mw = new MessageWriter(Connection.NativeEndianness);
+	mw.Write(typeof(string), query);
+
+	call.Body = mw.ToArray();
+
+	bus.Send(call);
+
+	colinfo = null;
+	List<object[]> rowlist = new List<object[]>();
+	List<bool[]> rownulllist = new List<bool[]>();
+	while (true)
+	{
+	    object[][] tdata;
+	    bool[][] tnullity;
+	    Message tmp = bus.GetNext();
+	    if (tmp.Header.MessageType == MessageType.Signal)
+	    {
+		RecordsetWorker(tmp, out colinfo, out tdata, out tnullity);
+		rowlist.AddRange(tdata);
+		rownulllist.AddRange(tnullity);
+	    }
+	    else if (tmp.Header.MessageType == MessageType.Error)
+	    {
+		object errname;
+		if (!tmp.Header.Fields.TryGetValue(FieldCode.ErrorName,
+                        out errname))
+		    throw new Exception("D-Bus error received but no error "
+			+ "name given");
+
+		if (errname.ToString() == "vx.db.nomoredata")  // we want this
+		{
+		    data = rowlist.ToArray();
+		    nullity = rownulllist.ToArray();
+		    break;
+		}
+
+		object errsig;
+		if (!tmp.Header.Fields.TryGetValue(FieldCode.Signature,
+                        out errsig) || errsig.ToString() != "s")
+		    throw new DbusError(errname.ToString());
+
+		MessageReader mr = new MessageReader(tmp);
+
+		object errmsg;
+		mr.GetValue(typeof(string), out errmsg);
+
+		throw new DbusError(errname.ToString() + ": " +
+				    errmsg.ToString());
+	    }
+	    else
+	    {
+		throw new Exception("Unexpected D-Bus response; not a signal "
+                    +"or error.");
+	    }
+	}
+
+	return true;
+    }
+
+    internal bool RecordsetWorker(Message reply, out VxColumnInfo[] colinfo,
+				    out object[][] data, out bool[][] nullity)
+    {
+        object replysig;
+        if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
+                    out replysig))
+            throw new Exception("D-Bus reply had no signature");
+
+        if (replysig == null || replysig.ToString() != "a(issnny)vaay")
+            throw new Exception("D-Bus reply had invalid signature");
+
+        MessageReader reader = new MessageReader(reply);
+
+        // Read the column information
+        colinfo = ReadColInfo(reader);
+
+        Signature sig;
+        reader.GetValue(out sig);
+
+        // TODO: Check that sig matches colinfo
+        // Sig should be of the form a(...)
+
+        int arraysz;
+        reader.GetValue(out arraysz);
+
+        // The header is 8-byte aligned
+        reader.ReadPad(8);
+        int endpos = reader.Position + arraysz;
+
+        List<object[]> results = new List<object[]>();
+        while (reader.Position < endpos) {
+            object[] row = new object[colinfo.Length];
+
+            // Each structure element is 8-byte aligned
+            reader.ReadPad(8);
+
+            for (int i=0; i < row.Length; i++) {
+                switch (colinfo[i].VxColumnType) {
+                case VxColumnType.Int64:
+                {
+                    Console.WriteLine("Reading Int64 from pos {0}",
+                            reader.Position);
+                    long cell;
+                    reader.GetValue(out cell);
+                    row[i] = cell;
+                    break;
+                }
+                case VxColumnType.Int32:
+                {
+                    Console.WriteLine("Reading Int32 from pos {0}",
+                           reader.Position);
+                    int cell;
+                    reader.GetValue(out cell);
+                    row[i] = cell;
+                    break;
+                }
+                case VxColumnType.Int16:
+                {
+                    Console.WriteLine("Reading Int16 from pos {0}",
+                            reader.Position);
+                    short cell;
+                    reader.GetValue(out cell);
+                    row[i] = cell;
+                    break;
+                }
+                case VxColumnType.UInt8:
+                {
+                    Console.WriteLine("Reading UInt8 from pos {0}",
+                            reader.Position);
+                    byte cell;
+                    reader.GetValue(out cell);
+                    row[i] = cell;
+                    break;
+                }
+                case VxColumnType.Bool:
+                {
+                    Console.WriteLine("Reading Bool from pos {0}",
+                            reader.Position);
+                    bool cell;
+                    reader.GetValue(out cell);
+                    row[i] = cell;
+                    break;
+                }
+                case VxColumnType.Double:
+                {
+                    Console.WriteLine("Reading Double from pos {0}",
+                           reader.Position);
+                    double cell;
+                    reader.GetValue(out cell);
+                    row[i] = cell;
+                    break;
+                }
+                case VxColumnType.Uuid:
+                {
+                    Console.WriteLine("Reading UUID from pos {0}",
+                            reader.Position);
+                    string cell;
+                    reader.GetValue(out cell);
+
+                    if (cell == "") {
+                        row[i] = new Guid();
+                    } else {
+			row[i] = new Guid(cell);
+                    }
+                    break;
+                }
+                case VxColumnType.Binary:
+                {
+                    Console.WriteLine("Reading Binary from pos {0}",
+                           reader.Position);
+                    object cell;
+                    reader.GetValue(typeof(byte[]), out cell);
+                    row[i] = cell;
+                    break;
+                }
+                case VxColumnType.String:
+                {
+                    Console.WriteLine("Reading string from pos {0}",
+                            reader.Position);
+                    string cell;
+                    reader.GetValue(out cell);
+                    row[i] = cell;
+                    break;
+                }
+                case VxColumnType.DateTime:
+                {
+                    Console.WriteLine("Reading DateTime from pos {0}",
+                                reader.Position);
+                    long seconds;
+                    int microseconds;
+ 
+                    reader.ReadPad(8);
+                    reader.GetValue(out seconds);
+                    reader.GetValue(out microseconds);
+
+                    VxDbusDateTime dt = new VxDbusDateTime();
+                    dt.Seconds = seconds;
+                    dt.Microseconds = microseconds;
+
+                    row[i] = dt;
+		    break;
+                }
+                case VxColumnType.Decimal:
+                {
+                    Console.WriteLine("Reading Decimal from pos {0}",
+                           reader.Position);
+                    string cell;
+                    reader.GetValue(out cell);
+
+                    if (cell == "") {
+                        row[i] = new Decimal();
+                    } else {
+                        row[i] = Decimal.Parse(cell);
+                    }
+                    break;
+                }
+                default:
+                    throw new Exception("Invalid column type received");
+                }
+            }
+
+	    results.Add(row);
+        }
+
+        WVPASSEQ(reader.Position, endpos);
+        if (reader.Position != endpos)
+            throw new Exception("Position mismatch after reading data");
+ 
+        data = results.ToArray();
+
+        object rawnulls;
+        reader.GetValue(typeof(byte[][]), out rawnulls);
+
+        byte[][] rawnulls_typed = (byte[][])rawnulls;
+
+        nullity = new bool[rawnulls_typed.Length][];
+
+        for (int i=0; i < rawnulls_typed.Length; i++) {
+	    nullity[i] = new bool[rawnulls_typed[i].Length];
+
+	    for (int j=0; j < rawnulls_typed[i].Length; j++) {
+		nullity[i][j] = (rawnulls_typed[i][j] == 0) ? false : true;
+	    }
+        }
+
+	return true;
+    }
+
     internal bool VxRecordset(string query, out VxColumnInfo[] colinfo,
             out object[][] data, out bool[][] nullity)
     {
@@ -285,189 +540,7 @@ public class VersaplexTester: IDisposable
         switch (reply.Header.MessageType) {
         case MessageType.MethodReturn:
         {
-            object replysig;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out replysig))
-                throw new Exception("D-Bus reply had no signature");
-
-            if (replysig == null || replysig.ToString() != "a(issnny)vaay")
-                throw new Exception("D-Bus reply had invalid signature");
-
-            MessageReader reader = new MessageReader(reply);
-
-            // Read the column information
-            colinfo = ReadColInfo(reader);
-
-            Signature sig;
-            reader.GetValue(out sig);
-
-            // TODO: Check that sig matches colinfo
-            // Sig should be of the form a(...)
-
-            int arraysz;
-            reader.GetValue(out arraysz);
-
-            // The header is 8-byte aligned
-            reader.ReadPad(8);
-            int endpos = reader.Position + arraysz;
-
-            List<object[]> results = new List<object[]>();
-            while (reader.Position < endpos) {
-                object[] row = new object[colinfo.Length];
-
-                // Each structure element is 8-byte aligned
-                reader.ReadPad(8);
-
-                for (int i=0; i < row.Length; i++) {
-                    switch (colinfo[i].VxColumnType) {
-                    case VxColumnType.Int64:
-                    {
-                        Console.WriteLine("Reading Int64 from pos {0}",
-                                reader.Position);
-                        long cell;
-                        reader.GetValue(out cell);
-                        row[i] = cell;
-                        break;
-                    }
-                    case VxColumnType.Int32:
-                    {
-                        Console.WriteLine("Reading Int32 from pos {0}",
-                                reader.Position);
-                        int cell;
-                        reader.GetValue(out cell);
-                        row[i] = cell;
-                        break;
-                    }
-                    case VxColumnType.Int16:
-                    {
-                        Console.WriteLine("Reading Int16 from pos {0}",
-                                reader.Position);
-                        short cell;
-                        reader.GetValue(out cell);
-                        row[i] = cell;
-                        break;
-                    }
-                    case VxColumnType.UInt8:
-                    {
-                        Console.WriteLine("Reading UInt8 from pos {0}",
-                                reader.Position);
-                        byte cell;
-                        reader.GetValue(out cell);
-                        row[i] = cell;
-                        break;
-                    }
-                    case VxColumnType.Bool:
-                    {
-                        Console.WriteLine("Reading Bool from pos {0}",
-                                reader.Position);
-                        bool cell;
-                        reader.GetValue(out cell);
-                        row[i] = cell;
-                        break;
-                    }
-                    case VxColumnType.Double:
-                    {
-                        Console.WriteLine("Reading Double from pos {0}",
-                                reader.Position);
-                        double cell;
-                        reader.GetValue(out cell);
-                        row[i] = cell;
-                        break;
-                    }
-                    case VxColumnType.Uuid:
-                    {
-                        Console.WriteLine("Reading UUID from pos {0}",
-                                reader.Position);
-                        string cell;
-                        reader.GetValue(out cell);
-
-                        if (cell == "") {
-                            row[i] = new Guid();
-                        } else {
-                            row[i] = new Guid(cell);
-                        }
-                        break;
-                    }
-                    case VxColumnType.Binary:
-                    {
-                        Console.WriteLine("Reading Binary from pos {0}",
-                                reader.Position);
-                        object cell;
-                        reader.GetValue(typeof(byte[]), out cell);
-                        row[i] = cell;
-                        break;
-                    }
-                    case VxColumnType.String:
-                    {
-                        Console.WriteLine("Reading string from pos {0}",
-                                reader.Position);
-                        string cell;
-                        reader.GetValue(out cell);
-                        row[i] = cell;
-                        break;
-                    }
-                    case VxColumnType.DateTime:
-                    {
-                        Console.WriteLine("Reading DateTime from pos {0}",
-                                reader.Position);
-                        long seconds;
-                        int microseconds;
-                        
-                        reader.ReadPad(8);
-                        reader.GetValue(out seconds);
-                        reader.GetValue(out microseconds);
-
-                        VxDbusDateTime dt = new VxDbusDateTime();
-                        dt.Seconds = seconds;
-                        dt.Microseconds = microseconds;
-
-                        row[i] = dt;
-                        break;
-                    }
-                    case VxColumnType.Decimal:
-                    {
-                        Console.WriteLine("Reading Decimal from pos {0}",
-                                reader.Position);
-                        string cell;
-                        reader.GetValue(out cell);
-
-                        if (cell == "") {
-                            row[i] = new Decimal();
-                        } else {
-                            row[i] = Decimal.Parse(cell);
-                        }
-                        break;
-                    }
-                    default:
-                        throw new Exception("Invalid column type received");
-                    }
-                }
-
-                results.Add(row);
-            }
-
-            WVPASSEQ(reader.Position, endpos);
-            if (reader.Position != endpos)
-                throw new Exception("Position mismatch after reading data");
- 
-            data = results.ToArray();
-
-            object rawnulls;
-            reader.GetValue(typeof(byte[][]), out rawnulls);
-
-            byte[][] rawnulls_typed = (byte[][])rawnulls;
-
-            nullity = new bool[rawnulls_typed.Length][];
-
-            for (int i=0; i < rawnulls_typed.Length; i++) {
-                nullity[i] = new bool[rawnulls_typed[i].Length];
-
-                for (int j=0; j < rawnulls_typed[i].Length; j++) {
-                    nullity[i][j] = (rawnulls_typed[i][j] == 0) ? false : true;
-                }
-            }
-
-            return true;
+	    return RecordsetWorker(reply, out colinfo, out data, out nullity);
         }
         case MessageType.Error:
         {
