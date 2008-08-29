@@ -41,7 +41,7 @@ internal static class VxDb {
 	    VxDbInterfaceRouter.PrepareRecordsetWriter(colinfo, data, nulls);
 
 	Message signal = VxDbus.CreateSignal(sender,
-					string.Format("ChunkRecordsetSig {0}",
+					string.Format("ChunkRecordsetSig_{0}",
 							call.Header.Serial),
 				   	"a(issnny)vaay",
 					writer);
