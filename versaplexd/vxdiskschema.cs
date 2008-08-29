@@ -117,6 +117,25 @@ internal class VxDiskSchema : ISchemaBackend
         return errs;
     }
 
+    public string GetSchemaData(string tablename, int seqnum)
+    {
+        string datadir = Path.Combine(exportdir, "DATA");
+        string filename = wv.fmt("{0}-{1}.sql", seqnum, tablename);
+        string fullpath = Path.Combine(datadir, filename);
+
+        return File.ReadAllText(fullpath);
+    }
+
+    public void PutSchemaData(string tablename, string text, int seqnum)
+    {
+        string datadir = Path.Combine(exportdir, "DATA");
+        string filename = wv.fmt("{0}-{1}.sql", seqnum, tablename);
+        string fullpath = Path.Combine(datadir, filename);
+
+        Directory.CreateDirectory(datadir);
+        File.WriteAllBytes(fullpath, text.ToUTF8());
+    }
+
     //
     // Non-ISchemaBackend methods
     //
@@ -184,14 +203,16 @@ internal class VxDiskSchema : ISchemaBackend
     }
 
     // Reads a file from an on-disk exported schema, and sets the schema
-    // element parameter's text field and the sum parameter's checksums field.
-    // If either parameter is null, just loads the other.
-    // Returns true if the file passes its MD5 validation.  If it returns
-    // false, still sets the element's text field, but the sum parameter
-    // will have no sums in it.
-    public static bool ReadSchemaFile(string filename, VxSchemaElement elem, 
-        VxSchemaChecksum sum)
+    // element parameter's text field, if the schema element isn't null.
+    // Returns a new VxSchemaChecksum object containing the checksum.
+    // Returns true if the file passes its MD5 validation.  
+    // If it returns false, elem and sum may be set to null.  
+    private static bool ReadSchemaFile(string filename, string type, 
+        string name, out VxSchemaElement elem, out VxSchemaChecksum sum)
     {
+        elem = null;
+        sum = null;
+
         FileInfo fileinfo = new FileInfo(filename);
 
         // Read the entire file into memory.  C#'s file IO sucks.
@@ -216,8 +237,7 @@ internal class VxDiskSchema : ISchemaBackend
 
         // Read the body
         string body = utf8.GetString(bytes, ii, bytes.Length - ii);
-        if (elem != null)
-            elem.text = body;
+        elem = new VxSchemaElement(type, name, body, false);
 
         // Parse the header line
         char[] space = {' '};
@@ -237,44 +257,23 @@ internal class VxDiskSchema : ISchemaBackend
             (int)fileinfo.Length - ii);
         string content_md5 = md5.ToHex().ToLower();
 
+        IEnumerable<ulong> sumlist;
+
         // If the MD5 sums don't match, we want to make it obvious that the
         // database and local file aren't in sync, so we don't load any actual
         // checksums.  
         if (String.Compare(header_md5, content_md5, true) == 0)
         {
-            string[] sums = dbsum.Split(' ');
-            foreach (string sumstr in sums)
-            {
-                // Ignore trailing spaces.
-                if (sumstr.Length == 0)
-                    continue;
-
-                // C#'s hex parser doesn't like 0x prefixes.
-                string stripped = sumstr.ToLower();
-                if (stripped.StartsWith("0x"))
-                    stripped = stripped.Remove(0, 2);
-
-                ulong longsum;
-                if (!UInt64.TryParse(stripped,
-                        System.Globalization.NumberStyles.HexNumber, null, 
-                        out longsum))
-                {
-                    log.print(WvLog.L.Error, 
-                        "Failed to parse header line: " + 
-                        "malformed element '{0}' in {1}\n", 
-                        sumstr, filename);
-                    // A bad checksum means the whole file is bad.
-                    if (sum != null)
-                        sum.checksums.Clear();
-                    return false;
-                }
-                if (sum != null)
-                    sum.AddChecksum(longsum);
-            }
+            string errctx = wv.fmt("Error while reading file {0}: ", filename);
+            sumlist = VxSchemaChecksum.ParseSumString(dbsum, errctx);
         }
         else
+        {
             log.print(WvLog.L.Info, "Checksum mismatch for {0}\n", filename);
+            sumlist = new List<ulong>();
+        }
 
+        sum = new VxSchemaChecksum(elem.key, sumlist);
         return true;
     }
 
@@ -294,13 +293,13 @@ internal class VxDiskSchema : ISchemaBackend
         if (sums != null && sums.ContainsKey(key))
             throw new ArgumentException("Conflicting sums key: " + key);
 
-        VxSchemaChecksum sum = new VxSchemaChecksum(key);
-        VxSchemaElement elem = new VxSchemaElement(type, name, "", false);
-        ReadSchemaFile(path, elem, sum);
+        VxSchemaChecksum sum;
+        VxSchemaElement elem;
+        ReadSchemaFile(path, type, name, out elem, out sum);
 
-        if (schema != null)
+        if (schema != null && elem != null)
             schema.Add(key, elem);
-        if (sums != null)
+        if (sums != null && sum != null)
             sums.Add(key, sum);
     }
 
@@ -322,13 +321,11 @@ internal class VxDiskSchema : ISchemaBackend
                 i++;
             suffix = "-" + i;
         }
+
+        filename += suffix;
             
-        using(BinaryWriter file = new BinaryWriter(
-            File.Open(filename + suffix, FileMode.Create)))
-        {
-            log.print("Writing {0}\n", filename + suffix);
-            file.Write(elem.ToStringWithHeader(sum).ToUTF8());
-        }
+        log.print("Writing {0}\n", filename);
+        File.WriteAllBytes(filename, elem.ToStringWithHeader(sum).ToUTF8());
     }
 
 }

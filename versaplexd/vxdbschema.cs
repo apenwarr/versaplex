@@ -186,7 +186,7 @@ internal class VxDbSchema : ISchemaBackend
                     string test_csum = "Procedure/schemamatic_checksum_test";
                     ulong got_csum = 0;
                     if (sums.ContainsKey(test_csum))
-                        got_csum = sums[test_csum].checksums[0];
+                        got_csum = sums[test_csum].checksums.First();
                     ulong want_csum = 0x173d6ee8;
                     if (want_csum != got_csum)
                     {
@@ -394,6 +394,11 @@ internal class VxDbSchema : ISchemaBackend
         foreach (WvSqlRow row in DbiSelect(query, encrypted))
         {
             string name = row[0];
+
+            // Ignore dt_* functions and sys* views
+            if (name.StartsWith("dt_") || name.StartsWith("sys"))
+                continue;
+
             ulong checksum = 0;
             foreach (byte b in (byte[])row[1])
             {
@@ -401,17 +406,13 @@ internal class VxDbSchema : ISchemaBackend
                 checksum |= b;
             }
 
-            // Ignore dt_* functions and sys* views
-            if (name.StartsWith("dt_") || name.StartsWith("sys"))
-                continue;
-
             // Fix characters not allowed in filenames
             name.Replace('/', '!');
             name.Replace('\n', '!');
             string key = String.Format("{0}{1}/{2}", type, encrypt_str, name);
 
             log.print("name={0}, checksum={1}, key={2}\n", name, checksum, key);
-            sums.Add(key, checksum);
+            sums.AddSum(key, checksum);
         }
     }
 
@@ -466,7 +467,7 @@ internal class VxDbSchema : ISchemaBackend
             string key = String.Format("Table/{0}", name);
 
             log.print("name={0}, checksum={1}, key={2}\n", name, checksum, key);
-            sums.Add(key, checksum);
+            sums.AddSum(key, checksum);
         }
     }
 
@@ -515,7 +516,7 @@ internal class VxDbSchema : ISchemaBackend
 
             log.print("tablename={0}, indexname={1}, checksum={2}, key={3}, colid={4}\n", 
                 tablename, indexname, checksum, key, (int)row[2]);
-            sums.Add(key, checksum);
+            sums.AddSum(key, checksum);
         }
     }
 
@@ -550,7 +551,7 @@ internal class VxDbSchema : ISchemaBackend
 
             log.print("schemaname={0}, checksum={1}, key={2}\n", 
                 schemaname, checksum, key);
-            sums.Add(key, checksum);
+            sums.AddSum(key, checksum);
         }
     }
 
@@ -849,63 +850,59 @@ internal class VxDbSchema : ISchemaBackend
 
     // Returns a blob of text that can be used with PutSchemaData to fill 
     // the given table.
-    public string GetSchemaData(string tablename)
+    public string GetSchemaData(string tablename, int seqnum)
     {
         log.print("GetSchemaData({0})", tablename);
         string query = "SELECT * FROM " + tablename;
 
+        bool did_preamble = false;
+        string prefix = "";
+        System.Type[] types = null;
+
         StringBuilder result = new StringBuilder();
         List<string> values = new List<string>();
-        try
+
+        foreach (WvSqlRow row in DbiSelect(query))
         {
-            // We need to get type information too, so we can't just call
-            // DbiExec.  This duplicates some of VxDb.ExecRecordset.
-            IDbCommand cmd = dbi.Conn.CreateCommand();
-            cmd.CommandText = query;
-            using (IDataReader reader = cmd.ExecuteReader())
+            if (!did_preamble)
             {
+                // Read the column name and type information for the query.
+                // We only need to do this once.
                 List<string> cols = new List<string>();
-                System.Type[] types = new System.Type[reader.FieldCount];
-                using (DataTable schema = reader.GetSchemaTable())
+                types = new System.Type[row.Length];
+
+                for (int ii = 0; ii < row.schema.DefaultView.Count; ii++)
                 {
-                    for (int ii = 0; ii < schema.DefaultView.Count; ii++)
-                    {
-                        DataRowView col = schema.DefaultView[ii];
-                        cols.Add("[" + col["ColumnName"].ToString() + "]");
-                        types[ii] = (System.Type)col["DataType"];
-                    }
+                    DataRowView col = row.schema.DefaultView[ii];
+                    cols.Add("[" + col["ColumnName"].ToString() + "]");
+                    types[ii] = (System.Type)col["DataType"];
                 }
 
-                string prefix = String.Format("INSERT INTO {0} ({1}) VALUES (", 
+                prefix = String.Format("INSERT INTO {0} ({1}) VALUES (", 
                     tablename, cols.Join(","));
 
-                while (reader.Read())
-                {
-                    values.Clear();
-                    for (int ii = 0; ii < reader.FieldCount; ii++)
-                    {
-                        bool isnull = reader.IsDBNull(ii);
-
-                        string elem = reader.GetValue(ii).ToString();
-                        if (isnull)
-                            values.Add("NULL");
-                        else if (types[ii] == typeof(System.String) || 
-                            types[ii] == typeof(System.DateTime))
-                        {
-                            // Double-quote chars for SQL safety
-                            string esc = elem.Replace("'", "''");
-                            values.Add("'" + esc + "'");
-                        }
-                        else
-                            values.Add(elem);
-                    }
-                    result.Append(prefix + values.Join(",") + ");\n");
-                }
+                did_preamble = true;
             }
-        }
-        catch (SqlException e)
-        {
-            throw new VxSqlException(e.Message, e);
+
+            values.Clear();
+            int colnum = 0;
+            foreach (WvAutoCast elem in row)
+            {
+                if (elem.IsNull)
+                    values.Add("NULL");
+                else if (types[colnum] == typeof(System.String) || 
+                    types[colnum] == typeof(System.DateTime))
+                {
+                    // Double-quote chars for SQL safety
+                    string esc = ((string)elem).Replace("'", "''");
+                    values.Add("'" + esc + "'");
+                }
+                else
+                    values.Add(elem);
+
+                colnum++;
+            }
+            result.Append(prefix + values.Join(",") + ");\n");
         }
 
         return result.ToString();
@@ -913,7 +910,7 @@ internal class VxDbSchema : ISchemaBackend
 
     // Delete all rows from the given table and replace them with the given
     // data.  text is an opaque hunk of text returned from GetSchemaData.
-    public void PutSchemaData(string tablename, string text)
+    public void PutSchemaData(string tablename, string text, int seqnum)
     {
         log.print("Calling PutSchemaData on {0}\n", tablename);
         DbiExec(String.Format("DELETE FROM [{0}]", tablename));

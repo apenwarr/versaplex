@@ -29,7 +29,7 @@ namespace Wv
 	    this.v = v;
 	}
 	
-	public bool IsNull { get {return v == null || DBNull.Value.Equals(v);} }
+	public bool IsNull { get { return v == null || DBNull.Value.Equals(v); } }
 	
 	public static implicit operator string(WvAutoCast o)
 	{

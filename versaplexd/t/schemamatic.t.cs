@@ -189,8 +189,8 @@ class SchemamaticTests : VersaplexTester
         sums = dbus.GetChecksums();
 
         WVASSERT(sums.ContainsKey("Procedure/Func1"));
-        WVPASSEQ(sums["Procedure/Func1"].checksums.Count, 1);
-        WVPASSEQ(sums["Procedure/Func1"].checksums[0], 0x55F9D9E3);
+        WVPASSEQ(sums["Procedure/Func1"].checksums.Count(), 1);
+        WVPASSEQ(sums["Procedure/Func1"].checksums.First(), 0x55F9D9E3);
 
         WVASSERT(VxExec("create procedure EncFunc with encryption as select '" + 
             msg2 + "'"));
@@ -203,10 +203,10 @@ class SchemamaticTests : VersaplexTester
 
         WVASSERT(sums.ContainsKey("Procedure/Func1"));
         WVASSERT(sums.ContainsKey("Procedure-Encrypted/EncFunc"));
-        WVPASSEQ(sums["Procedure/Func1"].checksums.Count, 1);
-        WVPASSEQ(sums["Procedure-Encrypted/EncFunc"].checksums.Count, 1);
-        WVPASSEQ(sums["Procedure/Func1"].checksums[0], 0x55F9D9E3);
-        WVPASSEQ(sums["Procedure-Encrypted/EncFunc"].checksums[0], 0xE5E9304F);
+        WVPASSEQ(sums["Procedure/Func1"].checksums.Count(), 1);
+        WVPASSEQ(sums["Procedure-Encrypted/EncFunc"].checksums.Count(), 1);
+        WVPASSEQ(sums["Procedure/Func1"].checksums.First(), 0x55F9D9E3);
+        WVPASSEQ(sums["Procedure-Encrypted/EncFunc"].checksums.First(), 0xE5E9304F);
 
         WVASSERT(VxExec("drop procedure EncFunc"));
 
@@ -215,8 +215,8 @@ class SchemamaticTests : VersaplexTester
 
         WVASSERT(sums.ContainsKey("Procedure/Func1"));
         WVFAIL(sums.ContainsKey("Procedure/EncFunc"));
-        WVPASSEQ(sums["Procedure/Func1"].checksums.Count, 1);
-        WVPASSEQ(sums["Procedure/Func1"].checksums[0], 0x55F9D9E3);
+        WVPASSEQ(sums["Procedure/Func1"].checksums.Count(), 1);
+        WVPASSEQ(sums["Procedure/Func1"].checksums.First(), 0x55F9D9E3);
 
         WVASSERT(VxExec("drop procedure Func1"));
     }
@@ -231,10 +231,10 @@ class SchemamaticTests : VersaplexTester
         sums = dbus.GetChecksums();
 
         // Three columns gives us three checksums
-        WVPASSEQ(sums["Table/Tab1"].checksums.Count, 3);
-        WVPASSEQ(sums["Table/Tab1"].checksums[0], 0xE8634548)
-        WVPASSEQ(sums["Table/Tab1"].checksums[1], 0xA5F77357)
-        WVPASSEQ(sums["Table/Tab1"].checksums[2], 0xE50EE702)
+        WVPASSEQ(sums["Table/Tab1"].checksums.Count(), 3);
+        WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(0), 0xE8634548)
+        WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(1), 0xA5F77357)
+        WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(2), 0xE50EE702)
 
         WVASSERT(VxExec("drop table Tab1"));
 
@@ -260,12 +260,12 @@ class SchemamaticTests : VersaplexTester
         VxSchemaChecksums sums;
         sums = dbus.GetChecksums();
 
-        WVPASSEQ(sums["Index/Tab1/Index1"].checksums.Count, 1);
-        WVPASSEQ(sums["Index/Tab1/Index1"].checksums[0], 0x62781FDD);
+        WVPASSEQ(sums["Index/Tab1/Index1"].checksums.Count(), 1);
+        WVPASSEQ(sums["Index/Tab1/Index1"].checksums.First(), 0x62781FDD);
         // An index on two columns will include two checksums
-        WVPASSEQ(sums["Index/Tab1/Index2"].checksums.Count, 2);
-        WVPASSEQ(sums["Index/Tab1/Index2"].checksums[0], 0x603EA184);
-        WVPASSEQ(sums["Index/Tab1/Index2"].checksums[1], 0x8FD2C903);
+        WVPASSEQ(sums["Index/Tab1/Index2"].checksums.Count(), 2);
+        WVPASSEQ(sums["Index/Tab1/Index2"].checksums.ElementAt(0), 0x603EA184);
+        WVPASSEQ(sums["Index/Tab1/Index2"].checksums.ElementAt(1), 0x8FD2C903);
 
         WVASSERT(VxExec("drop table Tab1"));
     }
@@ -279,8 +279,8 @@ class SchemamaticTests : VersaplexTester
         VxSchemaChecksums sums;
         sums = dbus.GetChecksums();
 
-        WVPASSEQ(sums["XMLSchema/TestSchema"].checksums.Count, 1);
-        WVPASSEQ(sums["XMLSchema/TestSchema"].checksums[0], 0xFA7736B3);
+        WVPASSEQ(sums["XMLSchema/TestSchema"].checksums.Count(), 1);
+        WVPASSEQ(sums["XMLSchema/TestSchema"].checksums.First(), 0xFA7736B3);
 
         WVASSERT(VxExec("drop xml schema collection TestSchema"));
 
@@ -580,11 +580,11 @@ class SchemamaticTests : VersaplexTester
             schema.Add("ScalarFunction", "Func2", "Func2 contents", false);
 
             VxSchemaChecksums sums = new VxSchemaChecksums();
-            sums.Add("Table/Foo", 1);
-            sums.Add("Table/Bar", 2);
-            sums.Add("Procedure/Func1", 3);
-            sums.Add("Index/Foo/Index1", 4);
-            sums.Add("ScalarFunction/Func2", 5);
+            sums.AddSum("Table/Foo", 1);
+            sums.AddSum("Table/Bar", 2);
+            sums.AddSum("Procedure/Func1", 3);
+            sums.AddSum("Index/Foo/Index1", 4);
+            sums.AddSum("ScalarFunction/Func2", 5);
 
             backend.Put(schema, sums, VxPutOpts.None);
 
@@ -649,6 +649,35 @@ class SchemamaticTests : VersaplexTester
             Directory.Delete(tmpdir, true);
             WVPASS(!Directory.Exists(tmpdir));
         }
+    }
+
+    [Test, Category("Schemamatic"), Category("PutSchemaData"), Category("DiskBackend")]
+    public void TestDiskPutData()
+    {
+        string tmpdir = GetTempDir();
+        try
+        {
+            Directory.CreateDirectory(tmpdir);
+            VxDiskSchema backend = new VxDiskSchema(tmpdir);
+
+            string filename = "10100-TestTable.sql";
+            string datadir = Path.Combine(tmpdir, "DATA");
+            string fullpath = Path.Combine(datadir, filename);
+            string contents = "Random\nContents\n";
+
+            backend.PutSchemaData("TestTable", contents, 10100);
+            WVPASS(Directory.Exists(datadir));
+            WVPASS(File.Exists(fullpath));
+            WVPASSEQ(File.ReadAllText(fullpath), contents);
+
+            WVPASSEQ(backend.GetSchemaData("TestTable", 10100), contents);
+        }
+        finally
+        {
+            Directory.Delete(tmpdir, true);
+            WVPASS(!Directory.Exists(tmpdir));
+        }
+
     }
 
     [Test, Category("Schemamatic"), Category("PutSchema")]
@@ -731,15 +760,21 @@ class SchemamaticTests : VersaplexTester
                 ii, ii + ".3400", "Hi" + ii));
         }
 
+        inserts.Add("INSERT INTO Tab1 ([f1],[f2],[f3]) " +
+            "VALUES (100,NULL,'');\n");
+        inserts.Add("INSERT INTO Tab1 ([f1],[f2],[f3]) " +
+            "VALUES (101,NULL," + 
+            "'This string''s good for \"testing\" escaping, isn''t it?');\n");
+
         foreach (string ins in inserts)
             WVASSERT(VxExec(ins));
 
-        WVPASSEQ(dbus.GetSchemaData("Tab1"), inserts.Join(""));
+        WVPASSEQ(dbus.GetSchemaData("Tab1", 0), inserts.Join(""));
 
         VxExec("drop table Tab1");
 
         try {
-            WVEXCEPT(dbus.GetSchemaData("Tab1"));
+            WVEXCEPT(dbus.GetSchemaData("Tab1", 0));
 	} catch (Wv.Test.WvAssertionFailure e) {
 	    throw e;
 	} catch (System.Exception e) {
@@ -750,10 +785,10 @@ class SchemamaticTests : VersaplexTester
 
         WVPASSEQ(VxPutSchema("Table", "Tab1", sc.tab1q, VxPutOpts.None), null);
 
-        WVPASSEQ(dbus.GetSchemaData("Tab1"), "");
+        WVPASSEQ(dbus.GetSchemaData("Tab1", 0), "");
 
-        dbus.PutSchemaData("Tab1", inserts.Join(""));
-        WVPASSEQ(dbus.GetSchemaData("Tab1"), inserts.Join(""));
+        dbus.PutSchemaData("Tab1", inserts.Join(""), 0);
+        WVPASSEQ(dbus.GetSchemaData("Tab1", 0), inserts.Join(""));
 
         sc.Cleanup();
     }
@@ -1038,15 +1073,15 @@ class SchemamaticTests : VersaplexTester
         VxSchemaChecksums goalsums = new VxSchemaChecksums();
         VxSchemaChecksums emptysums = new VxSchemaChecksums();
 
-        srcsums.Add("XMLSchema/secondxml", 2);
-        srcsums.Add("XMLSchema/firstxml", 1);
-        srcsums.Add("Index/Tab1/ConflictIndex", 3);
-        srcsums.Add("Table/HarmonyTable", 6);
+        srcsums.AddSum("XMLSchema/secondxml", 2);
+        srcsums.AddSum("XMLSchema/firstxml", 1);
+        srcsums.AddSum("Index/Tab1/ConflictIndex", 3);
+        srcsums.AddSum("Table/HarmonyTable", 6);
 
-        goalsums.Add("Table/NewTable", 3);
-        goalsums.Add("Procedure/NewFunc", 4);
-        goalsums.Add("Index/Tab1/ConflictIndex", 5);
-        goalsums.Add("Table/HarmonyTable", 6);
+        goalsums.AddSum("Table/NewTable", 3);
+        goalsums.AddSum("Procedure/NewFunc", 4);
+        goalsums.AddSum("Index/Tab1/ConflictIndex", 5);
+        goalsums.AddSum("Table/HarmonyTable", 6);
 
         VxSchemaDiff diff = new VxSchemaDiff(srcsums, goalsums);
 
@@ -1103,8 +1138,7 @@ class SchemamaticTests : VersaplexTester
         VxSchemaChecksums diffsums = new VxSchemaChecksums(newsums);
 
         newschema["Procedure/Func1"].text = func1q2;
-        newsums["Procedure/Func1"].checksums.Clear();
-        newsums["Procedure/Func1"].checksums.Add(123);
+        newsums.AddSum("Procedure/Func1", 123);
         newsums.Remove("XMLSchema/TestSchema");
         origsums.Remove("Index/Tab1/Idx1");
 
@@ -1309,9 +1343,9 @@ class SchemamaticTests : VersaplexTester
         VxSchemaChecksums sums2 = new VxSchemaChecksums();
 
         schema1.Add("Table", "Tab1", "Random contents", false);
-        sums1.Add("Table/Tab1", 1);
+        sums1.AddSum("Table/Tab1", 1);
         schema2.Add("Table", "Tab2", "Random contents 2", false);
-        sums2.Add("Table/Tab2", 2);
+        sums2.AddSum("Table/Tab2", 2);
 
         string tmpdir = GetTempDir();
         try
@@ -1353,9 +1387,9 @@ class SchemamaticTests : VersaplexTester
         VxSchemaChecksums sums2 = new VxSchemaChecksums();
 
         schema1.Add("Procedure", "Func1", "Random contents", false);
-        sums1.Add("Procedure/Func1", 1);
+        sums1.AddSum("Procedure/Func1", 1);
         schema2.Add("Procedure", "Func1", "Random contents 2", false);
-        sums2.Add("Procedure/Func1", 2);
+        sums2.AddSum("Procedure/Func1", 2);
 
         string tmpdir = GetTempDir();
         try
