@@ -50,7 +50,7 @@ TESTHEADERS=$(wildcard *.h)
 TESTOBJS=$(patsubst %.cc,%.o,$(TESTSOURCES))
 
 TESTS=versaplex.t.pass vxsanity.t.pass verifydata.t.pass schemamatic.t.pass \
-    vxschemachecksums.t.pass
+    vxexecchunkrecordset.t.pass vxschemachecksums.t.pass
 TESTEXES=$(patsubst %.pass,%.exe,$(TESTS))
 
 default: test
@@ -76,6 +76,10 @@ verifydata.t.exe: verifydata.t.cs.E versaplextester.cs.E \
 
 schemamatic.t.exe: schemamatic.t.cs.E versaplextester.cs.E \
 	$(VX_SOURCES) $(SCHEMAMATIC_SOURCES) \
+	../wv.dll ../NDesk.DBus.dll
+
+vxexecchunkrecordset.t.exe: vxexecchunkrecordset.t.cs.E versaplextester.cs.E \
+	$(VX_SOURCES) \
 	../wv.dll ../NDesk.DBus.dll
 
 vxschemachecksums.t.exe: vxschemachecksums.t.cs.E \
