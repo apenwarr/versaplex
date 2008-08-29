@@ -90,6 +90,15 @@ public class VersaplexTester: IDisposable
 	con = null;
     }
 
+    public static string GetTempDir()
+    {
+        WvLog log = new WvLog("GetTempDir");
+        string t = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        log.print("Using temporary directory " + t + "\n");
+
+        return t;
+    }
+
     bool Connect(SqlConnection connection)
     {
 	connection.Open();
