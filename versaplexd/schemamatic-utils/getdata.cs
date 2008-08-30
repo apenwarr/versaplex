@@ -204,13 +204,17 @@ public static class GetData
                         data.Append(wv.fmt("DELETE FROM [{0}]\n\n", table));
                     else
                     {
+                        List<string> todelete = new List<string>();
                         foreach (var p in dbsums)
                         {
                             string type, name;
                             VxSchema.ParseKey(p.Value.name, out type, out name);
                             if (type == "Table")
-                                data.Append(wv.fmt("DELETE FROM [{0}]\n", name));
+                                todelete.Add(name);
                         }
+                        todelete.Sort();
+                        foreach (string name in todelete)
+                            data.Append(wv.fmt("DELETE FROM [{0}]\n", name));
                     }
                 }
                 cmd.table = "ZAP";
