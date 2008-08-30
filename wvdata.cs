@@ -40,6 +40,8 @@ namespace Wv
 	{
 	    if (v == null)
 		return "(nil)"; // shouldn't return null since this != null
+            else if (v is Boolean)
+                return intify().ToString();
 	    else
 		return v.ToString();
 	}
@@ -71,6 +73,8 @@ namespace Wv
 		return (Int16)v;
 	    else if (v is Byte)
 		return (Byte)v;
+            else if (v is Boolean)
+                return (Boolean)v ? 1 : 0;
 	    else
 		return wv.atoi(v);
 	}
@@ -114,6 +118,8 @@ namespace Wv
 		return (Int16)o.v;
 	    else if (o.v is Byte)
 		return (Byte)o.v;
+            else if (o.v is Boolean)
+                return (Boolean)o.v ? 1.0 : 0.0;
 	    else
 		return wv.atod(o.v);
 	}
