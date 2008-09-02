@@ -6,14 +6,10 @@ using NDesk.DBus;
 
 public static class Apply
 {
-    static void DoApply(string bus_moniker, string exportdir, bool dry_run)
+    static void DoApply(string bus_moniker, string exportdir, VxCopyOpts opts)
     {
         VxDbusSchema dbus = new VxDbusSchema(bus_moniker);
         VxDiskSchema disk = new VxDiskSchema(exportdir);
-
-        VxCopyOpts opts = VxCopyOpts.Verbose;
-        if (dry_run)
-            opts |= VxCopyOpts.DryRun;
 
         VxSchemaErrors errs = VxSchema.CopySchema(disk, dbus, opts);
 
@@ -28,12 +24,14 @@ public static class Apply
     static void ShowHelp()
     {
         Console.Error.WriteLine(
-            @"Usage: apply [-b dbus-moniker] [--dry-run] <inputdir>
+            @"Usage: apply [-b dbus-moniker] [--dry-run] [--force] <inputdir>
   Updates an SQL schema from inputdir to Versaplex
 
   -b: specifies the dbus moniker to connect to.  If not provided, uses
       DBUS_SESSION_BUS_ADDRESS.
   --dry-run: lists the files that would be changed but doesn't modify them.
+  -f --force: performs potentially destructive operations, such as 
+      dropping and re-adding a table.
 ");
     }
 
@@ -43,11 +41,12 @@ public static class Apply
 
         string bus = null;
         string exportdir = null;
-        bool dry_run = false;
+        VxCopyOpts opts = VxCopyOpts.Verbose;
 
         var extra = new OptionSet()
             .Add("b=|bus=", delegate(string v) { bus = v; } )
-            .Add("dry-run", delegate(string v) { dry_run = (v != null); } )
+            .Add("dry-run", delegate(string v) { opts |= VxCopyOpts.DryRun; } )
+            .Add("f|force", delegate(string v) { opts |= VxCopyOpts.Destructive; } )
             .Parse(args);
 
         if (extra.Count != 1)
@@ -71,6 +70,6 @@ public static class Apply
         log.print("Reading from '{0}'\n", exportdir);
         log.print("Connecting to '{0}'\n", bus);
 
-        DoApply(bus, exportdir, dry_run);
+        DoApply(bus, exportdir, opts);
     }
 }

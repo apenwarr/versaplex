@@ -14,6 +14,7 @@ public enum VxCopyOpts : int
     DryRun = 0x1,
     ShowProgress = 0x2, 
     ShowDiff = 0x4, 
+    Destructive = 0x8,
 
     Verbose = ShowProgress | ShowDiff,
 }
@@ -302,6 +303,7 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
 
         bool show_diff = (opts & VxCopyOpts.ShowDiff) != 0;
         bool dry_run = (opts & VxCopyOpts.DryRun) != 0;
+        bool destructive = (opts & VxCopyOpts.Destructive) != 0;
 
         log.print("Retrieving schema checksums from source.\n");
         VxSchemaChecksums srcsums = source.GetChecksums();
@@ -367,10 +369,13 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
             drop_errs = dest.DropSchema(to_drop);
         }
 
+        VxPutOpts putopts = VxPutOpts.None;
+        if (destructive)
+            putopts |= VxPutOpts.Destructive;
         if (names.Count > 0)
         {
             log.print("Updating and adding elements.\n");
-            put_errs = dest.Put(to_put, srcsums, VxPutOpts.None);
+            put_errs = dest.Put(to_put, srcsums, putopts);
         }
 
         // Combine the two sets of errors.
