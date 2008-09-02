@@ -893,8 +893,18 @@ internal class VxDbSchema : ISchemaBackend
                 else if (types[colnum] == typeof(System.String) || 
                     types[colnum] == typeof(System.DateTime))
                 {
+                    string str;
+                    // The default formatting is locale-dependent, and stupid.
+                    if (types[colnum] == typeof(System.DateTime))
+                    {
+                        str = ((DateTime)elem).ToString(
+                            "yyyy-MM-dd HH:mm:ss.fff");
+                    }
+                    else
+                        str = (string)elem;
+
                     // Double-quote chars for SQL safety
-                    string esc = ((string)elem).Replace("'", "''");
+                    string esc = str.Replace("'", "''");
                     values.Add("'" + esc + "'");
                 }
                 else
