@@ -853,6 +853,25 @@ internal class VxDbSchema : ISchemaBackend
     public string GetSchemaData(string tablename, int seqnum)
     {
         log.print("GetSchemaData({0})", tablename);
+
+        string ident_query = @"select 
+            columnproperty(t.id, c.name, 'IsIdentity') isident
+	  from sysobjects t
+	  join syscolumns c on t.id = c.id 
+	  where t.xtype = 'U'
+            and t.name = '" + tablename + "'";
+
+        bool has_ident = false;
+        foreach (WvSqlRow row in dbi.select(ident_query))
+        {
+            int isident = row[0];
+            if (isident > 0)
+            {
+                has_ident = true;
+                break;
+            }
+        }
+
         string query = "SELECT * FROM " + tablename;
 
         bool did_preamble = false;
@@ -915,6 +934,12 @@ internal class VxDbSchema : ISchemaBackend
             result.Append(prefix + values.Join(",") + ");\n");
         }
 
+        if (has_ident)
+        {
+            return "SET IDENTITY_INSERT [" + tablename + "] ON;\n" + "GO\n" +
+                result.ToString() + "GO\n" + 
+                "SET IDENTITY_INSERT [" + tablename + "] OFF;\n";
+        }
         return result.ToString();
     }
 
