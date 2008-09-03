@@ -951,7 +951,12 @@ internal class VxDbSchema : ISchemaBackend
     public void PutSchemaData(string tablename, string text, int seqnum)
     {
         log.print("Calling PutSchemaData on {0}\n", tablename);
-        DbiExec(String.Format("DELETE FROM [{0}]", tablename));
+        // There may be extra static files in the DATA/ directory that 
+        // Schemamatic didn't create and don't have an official table name, 
+        // but that we still want to run.  So if the tablename is empty, 
+        // don't do anything fancy but still run the query.
+        if (!String.IsNullOrEmpty(tablename))
+            DbiExec(String.Format("DELETE FROM [{0}]", tablename));
         DbiExec(text);
     }
 }
