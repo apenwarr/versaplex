@@ -211,16 +211,14 @@ internal class VxDbusSchema : ISchemaBackend
         }
     }
     
-    //
-    // Non-ISchemaBackend methods
-    //
-
-    // A method exported over DBus but not exposed in ISchemaBackend
     public string GetSchemaData(string tablename, int seqnum, string where)
     {
         Message call = CreateMethodCall("GetSchemaData", "ss");
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+
+        if (where == null)
+            where = "";
 
         writer.Write(typeof(string), tablename);
         writer.Write(typeof(string), where);
@@ -253,7 +251,6 @@ internal class VxDbusSchema : ISchemaBackend
         }
     }
 
-    // A method exported over DBus but not exposed in ISchemaBackend
     public void PutSchemaData(string tablename, string text, int seqnum)
     {
         Message call = CreateMethodCall("PutSchemaData", "ss");
@@ -284,6 +281,10 @@ internal class VxDbusSchema : ISchemaBackend
                     +"error");
         }
     }
+
+    //
+    // Non-ISchemaBackend methods
+    //
 
     // Use our Bus object to create a method call.
     public Message CreateMethodCall(string member, string signature)
