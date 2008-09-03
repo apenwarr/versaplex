@@ -53,7 +53,7 @@ internal class VxDbSchema : ISchemaBackend
     public VxSchemaErrors Put(VxSchema schema, VxSchemaChecksums sums, 
         VxPutOpts opts)
     {
-        log.print("Put");
+        log.print("Put\n");
         bool no_retry = (opts & VxPutOpts.NoRetry) != 0;
         int old_err_count = -1;
         IEnumerable<string> keys = schema.Keys;
@@ -100,7 +100,7 @@ internal class VxDbSchema : ISchemaBackend
 
     public VxSchema Get(IEnumerable<string> keys)
     {
-        log.print("Get");
+        log.print("Get\n");
         List<string> all_names = new List<string>();
         List<string> proc_names = new List<string>();
         List<string> xml_names = new List<string>();
@@ -162,7 +162,7 @@ internal class VxDbSchema : ISchemaBackend
 
     public VxSchemaChecksums GetChecksums()
     {
-        log.print("GetChecksums");
+        log.print("GetChecksums\n");
         VxSchemaChecksums sums = new VxSchemaChecksums();
 
         foreach (string type in ProcedureTypes)
@@ -852,7 +852,7 @@ internal class VxDbSchema : ISchemaBackend
     // the given table.
     public string GetSchemaData(string tablename, int seqnum, string where)
     {
-        log.print("GetSchemaData({0})", tablename);
+        log.print("GetSchemaData({0},{1},{2})\n", tablename, seqnum, where);
 
         string ident_query = @"select 
             columnproperty(t.id, c.name, 'IsIdentity') isident
@@ -875,7 +875,7 @@ internal class VxDbSchema : ISchemaBackend
         string query = "SELECT * FROM " + tablename;
 
         if (where != null && where.Length > 0)
-            query += " where " + where;
+            query += " WHERE " + where;
 
         bool did_preamble = false;
         string prefix = "";
