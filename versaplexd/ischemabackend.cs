@@ -21,9 +21,11 @@ internal interface ISchemaBackend
 
     // Returns a blob of text that can be used with PutSchemaData to fill 
     // the given table.
-    // Seqnum provides a hint about the priority of the table when batch
+    // "seqnum" provides a hint about the priority of the table when batch
     // processing, and is used to locate the file on disk.
-    string GetSchemaData(string tablename, int seqnum);
+    // "where" is the body of a SQL "WHERE" clause, to limit the data 
+    // returned by the database, if applicable.
+    string GetSchemaData(string tablename, int seqnum, string where);
 
     // Delete all rows from the given table and replace them with the given
     // data.  text is an opaque hunk of text returned from GetSchemaData.

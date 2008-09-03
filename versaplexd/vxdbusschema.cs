@@ -216,13 +216,14 @@ internal class VxDbusSchema : ISchemaBackend
     //
 
     // A method exported over DBus but not exposed in ISchemaBackend
-    public string GetSchemaData(string tablename, int seqnum)
+    public string GetSchemaData(string tablename, int seqnum, string where)
     {
-        Message call = CreateMethodCall("GetSchemaData", "s");
+        Message call = CreateMethodCall("GetSchemaData", "ss");
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
         writer.Write(typeof(string), tablename);
+        writer.Write(typeof(string), where);
         call.Body = writer.ToArray();
 
         Message reply = call.Connection.SendWithReplyAndBlock(call);

@@ -850,7 +850,7 @@ internal class VxDbSchema : ISchemaBackend
 
     // Returns a blob of text that can be used with PutSchemaData to fill 
     // the given table.
-    public string GetSchemaData(string tablename, int seqnum)
+    public string GetSchemaData(string tablename, int seqnum, string where)
     {
         log.print("GetSchemaData({0})", tablename);
 
@@ -873,6 +873,9 @@ internal class VxDbSchema : ISchemaBackend
         }
 
         string query = "SELECT * FROM " + tablename;
+
+        if (where != null && where.Length > 0)
+            query += " where " + where;
 
         bool did_preamble = false;
         string prefix = "";

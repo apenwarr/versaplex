@@ -508,12 +508,12 @@ class SchemamaticTests : SchemamaticTester
         foreach (string ins in inserts)
             WVASSERT(VxExec(ins));
 
-        WVPASSEQ(dbus.GetSchemaData("Tab1", 0), inserts.Join(""));
+        WVPASSEQ(dbus.GetSchemaData("Tab1", 0, ""), inserts.Join(""));
 
         VxExec("drop table Tab1");
 
         try {
-            WVEXCEPT(dbus.GetSchemaData("Tab1", 0));
+            WVEXCEPT(dbus.GetSchemaData("Tab1", 0, ""));
 	} catch (Wv.Test.WvAssertionFailure e) {
 	    throw e;
 	} catch (System.Exception e) {
@@ -524,10 +524,13 @@ class SchemamaticTests : SchemamaticTester
 
         WVPASSEQ(VxPutSchema("Table", "Tab1", sc.tab1q, VxPutOpts.None), null);
 
-        WVPASSEQ(dbus.GetSchemaData("Tab1", 0), "");
+        WVPASSEQ(dbus.GetSchemaData("Tab1", 0, ""), "");
 
         dbus.PutSchemaData("Tab1", inserts.Join(""), 0);
-        WVPASSEQ(dbus.GetSchemaData("Tab1", 0), inserts.Join(""));
+        WVPASSEQ(dbus.GetSchemaData("Tab1", 0, ""), inserts.Join(""));
+
+        WVPASSEQ(dbus.GetSchemaData("Tab1", 0, "f1 = 11"), 
+            "INSERT INTO Tab1 ([f1],[f2],[f3]) VALUES (11,11.3400,'Hi11');\n");
 
         sc.Cleanup();
     }

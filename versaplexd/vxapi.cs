@@ -1115,7 +1115,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 
     private static void CallGetSchemaData(Message call, out Message reply)
     {
-        if (call.Signature.ToString() != "s") {
+        if (call.Signature.ToString() != "ss") {
             reply = CreateUnknownMethodReply(call, "GetSchemaData");
             return;
         }
@@ -1130,16 +1130,18 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         }
 
         string tablename;
+        string where;
 
         MessageReader mr = new MessageReader(call);
         mr.GetValue(out tablename);
+        mr.GetValue(out where);
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
         using (WvDbi dbi = new WvDbi(VxSqlPool.TakeConnection(clientid)))
         {
             VxDbSchema backend = new VxDbSchema(dbi);
-            string schemadata = backend.GetSchemaData(tablename, 0);
+            string schemadata = backend.GetSchemaData(tablename, 0, where);
             writer.Write(schemadata);
         }
 

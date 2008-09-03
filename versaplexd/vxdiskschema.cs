@@ -117,7 +117,8 @@ internal class VxDiskSchema : ISchemaBackend
         return errs;
     }
 
-    public string GetSchemaData(string tablename, int seqnum)
+    // Note: we ignore the "where" clause and just return everything.
+    public string GetSchemaData(string tablename, int seqnum, string where)
     {
         string datadir = Path.Combine(exportdir, "DATA");
         string filename = wv.fmt("{0}-{1}.sql", seqnum, tablename);

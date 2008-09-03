@@ -54,6 +54,13 @@ public static class GetData
         return Int32.Parse(pri);
     }
 
+    // Parses a command line of the form "sequence_num command table ..."
+    // A sequence number is a 5-digit integer, zero-padded if needed.
+    // The current commands are:
+    // zap - "00001 zap table_name" or "00002 zap *"
+    //  Adds table_name to the list of tables to clear in 00001-zap.sql
+    //  If the table name is *, zaps all tables.
+    // export - "00003 export foo" or "00004 export foo where condition"
     static Command ParseCommand(string line)
     {
         string[] parts = line.Split(whitespace, 5, 
@@ -192,7 +199,7 @@ public static class GetData
             if (cmd.cmd == "export")
             {
                 data.Append(wv.fmt("DELETE FROM [{0}];\nGO\n", cmd.table));
-                data.Append(dbus.GetSchemaData(cmd.table, cmd.pri));
+                data.Append(dbus.GetSchemaData(cmd.table, cmd.pri, cmd.where));
                 data.Append("\nGO\n\n");
             }
             else if (cmd.cmd == "zap")
