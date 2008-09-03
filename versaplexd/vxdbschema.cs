@@ -939,8 +939,8 @@ internal class VxDbSchema : ISchemaBackend
 
         if (has_ident)
         {
-            return "SET IDENTITY_INSERT [" + tablename + "] ON;\n" + "GO\n" +
-                result.ToString() + "GO\n" + 
+            return "SET IDENTITY_INSERT [" + tablename + "] ON;\n" + 
+                result.ToString() + 
                 "SET IDENTITY_INSERT [" + tablename + "] OFF;\n";
         }
         return result.ToString();

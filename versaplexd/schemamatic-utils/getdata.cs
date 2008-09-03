@@ -198,9 +198,8 @@ public static class GetData
             StringBuilder data = new StringBuilder();
             if (cmd.cmd == "export")
             {
-                data.Append(wv.fmt("DELETE FROM [{0}];\nGO\n", cmd.table));
+                data.Append(wv.fmt("DELETE FROM [{0}];\n", cmd.table));
                 data.Append(dbus.GetSchemaData(cmd.table, cmd.pri, cmd.where));
-                data.Append("\nGO\n\n");
             }
             else if (cmd.cmd == "zap")
             {
