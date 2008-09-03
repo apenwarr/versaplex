@@ -1,7 +1,7 @@
 include ../../rules.mk
 include ../../monorules.mk
 
-BINS = export.exe apply.exe getdata.exe
+BINS = export.exe apply.exe getdata.exe applydata.exe
 
 PKGS += /r:System.Data
 
@@ -18,6 +18,7 @@ all: $(BINS)
 export.exe: $(SCHEMAMATIC_SOURCES) $(LIBS)
 apply.exe: $(SCHEMAMATIC_SOURCES) $(LIBS)
 getdata.exe: $(SCHEMAMATIC_SOURCES) $(LIBS)
+applydata.exe: $(SCHEMAMATIC_SOURCES) $(LIBS)
 
 clean:: 
 	rm -f $(BINS)
