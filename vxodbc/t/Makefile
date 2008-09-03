@@ -49,7 +49,9 @@ HELPEROBJS=\
 
 all: all.t
 
-test: all.t
+tests: all.t
+
+test: tests
 	$(RUNTEST) $(VALGRIND) ./all.t $(TESTNAME)
 
 # FIXME: Should be using GCC-generated dependencies here

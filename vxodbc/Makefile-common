@@ -79,5 +79,5 @@ configure: configure.ac config.h.in
 
 include $(wildcard .*.d)
 
-test:
+test tests:
 	$(MAKE) -C t $@

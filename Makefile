@@ -25,7 +25,11 @@ vxodbc: wvstreams
 
 versaplexd: wvdotnet dbus-sharp
 
+ntests: nall wvdotnet/tests versaplexd/tests
+
 ntest: nall wvdotnet/test versaplexd/test
+
+tests: nall ntests vxodbc/tests
 
 test: all ntest vxodbc/test
 	
