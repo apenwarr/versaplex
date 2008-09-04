@@ -115,8 +115,8 @@ public static class ApplyData
     static void ShowHelp()
     {
         Console.Error.WriteLine(
-            @"Usage: applydata [-b dbus-moniker] [--dry-run] <outputdir>
-  Updates an SQL schema from Versaplex into the outputdir.
+            @"Usage: applydata [-b dbus-moniker] [--dry-run] <exportdir>
+  Applies the data files from exportdir/DATA to the database.
 
   -b: specifies the dbus moniker to connect to.  If not provided, uses
       DBUS_SESSION_BUS_ADDRESS.
