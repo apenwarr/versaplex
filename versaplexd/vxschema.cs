@@ -308,15 +308,15 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
         log.print("Retrieving schema checksums from source.\n");
         VxSchemaChecksums srcsums = source.GetChecksums();
 
-        if (srcsums.Count == 0)
+        log.print("Retrieving schema checksums from dest.\n");
+        VxSchemaChecksums destsums = dest.GetChecksums();
+
+        if (srcsums.Count == 0 && destsums.Count != 0)
         {
             log.print("Source index is empty! " + 
                 "Refusing to delete entire database.\n");
             return new VxSchemaErrors();
         }
-
-        log.print("Retrieving schema checksums from dest.\n");
-        VxSchemaChecksums destsums = dest.GetChecksums();
 
         List<string> names = new List<string>();
 
