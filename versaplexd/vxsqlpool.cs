@@ -47,7 +47,8 @@ public static class VxSqlPool
 
         return conStr;
     }
-public static string GetUsernameForCert(string cert)
+
+    public static string GetUsernameForCert(string cert)
     {
 	string username = inifile["Cert Map"][cert];
 	if (username == null)
