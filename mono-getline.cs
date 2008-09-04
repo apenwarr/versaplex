@@ -38,7 +38,7 @@ using System.IO;
 using System.Threading;
 using System.Reflection;
 
-namespace Mono.Terminal {
+namespace Wv.Mono.Terminal {
 
 	public class LineEditor {
 		//static StreamWriter log;
