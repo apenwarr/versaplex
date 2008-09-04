@@ -44,6 +44,8 @@ internal class VxDbSchema : ISchemaBackend
     public VxDbSchema(WvDbi _dbi)
     {
         dbi = _dbi;
+        DbiExec("set quoted_identifier off");
+        DbiExec("set ansi_nulls on");
     }
 
     //
