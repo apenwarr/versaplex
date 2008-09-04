@@ -750,6 +750,25 @@ class SchemamaticTests : SchemamaticTester
         try { VxExec("drop view View4"); } catch { }
     }
 
+    // Make sure we can insert double-quoted strings, i.e. that 
+    // the database has done a "set quoted_identifiers off"
+    [Test, Category("Schemamatic"), Category("PutSchema")]
+    public void TestQuotedIdentifiers()
+    {
+        try { VxExec("drop procedure Proc1"); } catch { }
+
+        string quote_proc = "create procedure Proc1 as " + 
+            "select \"I'm a double-quoted string!\"\n";
+        VxSchema schema = new VxSchema();
+        schema.Add("Procedure", "Proc1", quote_proc, false);
+
+        VxSchemaErrors errs = VxPutSchema(schema, VxPutOpts.None);
+
+        WVPASSEQ(errs.Count, 0);
+
+        try { VxExec("drop procedure Proc1"); } catch { }
+    }
+
     public static void Main()
     {
         WvTest.DoMain();
