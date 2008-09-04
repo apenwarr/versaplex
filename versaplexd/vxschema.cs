@@ -351,7 +351,7 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
             }
         }
 
-        log.print("Preparing updated schema.\n");
+        log.print("Retrieving updated schema.\n");
         VxSchema to_put = source.Get(names);
 
         if (dry_run)
