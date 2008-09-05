@@ -187,7 +187,12 @@ namespace Wv
 	    return execute(prepare(sql, args.Length), args);
 	}
 	
-	public int execute(IDbCommand cmd, params object[] args)
+	public int exec(string sql, params object[] args)
+	{
+	    return execute(prepare(sql, args.Length), args);
+	}
+	
+	protected int execute(IDbCommand cmd, params object[] args)
 	{
             if (args.Count() > 0)
                 bind(cmd, args);
