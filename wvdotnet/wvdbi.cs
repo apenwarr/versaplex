@@ -211,6 +211,11 @@ namespace Wv
 		return 0;
 	    }
 	}
+
+	public int try_exec(string sql, params object[] args)
+	{
+	    return try_execute(sql, args);
+	}
     }
     
     [WvMoniker]
