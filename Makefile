@@ -12,7 +12,8 @@ servtest.exe: PKGS += /r:System.ServiceProcess /r:System.Configuration.Install
 streamtest.exe servtest.exe httpservtest.exe htmlgentest.exe: wv.dll
 
 wv.dll: assemblyinfo.cs \
-	wvutils.cs wvtest.cs wvdata.cs wvmoniker.cs wvdbi.cs wvini.cs \
+	wvutils.cs wvtest.cs wvdata.cs wvmoniker.cs wvurl.cs \
+	wvdbi.cs wvini.cs \
 	wveventer.cs wvbuf.cs \
 	wvstream.cs wvstreamstream.cs wvsockstream.cs \
 	wvloopback.cs wvlog.cs wvhexdump.cs \
