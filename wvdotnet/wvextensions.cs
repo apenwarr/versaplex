@@ -89,14 +89,6 @@ namespace Wv.Extensions
     
     public static class DataExtensions
     {
-	// A handy function for converting old-style enumerables into
-	// new-style generic ones.
-	public static IEnumerable<T> ToIEnumerable<T>(this IEnumerable list)
-	{
-	    foreach (T t in list)
-		yield return t;
-	}
-	
 	public static IEnumerable<T2> map<T1,T2>(this IEnumerable<T1> list,
 					  Func<T1,T2> f)
 	{
