@@ -144,44 +144,7 @@ namespace Wv
 	}
     }
     
-
-    /**
-     * A wrapper for object lists, particularly IDataRecord, that makes
-     * each of the objects in the list accesible as a WvAutoCast.
-     */
-    public struct WvAutoRecord
-    {
-	object[] a;
-
-	public WvAutoRecord(IDataRecord r)
-	{
-	    a = new object[r.FieldCount];
-	    r.GetValues(a);
-	}
-
-	public WvAutoRecord(object[] a)
-	{
-	    this.a = a;
-	}
-
-	public WvAutoRecord(IEnumerable<object> i)
-	{
-	    a = i.ToArray();
-	}
-
-	public WvAutoCast this [int i] {
-	    get { return new WvAutoCast(a[i]); }
-	}
-
-	public IEnumerable<WvAutoCast> GetEnumerator()
-	{
-	    foreach (object o in a)
-		yield return new WvAutoCast(o);
-	}
-	
-	public int Length { get { return a.Length; } }
-    }
-
+    
     public class WvSqlRow : IEnumerable<WvAutoCast>
     {
 	private object[] columns;
