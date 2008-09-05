@@ -22,7 +22,7 @@ public class VersaplexTester: IDisposable
     // THTBACS image
     private const string image_file = "thtbacs.tiff";
 
-    WvDbi dbi;
+    public WvDbi dbi;
     SqlConnection con;
     SqlCommand cmd;
     protected Bus bus;

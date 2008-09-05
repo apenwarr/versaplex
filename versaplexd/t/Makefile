@@ -49,7 +49,9 @@ TESTSOURCES=$(wildcard *.t.cc)
 TESTHEADERS=$(wildcard *.h)
 TESTOBJS=$(patsubst %.cc,%.o,$(TESTSOURCES))
 
-TESTS=versaplex.t.pass vxsanity.t.pass verifydata.t.pass schemamatic.t.pass \
+TESTS=dbisanity.t.pass \
+    versaplex.t.pass vxsanity.t.pass \
+    verifydata.t.pass schemamatic.t.pass \
     vxexecchunkrecordset.t.pass vxschemachecksums.t.pass vxdiskschema.t.pass
 TESTEXES=$(patsubst %.pass,%.exe,$(TESTS))
 
@@ -67,6 +69,10 @@ versaplex.t.exe: versaplex.t.cs.E \
 	../wv.dll ../NDesk.DBus.dll
 
 vxsanity.t.exe: vxsanity.t.cs.E \
+	$(VX_SOURCES) \
+	../wv.dll ../NDesk.DBus.dll
+
+dbisanity.t.exe: dbisanity.t.cs.E \
 	$(VX_SOURCES) \
 	../wv.dll ../NDesk.DBus.dll
 

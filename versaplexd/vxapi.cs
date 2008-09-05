@@ -123,33 +123,36 @@ internal static class VxDb {
 	    // FIXME:  Sadly, this is stupidly similar to ExecRecordset.
 	    // Anything we can do here to identify commonalities?
             using (var dbi = VxSqlPool.create(connid))
-            {
+            using (WvSqlRows resultset = dbi.select(query))
+	    {
 		List<object[]> rows = new List<object[]>();
 		List<byte[]> rownulls = new List<byte[]>();
-		VxColumnInfo[] colinfo = null;
-		int cursize = 0;  //Our size here is totally an approximation
-                
-		foreach (WvSqlRow cur_row in dbi.select(query))
-                {
-		    int ncols = cur_row.columns.Count();
-		    if (colinfo == null)
-			colinfo = ProcessChunkSchema(cur_row.columns);
-                    
+		
+		// Our size here is just an approximation.  Start it at 1
+		// to ensure that at least one packet always gets sent.
+		int cursize = 1;  
+		
+		var columns = resultset.columns.ToArray();
+		VxColumnInfo[] colinfo  = ProcessChunkSchema(columns);
+		int ncols = columns.Count();
+		
+		foreach (WvSqlRow cur_row in resultset)
+		{
 		    object[] row = new object[ncols];
-                    byte[] rownull = new byte[ncols];
-
-                    for (int i = 0; i < ncols; i++) 
-                    {
+		    byte[] rownull = new byte[ncols];
+		    
+		    for (int i = 0; i < ncols; i++) 
+		    {
 			WvAutoCast cval = cur_row[i];
-                        bool isnull = cval.IsNull;
-
-                        row[i] = null;
-
-                        rownull[i] = isnull ? (byte)1 : (byte)0;
+			bool isnull = cval.IsNull;
+			
+			row[i] = null;
+			
+			rownull[i] = isnull ? (byte)1 : (byte)0;
 			cursize += rownull.Length;
-
-                        switch (colinfo[i].VxColumnType) 
-                        {
+			
+			switch (colinfo[i].VxColumnType) 
+			{
                             case VxColumnType.Int64:
                                 row[i] = !isnull ?
                                     (Int64)cval : new Int64();
@@ -219,43 +222,38 @@ internal static class VxDb {
 				cursize += ((string)(row[i])).Length *
 					    sizeof(Char);
                                 break;
-                        }
-                    }
-
-                    rows.Add(row);
-                    rownulls.Add(rownull);
+			}
+		    } // column iterator
+		    
+		    rows.Add(row);
+		    rownulls.Add(rownull);
 		    
 		    if (cursize >= 1024*1024) //approx 1 MB
 		    {
-			log.print(WvLog.L.Debug4, "(1 MB reached; {0} rows)\n",
-						    rows.Count);
-
+			log.print(WvLog.L.Debug4,
+				  "(1 MB reached; {0} rows)\n",
+				  rows.Count);
+			
 			SendChunkRecordSignal(call, sender, colinfo,
-						rows.ToArray(),
-						rownulls.ToArray());
-
+					      rows.ToArray(),
+					      rownulls.ToArray());
+			
 			rows = new List<object[]>();
 			rownulls = new List<byte[]>();
 			cursize = 0;
 		    }
-                }
-
-		if (colinfo == null) // This is gross
-		{
-		    colinfo = ProcessChunkSchema(dbi.statement_schema(query));
-		    cursize = 1;  //HACK:  so that we trigger the code below
-		}
-
+		} // row iterator
+		
 		if (cursize > 0)
 		{
 		    log.print(WvLog.L.Debug4, "(Remaining data; {0} rows)\n",
-					     rows.Count);
-		
+			      rows.Count);
+		    
 		    SendChunkRecordSignal(call, sender, colinfo,
-						rows.ToArray(),
-						rownulls.ToArray());
+					  rows.ToArray(),
+					  rownulls.ToArray());
 		}
-            }
+	    } // using
 	    reply = VxDbus.CreateError("vx.db.nomoredata", 
 					"No more data available.", call);
         } catch (DbException e) {
