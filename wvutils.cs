@@ -170,6 +170,15 @@ namespace Wv
 		a[i++] = o.ToString();
 	    return a;
 	}
+	
+	public static string getenv(string key)
+	{
+	    string o = Environment.GetEnvironmentVariable(key);
+	    if (o != null)
+		return o;
+	    else
+		return "";
+	}
 
     	public static string urldecode(string s)
 	{
