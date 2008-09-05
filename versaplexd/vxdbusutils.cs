@@ -28,8 +28,7 @@ class VxDbusUtils
 
         MessageReader mr = new MessageReader(reply);
 
-        object errmsg;
-        mr.GetValue(typeof(string), out errmsg);
+        string errmsg = mr.ReadString();
 
         return new DbusError(errname.ToString() + ": " + errmsg.ToString());
     }

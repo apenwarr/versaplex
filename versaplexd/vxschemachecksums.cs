@@ -56,18 +56,16 @@ internal class VxSchemaChecksum
     // Read a set of checksums from a DBus message into a VxSchemaChecksum.
     public VxSchemaChecksum(MessageReader reader)
     {
-        reader.GetValue(out _name);
+        _name = reader.ReadString();
 
         // Fill the list
         List<ulong> list = new List<ulong>();
-        int size;
-        reader.GetValue(out size);
+	int size = reader.ReadInt32();
         int endpos = reader.Position + size;
         while (reader.Position < endpos)
         {
             reader.ReadPad(8);
-            ulong sum;
-            reader.GetValue(out sum);
+            ulong sum = reader.ReadUInt64();
             list.Add(sum);
         }
         _checksums = list;
@@ -205,8 +203,7 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
     // Read an array of checksums from a DBus message.
     public VxSchemaChecksums(MessageReader reader)
     {
-        int size;
-        reader.GetValue(out size);
+        int size = reader.ReadInt32();
         int endpos = reader.Position + size;
         while (reader.Position < endpos)
         {

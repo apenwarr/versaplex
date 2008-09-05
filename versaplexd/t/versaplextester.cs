@@ -158,8 +158,7 @@ public class VersaplexTester: IDisposable
 
             MessageReader mr = new MessageReader(reply);
 
-            object errmsg;
-            mr.GetValue(typeof(string), out errmsg);
+            string errmsg = mr.ReadString();
 
             throw new DbusError(errname.ToString() + ": " + errmsg.ToString());
         }
@@ -194,7 +193,7 @@ public class VersaplexTester: IDisposable
                 throw new Exception("D-Bus reply had invalid signature");
 
             MessageReader reader = new MessageReader(reply);
-            reader.GetValue(out result); // This overload processes a variant
+            result = reader.ReadVariant();
 
             return true;
         }
@@ -213,8 +212,7 @@ public class VersaplexTester: IDisposable
 
             MessageReader mr = new MessageReader(reply);
 
-            object errmsg;
-            mr.GetValue(typeof(string), out errmsg);
+            object errmsg = mr.ReadString();
 
             throw new DbusError(errname.ToString() + ": " + errmsg.ToString());
         }
@@ -229,27 +227,19 @@ public class VersaplexTester: IDisposable
     // format of VxColumnInfo differs from the format on the wire.
     internal VxColumnInfo[] ReadColInfo(MessageReader reader)
     {
-        int size;
-        string colname;
-        string coltype_str;
-        short precision;
-        short scale;
-        byte nullable;
-
-        int colinfosize;
         List<VxColumnInfo> colinfolist = new List<VxColumnInfo>();
 
-        reader.GetValue(out colinfosize);
+        int colinfosize = reader.ReadInt32();
         int endpos = reader.Position + colinfosize;
         while (reader.Position < endpos)
         {
             reader.ReadPad(8);
-            reader.GetValue(out size);
-            reader.GetValue(out colname);
-            reader.GetValue(out coltype_str);
-            reader.GetValue(out precision);
-            reader.GetValue(out scale);
-            reader.GetValue(out nullable);
+	    int size = reader.ReadInt32();
+	    string colname = reader.ReadString();
+	    string coltype_str = reader.ReadString();
+	    short precision = reader.ReadInt16();
+	    short scale = reader.ReadInt16();
+	    byte nullable = reader.ReadByte();
 
             VxColumnType coltype = (VxColumnType)Enum.Parse(
                 typeof(VxColumnType), coltype_str, true);
@@ -316,11 +306,8 @@ public class VersaplexTester: IDisposable
 
 		MessageReader mr = new MessageReader(tmp);
 
-		object errmsg;
-		mr.GetValue(typeof(string), out errmsg);
-
-		throw new DbusError(errname.ToString() + ": " +
-				    errmsg.ToString());
+		string errmsg = mr.ReadString();
+		throw new DbusError(errname.ToString() + ": " + errmsg);
 	    }
 	    else
 	    {
@@ -348,14 +335,12 @@ public class VersaplexTester: IDisposable
         // Read the column information
         colinfo = ReadColInfo(reader);
 
-        Signature sig;
-        reader.GetValue(out sig);
+            reader.ReadSignature();
 
         // TODO: Check that sig matches colinfo
         // Sig should be of the form a(...)
 
-        int arraysz;
-        reader.GetValue(out arraysz);
+            int arraysz = reader.ReadInt32();
 
         // The header is 8-byte aligned
         reader.ReadPad(8);
@@ -374,8 +359,7 @@ public class VersaplexTester: IDisposable
                 {
                     Console.WriteLine("Reading Int64 from pos {0}",
                             reader.Position);
-                    long cell;
-                    reader.GetValue(out cell);
+                        long cell = reader.ReadInt64();
                     row[i] = cell;
                     break;
                 }
@@ -383,8 +367,7 @@ public class VersaplexTester: IDisposable
                 {
                     Console.WriteLine("Reading Int32 from pos {0}",
                            reader.Position);
-                    int cell;
-                    reader.GetValue(out cell);
+                        int cell = reader.ReadInt32();
                     row[i] = cell;
                     break;
                 }
@@ -392,8 +375,7 @@ public class VersaplexTester: IDisposable
                 {
                     Console.WriteLine("Reading Int16 from pos {0}",
                             reader.Position);
-                    short cell;
-                    reader.GetValue(out cell);
+                        short cell = reader.ReadInt16();
                     row[i] = cell;
                     break;
                 }
@@ -401,8 +383,7 @@ public class VersaplexTester: IDisposable
                 {
                     Console.WriteLine("Reading UInt8 from pos {0}",
                             reader.Position);
-                    byte cell;
-                    reader.GetValue(out cell);
+                        byte cell = reader.ReadByte();
                     row[i] = cell;
                     break;
                 }
@@ -410,8 +391,7 @@ public class VersaplexTester: IDisposable
                 {
                     Console.WriteLine("Reading Bool from pos {0}",
                             reader.Position);
-                    bool cell;
-                    reader.GetValue(out cell);
+                        bool cell = reader.ReadBoolean();
                     row[i] = cell;
                     break;
                 }
@@ -419,8 +399,7 @@ public class VersaplexTester: IDisposable
                 {
                     Console.WriteLine("Reading Double from pos {0}",
                            reader.Position);
-                    double cell;
-                    reader.GetValue(out cell);
+                        double cell = reader.ReadDouble();
                     row[i] = cell;
                     break;
                 }
@@ -428,8 +407,7 @@ public class VersaplexTester: IDisposable
                 {
                     Console.WriteLine("Reading UUID from pos {0}",
                             reader.Position);
-                    string cell;
-                    reader.GetValue(out cell);
+                        string cell = reader.ReadString();
 
                     if (cell == "") {
                         row[i] = new Guid();
@@ -442,8 +420,7 @@ public class VersaplexTester: IDisposable
                 {
                     Console.WriteLine("Reading Binary from pos {0}",
                            reader.Position);
-                    object cell;
-                    reader.GetValue(typeof(byte[]), out cell);
+                        object cell = reader.ReadArray(typeof(byte));
                     row[i] = cell;
                     break;
                 }
@@ -451,8 +428,7 @@ public class VersaplexTester: IDisposable
                 {
                     Console.WriteLine("Reading string from pos {0}",
                             reader.Position);
-                    string cell;
-                    reader.GetValue(out cell);
+                        string cell = reader.ReadString();
                     row[i] = cell;
                     break;
                 }
@@ -460,16 +436,13 @@ public class VersaplexTester: IDisposable
                 {
                     Console.WriteLine("Reading DateTime from pos {0}",
                                 reader.Position);
-                    long seconds;
-                    int microseconds;
- 
                     reader.ReadPad(8);
-                    reader.GetValue(out seconds);
-                    reader.GetValue(out microseconds);
+                        long seconds = reader.ReadInt64();
+                        int microseconds = reader.ReadInt32();
 
                     VxDbusDateTime dt = new VxDbusDateTime();
-                    dt.Seconds = seconds;
-                    dt.Microseconds = microseconds;
+                    dt.seconds = seconds;
+                    dt.microseconds = microseconds;
 
                     row[i] = dt;
 		    break;
@@ -478,8 +451,7 @@ public class VersaplexTester: IDisposable
                 {
                     Console.WriteLine("Reading Decimal from pos {0}",
                            reader.Position);
-                    string cell;
-                    reader.GetValue(out cell);
+                        string cell = reader.ReadString();
 
                     if (cell == "") {
                         row[i] = new Decimal();
@@ -502,8 +474,7 @@ public class VersaplexTester: IDisposable
  
         data = results.ToArray();
 
-        object rawnulls;
-        reader.GetValue(typeof(byte[][]), out rawnulls);
+            object rawnulls = reader.ReadArray(typeof(byte[]));
 
         byte[][] rawnulls_typed = (byte[][])rawnulls;
 
@@ -554,8 +525,7 @@ public class VersaplexTester: IDisposable
 
             MessageReader mr = new MessageReader(reply);
 
-            object errmsg;
-            mr.GetValue(typeof(string), out errmsg);
+            string errmsg = mr.ReadString();
 
             throw new DbusError(errname.ToString() + ": " + errmsg.ToString());
         }

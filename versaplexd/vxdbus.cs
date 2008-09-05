@@ -115,10 +115,11 @@ public static class VxDbus {
         }
 
         int hdrlen = 0;
-        if (msg.HeaderData != null) {
+	byte[] header = msg.GetHeaderData();
+        if (header != null) {
             smalldump.print("Header data:\n");
-	    smalldump.print(wv.hexdump(msg.HeaderData));
-            hdrlen = msg.HeaderData.Length;
+	    smalldump.print(wv.hexdump(header));
+            hdrlen = header.Length;
         } else {
             smalldump.print("No header data encoded\n");
         }

@@ -42,7 +42,7 @@ internal static class VxDb {
 					writer);
 		    
 	// For debugging
-	signal.WriteHeader();
+	//signal.WriteHeader();
 	VxDbus.MessageDump(" >> ", signal);
 
 	call.Connection.Send(signal);
@@ -62,10 +62,7 @@ internal static class VxDb {
         
 	MessageReader reader = new MessageReader(call);
 
-        object oquery;
-        reader.GetValue(typeof(string), out oquery);
-
-	string query = (string)oquery;
+        string query = reader.ReadString();
 	string iquery = query.ToLower().Trim();
 	reply = null;
         // XXX this is fishy, really... whitespace fucks it up.
@@ -725,8 +722,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 
         MessageReader reader = new MessageReader(call);
 
-        object query;
-        reader.GetValue(typeof(string), out query);
+        string query = reader.ReadString();
 
         object result;
         VxDb.ExecScalar(clientid, (string)query, out result);
@@ -780,8 +776,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 
         MessageReader reader = new MessageReader(call);
 
-        object query;
-        reader.GetValue(typeof(string), out query);
+        string query = reader.ReadString();
 
         VxColumnInfo[] colinfo;
         object[][] data;
@@ -795,7 +790,6 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         reply = VxDbus.CreateReply(call, "a(issnny)vaay", writer);
 
         // For debugging
-        reply.WriteHeader();
         VxDbus.MessageDump(" >> ", reply);
     }
 
@@ -963,7 +957,6 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             VxSchemaChecksums.GetDbusSignature(), writer);
 
         // For debugging
-        reply.WriteHeader();
         VxDbus.MessageDump(" >> ", reply);
     }
 
@@ -986,7 +979,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         Array names_untyped;
 
         MessageReader mr = new MessageReader(call);
-        mr.GetValue(typeof(string[]), out names_untyped);
+        names_untyped = mr.ReadArray(typeof(string));
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
@@ -1000,7 +993,6 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         reply = VxDbus.CreateReply(call, VxSchema.GetDbusSignature(), writer);
 
         // For debugging
-        reply.WriteHeader();
         VxDbus.MessageDump(" >> ", reply);
     }
 
@@ -1020,16 +1012,14 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
-        Array keys;
-
         MessageReader mr = new MessageReader(call);
-        mr.GetValue(typeof(string[]), out keys);
+	string[] keys = (string[])mr.ReadArray(typeof(string));
 
         VxSchemaErrors errs;
         using (var dbi = VxSqlPool.create(clientid))
         {
             VxDbSchema backend = new VxDbSchema(dbi);
-            errs = backend.DropSchema(keys.Cast<string>());
+            errs = backend.DropSchema(keys);
         }
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
@@ -1062,11 +1052,9 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
-        int opts;
-
         MessageReader mr = new MessageReader(call);
         VxSchema schema = new VxSchema(mr);
-        mr.GetValue(out opts);
+        int opts = mr.ReadInt32();
 
         VxSchemaErrors errs;
         
@@ -1105,12 +1093,9 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
-        string tablename;
-        string where;
-
         MessageReader mr = new MessageReader(call);
-        mr.GetValue(out tablename);
-        mr.GetValue(out where);
+        string tablename = mr.ReadString();
+	string where = mr.ReadString();
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
@@ -1140,11 +1125,9 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
-        string tablename, text;
-
         MessageReader mr = new MessageReader(call);
-        mr.GetValue(out tablename);
-        mr.GetValue(out text);
+        string tablename = mr.ReadString();
+        string text = mr.ReadString();
 
         using (var dbi = VxSqlPool.create(clientid))
         {

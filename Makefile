@@ -13,6 +13,8 @@ endif
 
 wvdotnet dbus-sharp versaplexd wvstreams vxodbc: FORCE
 
+dbus-sharp: dbus-sharp/Makefile
+
 nall: versaplexd
 
 all: nall vxodbc

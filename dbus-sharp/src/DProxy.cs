@@ -52,7 +52,7 @@ namespace NDesk.DBus
 
 			object[] outArgs;
 			object retVal;
-		        Exception exception;
+			Exception exception;
 			busObject.Invoke (callMessage.MethodBase, callMessage.MethodName, callMessage.InArgs, out outArgs, out retVal, out exception);
 
 		        if (exception != null)

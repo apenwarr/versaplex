@@ -27,8 +27,7 @@ internal class VxSchemaErrors : Dictionary<string, VxSchemaError>
 
     public VxSchemaErrors(MessageReader reader)
     {
-        int size;
-        reader.GetValue(out size);
+        int size = reader.ReadInt32();
 
         int endpos = reader.Position + size;
         while (reader.Position < endpos)
@@ -112,12 +111,10 @@ internal class VxSchemaElement : IComparable
 
     public VxSchemaElement(MessageReader reader)
     {
-        reader.GetValue(out _type);
-        reader.GetValue(out _name);
-        reader.GetValue(out _text);
-        byte enc_byte;
-        reader.GetValue(out enc_byte);
-        _encrypted = enc_byte > 0;
+        _type = reader.ReadString();
+        _name = reader.ReadString();
+        _text = reader.ReadString();
+        _encrypted = reader.ReadByte() > 0;
     }
 
     public void Write(MessageWriter writer)
@@ -191,8 +188,7 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
 
     public VxSchema(MessageReader reader)
     {
-        int size;
-        reader.GetValue(out size);
+        int size = reader.ReadInt32();
         int endpos = reader.Position + size;
         while (reader.Position < endpos)
         {

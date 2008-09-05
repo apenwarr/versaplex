@@ -43,15 +43,10 @@ namespace NDesk.DBus.Authentication
 		
 		public override void Run ()
 		{
-			//NetworkStream ns = new NetworkStream (sock);
-			//UnixStream ns = new UnixStream ((int)sock.Handle);
-			//StreamReader sr = new StreamReader (conn.Transport.Stream, Encoding.ASCII);
-			//StreamWriter sw = new StreamWriter (conn.Transport.Stream, Encoding.ASCII);
 			StreamReader sr = new StreamReader (conn.ns, Encoding.ASCII);
 			StreamWriter sw = new StreamWriter (conn.ns, Encoding.ASCII);
 
 			sw.NewLine = "\r\n";
-			//sw.AutoFlush = true;
 
 			string str = conn.Transport.AuthString ();
 			byte[] bs = Encoding.ASCII.GetBytes (str);
@@ -68,7 +63,7 @@ namespace NDesk.DBus.Authentication
 
 			if (parts.Length < 1 || parts[0] != "OK") {
 				done = true;
-				throw new Exception ("Authentication error: AUTH EXTERNAL was not OK");
+				throw new Exception ("Authentication error: AUTH EXTERNAL was not OK: \"" + ok_rep + "\"");
 			}
 
 			/*
