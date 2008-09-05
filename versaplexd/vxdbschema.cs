@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.Common;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Text;
@@ -277,7 +278,7 @@ internal class VxDbSchema : ISchemaBackend
         {
             return dbi.execute(query, args);
         }
-        catch (SqlException e)
+        catch (DbException e)
         {
             throw new VxSqlException(e.Message, e);
         }
@@ -292,7 +293,7 @@ internal class VxDbSchema : ISchemaBackend
         {
             return dbi.select(query, bound_vars).ToArray();
         }
-        catch (SqlException e)
+        catch (DbException e)
         {
             throw new VxSqlException(e.Message, e);
         }

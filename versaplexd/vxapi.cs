@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Text;
 using System.Data;
+using System.Data.Common;
 using System.Data.SqlClient;
 using System.Collections.Generic;
 using NDesk.DBus;
@@ -21,7 +22,7 @@ internal static class VxDb {
 	    using (var dbi = VxSqlPool.create(connid))
 		result = dbi.select_one(query).inner;
         }
-	catch (SqlException e)
+	catch (DbException e)
 	{
             throw new VxSqlException(e.Message, e);
         }
@@ -257,7 +258,7 @@ internal static class VxDb {
             }
 	    reply = VxDbus.CreateError("vx.db.nomoredata", 
 					"No more data available.", call);
-        } catch (SqlException e) {
+        } catch (DbException e) {
             throw new VxSqlException(e.Message, e);
         }
     }
@@ -403,7 +404,7 @@ internal static class VxDb {
                 log.print(WvLog.L.Debug4, "({0} rows)\n", data.Length);
                 wv.assert(nullity.Length == data.Length);
             }
-        } catch (SqlException e) {
+        } catch (DbException e) {
             throw new VxSqlException(e.Message, e);
         }
     }

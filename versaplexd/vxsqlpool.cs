@@ -1,4 +1,4 @@
-using System.Data.SqlClient;
+using System.Data.Common;
 using System.Collections;
 using System.Collections.Generic;
 using System;
@@ -48,7 +48,7 @@ public static class VxSqlPool
 	{
 	    return WvDbi.create(find_connection_moniker(connid));
 	}
-	catch (SqlException e)
+	catch (DbException e)
 	{
 	    throw new VxConfigException("Connect: " + e.Message);
 	}
