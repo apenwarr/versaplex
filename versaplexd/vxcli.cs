@@ -10,6 +10,8 @@ public static class VxCli
 {
     public static int Main(string[] args)
     {
+	WvLog.maxlevel = WvLog.L.Debug;
+
 	if (args.Length != 1)
 	{
 	    Console.Error.WriteLine("Usage: vxcli <db-connection-string>");
@@ -18,9 +20,9 @@ public static class VxCli
 	
 	string dburl = args[0];
 	
-	WvIni ini = new WvIni("versaplexd.ini");
-	if (ini["Connections"][dburl] != null)
-	    dburl = ini["Connections"][dburl];
+	WvIni vxini = new WvIni("versaplexd.ini");
+	if (vxini.get("Connections", dburl) != null)
+	    dburl = vxini.get("Connections", dburl);
 	
 	using (var dbi = WvDbi.create(dburl))
 	{

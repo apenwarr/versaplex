@@ -2,9 +2,9 @@ using System;
 using System.Data;
 using System.Data.Odbc;
 using System.Data.SqlClient;
-using System.Collections.Specialized;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 using Wv;
 using Wv.Extensions;
 
@@ -13,6 +13,9 @@ namespace Wv
     public class WvDbi: IDisposable
     {
 	static WvIni settings = new WvIni("wvodbc.ini");
+	static WvIni bookmarks = new WvIni(
+		   wv.PathCombine(wv.getenv("HOME"), ".wvdbi.ini"));
+	    
 	protected static WvLog log = new WvLog("WvDbi", WvLog.L.Debug1);
 	IDbConnection _db;
 	protected IDbConnection db 
@@ -36,10 +39,10 @@ namespace Wv
 	    }
 	    
 	    log.print("Creating '{0}'\n", moniker);
-	    
+
 	    if (!moniker.Contains(":") && settings[moniker].Count > 0)
 	    {
-		StringDictionary sect = settings[moniker];
+		var sect = settings[moniker];
 		
 		if (sect["driver"] == "SqlClient")
 		    return create(wv.fmt("mssql:"
@@ -56,11 +59,39 @@ namespace Wv
 					 sect["database"],
 					 sect["user"], sect["password"]));
 	    }
+	    else if (!moniker.Contains(":")
+		     && bookmarks["Bookmarks"].ContainsKey(moniker))
+	    {
+		moniker = bookmarks["Bookmarks"][moniker];
+	    }
+	    else
+	    {
+		// not found in existing bookmarks, so see if we can parse and
+		// save instead.
+		WvUrl url = new WvUrl(moniker);
+		string path = url.path;
+		if (path.StartsWith("/"))
+		    path = path.Substring(1);
+		if (path != "" && url.host != null)
+		{
+		    log.print("Creating bookmark '{0}'\n", path);
+		    bookmarks.set("Bookmarks", path, moniker);
+		    try {
+			bookmarks.save();
+		    } catch (IOException) {
+			// not a big deal if we can't save our bookmarks.
+		    }
+		}
+	    }
 	    
 	    if (moniker.StartsWith("dsn=") || moniker.StartsWith("driver="))
 		return create("ado:" + moniker);
 	    
-	    return WvMoniker<WvDbi>.create(moniker);
+	    WvDbi dbi = WvMoniker<WvDbi>.create(moniker);
+	    if (dbi == null)
+		throw new Exception
+		           (wv.fmt("No moniker found for '{0}'", moniker));
+	    return dbi;
 	}
 	
 	protected WvDbi()
