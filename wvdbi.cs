@@ -1,5 +1,6 @@
 using System;
 using System.Data;
+using System.Data.Common;
 using System.Data.Odbc;
 using System.Data.SqlClient;
 using System.Collections.Generic;
@@ -151,18 +152,16 @@ namespace Wv
 	    }
 	}
 	
-	public IEnumerable<WvSqlRow> select(string sql,
-					       params object[] args)
+	public WvSqlRows select(string sql, params object[] args)
 	{
 	    return select(prepare(sql, args.Length), args);
 	}
 	
-	public IEnumerable<WvSqlRow> select(IDbCommand cmd,
-						params object[] args)
+	public WvSqlRows select(IDbCommand cmd, params object[] args)
 	{
             if (args.Count() > 0)
                 bind(cmd, args);
-	    return cmd.ExecuteToWvAutoReader();
+	    return new WvSqlRows_IDataReader(cmd.ExecuteReader());
 	}
 	
 	public WvSqlRow select_onerow(string sql, params object[] args)
@@ -205,7 +204,7 @@ namespace Wv
 	    {
 		return execute(sql, args);
 	    }
-	    catch (OdbcException)
+	    catch (DbException)
 	    {
 		// well, I guess no rows were affected...
 		return 0;

@@ -179,12 +179,12 @@ namespace Wv
     public class WvSqlRow : IEnumerable<WvAutoCast>
     {
 	object[] data;
-	DataTable schema;
+	IEnumerable<WvColInfo> schema;
 	
-	public WvSqlRow(object[] _data, DataTable _schema)
+	public WvSqlRow(object[] data, IEnumerable<WvColInfo> schema)
 	{
-	    data = _data;
-	    schema = _schema;
+	    this.data = data;
+	    this.schema = schema;
 	}
 
 	public WvAutoCast this[int i]
@@ -201,12 +201,69 @@ namespace Wv
 
 	IEnumerator IEnumerable.GetEnumerator()
 	{
-	    // I really hope nobody ever needs to use this
 	    foreach (object colval in data)
 		yield return colval;
 	}
 	
 	public IEnumerable<WvColInfo> columns
-	    { get { return WvColInfo.FromDataTable(schema); } }
+	    { get { return schema; } }
+    }
+    
+    
+    public abstract class WvSqlRows : IDisposable, IEnumerable<WvSqlRow>
+    {
+	public abstract IEnumerable<WvColInfo> columns { get; }
+	
+	public virtual void Dispose()
+	{
+	    // nothing to do here
+	}
+	
+	public abstract IEnumerator<WvSqlRow> GetEnumerator();
+	
+	IEnumerator IEnumerable.GetEnumerator()
+	{
+	    IEnumerator<WvSqlRow> e = GetEnumerator();
+	    return e;
+	}
+    }
+    
+    class WvSqlRows_IDataReader : WvSqlRows, IEnumerable<WvSqlRow>
+    {
+	IDataReader reader;
+	WvColInfo[] schema;
+	
+	public WvSqlRows_IDataReader(IDataReader reader)
+	{
+	    wv.assert(reader != null);
+	    this.reader = reader;
+	    this.schema 
+		= WvColInfo.FromDataTable(reader.GetSchemaTable()).ToArray();
+	}
+	
+	public override void Dispose()
+	{
+	    if (reader != null)
+		reader.Dispose();
+	    reader = null;
+	    
+	    base.Dispose();
+	}
+	
+	public override IEnumerable<WvColInfo> columns
+	    { get { return schema; } }
+
+	public override IEnumerator<WvSqlRow> GetEnumerator()
+	{
+	    int max = reader.FieldCount;
+	    
+	    using(this) // handle being called inside a foreach()
+	    while (reader.Read())
+	    {
+		object[] oa = new object[max];
+		reader.GetValues(oa);
+		yield return new WvSqlRow(oa, schema);
+	    }
+	}
     }
 }
