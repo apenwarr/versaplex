@@ -98,14 +98,16 @@ namespace Wv.Test
 
             foreach (TestInfo test in tests)
 	    {
-                Console.WriteLine("\nTesting \"{0}\":", test.name);
+		string[] parts = test.name.Split(new char[] { '/' }, 2);
+                Console.WriteLine("\nTesting \"{0}\" in {1}:",
+				  parts[1], parts[0]);
 
                 try {
 		    test.cb();
                 } catch (WvAssertionFailure) {
                     failures++;
                 } catch (Exception e) {
-                    Console.WriteLine("! WvTest Exception received FAIL");
+                    Console.WriteLine("! WvTest Exception received   FAILED");
                     Console.WriteLine(e.ToString());
                     failures++;
                 }
@@ -144,9 +146,11 @@ namespace Wv.Test
 	
 	public static bool test(bool cond, string file, int line, string s)
 	{
+	    s = s.Replace("\n", "!");
+	    s = s.Replace("\r", "!");
 	    Console.WriteLine("! {0}:{1,-5} {2,-40} {3}",
 					 file, line, s,
-					 cond ? "ok" : "FAIL");
+					 cond ? "ok" : "FAILED");
 	    Console.Out.Flush();
 
             if (!cond)
