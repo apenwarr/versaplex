@@ -145,39 +145,64 @@ namespace Wv
     }
     
     
+    public struct WvColInfo
+    {
+	public string name;
+	public Type type;
+	public bool nullable;
+	public int size;
+	public short precision;
+	public short scale;
+	
+	public static IEnumerable<WvColInfo> FromDataTable(DataTable schema)
+	{
+	    foreach (DataRow col in schema.Rows)
+		yield return new WvColInfo(col);
+	}
+	
+	WvColInfo(DataRow data)
+	{
+	    name      = (string)data["ColumnName"];
+	    type      = (Type)  data["DataType"];
+	    nullable  = (bool)  data["AllowDBNull"];
+	    size      = (int)   data["ColumnSize"];
+	    precision = (short) data["NumericPrecision"];
+	    scale     = (short) data["NumericScale"];
+	}
+    }
+    
+    
     public class WvSqlRow : IEnumerable<WvAutoCast>
     {
-	private object[] columns;
+	object[] data;
+	DataTable schema;
 	
-	public DataTable schema;
-	
-	public WvSqlRow(object[] _columns, DataTable _schema)
+	public WvSqlRow(object[] _data, DataTable _schema)
 	{
-	    columns = _columns;
+	    data = _data;
 	    schema = _schema;
 	}
 
 	public WvAutoCast this[int i]
-	    { get { return new WvAutoCast(columns[i]); } }
+	    { get { return new WvAutoCast(data[i]); } }
 
 	public int Length
-	    { get { return columns.Length; } }
+	    { get { return data.Length; } }
 
 	public IEnumerator<WvAutoCast> GetEnumerator()
 	{
-	    foreach (object colval in columns)
-	    {
+	    foreach (object colval in data)
 		yield return new WvAutoCast(colval);
-	    }
 	}
 
 	IEnumerator IEnumerable.GetEnumerator()
 	{
 	    // I really hope nobody ever needs to use this
-	    foreach (object colval in columns)
-	    {
+	    foreach (object colval in data)
 		yield return colval;
-	    }
 	}
+	
+	public IEnumerable<WvColInfo> columns
+	    { get { return WvColInfo.FromDataTable(schema); } }
     }
 }

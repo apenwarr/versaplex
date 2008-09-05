@@ -160,20 +160,21 @@ namespace Wv
 
 	// WvSqlRows know their schema.  But, what if you get no rows back,
 	// and you REALLY need that schema information?  THEN you call this.
-	public DataTable statement_schema(string sql, params object[] args)
+	public IEnumerable<WvColInfo>
+	    statement_schema(string sql, params object[] args)
 	{
 	    IDbCommand cmd = prepare(sql, args.Length);
 	    if (args.Count() > 0)
 		bind(cmd, args);
 
-	    DataTable ret;
 	    // Kill that data reader in case it tries to stick around
 	    using (IDataReader e = cmd.ExecuteReader())
 	    {
-		ret = e.GetSchemaTable();
+		// We have to use ToArray() here because as we return, the
+		// parent IDataReader will get destroyed, thus potentially
+		// destroying the SchemaTable too.
+		return WvColInfo.FromDataTable(e.GetSchemaTable()).ToArray();
 	    }
-
-	    return ret;
 	}
 	
 	public IEnumerable<WvSqlRow> select(string sql,
