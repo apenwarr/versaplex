@@ -3,6 +3,7 @@ using System.Data;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Wv.Extensions;
 
 namespace Wv
 {
@@ -165,9 +166,9 @@ namespace Wv
 	    name      = (string)data["ColumnName"];
 	    type      = (Type)  data["DataType"];
 	    nullable  = (bool)  data["AllowDBNull"];
-	    size      = (int)   data["ColumnSize"];
-	    precision = (short) data["NumericPrecision"];
-	    scale     = (short) data["NumericScale"];
+	    size      = (int)   data["ColumnSize"].atoi();
+	    precision = (short) data["NumericPrecision"].atoi();
+	    scale     = (short) data["NumericScale"].atoi();
 	}
     }
     
