@@ -20,7 +20,6 @@ namespace Wv
 	    { get { return _db; } }
 	public IDbConnection fixme_db 
 	    { get { return _db; } }
-	static bool registered = false;
 	
         // MSSQL freaks out if there are more than 100 connections open at a
         // time.  Give ourselves a safety margin.
@@ -29,13 +28,6 @@ namespace Wv
 	
 	public static WvDbi create(string moniker)
 	{
-	    if (!registered)
-	    {
-		registered = true;
-		WvDbi_MSSQL.register();
-		WvDbi_ODBC.register();
-	    }
-	    
 	    log.print("Creating '{0}'\n", moniker);
 
 	    if (!moniker.Contains(":") && settings[moniker].Count > 0)
@@ -216,9 +208,10 @@ namespace Wv
 	}
     }
     
+    [WvMoniker]
     public class WvDbi_ODBC : WvDbi
     {
-	public static void register()
+	public static void wvmoniker_register()
 	{
 	    WvMoniker<WvDbi>.register("ado",
 		 (string m, object o) => new WvDbi_ODBC(m));
@@ -256,9 +249,10 @@ namespace Wv
 	
     }
     
+    [WvMoniker]
     public class WvDbi_MSSQL : WvDbi
     {
-	public static void register()
+	public static void wvmoniker_register()
 	{
 	    WvMoniker<WvDbi>.register("mssql",
 		 (string m, object o) => new WvDbi_MSSQL(m));

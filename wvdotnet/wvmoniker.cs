@@ -1,11 +1,44 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using Wv;
 using Wv.Extensions;
 
 namespace Wv
 {
-    public class WvMoniker<T>
+    public class WvMonikerAttribute : Attribute
+        { }
+
+    public class WvMonikerBase
+    {
+	static object lockobj = new Object();
+	static bool registered = false;
+
+	protected static void register_all()
+	{
+	    if (!registered)
+	    {
+		// feebly attempt to be threadsafe: prevent registrations from
+		// running except in one thread.
+		lock(lockobj)
+		{
+		    if (registered) return;
+		    
+		    foreach (var t in
+			     WvReflection.find_types(typeof(WvMonikerAttribute)))
+		    {
+			t.InvokeMember("wvmoniker_register",
+				       BindingFlags.Static 
+				         | BindingFlags.InvokeMethod,
+				       null, null, null);
+		    }
+		    registered = true;
+		}
+	    }
+	}
+    }
+    
+    public class WvMoniker<T>: WvMonikerBase
     {
 	static List<WvMoniker<T>> registry = new List<WvMoniker<T>>();
 	string prefix;
@@ -17,7 +50,7 @@ namespace Wv
 	    return new WvMoniker<T>(prefix, func);
 	}
 	
-	public WvMoniker(string prefix, Func<string,object,T> func)
+        public WvMoniker(string prefix, Func<string,object,T> func)
 	{
 	    this.prefix = prefix;
 	    this.func = func;
@@ -40,6 +73,8 @@ namespace Wv
 	
 	public static T create(string moniker, object o)
 	{
+	    register_all();
+	    
 	    int pos = moniker.IndexOf(':');
 	    string prefix, suffix;
 	    if (pos >= 0)
