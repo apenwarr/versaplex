@@ -219,6 +219,8 @@ namespace Wv
 		 (string m, object o) => new WvDbi_ODBC(m));
 	    WvMoniker<WvDbi>.register("odbc",
 		 (string m, object o) => new WvDbi_ODBC(m));
+	    WvMoniker<WvDbi>.register("mysql",
+		 (string m, object o) => new WvDbi_ODBC("MySQL:" + m));
 	}
 	
 	public WvDbi_ODBC(string moniker)
