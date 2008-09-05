@@ -895,11 +895,12 @@ internal class VxDbSchema : ISchemaBackend
                 List<string> cols = new List<string>();
                 types = new System.Type[row.Length];
 
-                for (int ii = 0; ii < row.schema.DefaultView.Count; ii++)
+		WvColInfo[] columns = row.columns.ToArray();
+                for (int ii = 0; ii < columns.Length; ii++)
                 {
-                    DataRowView col = row.schema.DefaultView[ii];
-                    cols.Add("[" + col["ColumnName"].ToString() + "]");
-                    types[ii] = (System.Type)col["DataType"];
+                    WvColInfo col = columns[ii];
+                    cols.Add("[" + col.name + "]");
+                    types[ii] = col.type;
                 }
 
                 prefix = String.Format("INSERT INTO {0} ({1}) VALUES (", 

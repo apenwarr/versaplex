@@ -141,13 +141,14 @@ internal static class VxDb {
                 
 		foreach (WvSqlRow cur_row in dbi.select(query))
                 {
+		    int ncols = cur_row.columns.Count();
 		    if (colinfo == null)
-			colinfo = ProcessChunkSchema(cur_row.schema);
+			colinfo = ProcessChunkSchema(cur_row.columns);
                     
-		    object[] row = new object[cur_row.schema.DefaultView.Count];
-                    byte[] rownull = new byte[cur_row.schema.DefaultView.Count];
+		    object[] row = new object[ncols];
+                    byte[] rownull = new byte[ncols];
 
-                    for (int i = 0; i < cur_row.schema.DefaultView.Count; i++) 
+                    for (int i = 0; i < ncols; i++) 
                     {
 			WvAutoCast cval = cur_row[i];
                         bool isnull = cval.IsNull;
@@ -496,26 +497,21 @@ internal static class VxDb {
         }
     }
 
-    private static VxColumnInfo[] ProcessChunkSchema(DataTable schema)
+    private static VxColumnInfo[] ProcessChunkSchema(
+				     IEnumerable<WvColInfo> columns)
     {
 	// FIXME:  This is stupidly similar to ProcessSchema
-        VxColumnInfo[] colinfo = new VxColumnInfo[schema.DefaultView.Count];
+	int ncols = columns.Count();
+        VxColumnInfo[] colinfo = new VxColumnInfo[ncols];
 
-        if (schema.DefaultView.Count <= 0) 
+        if (ncols <= 0) 
             return colinfo;
 
         int i = 0;
 
-        foreach (DataRowView col in schema.DefaultView)
+        foreach (WvColInfo col in columns)
 	{
-            foreach (DataColumn c in schema.Columns) 
-            {
-                log.print(WvLog.L.Debug4, "{0}:'{1}'  ", 
-                    c.ColumnName, col[c.ColumnName]);
-            }
-            log.print(WvLog.L.Debug4, "\n\n");
-
-            System.Type type = (System.Type)col["DataType"];
+            System.Type type = col.type;
 
             if (type == typeof(object))
 	    {
@@ -552,16 +548,11 @@ internal static class VxDb {
                 throw new VxBadSchemaException("Columns of type "
                         + type.ToString() + " are not supported by "
                         + "Versaplex at this time " +
-                        "(column " + col["ColumnName"].ToString() + ")");
+                        "(column " + col.name + ")");
             }
 
-            bool isnull = (bool)col["AllowDBNull"];
-            int size = (int)col["ColumnSize"];
-            short precision = (short)col["NumericPrecision"];
-            short scale = (short)col["NumericScale"];
-
-            colinfo[i] = new VxColumnInfo(col["ColumnName"].ToString(),
-                    coltype, isnull, size, precision, scale);
+            colinfo[i] = new VxColumnInfo(col.name, coltype,
+			  col.nullable, col.size, col.precision, col.scale);
 
             i++;
         }

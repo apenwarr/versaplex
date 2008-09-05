@@ -41,10 +41,8 @@ public static class VxCli
 			if (first)
 			{
 			    var colnames =
-				from c in row.schema.Rows
-				             .ToIEnumerable<DataRow>()
-				    select c["ColumnName"]
-				             .ToString().ToUpper();
+				from c in row.columns
+				select c.name.ToUpper();
 			    Console.Write(wv.fmt("{0}\n\n",
 						 colnames.Join(",")));
 			    first = false;
