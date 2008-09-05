@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Data;
 using System.Data.Common;
+using System.IO;
 using Wv.Mono.Terminal;
 using Wv;
 using Wv.Extensions;
@@ -11,6 +12,7 @@ public static class VxCli
     public static int Main(string[] args)
     {
 	WvLog.maxlevel = WvLog.L.Debug;
+	WvLog log = new WvLog("vxcli");
 
 	if (args.Length != 1)
 	{
@@ -18,13 +20,40 @@ public static class VxCli
 	    return 1;
 	}
 	
-	string dburl = args[0];
+	string moniker = args[0];
 	
 	WvIni vxini = new WvIni("versaplexd.ini");
-	if (vxini.get("Connections", dburl) != null)
-	    dburl = vxini.get("Connections", dburl);
+	if (vxini.get("Connections", moniker) != null)
+	    moniker = vxini.get("Connections", moniker);
 	
-	using (var dbi = WvDbi.create(dburl))
+	WvIni bookmarks = new WvIni(
+		    wv.PathCombine(wv.getenv("HOME"), ".wvdbi.ini"));
+	if (!moniker.Contains(":")
+	    && bookmarks["Bookmarks"].ContainsKey(moniker))
+	{
+	    moniker = bookmarks["Bookmarks"][moniker];
+	}
+	else
+	{
+	    // not found in existing bookmarks, so see if we can parse and
+	    // save instead.
+	    WvUrl url = new WvUrl(moniker);
+	    string path = url.path;
+	    if (path.StartsWith("/"))
+		path = path.Substring(1);
+	    if (path != "" && url.host != null)
+	    {
+		log.print("Creating bookmark '{0}'\n", path);
+		bookmarks.set("Bookmarks", path, moniker);
+		try {
+		    bookmarks.save();
+		} catch (IOException) {
+		    // not a big deal if we can't save our bookmarks.
+		}
+	    }
+	}
+	    
+	using (var dbi = WvDbi.create(moniker))
 	{
 	    LineEditor le = new LineEditor("VxCli");
 	    string inp;
