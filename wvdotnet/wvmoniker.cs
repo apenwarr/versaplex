@@ -11,6 +11,12 @@ namespace Wv
 	string prefix;
 	Func<string,object,T> func;
 	
+	public static WvMoniker<T>
+	    register(string prefix, Func<string,object,T> func)
+	{
+	    return new WvMoniker<T>(prefix, func);
+	}
+	
 	public WvMoniker(string prefix, Func<string,object,T> func)
 	{
 	    this.prefix = prefix;

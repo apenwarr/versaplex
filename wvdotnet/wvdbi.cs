@@ -13,92 +13,76 @@ namespace Wv
     public class WvDbi: IDisposable
     {
 	static WvIni settings = new WvIni("wvodbc.ini");
-	IDbConnection db;
-	WvLog log = new WvLog("WvDbi");
-	bool fake_bind = false;
+	protected static WvLog log = new WvLog("WvDbi");
+	IDbConnection _db;
+	protected IDbConnection db 
+	    { get { return _db; } }
+	static bool registered = false;
 	
         // MSSQL freaks out if there are more than 100 connections open at a
         // time.  Give ourselves a safety margin.
         static int num_active = 0;
         static int max_active = 50;
-
-	public WvDbi(string odbcstr)
+	
+	public static WvDbi create(string moniker)
+	{
+	    if (!registered)
+	    {
+		registered = true;
+		WvDbi_MSSQL.register();
+		WvDbi_ODBC.register();
+	    }
+	    
+	    log.print("Creating '{0}'\n", moniker);
+	    
+	    if (!moniker.Contains(":") && settings[moniker].Count > 0)
+	    {
+		StringDictionary sect = settings[moniker];
+		
+		if (sect["driver"] == "SqlClient")
+		    return create(wv.fmt("mssql:"
+					 + "server={0};database={1};"
+					 + "User ID={2};Password={3};",
+					 sect["server"],
+					 sect["database"],
+					 sect["user"], sect["password"]));
+		else
+		    return create(wv.fmt("ado:"
+					 + "driver={0};server={1};database={2};"
+					 + "uid={3};pwd={4};",
+					 sect["driver"], sect["server"],
+					 sect["database"],
+					 sect["user"], sect["password"]));
+	    }
+	    
+	    if (moniker.StartsWith("dsn=") || moniker.StartsWith("driver="))
+		return create("ado:" + moniker);
+	    
+	    return WvMoniker<WvDbi>.create(moniker);
+	}
+	
+	protected WvDbi()
 	{
             wv.assert(num_active < max_active, "Too many open connections");
             num_active++;
-	    string real;
-	    bool use_mssql = false;
-	    
-            string mssql_moniker_name = "mssql:";
-	    if (settings[odbcstr].Count > 0)
-	    {
-		StringDictionary sect = settings[odbcstr];
-		
-		if (sect["driver"] == "SqlClient")
-		{
-		    use_mssql = true;
-		    fake_bind = true;
-		    real = wv.fmt("server={0};database={1};"
-				  + "User ID={2};Password={3};",
-				  sect["server"],
-				  sect["database"],
-				  sect["user"], sect["password"]);
-		}
-		else
-		    real = wv.fmt("driver={0};server={1};database={2};"
-				  + "uid={3};pwd={4};",
-				  sect["driver"], sect["server"],
-				  sect["database"],
-				  sect["user"], sect["password"]);
-		log.print("Generated ODBC string: {0}\n", real);
-	    }
-            else if (odbcstr.StartsWith(mssql_moniker_name))
-            {
-                use_mssql = true;
-                fake_bind = true;
-                real = odbcstr.Substring(mssql_moniker_name.Length);
-            }
-	    else if (String.Compare(odbcstr, 0, "dsn=", 0, 4, true) == 0)
-		real = odbcstr;
-	    else if (String.Compare(odbcstr, 0, "driver=", 0, 7, true) == 0)
-		real = odbcstr;
-	    else
-		throw new ArgumentException
-		   ("unrecognized odbc string '" + odbcstr + "'");
-
-	    if (use_mssql)
-		db = new SqlConnection(real);
-	    else
-		db = new OdbcConnection(real);
-	    db.Open();
 	}
 
-        public WvDbi(SqlConnection conn)
-        {
-            db = conn;
-            fake_bind = true;
-            if ((db.State & System.Data.ConnectionState.Open) == 0)
-                db.Open();
-        }
-	
 	~WvDbi()
 	{
 	    wv.assert(false, "A WvDbi object was not Dispose()d");
+	}
+	
+	protected void opendb(IDbConnection db)
+	{
+	    this._db = db;
+            if ((db.State & System.Data.ConnectionState.Open) == 0)
+                db.Open();
 	}
 
         public IDbConnection Conn
         {
             get { return db; }
         }
-	
-	IDbCommand prepare(string sql, int nargs)
-	{
-	    IDbCommand cmd = db.CreateCommand();
-	    cmd.CommandText = sql;
-	    if (!fake_bind && nargs == 0)
-	       cmd.Prepare();
-	    return cmd;
-	}
 	
 	// Implement IDisposable.
 	public void Dispose() 
@@ -108,28 +92,19 @@ namespace Wv
 	    GC.SuppressFinalize(this); 
 	}
 	
-	// FIXME: if fake_bind, this only works the first time for a given
-	// IDBCommand object!  Don't try to recycle them.
-	void bind(IDbCommand cmd, params object[] args)
+	protected virtual IDbCommand prepare(string sql, int nargs)
 	{
-	    if (fake_bind)
-	    {
-		object[] list = new object[args.Length];
-		for (int i = 0; i < args.Length; i++)
-		{
-		    // FIXME!!!  This doesn't escape SQL strings!!
-		    if (args[i] == null)
-			list[i] = "null";
-		    else if (args[i] is int)
-			list[i] = (int)args[i];
-		    else
-			list[i] = wv.fmt("'{0}'", args[i].ToString());
-		}
-		cmd.CommandText = wv.fmt(cmd.CommandText, list);
-		log.print("fake_bind: '{0}'\n", cmd.CommandText);
-		return;
-	    }
-	    
+	    IDbCommand cmd = db.CreateCommand();
+	    cmd.CommandText = sql;
+	    if (nargs == 0)
+	       cmd.Prepare();
+	    return cmd;
+	}
+	
+	// Note: this is overridden in the MSSQL version because the binding
+	// stuff doesn't actually work in that one under mono.  Sigh.
+	protected virtual void bind(IDbCommand cmd, params object[] args)
+	{
 	    bool need_add = (cmd.Parameters.Count < args.Length);
 	    
 	    // This is the safe one, because we use normal bind() and thus
@@ -231,6 +206,99 @@ namespace Wv
 		// well, I guess no rows were affected...
 		return 0;
 	    }
+	}
+    }
+    
+    public class WvDbi_ODBC : WvDbi
+    {
+	public static void register()
+	{
+	    WvMoniker<WvDbi>.register("ado",
+		 (string m, object o) => new WvDbi_ODBC(m));
+	    WvMoniker<WvDbi>.register("odbc",
+		 (string m, object o) => new WvDbi_ODBC(m));
+	}
+	
+	public WvDbi_ODBC(string moniker)
+	{
+	    string real;
+	    if (moniker.StartsWith("dsn=") || moniker.StartsWith("driver="))
+		real = moniker;
+	    else
+	    {
+		// try to parse it as an URL
+		WvUrl url = new WvUrl(moniker);
+		if (url.path.StartsWith("/"))
+		    url.path = url.path.Substring(1);
+		real = wv.fmt("driver={0};server={1};database={2};"
+			      + "User ID={3};uid={3};Password={4};pwd={4}",
+			      url.method, url.host, url.path,
+			      url.user, url.password);
+	    }
+	    
+	    log.print("ODBC create: '{0}'\n", real);
+	    opendb(new OdbcConnection(real));
+	}
+	
+    }
+    
+    public class WvDbi_MSSQL : WvDbi
+    {
+	public static void register()
+	{
+	    WvMoniker<WvDbi>.register("mssql",
+		 (string m, object o) => new WvDbi_MSSQL(m));
+	}
+	
+        public WvDbi_MSSQL(SqlConnection conn)
+        {
+	    opendb(conn);
+        }
+	
+	public WvDbi_MSSQL(string moniker)
+	{
+	    string real;
+	    if (!moniker.StartsWith("//"))
+		real = moniker;
+	    else
+	    {
+		// try to parse it as an URL
+		WvUrl url = new WvUrl(moniker);
+		if (url.path.StartsWith("/"))
+		    url.path = url.path.Substring(1);
+		real = wv.fmt("server={0};database={1};"
+			      + "User ID={2};Password={3};",
+			      url.host, url.path, url.user, url.password);
+	    }
+	    
+	    log.print("MSSQL create: '{0}'\n", real);
+	    opendb(new SqlConnection(real));
+	}
+	
+	protected override IDbCommand prepare(string sql, int nargs)
+	{
+	    IDbCommand cmd = db.CreateCommand();
+	    cmd.CommandText = sql;
+	    return cmd;
+	}
+	
+	// FIXME: this only works the first time for a given
+	// IDBCommand object!  Don't try to recycle them.
+	protected override void bind(IDbCommand cmd, params object[] args)
+	{
+	    object[] list = new object[args.Length];
+	    for (int i = 0; i < args.Length; i++)
+	    {
+		// FIXME!!!  This doesn't escape SQL strings!!
+		if (args[i] == null)
+		    list[i] = "null";
+		else if (args[i] is int)
+		    list[i] = (int)args[i];
+		else
+		    list[i] = wv.fmt("'{0}'", args[i].ToString());
+	    }
+	    cmd.CommandText = wv.fmt(cmd.CommandText, list);
+	    log.print("fake_bind: '{0}'\n", cmd.CommandText);
 	}
     }
 }

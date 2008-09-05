@@ -1,7 +1,7 @@
 using System;
 using System.Linq;
 using System.Data;
-using System.Data.SqlClient;
+using System.Data.Common;
 using Wv.Mono.Terminal;
 using Wv;
 using Wv.Extensions;
@@ -22,7 +22,7 @@ public static class VxCli
 	if (ini["Connections"][dburl] != null)
 	    dburl = ini["Connections"][dburl];
 	
-	using (var dbi = new WvDbi(dburl))
+	using (var dbi = WvDbi.create(dburl))
 	{
 	    LineEditor le = new LineEditor("VxCli");
 	    string inp;
@@ -50,7 +50,7 @@ public static class VxCli
 			Console.Write(wv.fmt("{0}\n", row.Join(",")));
 		    }
 		}
-		catch (SqlException e)
+		catch (DbException e)
 		{
 		    Console.Write(wv.fmt("ERROR: {0}\n", e.Short()));
 		}
