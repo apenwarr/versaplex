@@ -1,7 +1,9 @@
 using System;
 using System.Data;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Wv.Extensions;
 
 namespace Wv
 {
@@ -28,17 +30,22 @@ namespace Wv
 	    this.v = v;
 	}
 	
-	public bool IsNull { get { return v == null; } }
+	public bool IsNull { get { return v == null || DBNull.Value.Equals(v); } }
 	
 	public static implicit operator string(WvAutoCast o)
 	{
 	    return o.ToString();
 	}
 	
+	public object inner 
+	    { get { return v; } }
+	
 	public override string ToString()
 	{
 	    if (v == null)
 		return "(nil)"; // shouldn't return null since this != null
+            else if (v is Boolean)
+                return intify().ToString();
 	    else
 		return v.ToString();
 	}
@@ -53,6 +60,11 @@ namespace Wv
 		return wv.date(o.v);
 	}
 
+        public static implicit operator byte[](WvAutoCast o)
+        {
+            return (byte[])o.v;
+        }
+
 	Int64 intify()
 	{
 	    if (v == null)
@@ -65,6 +77,8 @@ namespace Wv
 		return (Int16)v;
 	    else if (v is Byte)
 		return (Byte)v;
+            else if (v is Boolean)
+                return (Boolean)v ? 1 : 0;
 	    else
 		return wv.atoi(v);
 	}
@@ -108,6 +122,8 @@ namespace Wv
 		return (Int16)o.v;
 	    else if (o.v is Byte)
 		return (Byte)o.v;
+            else if (o.v is Boolean)
+                return (Boolean)o.v ? 1.0 : 0.0;
 	    else
 		return wv.atod(o.v);
 	}
@@ -121,43 +137,76 @@ namespace Wv
 	    else
 		return Char.MinValue;
 	}
+
+	public static implicit operator Decimal(WvAutoCast o)
+	{
+	    // FIXME:  double/int to decimal conversions?
+	    if (o.v is Decimal)
+		return (Decimal)o.v;
+	    else
+		return Decimal.MinValue;
+	}
     }
     
-
-    /**
-     * A wrapper for object lists, particularly IDataRecord, that makes
-     * each of the objects in the list accesible as a WvAutoCast.
-     */
-    public struct WvAutoRecord
+    
+    public struct WvColInfo
     {
-	object[] a;
-
-	public WvAutoRecord(IDataRecord r)
+	public string name;
+	public Type type;
+	public bool nullable;
+	public int size;
+	public short precision;
+	public short scale;
+	
+	public static IEnumerable<WvColInfo> FromDataTable(DataTable schema)
 	{
-	    a = new object[r.FieldCount];
-	    r.GetValues(a);
-	}
-
-	public WvAutoRecord(object[] a)
-	{
-	    this.a = a;
-	}
-
-	public WvAutoRecord(IEnumerable<object> i)
-	{
-	    a = i.ToArray();
-	}
-
-	public WvAutoCast this [int i] {
-	    get { return new WvAutoCast(a[i]); }
-	}
-
-	public IEnumerable<WvAutoCast> GetEnumerator()
-	{
-	    foreach (object o in a)
-		yield return new WvAutoCast(o);
+	    foreach (DataRow col in schema.Rows)
+		yield return new WvColInfo(col);
 	}
 	
-	public int Length { get { return a.Length; } }
+	WvColInfo(DataRow data)
+	{
+	    name      = (string)data["ColumnName"];
+	    type      = (Type)  data["DataType"];
+	    nullable  = (bool)  data["AllowDBNull"];
+	    size      = (int)   data["ColumnSize"].atoi();
+	    precision = (short) data["NumericPrecision"].atoi();
+	    scale     = (short) data["NumericScale"].atoi();
+	}
+    }
+    
+    
+    public class WvSqlRow : IEnumerable<WvAutoCast>
+    {
+	object[] data;
+	DataTable schema;
+	
+	public WvSqlRow(object[] _data, DataTable _schema)
+	{
+	    data = _data;
+	    schema = _schema;
+	}
+
+	public WvAutoCast this[int i]
+	    { get { return new WvAutoCast(data[i]); } }
+
+	public int Length
+	    { get { return data.Length; } }
+
+	public IEnumerator<WvAutoCast> GetEnumerator()
+	{
+	    foreach (object colval in data)
+		yield return new WvAutoCast(colval);
+	}
+
+	IEnumerator IEnumerable.GetEnumerator()
+	{
+	    // I really hope nobody ever needs to use this
+	    foreach (object colval in data)
+		yield return colval;
+	}
+	
+	public IEnumerable<WvColInfo> columns
+	    { get { return WvColInfo.FromDataTable(schema); } }
     }
 }

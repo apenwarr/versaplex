@@ -16,8 +16,22 @@ internal interface ISchemaBackend
     // Gets the checksums for all elements from the backing store.
     VxSchemaChecksums GetChecksums();
 
-    // Removes the given element from the schema.
-    void DropSchema(string type, string name);
+    // Removes the given elements from the schema.
+    VxSchemaErrors DropSchema(IEnumerable<string> keys);
+
+    // Returns a blob of text that can be used with PutSchemaData to fill 
+    // the given table.
+    // "seqnum" provides a hint about the priority of the table when batch
+    // processing, and is used to locate the file on disk.
+    // "where" is the body of a SQL "WHERE" clause, to limit the data 
+    // returned by the database, if applicable.
+    string GetSchemaData(string tablename, int seqnum, string where);
+
+    // Delete all rows from the given table and replace them with the given
+    // data.  text is an opaque hunk of text returned from GetSchemaData.
+    // Seqnum provides a hint about the priority of the table when batch
+    // processing, and is used to locate the file on disk.
+    void PutSchemaData(string tablename, string text, int seqnum);
 }
 
 [Flags]

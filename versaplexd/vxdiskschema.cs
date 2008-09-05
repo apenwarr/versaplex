@@ -40,9 +40,9 @@ internal class VxDiskSchema : ISchemaBackend
 
             VxSchemaElement elem = p.Value;
             if (elem.text == null || elem.text == "")
-                DropSchema(elem.type, elem.name);
+                DropSchema(new string[] {elem.key});
             else
-                p.Value.ExportToDisk(exportdir, sums[p.Key], isbackup);
+                ExportToDisk(p.Value, sums[p.Key], isbackup);
         }
 
         // Writing schemas to disk doesn't give us any per-element errors.
@@ -79,15 +79,62 @@ internal class VxDiskSchema : ISchemaBackend
         return sums;
     }
 
-    public void DropSchema(string type, string name)
+    public VxSchemaErrors DropSchema(IEnumerable<string> keys)
     {
-        if (type == null || name == null)
-            return;
+        VxSchemaErrors errs = new VxSchemaErrors();
 
-        string fullpath = wv.PathCombine(exportdir, type, name);
-        log.print("Removing {0}\n", fullpath);
-        if (File.Exists(fullpath))
-            File.Delete(fullpath);
+        foreach (string key in keys)
+        {
+            string fullpath = wv.PathCombine(exportdir, key);
+            log.print("Removing {0}\n", fullpath);
+            if (File.Exists(fullpath))
+                File.Delete(fullpath);
+            if (key.StartsWith("Index"))
+            {
+                string type, name;
+                VxSchema.ParseKey(key, out type, out name);
+                if (type != "Index")
+                    continue;
+
+                // If it was the last index for a table, remove the empty dir.
+                string[] split = name.Split('/');
+                if (split.Length > 0)
+                {
+                    string table = split[0];
+                    string tabpath = wv.PathCombine(exportdir, type, table);
+                    // Directory.Delete won't delete non-empty dirs, but we
+                    // still check both for safety and to write a sensible
+                    // message.
+                    if (Directory.GetFileSystemEntries(tabpath).Length == 0)
+                    {
+                        log.print("Removing empty directory {0}\n", tabpath);
+                        Directory.Delete(tabpath);
+                    }
+                }
+            }
+        }
+
+        return errs;
+    }
+
+    // Note: we ignore the "where" clause and just return everything.
+    public string GetSchemaData(string tablename, int seqnum, string where)
+    {
+        string datadir = Path.Combine(exportdir, "DATA");
+        string filename = wv.fmt("{0}-{1}.sql", seqnum, tablename);
+        string fullpath = Path.Combine(datadir, filename);
+
+        return File.ReadAllText(fullpath);
+    }
+
+    public void PutSchemaData(string tablename, string text, int seqnum)
+    {
+        string datadir = Path.Combine(exportdir, "DATA");
+        string filename = wv.fmt("{0}-{1}.sql", seqnum, tablename);
+        string fullpath = Path.Combine(datadir, filename);
+
+        Directory.CreateDirectory(datadir);
+        File.WriteAllBytes(fullpath, text.ToUTF8());
     }
 
     //
@@ -117,6 +164,9 @@ internal class VxDiskSchema : ISchemaBackend
                     // This is the */*/* part
                     foreach (FileInfo file in dir2.GetFiles())
                     {
+                        if (!IsFileNameUseful(file.Name))
+                            continue;
+
                         string name = wv.PathCombine(dir2.Name, file.Name);
                         AddFromFile(file.FullName, type, name, schema, sums);
                     }
@@ -124,12 +174,23 @@ internal class VxDiskSchema : ISchemaBackend
 
                 // This is the */* part
                 foreach (FileInfo file in dir1.GetFiles())
+                {
+                    if (!IsFileNameUseful(file.Name))
+                        continue;
+
                     AddFromFile(file.FullName, type, file.Name, schema, sums);
+                }
             }
         }
     }
 
     // Static methods
+
+    // We want to ignore hidden files, and backup files left by editors.
+    private static bool IsFileNameUseful(string filename)
+    {
+        return !filename.StartsWith(".") && !filename.EndsWith("~");
+    }
 
     // Adds the contents of extradir to the provided schema and sums.
     // Throws an ArgumentException if the directory contains an entry that
@@ -143,23 +204,20 @@ internal class VxDiskSchema : ISchemaBackend
     }
 
     // Reads a file from an on-disk exported schema, and sets the schema
-    // element parameter's text field and the sum parameter's checksums field.
-    // If either parameter is null, just loads the other.
-    // Returns true if the file passes its MD5 validation.  If it returns
-    // false, still sets the element's text field, but the sum parameter
-    // will have no sums in it.
-    public static bool ReadSchemaFile(string filename, VxSchemaElement elem, 
-        VxSchemaChecksum sum)
+    // element parameter's text field, if the schema element isn't null.
+    // Returns a new VxSchemaChecksum object containing the checksum.
+    // Returns true if the file passes its MD5 validation.  
+    // If it returns false, elem and sum may be set to null.  
+    private static bool ReadSchemaFile(string filename, string type, 
+        string name, out VxSchemaElement elem, out VxSchemaChecksum sum)
     {
+        elem = null;
+        sum = null;
+
         FileInfo fileinfo = new FileInfo(filename);
 
         // Read the entire file into memory.  C#'s file IO sucks.
-        // FIXME: Replace with File.ReadAllBytes
-        byte[] bytes = new byte[fileinfo.Length];
-        using (FileStream fs = fileinfo.OpenRead())
-        {
-            fs.Read(bytes, 0, bytes.Length);
-        }
+        byte[] bytes = File.ReadAllBytes(filename);
         
         // Find the header line
         int ii;
@@ -180,8 +238,7 @@ internal class VxDiskSchema : ISchemaBackend
 
         // Read the body
         string body = utf8.GetString(bytes, ii, bytes.Length - ii);
-        if (elem != null)
-            elem.text = body;
+        elem = new VxSchemaElement(type, name, body, false);
 
         // Parse the header line
         char[] space = {' '};
@@ -199,31 +256,25 @@ internal class VxDiskSchema : ISchemaBackend
         // Compute the hash of the rest of the file
         byte[] md5 = MD5.Create().ComputeHash(bytes, ii, 
             (int)fileinfo.Length - ii);
-        string content_md5 = md5.ToHex();
+        string content_md5 = md5.ToHex().ToLower();
+
+        IEnumerable<ulong> sumlist;
 
         // If the MD5 sums don't match, we want to make it obvious that the
         // database and local file aren't in sync, so we don't load any actual
         // checksums.  
-        if (header_md5 == content_md5)
+        if (String.Compare(header_md5, content_md5, true) == 0)
         {
-            string[] sums = dbsum.Split(' ');
-            foreach (string sumstr in sums)
-            {
-                ulong longsum;
-                if (!UInt64.TryParse(sumstr, 
-                        System.Globalization.NumberStyles.HexNumber, null, 
-                        out longsum))
-                {
-                    // A bad checksum means the whole file is bad.
-                    if (sum != null)
-                        sum.checksums.Clear();
-                    return false;
-                }
-                if (sum != null)
-                    sum.AddChecksum(longsum);
-            }
+            string errctx = wv.fmt("Error while reading file {0}: ", filename);
+            sumlist = VxSchemaChecksum.ParseSumString(dbsum, errctx);
+        }
+        else
+        {
+            log.print(WvLog.L.Info, "Checksum mismatch for {0}\n", filename);
+            sumlist = new List<ulong>();
         }
 
+        sum = new VxSchemaChecksum(elem.key, sumlist);
         return true;
     }
 
@@ -243,14 +294,40 @@ internal class VxDiskSchema : ISchemaBackend
         if (sums != null && sums.ContainsKey(key))
             throw new ArgumentException("Conflicting sums key: " + key);
 
-        VxSchemaChecksum sum = new VxSchemaChecksum(key);
-        VxSchemaElement elem = new VxSchemaElement(type, name, "", false);
-        ReadSchemaFile(path, elem, sum);
+        VxSchemaChecksum sum;
+        VxSchemaElement elem;
+        ReadSchemaFile(path, type, name, out elem, out sum);
 
-        if (schema != null)
+        if (schema != null && elem != null)
             schema.Add(key, elem);
-        if (sums != null)
+        if (sums != null && sum != null)
             sums.Add(key, sum);
     }
+
+    private void ExportToDisk(VxSchemaElement elem, VxSchemaChecksum sum, 
+        bool isbackup)
+    {
+        // Make some kind of attempt to run on Windows.  
+        string filename = (exportdir + "/" + elem.key).Replace( 
+            '/', Path.DirectorySeparatorChar);
+
+        // Make directories
+        Directory.CreateDirectory(Path.GetDirectoryName(filename));
+
+        string suffix = "";
+        if (isbackup)
+        {
+            int i = 1;
+            while(File.Exists(filename + "-" + i))
+                i++;
+            suffix = "-" + i;
+        }
+
+        filename += suffix;
+            
+        log.print("Writing {0}\n", filename);
+        File.WriteAllBytes(filename, elem.ToStringWithHeader(sum).ToUTF8());
+    }
+
 }
 

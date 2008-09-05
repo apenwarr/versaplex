@@ -14,16 +14,26 @@ internal class VxDbusSchema : ISchemaBackend
     {
         if (Address.Session == null)
             throw new Exception ("DBUS_SESSION_BUS_ADDRESS not set");
-        AddressEntry aent = AddressEntry.Parse(Address.Session);
-        DodgyTransport trans = new DodgyTransport();
-        trans.Open(aent);
-        bus = new Bus(trans);
+        Connect(Address.Session);
+    }
+
+    public VxDbusSchema(string bus_moniker)
+    {
+        Connect(bus_moniker);
     }
 
     // If you've already got a Bus you'd like to use.
     public VxDbusSchema(Bus _bus)
     {
         bus = _bus;
+    }
+
+    private void Connect(string bus_moniker)
+    {
+        AddressEntry aent = AddressEntry.Parse(bus_moniker);
+        DodgyTransport trans = new DodgyTransport();
+        trans.Open(aent);
+        bus = new Bus(trans);
     }
 
     // 
@@ -61,7 +71,7 @@ internal class VxDbusSchema : ISchemaBackend
             if (replysig.ToString() == "s")
                 throw VxDbusUtils.GetDbusException(reply);
 
-            if (replysig.ToString() != "a(ssi)")
+            if (replysig.ToString() != VxSchemaErrors.GetDbusSignature())
                 throw new Exception("D-Bus reply had invalid signature: " +
                     replysig);
 
@@ -152,50 +162,66 @@ internal class VxDbusSchema : ISchemaBackend
         }
     }
 
-    // A method exported over DBus but not exposed in ISchemaBackend
-    public void DropSchema(string type, string name)
+    public VxSchemaErrors DropSchema(IEnumerable<string> keys)
     {
-        Message call = CreateMethodCall("DropSchema", "ss");
+        if (keys == null)
+            keys = new string[0];
+        return DropSchema(keys.ToArray());
+    }
+
+    // A method exported over DBus but not exposed in ISchemaBackend
+    public VxSchemaErrors DropSchema(params string[] keys)
+    {
+        Message call = CreateMethodCall("DropSchema", "as");
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
-        writer.Write(typeof(string), type);
-        writer.Write(typeof(string), name);
+        writer.Write(typeof(string[]), keys);
         call.Body = writer.ToArray();
 
         Message reply = call.Connection.SendWithReplyAndBlock(call);
 
         switch (reply.Header.MessageType) {
         case MessageType.MethodReturn:
+        case MessageType.Error:
         {
             object replysig;
-            if (reply.Header.Fields.TryGetValue(FieldCode.Signature,
+            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
                         out replysig))
-                throw new Exception("D-Bus reply had unexpected signature" + 
+                throw new Exception("D-Bus reply had no signature.");
+
+            if (replysig == null)
+                throw new Exception("D-Bus reply had null signature");
+
+            if (replysig.ToString() == "s")
+                throw VxDbusUtils.GetDbusException(reply);
+
+            if (replysig.ToString() != VxSchemaErrors.GetDbusSignature())
+                throw new Exception("D-Bus reply had invalid signature: " +
                     replysig);
 
-            return;
+            MessageReader reader = new MessageReader(reply);
+            VxSchemaErrors errors = new VxSchemaErrors(reader);
+
+            return errors;
         }
-        case MessageType.Error:
-            throw VxDbusUtils.GetDbusException(reply);
         default:
             throw new Exception("D-Bus response was not a method return or "
                     + "error");
         }
     }
     
-    //
-    // Non-ISchemaBackend methods
-    //
-
-    // A method exported over DBus but not exposed in ISchemaBackend
-    public string GetSchemaData(string tablename)
+    public string GetSchemaData(string tablename, int seqnum, string where)
     {
-        Message call = CreateMethodCall("GetSchemaData", "s");
+        Message call = CreateMethodCall("GetSchemaData", "ss");
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
+        if (where == null)
+            where = "";
+
         writer.Write(typeof(string), tablename);
+        writer.Write(typeof(string), where);
         call.Body = writer.ToArray();
 
         Message reply = call.Connection.SendWithReplyAndBlock(call);
@@ -223,8 +249,7 @@ internal class VxDbusSchema : ISchemaBackend
         }
     }
 
-    // A method exported over DBus but not exposed in ISchemaBackend
-    public void PutSchemaData(string tablename, string text)
+    public void PutSchemaData(string tablename, string text, int seqnum)
     {
         Message call = CreateMethodCall("PutSchemaData", "ss");
 
@@ -254,6 +279,10 @@ internal class VxDbusSchema : ISchemaBackend
                     +"error");
         }
     }
+
+    //
+    // Non-ISchemaBackend methods
+    //
 
     // Use our Bus object to create a method call.
     public Message CreateMethodCall(string member, string signature)

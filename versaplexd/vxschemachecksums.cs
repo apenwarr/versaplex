@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 using NDesk.DBus;
@@ -11,25 +10,27 @@ using Wv.Extensions;
 // The checksums for a single database element (table, procedure, etc).
 // Can have multiple checksum values - a table has one checksum per column,
 // for instance.
+// Note: This class is immutable.  
 // FIXME: Have separate type member?
 internal class VxSchemaChecksum
 {
-    string _name;
+    readonly string _name;
     public string name {
         get { return _name; }
     }
 
-    List<ulong> _checksums;
-    public List<ulong> checksums {
+    readonly IEnumerable<ulong> _checksums;
+    public IEnumerable<ulong> checksums {
         get { return _checksums; }
     }
 
     public VxSchemaChecksum(VxSchemaChecksum copy)
     {
         _name = copy.name;
-        _checksums = new List<ulong>();
+        var list = new List<ulong>();
         foreach (ulong sum in copy.checksums)
-            _checksums.Add(sum);
+            list.Add(sum);
+        _checksums = list;
     }
 
     public VxSchemaChecksum(string newname)
@@ -41,32 +42,40 @@ internal class VxSchemaChecksum
     public VxSchemaChecksum(string newname, ulong newchecksum)
     {
         _name = newname;
-        _checksums = new List<ulong>();
-        AddChecksum(newchecksum);
+        var list = new List<ulong>();
+        list.Add(newchecksum);
+        _checksums = list;
+    }
+
+    public VxSchemaChecksum(string newname, IEnumerable<ulong> sumlist)
+    {
+        _name = newname;
+        _checksums = sumlist;
     }
 
     // Read a set of checksums from a DBus message into a VxSchemaChecksum.
     public VxSchemaChecksum(MessageReader reader)
     {
         _name = reader.ReadString();
-        _checksums = new List<ulong>();
 
         // Fill the list
-        int size = reader.ReadInt32();
+        List<ulong> list = new List<ulong>();
+	int size = reader.ReadInt32();
         int endpos = reader.Position + size;
         while (reader.Position < endpos)
         {
             reader.ReadPad(8);
             ulong sum = reader.ReadUInt64();
-            AddChecksum(sum);
+            list.Add(sum);
         }
+        _checksums = list;
     }
 
     public string GetSumString()
     {
         List<string> l = new List<string>();
         foreach (ulong sum in checksums)
-            l.Add(sum.ToString("X8"));
+            l.Add("0x" + sum.ToString("x8"));
         return l.Join(" ");
     }
 
@@ -86,32 +95,90 @@ internal class VxSchemaChecksum
             }, 8);
     }
 
-    public void AddChecksum(ulong checksum)
+    // Note: this is only safe to override because the class is immutable.
+    public override bool Equals(object other_obj)
     {
-        _checksums.Add(checksum);
-    }
-
-    // Note: it's unwise to override Object.Equals for mutable classes.
-    // Overriding Object.Equals means also overriding Object.GetHashCode,
-    // otherwise finding elements in hash tables would break.  But then
-    // changing the hash code of an element in a hash table also makes things
-    // unhappy.
-    public bool IsEqual(VxSchemaChecksum other)
-    {
-        if (other == null)
+        if (other_obj == null)
             return false;
+
+        if (!(other_obj is VxSchemaChecksum))
+            return false;
+
+        var other = (VxSchemaChecksum)other_obj;
 
         if (this.name != other.name)
             return false;
 
-        if (this.checksums.Count != other.checksums.Count)
+        // FIXME: This can be replaced with Linq's SequenceEquals(), once
+        // we're using a version of mono that implements it (>= 1.9).
+        ulong[] mysums = this.checksums.ToArray();
+        ulong[] theirsums = other.checksums.ToArray();
+
+        if (mysums.Count() != theirsums.Count())
             return false;
 
-        for (int i = 0; i < this.checksums.Count; i++)
-            if (this.checksums[i] != other.checksums[i])
+        for (int i = 0; i < mysums.Count(); i++)
+            if (mysums[i] != theirsums[i])
                 return false;
 
         return true;
+    }
+
+    public override int GetHashCode() 
+    {
+        ulong xor = checksums.Aggregate((cur, next) => cur ^ next);
+        return ((int)xor ^ (int)(xor>>32));
+    }
+
+    // Given a string containing database sums, returns their parsed version.
+    // Leading "0x" prefixes are optional, though all numbers are assumed to
+    // be hex.  The sums must be separated by spaces, e.g. "0xdeadbeef badf00d"
+    // Prints an error message and ignores any unparseable elements.
+    public static IEnumerable<ulong> ParseSumString(string dbsums)
+    {
+        return ParseSumString(dbsums, null);
+    }
+
+    // Acts just like ParseSumString(dbsums), but allows for providing 
+    // some context for errors.  If errctx isn't null, it's printed before any
+    // error messages produced.  A suitable string might be "Error while 
+    // reading file $filename: ".
+    public static IEnumerable<ulong> ParseSumString(string dbsums, 
+        string errctx)
+    {
+        if (dbsums == null)
+            return new List<ulong>();
+
+        string[] sums = dbsums.Split(' ');
+        var sumlist = new List<ulong>();
+        foreach (string sumstr in sums)
+        {
+            // Ignore trailing spaces.
+            if (sumstr.Length == 0)
+                continue;
+
+            // C#'s hex parser doesn't like 0x prefixes.
+            string stripped = sumstr.ToLower();
+            if (stripped.StartsWith("0x"))
+                stripped = stripped.Remove(0, 2);
+
+            ulong longsum;
+            if (UInt64.TryParse(stripped,
+                    System.Globalization.NumberStyles.HexNumber, null, 
+                    out longsum))
+            {
+                sumlist.Add(longsum);
+            }
+            else
+            {
+                WvLog log = new WvLog("ParseSumString");
+                string msg = wv.fmt("Failed to parse database sums '{0}' " + 
+                    "due to the malformed element '{1}'.\n", 
+                    dbsums, sumstr);
+                log.print("{0}{1}", errctx == null ? "" : errctx, msg);
+            }
+        }
+        return sumlist;
     }
 
     public static string GetDbusSignature()
@@ -164,10 +231,17 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
             }, 8);
     }
 
-    public void Add(string name, ulong checksum)
+    public void AddSum(string name, ulong checksum)
     {
         if (this.ContainsKey(name))
-            this[name].AddChecksum(checksum);
+        {
+            VxSchemaChecksum old = this[name];
+
+            List<ulong> list = new List<ulong>(old.checksums);
+            list.Add(checksum);
+
+            this[name] = new VxSchemaChecksum(name, list);
+        }
         else
             this.Add(name, new VxSchemaChecksum(name, checksum));
     }
@@ -178,106 +252,3 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
     }
 }
 
-internal class SchemaTypeComparer: IComparer<string>
-{
-    enum SchemaTypes
-    {
-        xmlschema = 100,
-        table = 200,
-        view = 300,
-        index = 400,
-        scalarfunction = 1100,
-        tablefunction = 1200,
-        procedure = 1300,
-        trigger = 1400
-    }
-
-    private int sort_order(string s)
-    {
-        string type, name;
-        VxSchema.ParseKey(s, out type, out name);
-
-        int retval;
-        bool ignore_case = true;
-        try
-        {
-            retval = Convert.ToInt32(Enum.Parse(typeof(SchemaTypes), 
-                type, ignore_case));
-        }
-        catch (Exception)
-        {
-            retval = 9999;
-        }
-        return retval;
-    }
-
-    public int Compare(string x, string y)
-    {
-        int sort_x = sort_order(x);
-        int sort_y = sort_order(y);
-
-        if (sort_x != sort_y)
-            return sort_x - sort_y;
-        else
-            return String.Compare(x, y);
-    }
-}
-
-internal enum VxDiffType
-{
-    Unchanged = '.',
-    Add = '+',
-    Remove = '-',
-    Change = '*'
-}
-
-// Figures out what changes are needed to convert srcsums to goalsums.
-//
-// FIXME: It might be nicer in the long term to just implement 
-// IEnumerable<...> or IDictionary<...> ourselves, and defer to
-// an internal member.  But it's a lot of boilerplate code.
-internal class VxSchemaDiff : SortedList<string, VxDiffType>
-{
-    public VxSchemaDiff(VxSchemaChecksums srcsums, 
-        VxSchemaChecksums goalsums):
-        base(new SchemaTypeComparer())
-    {
-        List<string> keys = srcsums.Keys.Union(goalsums.Keys).ToList();
-        keys.Sort(new SchemaTypeComparer());
-        foreach (string key in keys)
-        {
-            if (!srcsums.ContainsKey(key))
-                this.Add(key, VxDiffType.Add);
-            else if (!goalsums.ContainsKey(key))
-                this.Add(key, VxDiffType.Remove);
-            else if (!srcsums[key].IsEqual(goalsums[key]))
-            {
-                if (!this.ContainsKey(key))
-                    this.Add(key, VxDiffType.Change);
-            }
-            else
-            {
-                //this.Add(key, VxDiffType.Unchanged);
-            }
-        }
-    }
-
-    // Convert a set of diffs to a string of the form:
-    // + AddedEntry
-    // - RemovedEntry
-    // * ChangedEntry
-    // . UnchangedEntry
-    // The leading characters are taken directly from the enum definition.
-    public override string ToString()
-    {
-        StringBuilder sb = new StringBuilder();
-        // Assume around 32 characters per entry.  May be slightly off, but
-        // it'll be way better than the default value of 16.
-        sb.Capacity = 32 * this.Count;
-        foreach (KeyValuePair<string,VxDiffType> p in this)
-        {
-            sb.AppendLine(((char)p.Value) + " " + p.Key); 
-        }
-        return sb.ToString();
-    }
-}

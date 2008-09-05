@@ -156,7 +156,6 @@ public class WvStreamTests
 	
 	using (WvFile f = new WvFile("testfile.txt"))
 	{
-	    string s = null;
 	    int rcount = 0;
 	    f.onreadable += delegate() {
 		rcount++;

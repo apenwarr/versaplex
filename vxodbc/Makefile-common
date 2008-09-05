@@ -31,7 +31,8 @@ OBJS=\
 	odbcapi30w.o \
 	inouealc.o \
 	win_unicode.o \
-	wvlogger.o
+	wvlogger.o \
+	wvssl_necessities.o
 
 # Files made by configure
 CONFIGUREFILES=\
@@ -78,5 +79,5 @@ configure: configure.ac config.h.in
 
 include $(wildcard .*.d)
 
-test: vxodbc.so vxodbc-test.so
+test tests:
 	$(MAKE) -C t $@

@@ -4,7 +4,20 @@ using System.Text;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 using NDesk.DBus;
+using Wv;
 using Wv.Extensions;
+
+[Flags]
+public enum VxCopyOpts : int
+{
+    None = 0,
+    DryRun = 0x1,
+    ShowProgress = 0x2, 
+    ShowDiff = 0x4, 
+    Destructive = 0x8,
+
+    Verbose = ShowProgress | ShowDiff,
+}
 
 internal class VxSchemaErrors : Dictionary<string, VxSchemaError>
 {
@@ -118,6 +131,17 @@ internal class VxSchemaElement : IComparable
         return VxSchema.GetKey(type, name, encrypted);
     }
 
+    // Returns the element's text, along with a header line containing the MD5
+    // sum of the text, and the provided database checksums.  This format is
+    // suitable for serializing to disk.
+    public string ToStringWithHeader(VxSchemaChecksum sum)
+    {
+        byte[] md5 = MD5.Create().ComputeHash(text.ToUTF8());
+
+        return String.Format("!!SCHEMAMATIC {0} {1} \r\n{2}",
+            md5.ToHex().ToLower(), sum.GetSumString(), text);
+    }
+
     public int CompareTo(object obj)
     {
         if (!(obj is VxSchemaElement))
@@ -125,40 +149,6 @@ internal class VxSchemaElement : IComparable
 
         VxSchemaElement other = (VxSchemaElement)obj;
         return GetKey().CompareTo(other.GetKey());
-    }
-
-    public void ExportToDisk(string exportdir, VxSchemaChecksum sum, 
-        bool isbackup)
-    {
-        MD5 md5summer = MD5.Create();
-
-        byte[] text = this.text.ToUTF8();
-        byte[] md5 = md5summer.ComputeHash(text);
-
-        // Make some kind of attempt to run on Windows.  
-        string filename = (exportdir + "/" + this.key).Replace( 
-            '/', Path.DirectorySeparatorChar);
-
-        // Make directories
-        Directory.CreateDirectory(Path.GetDirectoryName(filename));
-
-        string suffix = "";
-        if (isbackup)
-        {
-            int i = 1;
-            while(File.Exists(filename + "-" + i))
-                i++;
-            suffix = "-" + i;
-        }
-            
-        using(BinaryWriter file = new BinaryWriter(
-            File.Open(filename + suffix, FileMode.Create)))
-        {
-            file.Write(String.Format("!!SCHEMAMATIC {0} {1}\r\n",
-				     md5.ToHex(), sum.GetSumString())
-		       .ToUTF8());
-            file.Write(text);
-        }
     }
 
     public static string GetDbusSignature()
@@ -251,7 +241,7 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
         return diffschema;
     }
 
-    public void Add(string name, string type, string text, bool encrypted)
+    public void Add(string type, string name, string text, bool encrypted)
     {
         string key = GetKey(type, name, encrypted);
         if (this.ContainsKey(key))
@@ -296,21 +286,59 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
     public static VxSchemaErrors CopySchema(ISchemaBackend source, 
         ISchemaBackend dest)
     {
+        return VxSchema.CopySchema(source, dest, VxCopyOpts.None);
+    }
+
+    public static VxSchemaErrors CopySchema(ISchemaBackend source, 
+        ISchemaBackend dest, VxCopyOpts opts)
+    {
+        WvLog log = new WvLog("CopySchema");
+
+        if ((opts & VxCopyOpts.ShowProgress) == 0)
+            log = new WvLog("CopySchema", WvLog.L.Debug5);
+
+        bool show_diff = (opts & VxCopyOpts.ShowDiff) != 0;
+        bool dry_run = (opts & VxCopyOpts.DryRun) != 0;
+        bool destructive = (opts & VxCopyOpts.Destructive) != 0;
+
+        log.print("Retrieving schema checksums from source.\n");
         VxSchemaChecksums srcsums = source.GetChecksums();
+
+        log.print("Retrieving schema checksums from dest.\n");
         VxSchemaChecksums destsums = dest.GetChecksums();
+
+        if (srcsums.Count == 0 && destsums.Count != 0)
+        {
+            log.print("Source index is empty! " + 
+                "Refusing to delete entire database.\n");
+            return new VxSchemaErrors();
+        }
 
         List<string> names = new List<string>();
 
+        log.print("Computing diff.\n");
         VxSchemaDiff diff = new VxSchemaDiff(destsums, srcsums);
+
+        if (diff.Count == 0)
+        {
+            log.print("No changes.\n");
+            return new VxSchemaErrors();
+        }
+
+        if (show_diff)
+        {
+            log.print("Changes to apply:\n");
+            log.print(WvLog.L.Info, diff.ToString());
+        }
+
+        log.print("Parsing diff.\n");
+        List<string> to_drop = new List<string>();
         foreach (KeyValuePair<string,VxDiffType> p in diff)
         {
             switch (p.Value)
             {
             case VxDiffType.Remove:
-                string type, name;
-                VxSchema.ParseKey(p.Key, out type, out name);
-                if (type != null && name != null)
-                    dest.DropSchema(type, name);
+                to_drop.Add(p.Key);
                 break;
             case VxDiffType.Add:
             case VxDiffType.Change:
@@ -319,8 +347,37 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
             }
         }
 
+        log.print("Retrieving updated schema.\n");
         VxSchema to_put = source.Get(names);
 
-        return dest.Put(to_put, srcsums, VxPutOpts.None);
+        if (dry_run)
+            return new VxSchemaErrors();
+
+        VxSchemaErrors drop_errs = new VxSchemaErrors();
+        VxSchemaErrors put_errs = new VxSchemaErrors();
+
+        // We know at least one of to_drop and to_put must have something in
+        // it, otherwise the diff would have been empty.
+
+        if (to_drop.Count > 0)
+        {
+            log.print("Dropping deleted elements.\n");
+            drop_errs = dest.DropSchema(to_drop);
+        }
+
+        VxPutOpts putopts = VxPutOpts.None;
+        if (destructive)
+            putopts |= VxPutOpts.Destructive;
+        if (names.Count > 0)
+        {
+            log.print("Updating and adding elements.\n");
+            put_errs = dest.Put(to_put, srcsums, putopts);
+        }
+
+        // Combine the two sets of errors.
+        foreach (var kvp in drop_errs)
+            put_errs.Add(kvp.Key, kvp.Value);
+
+        return put_errs;
     }
 }

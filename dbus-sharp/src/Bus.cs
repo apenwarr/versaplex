@@ -138,6 +138,16 @@ namespace NDesk.DBus
 		{
 			return bus.GetConnectionUnixUser (name);
 		}
+                
+		public string GetCert (string name)
+                {
+			return bus.GetConnectionCert (name);
+                }
+
+		public string GetCertFingerprint (string name)
+                {
+			return bus.GetConnectionCertFingerprint (name);
+                }
 
 		public RequestNameReply RequestName (string name)
 		{

@@ -91,6 +91,8 @@ namespace org.freedesktop.DBus
 		string[] ListQueuedOwners (string name);
 		uint GetConnectionUnixProcessID (string connection_name);
 		string GetConnectionUnixUserName (string connection_name);
+		string GetConnectionCert(string connection_name);
+		string GetConnectionCertFingerprint(string connection_name);
 		byte[] GetConnectionSELinuxSecurityContext (string connection_name);
 		void ReloadConfig ();
 	}

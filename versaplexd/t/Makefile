@@ -36,11 +36,21 @@ export LD_LIBRARY_PATH=..:$(WVLIBDIR):$(WVSTREAMS)
 LIBS+=-L$(WVSTREAMS) -lwvdbus 
 endif
 
+VX_SOURCES = ../dodgytransport.cs ../vxnotifysocket.cs ../vxsocket.cs \
+	../vxcolumninfo.cs ../vxdbusdatetime.cs ../vxdbusutils.cs \
+	../vxexceptions.cs versaplextester.cs.E
+
+SCHEMAMATIC_SOURCES = ../vxschema.cs ../vxschemachecksums.cs \
+	../vxschemadiff.cs ../vxschemaerrors.cs ../ischemabackend.cs \
+	../vxdiskschema.cs ../vxdbusschema.cs ../vxdbschema.cs \
+	../vxexceptions.cs schemamatictester.cs.E
+
 TESTSOURCES=$(wildcard *.t.cc)
 TESTHEADERS=$(wildcard *.h)
 TESTOBJS=$(patsubst %.cc,%.o,$(TESTSOURCES))
 
-TESTS=versaplex.t.pass vxsanity.t.pass verifydata.t.pass schemamatic.t.pass
+TESTS=versaplex.t.pass vxsanity.t.pass verifydata.t.pass schemamatic.t.pass \
+    vxexecchunkrecordset.t.pass vxschemachecksums.t.pass vxdiskschema.t.pass
 TESTEXES=$(patsubst %.pass,%.exe,$(TESTS))
 
 default: test
@@ -52,27 +62,32 @@ tests: $(TESTEXES)
 test: $(TESTS) all.t
 	$(RUNTEST) $(VALGRIND) ./all.t $(TESTNAME)
 
-versaplex.t.exe: versaplex.t.cs.E versaplextester.cs.E dbuserror.cs \
-	../dodgytransport.cs ../vxnotifysocket.cs ../vxsocket.cs \
-	../vxcolumninfo.cs ../vxdbusdatetime.cs ../vxdbusutils.cs \
+versaplex.t.exe: versaplex.t.cs.E \
+	$(VX_SOURCES) \
 	../wv.dll ../NDesk.DBus.dll
 
-vxsanity.t.exe: vxsanity.t.cs.E versaplextester.cs.E dbuserror.cs \
-	../dodgytransport.cs ../vxnotifysocket.cs ../vxsocket.cs \
-	../vxcolumninfo.cs ../vxdbusdatetime.cs ../vxdbusutils.cs \
+vxsanity.t.exe: vxsanity.t.cs.E \
+	$(VX_SOURCES) \
 	../wv.dll ../NDesk.DBus.dll
 
-verifydata.t.exe: verifydata.t.cs.E versaplextester.cs.E dbuserror.cs \
-	../dodgytransport.cs ../vxnotifysocket.cs ../vxsocket.cs \
-	../vxcolumninfo.cs ../vxdbusdatetime.cs ../vxdbusutils.cs \
+verifydata.t.exe: verifydata.t.cs.E \
+	$(VX_SOURCES) \
 	../wv.dll ../NDesk.DBus.dll
 
-schemamatic.t.exe: schemamatic.t.cs.E versaplextester.cs.E dbuserror.cs \
-	../dodgytransport.cs ../vxnotifysocket.cs ../vxsocket.cs \
-	../vxcolumninfo.cs ../vxdbusdatetime.cs ../vxschemachecksums.cs \
-	../vxschema.cs ../vxschemachecksums.cs ../vxschemaerrors.cs \
-	../ischemabackend.cs ../vxdiskschema.cs ../vxdbusschema.cs \
-	../vxdbschema.cs ../vxdbusutils.cs ../vxexceptions.cs \
+schemamatic.t.exe: schemamatic.t.cs.E \
+	$(VX_SOURCES) $(SCHEMAMATIC_SOURCES) \
+	../wv.dll ../NDesk.DBus.dll
+
+vxexecchunkrecordset.t.exe: vxexecchunkrecordset.t.cs.E \
+	$(VX_SOURCES) \
+	../wv.dll ../NDesk.DBus.dll
+
+vxschemachecksums.t.exe: vxschemachecksums.t.cs.E \
+	../vxschemachecksums.cs \
+	../wv.dll ../NDesk.DBus.dll
+
+vxdiskschema.t.exe: vxdiskschema.t.cs.E \
+	$(VX_SOURCES) $(SCHEMAMATIC_SOURCES) \
 	../wv.dll ../NDesk.DBus.dll
 
 %.o: %.cc

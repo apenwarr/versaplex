@@ -1,7 +1,7 @@
 using System;
 using NDesk.DBus;
 
-struct VxColumnInfo {
+public struct VxColumnInfo {
     private int size;
     private string colname;
     private VxColumnType coltype;
@@ -85,7 +85,7 @@ struct VxColumnInfo {
     }
 }
 
-enum VxColumnType {
+public enum VxColumnType {
     Int64,
     Int32,
     Int16,

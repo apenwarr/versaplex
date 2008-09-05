@@ -9,6 +9,10 @@
 #include "odbcinst.h"
 
 #include "../wvlogger.h"
+#include "wvlinkerhack.h"
+
+WV_LINK_TO(WvTCPConn);
+WV_LINK_TO(WvSSLStream);
 
 int VxOdbcTester::num_names_registered = 0;
 
@@ -63,6 +67,16 @@ VxOdbcTester::~VxOdbcTester()
     // lazily after the open file detector does its initial check.  
     wvlog_close();
 #endif
+    
+    /* HACK HACK HACK HACK... need to do this to flush vxserver_conn out,
+     * so that the WvDBusServer object we are connected to removes it from its
+     * internal list and decreases its refcount, thus avoiding valgrind
+     * freaking out claiming there's a loose DBus server with open file
+     * descriptors left over
+     */
+    vxserver_conn.close();
+    for (int i = 0; i < 5; ++i)
+	WvIStreamList::globallist.runonce(10);
 }
 
 bool VxOdbcTester::msg_received(WvDBusMsg &msg)

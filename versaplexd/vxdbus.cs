@@ -7,7 +7,7 @@ public static class VxDbus {
     static WvLog log = new WvLog("VxDbus", WvLog.L.Debug1);
     static WvLog smalldump = log.split(WvLog.L.Debug4);
     static WvLog fulldump = log.split(WvLog.L.Debug5);
-    
+
     public static Message CreateError(string type, string msg, Message cause)
     {
         Message error = new Message();
@@ -58,6 +58,32 @@ public static class VxDbus {
         return reply;
     }
 
+    public static Message CreateSignal(object destination, string signalname,
+					string signature, MessageWriter body)
+    {
+	// Idea shamelessly stolen from CreateReply method above
+	Message signal = new Message();
+	signal.Header.MessageType = MessageType.Signal;
+	signal.Header.Flags =
+	    HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
+	// The ObjectPath is required by signals, and is the "source of the
+	// signal."  OK then; seems useless to me.
+	signal.Header.Fields[FieldCode.Path] = new ObjectPath("/db");
+	signal.Header.Fields[FieldCode.Interface] = "vx.db";
+	signal.Header.Fields[FieldCode.Member] = signalname;
+
+	if (destination != null)
+	    signal.Header.Fields[FieldCode.Destination] = destination;
+
+	if (signature != null && signature != "")
+	{
+	    signal.Signature = new Signature(signature);
+	    signal.Body = body.ToArray();
+	}
+
+	return signal;
+    }
+
     public static void MessageDump(string prefix, Message msg)
     {
         Header hdr = msg.Header;
@@ -66,12 +92,14 @@ public static class VxDbus {
 	    log.print("{0} REPLY#{1}\n",
 			prefix,
 			hdr.Fields[FieldCode.ReplySerial]);
-	else
+	else if (hdr.MessageType != MessageType.Signal)
 	    log.print("{0} #{1} {2}.{3}\n",
 			prefix,
 			hdr.Serial,
 			hdr.Fields[FieldCode.Interface],
 			hdr.Fields[FieldCode.Member]);
+	else
+	    log.print("{0}\n", hdr.Fields[FieldCode.Interface]);
 
         smalldump.print("Message dump:\n");
         smalldump.print(" endianness={0} ", hdr.Endianness);

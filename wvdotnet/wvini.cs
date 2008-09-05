@@ -1,20 +1,22 @@
 using System;
 using System.IO;
-using System.Collections;
-using System.Collections.Specialized;
+using System.Collections.Generic;
 
 namespace Wv
 {
     /// Well, it's not exactly UniConf, but...
     public class WvIni
     {
-	Hashtable sections 
-	    = new Hashtable(10, StringComparer.OrdinalIgnoreCase);
+	string filename;
+	Dictionary<string,IDictionary<string,string>> sections 
+	    = new Dictionary<string,IDictionary<string,string>>
+	            (StringComparer.OrdinalIgnoreCase);
 	
 	public WvIni(string filename)
 	{
-	    StreamReader r;
+	    this.filename = filename;
 	    
+	    StreamReader r;
 	    try
 	    {
 		r = File.OpenText(filename);
@@ -24,35 +26,76 @@ namespace Wv
 		return; // I guess there's no file!
 	    }
 	    
-	    string section = "";
-	    string s;
-	    while ((s = r.ReadLine()) != null)
+	    using (r)
 	    {
-		s = s.Trim();
-		if (s.Length == 0) continue; // blank line
-		if (s[0] == '#') continue; // comment
-		if (s[0] == '[' && s[s.Length-1]==']') // section
+		string section = "";
+		string s;
+		while ((s = r.ReadLine()) != null)
 		{
-		    section = s.Substring(1, s.Length-2);
+		    s = s.Trim();
+		    if (s.Length == 0) continue; // blank line
+		    if (s[0] == '#') continue; // comment
+		    if (s[0] == '[' && s[s.Length-1]==']') // section
+		    {
+			section = s.Substring(1, s.Length-2);
+		    }
+		    else if (s.IndexOf('=') >= 0)
+		    {
+			string[] a = s.Split(new char[] {'='}, 2);
+			this[section][a[0].Trim()] = a[1].Trim();
+		    }
+		    else
+			continue; // whatever
 		}
-		else if (s.IndexOf('=') >= 0)
-		{
-		    string[] a = s.Split(new char[] {'='}, 2);
-		    this[section][a[0].Trim()] = a[1].Trim();
-		}
-		else
-		    continue; // whatever
 	    }
 	}
 	
-	public StringDictionary this[string sectname]
+	public IDictionary<string,string> this[string sectname]
 	{
 	    get
 	    {
-		if (!sections.Contains(sectname))
-		    sections.Add(sectname, new StringDictionary());
-		return (StringDictionary)sections[sectname];
+		if (!sections.ContainsKey(sectname))
+		    sections.Add(sectname, new Dictionary<string,string>
+				     (StringComparer.OrdinalIgnoreCase));
+		return sections[sectname];
 	    }
+	}
+	
+	public string get(string section, string key, string defval)
+	{
+	    string v;
+	    if (!this[section].TryGetValue(key, out v))
+		return defval;
+	    return v;
+	}
+	
+	public string get(string section, string key)
+	{
+	    return get(section, key, null);
+	}
+	
+	public void set(string section, string key, string val)
+	{
+	    this[section][key] = val;
+	}
+	
+	public void save(string filename)
+	{
+	    using (StreamWriter w = File.CreateText(filename))
+	    {
+		foreach (string section in sections.Keys)
+		{
+		    w.Write(wv.fmt("\n[{0}]\n", section));
+		    foreach (string ent in sections[section].Keys)
+			w.Write(wv.fmt("{0} = {1}\n",
+				       ent, sections[section][ent]));
+		}
+	    }
+	}
+	
+	public void save()
+	{
+	    save(filename);
 	}
     }
 }
