@@ -16,19 +16,14 @@ internal static class VxDb {
     {
         log.print(WvLog.L.Debug3, "ExecScalar {0}\n", query);
 
-        SqlConnection conn = null;
-        try {
-            conn = VxSqlPool.TakeConnection(connid);
-
-            using (SqlCommand cmd = conn.CreateCommand()) {
-                cmd.CommandText = query;
-                result = cmd.ExecuteScalar();
-            }
-        } catch (SqlException e) {
+	try
+	{
+	    using (var dbi = VxSqlPool.create(connid))
+		result = dbi.select_one(query).inner;
+        }
+	catch (SqlException e)
+	{
             throw new VxSqlException(e.Message, e);
-        } finally {
-            if (conn != null)
-                VxSqlPool.ReleaseConnection(conn);
         }
     }
 
@@ -121,18 +116,15 @@ internal static class VxDb {
 
         log.print(WvLog.L.Debug3, "ExecChunkRecordset {0}\n", query);
 
-        SqlConnection conn = null;
 	object sender;
         if (!call.Header.Fields.TryGetValue(FieldCode.Sender, out sender))
 	    sender = null;
 
         try
 	{
-            conn = VxSqlPool.TakeConnection(connid);
-
 	    // FIXME:  Sadly, this is stupidly similar to ExecRecordset.
 	    // Anything we can do here to identify commonalities?
-            using (WvDbi dbi = new WvDbi_MSSQL(conn))
+            using (var dbi = VxSqlPool.create(connid))
             {
 		List<object[]> rows = new List<object[]>();
 		List<byte[]> rownulls = new List<byte[]>();
@@ -270,9 +262,6 @@ internal static class VxDb {
 					"No more data available.", call);
         } catch (SqlException e) {
             throw new VxSqlException(e.Message, e);
-        } finally {
-            if (conn != null)
-                VxSqlPool.ReleaseConnection(conn);
         }
     }
 
@@ -319,13 +308,12 @@ internal static class VxDb {
 
         log.print(WvLog.L.Debug3, "ExecRecordset {0}\n", query);
 
-        SqlConnection conn = null;
         try {
-            conn = VxSqlPool.TakeConnection(connid);
             List<object[]> rows = new List<object[]>();
             List<byte[]> rownulls = new List<byte[]>();
 
-            using (SqlCommand cmd = new SqlCommand(query, conn))
+	    using (var dbi = VxSqlPool.create(connid))
+            using (SqlCommand cmd = new SqlCommand(query, (SqlConnection)dbi.fixme_db))
             using (SqlDataReader reader = cmd.ExecuteReader()) 
             {
                 if (reader.FieldCount <= 0) 
@@ -420,9 +408,6 @@ internal static class VxDb {
             }
         } catch (SqlException e) {
             throw new VxSqlException(e.Message, e);
-        } finally {
-            if (conn != null)
-                VxSqlPool.ReleaseConnection(conn);
         }
     }
 
@@ -967,7 +952,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         // FIXME: Add vx.db.toomuchdata error
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
-        using (WvDbi dbi = new WvDbi_MSSQL(VxSqlPool.TakeConnection(clientid)))
+        using (var dbi = VxSqlPool.create(clientid))
         {
             VxDbSchema backend = new VxDbSchema(dbi);
             VxSchemaChecksums sums = backend.GetChecksums();
@@ -1005,7 +990,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
-        using (WvDbi dbi = new WvDbi_MSSQL(VxSqlPool.TakeConnection(clientid)))
+        using (var dbi = VxSqlPool.create(clientid))
         {
             VxDbSchema backend = new VxDbSchema(dbi);
             VxSchema schema = backend.Get(names_untyped.Cast<string>());
@@ -1041,7 +1026,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         mr.GetValue(typeof(string[]), out keys);
 
         VxSchemaErrors errs;
-        using (WvDbi dbi = new WvDbi_MSSQL(VxSqlPool.TakeConnection(clientid)))
+        using (var dbi = VxSqlPool.create(clientid))
         {
             VxDbSchema backend = new VxDbSchema(dbi);
             errs = backend.DropSchema(keys.Cast<string>());
@@ -1085,7 +1070,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 
         VxSchemaErrors errs;
         
-        using (WvDbi dbi = new WvDbi_MSSQL(VxSqlPool.TakeConnection(clientid)))
+        using (var dbi = VxSqlPool.create(clientid))
         {
             VxDbSchema backend = new VxDbSchema(dbi);
             errs = backend.Put(schema, null, (VxPutOpts)opts);
@@ -1129,7 +1114,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
-        using (WvDbi dbi = new WvDbi_MSSQL(VxSqlPool.TakeConnection(clientid)))
+        using (var dbi = VxSqlPool.create(clientid))
         {
             VxDbSchema backend = new VxDbSchema(dbi);
             string schemadata = backend.GetSchemaData(tablename, 0, where);
@@ -1161,7 +1146,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         mr.GetValue(out tablename);
         mr.GetValue(out text);
 
-        using (WvDbi dbi = new WvDbi_MSSQL(VxSqlPool.TakeConnection(clientid)))
+        using (var dbi = VxSqlPool.create(clientid))
         {
             VxDbSchema backend = new VxDbSchema(dbi);
             backend.PutSchemaData(tablename, text, 0);

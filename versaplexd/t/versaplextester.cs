@@ -22,6 +22,7 @@ public class VersaplexTester: IDisposable
     // THTBACS image
     private const string image_file = "thtbacs.tiff";
 
+    WvDbi dbi;
     SqlConnection con;
     SqlCommand cmd;
     protected Bus bus;
@@ -58,14 +59,8 @@ public class VersaplexTester: IDisposable
             throw new Exception(String.Format(
                 "Connection string for '{0}' missing from config.", dbname));
 
-        string mssql_moniker = "mssql:";
-        if (cfgval.IndexOf(mssql_moniker) == 0)
-            con = new SqlConnection(cfgval.Substring(mssql_moniker.Length));
-        else
-            throw new Exception(String.Format(
-                "Malformed connection string '{0}'.", cfgval));
-
-	WVASSERT(Connect(con));
+	dbi = WvDbi.create(cfgval);
+	con = (SqlConnection)dbi.fixme_db;
 
 	cmd = con.CreateCommand();
 
@@ -97,13 +92,6 @@ public class VersaplexTester: IDisposable
         log.print("Using temporary directory " + t + "\n");
 
         return t;
-    }
-
-    bool Connect(SqlConnection connection)
-    {
-	connection.Open();
-
-	return true;
     }
 
     internal bool Exec(string query)
