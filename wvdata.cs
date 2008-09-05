@@ -37,6 +37,9 @@ namespace Wv
 	    return o.ToString();
 	}
 	
+	public object inner 
+	    { get { return v; } }
+	
 	public override string ToString()
 	{
 	    if (v == null)

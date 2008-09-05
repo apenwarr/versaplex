@@ -13,9 +13,11 @@ namespace Wv
     public class WvDbi: IDisposable
     {
 	static WvIni settings = new WvIni("wvodbc.ini");
-	protected static WvLog log = new WvLog("WvDbi");
+	protected static WvLog log = new WvLog("WvDbi", WvLog.L.Debug1);
 	IDbConnection _db;
 	protected IDbConnection db 
+	    { get { return _db; } }
+	public IDbConnection fixme_db 
 	    { get { return _db; } }
 	static bool registered = false;
 	
