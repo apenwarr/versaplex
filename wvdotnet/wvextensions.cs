@@ -131,39 +131,5 @@ namespace Wv.Extensions
 	{
 	    return wv.atod(o);
 	}
-	
-	public static WvSqlRow ToWvSqlRow(this IDataRecord r,
-						    DataTable s)
-	{
-	    int max = r.FieldCount;
-	    
-	    object[] oa = new object[max];
-	    r.GetValues(oa);
-
-	    WvSqlRow a = new WvSqlRow(oa, s);
-	    
-	    return a;
-	}
-
-        // Combines ExecuteReader and ToWvAutoReader, so that we can control
-        // the lifetime of the DataReader.  MSSQL gets mad if a connection has
-        // multiple open DataReaders.
-        public static IEnumerable<WvSqlRow>
-	    ExecuteToWvAutoReader(this IDbCommand cmd)
-        {
-            using (IDataReader e = cmd.ExecuteReader())
-            {
-		DataTable s = e.GetSchemaTable();
-                while (e.Read())
-                    yield return e.ToWvSqlRow(s);
-            }
-        }
-
-	public static IEnumerable<WvSqlRow> ToWvAutoReader(this IDataReader e)
-	{
-	    DataTable s = e.GetSchemaTable();
-	    while (e.Read())
-		yield return e.ToWvSqlRow(s);
-	}
     }
 }
