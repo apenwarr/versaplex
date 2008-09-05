@@ -234,10 +234,15 @@ namespace Wv
 		WvUrl url = new WvUrl(moniker);
 		if (url.path.StartsWith("/"))
 		    url.path = url.path.Substring(1);
-		real = wv.fmt("driver={0};server={1};database={2};"
-			      + "User ID={3};uid={3};Password={4};pwd={4}",
-			      url.method, url.host, url.path,
-			      url.user, url.password);
+		if (url.method == "file") // method not provided
+		    real = wv.fmt("dsn={0};database={1};"
+				  + "User ID={2};uid={2};Password={3};pwd={3}",
+				  url.host, url.path, url.user, url.password);
+		else
+		    real = wv.fmt("driver={0};server={1};database={2};"
+				  + "User ID={3};uid={3};Password={4};pwd={4}",
+				  url.method, url.host, url.path,
+				  url.user, url.password);
 	    }
 	    
 	    log.print("ODBC create: '{0}'\n", real);
