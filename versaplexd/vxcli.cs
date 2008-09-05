@@ -1,5 +1,7 @@
 using System;
 using System.Linq;
+using System.Data;
+using System.Data.SqlClient;
 using Wv.Mono.Terminal;
 using Wv;
 using Wv.Extensions;
@@ -8,8 +10,6 @@ public static class VxCli
 {
     public static int Main(string[] args)
     {
-	WvLog log = new WvLog("vxcli");
-	
 	if (args.Length != 1)
 	{
 	    Console.Error.WriteLine("Usage: vxcli <db-connection-string>");
@@ -26,16 +26,35 @@ public static class VxCli
 	{
 	    LineEditor le = new LineEditor("VxCli");
 	    string inp;
-	    while ((inp = le.Edit("vx> ", "")) != null)
+	    
+	    while (true)
 	    {
+		Console.WriteLine();
+		inp = le.Edit("vx> ", "");
+		if (inp == null) break;
 		if (inp == "") continue;
-		log.print("You typed: [{0}]\n", inp);
-		foreach (var row in dbi.select(inp))
+		bool first = true;
+		try
 		{
-		    var cols =
-			from col in row
-			select col.ToString();
-		    log.print("{0}\n", cols.Join(","));
+		    foreach (var row in dbi.select(inp))
+		    {
+			if (first)
+			{
+			    var colnames =
+				from c in row.schema.Rows
+				             .ToIEnumerable<DataRow>()
+				    select c["ColumnName"]
+				             .ToString().ToUpper();
+			    Console.Write(wv.fmt("{0}\n\n",
+						 colnames.Join(",")));
+			    first = false;
+			}
+			Console.Write(wv.fmt("{0}\n", row.Join(",")));
+		    }
+		}
+		catch (SqlException e)
+		{
+		    Console.Write(wv.fmt("ERROR: {0}\n", e.Short()));
 		}
 	    }
 	}
