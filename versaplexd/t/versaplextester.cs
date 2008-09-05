@@ -441,8 +441,8 @@ public class VersaplexTester: IDisposable
                         int microseconds = reader.ReadInt32();
 
                     VxDbusDateTime dt = new VxDbusDateTime();
-                    dt.Seconds = seconds;
-                    dt.Microseconds = microseconds;
+                    dt.seconds = seconds;
+                    dt.microseconds = microseconds;
 
                     row[i] = dt;
 		    break;
