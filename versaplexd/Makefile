@@ -1,7 +1,7 @@
 include ../rules.mk
 include ../monorules.mk
 
-all: versaplexd vxcli.exe schemamatic-utils/all
+all: versaplexd vxcli schemamatic-utils/all
 
 PKGS += /unsafe /r:System.Data
 
