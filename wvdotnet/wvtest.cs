@@ -2,6 +2,42 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.Serialization;
+using Wv;
+
+// We put this in wvtest.cs since wvtest.cs should be able to compile all
+// by itself, without relying on any other parts of wvdotnet.  On the other
+// hand, it's perfectly fine for wvdotnet to have wvtest.cs in it.
+namespace Wv
+{
+    public static class WvReflection
+    {
+	public static IEnumerable<Type> find_types(Type attrtype)
+	{
+	    foreach (Assembly a in AppDomain.CurrentDomain.GetAssemblies())
+	    {
+		foreach (Type t in a.GetTypes())
+		{
+		    if (!t.IsDefined(attrtype, false))
+			continue;
+		    
+		    yield return t;
+		}
+	    }
+	}
+	
+	public static IEnumerable<MethodInfo> find_methods(this Type t,
+							   Type attrtype)
+	{
+	    foreach (MethodInfo m in t.GetMethods())
+	    {
+		if (!m.IsDefined(attrtype, false))
+		    continue;
+		
+		yield return m;
+	    }
+	}
+    }
+}
 
 namespace Wv.Test
 {
@@ -21,34 +57,26 @@ namespace Wv.Test
 	
 	public WvTest()
 	{
-	    foreach (Assembly a in AppDomain.CurrentDomain.GetAssemblies())
+	    foreach (Type t in 
+		     WvReflection.find_types(typeof(TestFixtureAttribute)))
 	    {
-		foreach (Type t in a.GetTypes())
+		foreach (MethodInfo m in 
+			 t.find_methods(typeof(TestAttribute)))
 		{
-		    if (t.IsDefined(typeof(TestFixtureAttribute), false))
-		    {
-			foreach (MethodInfo m in t.GetMethods())
-			{
-			    if (m.IsDefined(typeof(TestAttribute), false))
-			    {
-				// The new t2, m2 are needed so that each
-				// delegate gets its own copy of the
-				// variable.
-				Type t2 = t;
-				MethodInfo m2 = m;
-				RegisterTest(String.Format("{0}/{1}",
-				                t.Name, m.Name),
-				     delegate() {
-					 try {
-					     m2.Invoke(Activator.CreateInstance(t2),
-						       null); 
-					 } catch (TargetInvocationException e) {
-					     throw e.InnerException;
-					 }
-				     });
-			    }
-			}
-		    }
+		    // The new t2, m2 are needed so that each delegate gets
+		    // its own copy of the variable.
+		    Type t2 = t;
+		    MethodInfo m2 = m;
+		    RegisterTest(String.Format("{0}/{1}",
+					       t.Name, m.Name),
+				 delegate() {
+				     try {
+					 m2.Invoke(Activator.CreateInstance(t2),
+						   null); 
+				     } catch (TargetInvocationException e) {
+					 throw e.InnerException;
+				     }
+				 });
 		}
 	    }
 	}
