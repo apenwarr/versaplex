@@ -13,8 +13,6 @@ namespace Wv
     public class WvDbi: IDisposable
     {
 	static WvIni settings = new WvIni("wvodbc.ini");
-	static WvIni bookmarks = new WvIni(
-		   wv.PathCombine(wv.getenv("HOME"), ".wvdbi.ini"));
 	    
 	protected static WvLog log = new WvLog("WvDbi", WvLog.L.Debug1);
 	IDbConnection _db;
@@ -58,30 +56,6 @@ namespace Wv
 					 sect["driver"], sect["server"],
 					 sect["database"],
 					 sect["user"], sect["password"]));
-	    }
-	    else if (!moniker.Contains(":")
-		     && bookmarks["Bookmarks"].ContainsKey(moniker))
-	    {
-		moniker = bookmarks["Bookmarks"][moniker];
-	    }
-	    else
-	    {
-		// not found in existing bookmarks, so see if we can parse and
-		// save instead.
-		WvUrl url = new WvUrl(moniker);
-		string path = url.path;
-		if (path.StartsWith("/"))
-		    path = path.Substring(1);
-		if (path != "" && url.host != null)
-		{
-		    log.print("Creating bookmark '{0}'\n", path);
-		    bookmarks.set("Bookmarks", path, moniker);
-		    try {
-			bookmarks.save();
-		    } catch (IOException) {
-			// not a big deal if we can't save our bookmarks.
-		    }
-		}
 	    }
 	    
 	    if (moniker.StartsWith("dsn=") || moniker.StartsWith("driver="))
