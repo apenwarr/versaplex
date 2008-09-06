@@ -1,6 +1,7 @@
 using System;
 using System.Data;
 using System.Data.SqlTypes;
+using System.Data.SqlClient;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -301,8 +302,11 @@ namespace Wv
 	{
 	    wv.assert(reader != null);
 	    this.reader = reader;
-	    this.schema 
-		= WvColInfo.FromDataTable(reader.GetSchemaTable()).ToArray();
+	    var st = reader.GetSchemaTable();
+	    if (st != null)
+		this.schema = WvColInfo.FromDataTable(st).ToArray();
+	    else
+		this.schema = new WvColInfo[0];
 	}
 	
 	public override void Dispose()
@@ -325,7 +329,36 @@ namespace Wv
 	    while (reader.Read())
 	    {
 		object[] oa = new object[max];
-		reader.GetValues(oa);
+		try
+		{
+		    reader.GetValues(oa);
+		}
+		catch (OverflowException e)
+		{
+		    // This garbage is here because mono gets an
+		    // OverflowException when trying to use GetDecimal() on
+		    // a very large decimal(38,38) field.  But GetSqlDecimal
+		    // works.  Sadly, GetValues() seems to do some kind of
+		    // GetDecimal-like thing internally, so we have to do this
+		    // hack if there's ever a decode error.
+		    // (Tested with mono 1.9.1.0; failing unit test is
+		    //  versaplex: verifydata.t.cs/VerifyDecimal)
+		    for (int i = 0; i < max; i++)
+		    {
+			if (!reader.IsDBNull(i) 
+			      && reader.GetFieldType(i) == typeof(Decimal))
+			{
+			    if (reader is SqlDataReader)
+				oa[i] = ((SqlDataReader)reader)
+				    .GetSqlDecimal(i).ToString();
+			    else
+				oa[i] = reader.GetDecimal(i).ToString();
+			}
+			else
+			    oa[i] = reader.GetValue(i);
+		    }
+		}
+		
 		yield return new WvSqlRow(oa, schema);
 	    }
 	}
