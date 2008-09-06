@@ -127,6 +127,11 @@ namespace Wv.Extensions
 	    return wv.atoi(o);
 	}
 
+	public static long atol(this object o)
+	{
+	    return wv.atol(o);
+	}
+
 	public static double atod(this object o)
 	{
 	    return wv.atod(o);

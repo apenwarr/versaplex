@@ -4,6 +4,7 @@ using System;
 using System.Data;
 using System.Data.SqlClient;
 using System.Data.SqlTypes;
+using System.Linq;
 using Wv.Test;
 using Wv;
 
@@ -34,18 +35,11 @@ class VxTests : VersaplexTester
             Insert("#test1", j, (j*prime2) % numElems);
         }
 
-        SqlDataReader reader;
-        WVASSERT(Reader("SELECT num FROM #test1 ORDER BY seq",
-                    out reader));
-
-        using (reader) {
-            for (int i=0; i < numElems; i++) {
-                WVASSERT(reader.Read());
-                WVPASSEQ((int)reader["num"], (i*prime2) % numElems);
-            }
-
-            WVFAIL(reader.Read());
-        }
+	int[] vals = (from r in Reader("SELECT num FROM #test1 ORDER BY seq")
+		      select (int)r[0]).ToArray();
+	WVPASSEQ(vals.Length, numElems);
+	for (int i = 0; i < numElems; i++)
+	    WVPASSEQ(vals[i], (i*prime2) % numElems);
 
         WVASSERT(Exec("DROP TABLE #test1"));
     }
@@ -90,18 +84,12 @@ class VxTests : VersaplexTester
         }
         query.Append(" FROM #test1");
 
-        SqlDataReader reader;
-        WVASSERT(Reader(query.ToString(), out reader));
-
-        using (reader) {
-            WVPASSEQ(reader.FieldCount, numSelected);
-
-            for (int i=0; i < numSelected; i++) {
-                WVPASSEQ((string)reader.GetName(i),
+	using (var rows = Reader(query.ToString())) {
+	    var columns = rows.columns.ToArray();
+            WVPASSEQ(columns.Length, numSelected);
+            for (int i=0; i < numSelected; i++)
+                WVPASSEQ(columns[i].name,
                         string.Format("col{0}", (i*prime2) % numCols));
-            }
-
-            WVFAIL(reader.Read());
         }
 
         WVASSERT(Exec("DROP TABLE #test1"));
@@ -145,35 +133,28 @@ class VxTests : VersaplexTester
                                         sizes[k]).Replace("'", "''"), k)));
                 }
 
-                SqlDataReader reader;
+		WvSqlRow[] rows;
 
                 if (lenok[i]) {
-                    WVASSERT(Reader("SELECT LEN(data), DATALENGTH(data), data "
-                                + "FROM #test1 ORDER BY roworder",
-                                out reader));
+                    rows = Reader("SELECT LEN(data), DATALENGTH(data), data "
+                                + "FROM #test1 ORDER BY roworder").ToArray();
                 } else {
-                    WVASSERT(Reader("SELECT -1, "
-                                + "DATALENGTH(data), data FROM #test1 "
-                                + "ORDER BY roworder",
-                                out reader));
+                    rows = Reader("SELECT -1, "
+			       + "DATALENGTH(data), data FROM #test1 "
+			       + "ORDER BY roworder").ToArray();
                 }
 
-                using (reader) {
-                    for (int k=0; k <= j; k++) {
-                        WVASSERT(reader.Read());
-
-                        if (lenok[i])
-                            WVPASSEQ(GetInt64(reader, 0), sizes[k]);
-
-                        WVPASSEQ(GetInt64(reader, 1),
-                                sizes[varsize[i] ? k : j]*charsize[i]);
-                        WVPASSEQ(reader.GetString(2).Substring(0, sizes[k]),
-                                unicode_text.Substring(0, sizes[k]));
-                    }
-
-                    WVFAIL(reader.Read());
-                }
-
+		WVPASSEQ(rows.Length, j+1);
+		for (int k=0; k <= j; k++) {
+		    WvSqlRow r = rows[k];
+		    if (lenok[i])
+			WVPASSEQ(r[0], sizes[k]);
+		    
+		    WVPASSEQ(r[1], sizes[varsize[i] ? k : j]*charsize[i]);
+		    WVPASSEQ(((string)r[2]).Substring(0, sizes[k]),
+			     unicode_text.Substring(0, sizes[k]));
+		}
+ 
                 WVASSERT(Exec("DROP TABLE #test1"));
             }
         }

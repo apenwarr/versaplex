@@ -4,6 +4,7 @@ using System;
 using System.Data.SqlClient;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using Wv;
 using Wv.Test;
 using NDesk.DBus;
@@ -23,8 +24,6 @@ public class VersaplexTester: IDisposable
     private const string image_file = "thtbacs.tiff";
 
     public WvDbi dbi;
-    SqlConnection con;
-    SqlCommand cmd;
     protected Bus bus;
 
     public VersaplexTester()
@@ -60,9 +59,6 @@ public class VersaplexTester: IDisposable
                 "Connection string for '{0}' missing from config.", dbname));
 
 	dbi = WvDbi.create(cfgval);
-	con = (SqlConnection)dbi.fixme_db;
-
-	cmd = con.CreateCommand();
 
         if (Address.Session == null)
             throw new Exception ("DBUS_SESSION_BUS_ADDRESS not set");
@@ -75,14 +71,7 @@ public class VersaplexTester: IDisposable
     public void Dispose()
     {
         bus = null;
-
-	if (cmd != null)
-	    cmd.Dispose();
-	cmd = null;
-
-	if (con != null)
-	    con.Dispose();
-	con = null;
+	dbi.Dispose();
     }
 
     public static string GetTempDir()
@@ -97,34 +86,21 @@ public class VersaplexTester: IDisposable
     internal bool Exec(string query)
     {
 	Console.WriteLine(" + Exec SQL Query: {0}", query);
-
-	using (SqlCommand execCmd = new SqlCommand(query, con)) {
-	    execCmd.ExecuteNonQuery();
-	}
-
+	dbi.exec(query);
 	return true;
     }
 
     internal bool Scalar(string query, out object result)
     {
 	Console.WriteLine(" + Scalar SQL Query: {0}", query);
-
-	using (SqlCommand execCmd = new SqlCommand(query, con)) {
-	    result = execCmd.ExecuteScalar();
-	}
-
+	result = dbi.select_one(query).inner;
 	return true;
     }
 
-    internal bool Reader(string query, out SqlDataReader result)
+    internal WvSqlRows Reader(string query)
     {
 	Console.WriteLine(" + Reader SQL Query: {0}", query);
-
-	using (SqlCommand execCmd = new SqlCommand(query, con)) {
-	    result = execCmd.ExecuteReader();
-	}
-
-	return true;
+	return dbi.select(query);
     }
 
     internal bool VxExec(string query)
@@ -540,32 +516,26 @@ public class VersaplexTester: IDisposable
         Console.WriteLine(" + Insert to {0} ({1})", table, String.Join(", ",
                     wv.stringify(param)));
 
-        System.Text.StringBuilder query = new System.Text.StringBuilder();
+        var query = new StringBuilder();
         query.AppendFormat("INSERT INTO [{0}] VALUES (",
                 table.Replace("]","]]"));
-
-        using (SqlCommand insCmd = con.CreateCommand()) {
-            for (int i=0; i < param.Length; i++) {
-                if (i > 0)
-                    query.Append(", ");
-
-                if (param[i] is DBNull) {
-                    query.Append("NULL");
-                } else {
-                    string paramName = string.Format("@col{0}", i);
-
-                    query.Append(paramName);
-                    insCmd.Parameters.Add(new SqlParameter(paramName,
-                                param[i]));
-                }
-            }
-
-            query.Append(")");
-            insCmd.CommandText = query.ToString();
-
-            insCmd.ExecuteNonQuery();
-        }
-
+	
+	for (int i=0; i < param.Length; i++)
+	{
+	    if (i > 0)
+		query.Append(", ");
+	    
+	    if (param[i] is DBNull)
+		query.Append("NULL");
+	    else
+		query.AppendFormat("@col{0}", i);
+	}
+	
+	query.Append(")");
+	
+	Console.WriteLine(" ++ ({0})", query.ToString());
+	
+	dbi.exec(query.ToString(), param);
         return true;
     }
 

@@ -4,6 +4,8 @@ using System;
 using System.Data;
 using System.Data.SqlClient;
 using System.Data.SqlTypes;
+using System.Linq;
+using Wv;
 using Wv.Test;
 
 [TestFixture]
@@ -66,21 +68,15 @@ class VxSanityTests : VersaplexTester
     public void EmptyColumnName()
     {
 	// Check that a query with a missing column name is ok
-	SqlDataReader reader;
-	WVASSERT(Reader("SELECT 1", out reader));
-	using (reader)
-	using (DataTable schema = reader.GetSchemaTable()) {
-	    WVPASSEQ(reader.FieldCount, 1);
-	    WVPASSEQ(schema.Rows.Count, 1);
+	using (var result = Reader("SELECT 1")) {
+	    var columns = result.columns.ToArray();
+	    WVPASSEQ(columns.Length, 1);
 
-	    DataRow schemaRow = schema.Rows[0];
-	    WVPASSEQ((string)schemaRow["ColumnName"], "");
+	    WVPASSEQ(columns[0].name, "");
 
-            WVPASS(reader.Read());
-            WVPASSEQ((int)reader[0], 1);
-
-            WVFAIL(reader.Read());
-            WVFAIL(reader.NextResult());
+	    WvSqlRow[] rows = result.ToArray();
+	    WVPASSEQ(rows.Length, 1);
+	    WVPASSEQ(rows[0][0], 1);
 	}
     }
 
@@ -116,12 +112,9 @@ class VxSanityTests : VersaplexTester
 	    // This makes sure it runs the prepare statement
 	    WVASSERT(Insert("test1", DBNull.Value));
 
-	    SqlDataReader reader;
-	    DataTable schema;
-
-	    WVASSERT(Reader("SELECT * FROM test1", out reader));
-	    using (reader)
-		schema = reader.GetSchemaTable();
+	    WvColInfo[] schema;
+	    using (var result = Reader("SELECT * FROM test1"))
+		schema = result.columns.ToArray();
 
             VxColumnInfo[] vxcolinfo;
             object[][] data;
@@ -129,18 +122,16 @@ class VxSanityTests : VersaplexTester
 	    WVASSERT(VxRecordset("SELECT * FROM test1", out vxcolinfo, out data,
                         out nullity));
 
-	    WVPASSEQ(schema.Rows.Count, vxcolinfo.Length);
+	    WVPASSEQ(schema.Length, vxcolinfo.Length);
 
             try {
-	    for (int colNum = 0; colNum < schema.Rows.Count; colNum++) {
-		DataRow colInfo = schema.Rows[colNum];
+	    for (int colNum = 0; colNum < schema.Length; colNum++) {
+		var c = schema[colNum];
 
-		WVPASSEQ((string)colInfo["ColumnName"],
-                        vxcolinfo[colNum].ColumnName);
-		WVPASSEQ((int)colInfo["ColumnOrdinal"], colNum);
+		WVPASSEQ(c.name, vxcolinfo[colNum].ColumnName);
                 // FIXME: There must be *some* way to turn this into a
                 // switch...
-                Type type = (Type)colInfo["DataType"];
+                Type type = c.type;
                 string vxtype = vxcolinfo[colNum].ColumnType.ToLowerInvariant();
                 if (type == typeof(Int64)) {
                     WVPASSEQ(vxtype, "int64");
@@ -169,14 +160,11 @@ class VxSanityTests : VersaplexTester
                     WVASSERT(return_column_type_is_known);
                 }
 
-                WVPASSEQ((int)colInfo["ColumnSize"],
-                        vxcolinfo[colNum].Size);
+                WVPASSEQ(c.size, vxcolinfo[colNum].Size);
                 // These next two may have problems with mono vs microsoft
                 // differences
-                WVPASSEQ((short)colInfo["NumericPrecision"],
-                        vxcolinfo[colNum].Precision);
-                WVPASSEQ((short)colInfo["NumericScale"],
-                        vxcolinfo[colNum].Scale);
+                WVPASSEQ(c.precision, vxcolinfo[colNum].Precision);
+                WVPASSEQ(c.scale, vxcolinfo[colNum].Scale);
             }
             } finally {
                 try { VxExec("DROP TABLE test1"); } catch {}

@@ -3,6 +3,7 @@
 using System;
 using System.Data.SqlClient;
 using System.Data.SqlTypes;
+using System.Linq;
 using Wv.Test;
 using Wv;
 
@@ -33,48 +34,46 @@ class VerifyData : VersaplexTester
         WVASSERT(Insert("#test1", DBNull.Value, DBNull.Value, DBNull.Value,
                     DBNull.Value, 6));
 
-        SqlDataReader reader;
-        WVASSERT(Reader("SELECT bi,i,si,ti FROM #test1 ORDER BY roworder",
-                    out reader));
+	using (var result = 
+	       Reader("SELECT bi,i,si,ti FROM #test1 ORDER BY roworder"))
+	{
+	    var rows = result.ToArray();
+	    WVPASSEQ(rows.Length, 6);
+	    
+            WVPASSEQ(rows[0][0], Int64.MaxValue);
+            WVPASSEQ(rows[0][1], Int32.MaxValue);
+            WVPASSEQ(rows[0][2], Int16.MaxValue);
+            WVPASSEQ(rows[0][3], Byte.MaxValue);
 
-        using (reader) {
-            WVASSERT(reader.Read());
-            WVPASSEQ(reader.GetInt64(0), Int64.MaxValue);
-            WVPASSEQ(reader.GetInt32(1), Int32.MaxValue);
-            WVPASSEQ(reader.GetInt16(2), Int16.MaxValue);
-            WVPASSEQ(reader.GetByte(3), Byte.MaxValue);
+            WVPASSEQ((Int64)rows[1][0], 10);
+            WVPASSEQ((Int32)rows[1][1], 10);
+            WVPASSEQ((Int16)rows[1][2], 10);
+            WVPASSEQ((Byte) rows[1][3], 10);
 
-            WVASSERT(reader.Read());
-            WVPASSEQ(reader.GetInt64(0), 10);
-            WVPASSEQ(reader.GetInt32(1), 10);
-            WVPASSEQ(reader.GetInt16(2), 10);
-            WVPASSEQ(reader.GetByte(3), 10);
+            WVPASSEQ((Int64)rows[2][0], 0);
+            WVPASSEQ((Int32)rows[2][1], 0);
+            WVPASSEQ((Int16)rows[2][2], 0);
+            WVPASSEQ((Byte) rows[2][3], 0);
 
-            WVASSERT(reader.Read());
-            WVPASSEQ(reader.GetInt64(0), 0);
-            WVPASSEQ(reader.GetInt32(1), 0);
-            WVPASSEQ(reader.GetInt16(2), 0);
-            WVPASSEQ(reader.GetByte(3), 0);
+            WVPASSEQ((Int64)rows[3][0], -10);
+            WVPASSEQ((Int32)rows[3][1], -10);
+            WVPASSEQ((Int16)rows[3][2], -10);
+            WVPASSEQ((Byte) rows[3][3], 0);
 
-            WVASSERT(reader.Read());
-            WVPASSEQ(reader.GetInt64(0), -10);
-            WVPASSEQ(reader.GetInt32(1), -10);
-            WVPASSEQ(reader.GetInt16(2), -10);
-            WVPASSEQ(reader.GetByte(3), 0);
+            WVPASSEQ((Int64)rows[4][0], Int64.MinValue);
+            WVPASSEQ((Int32)rows[4][1], Int32.MinValue);
+            WVPASSEQ((Int16)rows[4][2], Int16.MinValue);
+            WVPASSEQ((Byte) rows[4][3], Byte.MinValue);
 
-            WVASSERT(reader.Read());
-            WVPASSEQ(reader.GetInt64(0), Int64.MinValue);
-            WVPASSEQ(reader.GetInt32(1), Int32.MinValue);
-            WVPASSEQ(reader.GetInt16(2), Int16.MinValue);
-            WVPASSEQ(reader.GetByte(3), Byte.MinValue);
+	    WVPASS(!rows[3][0].IsNull);
+	    WVPASS(!rows[3][1].IsNull);
+	    WVPASS(!rows[3][2].IsNull);
+	    WVPASS(!rows[3][3].IsNull);
 
-            WVASSERT(reader.Read());
-            WVPASS(reader.IsDBNull(0));
-            WVPASS(reader.IsDBNull(1));
-            WVPASS(reader.IsDBNull(2));
-            WVPASS(reader.IsDBNull(3));
-
-            WVFAIL(reader.Read());
+	    WVPASS(rows[5][0].IsNull);
+	    WVPASS(rows[5][1].IsNull);
+	    WVPASS(rows[5][2].IsNull);
+	    WVPASS(rows[5][3].IsNull);
         }
 
         WVASSERT(Exec("DROP TABLE #test1"));
@@ -88,23 +87,26 @@ class VerifyData : VersaplexTester
         // This must be sorted
         int [] sizes = { 1, 10, 50, 255, 4000, 8000 };
 
-        string [] types = { "binary", "varbinary" };
+        string [] types = { "varbinary", "binary" };
         int [] typemax = { 8000, 8000 };
         int [] charsize = { 1, 1 };
-        bool [] varsize = { false, true };
+        bool [] varsize = { true, false };
 
         Byte [] binary_goop = read_goop();
 
         WVASSERT(binary_goop.Length >= sizes[sizes.Length-1]);
 
         for (int i=0; i < types.Length; i++) {
+	    WVPASSEQ(types[i], types[i]);
+	    
             for (int j=0; j < sizes.Length && sizes[j] <= typemax[i]; j++) {
+		WVPASSEQ(sizes[j], sizes[j]);
                 WVASSERT(Exec(string.Format("CREATE TABLE #test1 "
                                 + "(data {0}({1}), roworder int not null)",
                                 types[i], sizes[j])));
 
                 for (int k=0; k <= j; k++) {
-                    Byte [] data = new byte[sizes[k]];
+                    Byte[] data = new byte[sizes[k]];
                     Array.Copy(binary_goop, data, sizes[k]);
 
                     WVASSERT(Insert("#test1", new SqlBinary(data), k));
@@ -112,31 +114,34 @@ class VerifyData : VersaplexTester
 
                 WVASSERT(Insert("#test1", DBNull.Value, j+1));
 
-                SqlDataReader reader;
-                WVASSERT(Reader("SELECT LEN(data), DATALENGTH(data), data FROM "
-                            + "#test1 ORDER BY roworder",
-                            out reader));
-
-                using (reader) {
+                using (var result = 
+		       Reader("SELECT LEN(data), DATALENGTH(data), data FROM "
+                            + "#test1 ORDER BY roworder"))
+		{
+		    var rows = result.ToArray();
+		    WVPASSEQ(rows.Length, j+2);
+		    
                     for (int k=0; k <= j; k++) {
-                        Byte [] data = new byte[sizes[k]];
+                        Byte[] data = new byte[sizes[k]];
                         Array.Copy(binary_goop, data, sizes[k]);
 
-                        WVASSERT(reader.Read());
-
                         int len = sizes[varsize[i] ? k : j];
-                        WVPASSEQ(GetInt64(reader, 0), len);
+                        WVPASSEQ((Int64)rows[k][0], len);
 
                         int datalen = sizes[varsize[i] ? k : j]*charsize[i];
-                        WVPASSEQ(GetInt64(reader, 1), datalen);
+                        WVPASSEQ((Int64)rows[k][1], datalen);
 
-                        WVPASSEQ(reader.GetSqlBinary(2), new SqlBinary(data));
+			Console.WriteLine(wv.fmt("{0} {1} {2} '{3}'",
+						 rows[k][2].inner is SqlBinary,
+						 rows[k][2].inner is byte[],
+						 rows[k][2].inner is Array,
+						 rows[k][2].ToString()));
+			Console.WriteLine(wv.hexdump((byte[])rows[k][2]));
+			Console.WriteLine(wv.hexdump(data));
+                        WVPASSEQ((SqlBinary)rows[k][2], new SqlBinary(data));
                     }
 
-                    WVASSERT(reader.Read());
-                    WVPASS(reader.IsDBNull(2));
-
-                    WVFAIL(reader.Read());
+                    WVPASS(rows[j+1][2].IsNull);
                 }
 
                 WVASSERT(Exec("DROP TABLE #test1"));
@@ -159,21 +164,13 @@ class VerifyData : VersaplexTester
         WVASSERT(Insert("#test1", false, 2));
         WVASSERT(Insert("#test1", DBNull.Value, 3));
 
-        SqlDataReader reader;
-        WVASSERT(Reader("SELECT b FROM #test1 ORDER BY roworder",
-                    out reader));
-
-        using (reader) {
-            WVASSERT(reader.Read());
-            WVPASSEQ(reader.GetBoolean(0), true);
-
-            WVASSERT(reader.Read());
-            WVPASSEQ(reader.GetBoolean(0), false);
-
-            WVASSERT(reader.Read());
-            WVPASS(reader.IsDBNull(0));
-
-            WVFAIL(reader.Read());
+	using (var result = Reader("SELECT b FROM #test1 ORDER BY roworder"))
+	{
+	    var rows = result.ToArray();
+	    WVPASSEQ(rows.Length, 3);
+            WVPASSEQ(rows[0][0], true);
+            WVPASSEQ(rows[1][0], false);
+            WVPASS  (rows[2][0].IsNull);
         }
 
         WVASSERT(Exec("DROP TABLE #test1"));
@@ -341,40 +338,32 @@ class VerifyData : VersaplexTester
         WVASSERT(Insert("#test1", dtMax, smallMax, 6));
         WVASSERT(Insert("#test1", DBNull.Value, DBNull.Value, 7));
 
-        SqlDataReader reader;
-        WVASSERT(Reader("SELECT dt, sdt FROM #test1 ORDER BY roworder",
-                    out reader));
+	using (var result = 
+	       Reader("SELECT dt, sdt FROM #test1 ORDER BY roworder"))
+	{
+	    var rows = result.ToArray();
+	    WVPASSEQ(rows.Length, 7);
+	    
+            WVPASSEQ((SqlDateTime)rows[0][0], dtMin);
+            WVPASSEQ((SqlDateTime)rows[0][1], smallMin);
 
-        using (reader) {
-            WVASSERT(reader.Read());
-            WVPASSEQ(reader.GetSqlDateTime(0), dtMin);
-            WVPASSEQ(reader.GetSqlDateTime(1), smallMin);
+            WVPASSEQ((SqlDateTime)rows[1][0], epoch);
+            WVPASSEQ((SqlDateTime)rows[1][1], epoch);
 
-            WVASSERT(reader.Read());
-            WVPASSEQ(reader.GetSqlDateTime(0), epoch);
-            WVPASSEQ(reader.GetSqlDateTime(1), epoch);
+            WVPASSEQ((SqlDateTime)rows[2][0], pastDate);
+            WVPASSEQ((SqlDateTime)rows[2][1], pastDateSmall);
 
-            WVASSERT(reader.Read());
-            WVPASSEQ(reader.GetSqlDateTime(0), pastDate);
-            WVPASSEQ(reader.GetSqlDateTime(1), pastDateSmall);
+            WVPASSEQ((SqlDateTime)rows[3][0], sqlNow);
+            WVPASSEQ((SqlDateTime)rows[3][1], sqlNowSmall);
 
-            WVASSERT(reader.Read());
-            WVPASSEQ(reader.GetSqlDateTime(0), sqlNow);
-            WVPASSEQ(reader.GetSqlDateTime(1), sqlNowSmall);
+            WVPASSEQ((SqlDateTime)rows[4][0], futureDate);
+            WVPASSEQ((SqlDateTime)rows[4][1], futureDateSmall);
 
-            WVASSERT(reader.Read());
-            WVPASSEQ(reader.GetSqlDateTime(0), futureDate);
-            WVPASSEQ(reader.GetSqlDateTime(1), futureDateSmall);
+            WVPASSEQ((SqlDateTime)rows[5][0], dtMax);
+            WVPASSEQ((SqlDateTime)rows[5][1], smallMax);
 
-            WVASSERT(reader.Read());
-            WVPASSEQ(reader.GetSqlDateTime(0), dtMax);
-            WVPASSEQ(reader.GetSqlDateTime(1), smallMax);
-
-            WVASSERT(reader.Read());
-            WVPASS(reader.IsDBNull(0));
-            WVPASS(reader.IsDBNull(1));
-
-            WVFAIL(reader.Read());
+            WVPASS(rows[6][0].IsNull);
+            WVPASS(rows[6][1].IsNull);
         }
 
         WVASSERT(Exec("DROP TABLE #test1"));
@@ -480,22 +469,20 @@ class VerifyData : VersaplexTester
             WVASSERT(Insert("#test1", insertParams));
         }
 
-        SqlDataReader reader;
-        WVASSERT(Reader("SELECT * FROM #test1 ORDER BY roworder",
-                    out reader));
-
-        using (reader) {
+	using (var result = Reader("SELECT * FROM #test1 ORDER BY roworder"))
+	{
+	    var rows = result.ToArray();
+	    WVPASSEQ(rows.Length, values.GetLength(0));
+	    
             for (int i=0; i < values.GetLength(0); i++) {
-                WVASSERT(reader.Read());
-
                 for (int j=0; j < insertParams.Length-1; j++) {
                     if (values[i,j/2] is DBNull) {
-                        WVPASS(reader.IsDBNull(j));
+                        WVPASS(rows[i][j].IsNull);
                     } else {
                         // The preprocessor doesn't like the comma in the array
                         // subscripts
                         string val = (string)values[i,j/2];
-                        string fromdb = reader.GetSqlDecimal(j).ToString();
+                        string fromdb = rows[i][j].ToString();
 
                         // Mono produces ".1" and "-.1"
                         // Microsoft .NET produces "0.1" and "-0.1"
@@ -512,8 +499,6 @@ class VerifyData : VersaplexTester
                     }
                 }
             }
-
-            WVFAIL(reader.Read());
         }
 
         WVASSERT(Exec("DROP TABLE #test1"));
@@ -612,25 +597,23 @@ class VerifyData : VersaplexTester
             WVASSERT(Insert("#test1", insertParams));
         }
 
-        SqlDataReader reader;
-        WVASSERT(Reader("SELECT * FROM #test1 ORDER BY roworder",
-                    out reader));
-
-        using (reader) {
+	using (var result = Reader("SELECT * FROM #test1 ORDER BY roworder"))
+	{
+	    var rows = result.ToArray();
+	    WVPASSEQ(rows.Length, values.GetLength(0));
+	    
             for (int i=0; i < values.GetLength(0); i++) {
-                WVASSERT(reader.Read());
-
                 for (int j=0; j < insertParams.Length-1; j++) {
                     // The preprocessor doesn't like the comma in the array
                     // subscripts
                     object val = values[i,j];
 
                     if (val is DBNull) {
-                        WVPASS(reader.IsDBNull(j));
+                        WVPASS(rows[i][j].IsNull);
                     } else if (val is double) {
-                        WVPASSEQ(reader.GetDouble(j), (double)val);
+                        WVPASSEQ((double)rows[i][j], (double)val);
                     } else if (val is float) {
-                        WVPASSEQ(reader.GetFloat(j), (float)val);
+                        WVPASSEQ((float)rows[i][j], (float)val);
                     } else {
                         // If we get here, a data type was used in the values
                         // array that's not handled by one of the above cases
@@ -639,8 +622,6 @@ class VerifyData : VersaplexTester
                     }
                 }
             }
-
-            WVFAIL(reader.Read());
         }
 
         WVASSERT(Exec("DROP TABLE #test1"));
@@ -666,40 +647,33 @@ class VerifyData : VersaplexTester
         WVASSERT(Insert("#test1", SqlMoney.MinValue, -214748.3648m, 6));
         WVASSERT(Insert("#test1", DBNull.Value, DBNull.Value, 7));
 
-        SqlDataReader reader;
         // Cast the return type because Mono doesn't properly handle negative
         // money amounts
         // Bug filed with Mono.
-        WVASSERT(Reader("SELECT CAST(m as decimal(20,4)),"
+	using (var result = Reader("SELECT CAST(m as decimal(20,4)),"
                     + "CAST(sm as decimal(20,4)) "
-                    + "FROM #test1 ORDER BY roworder", out reader));
+                    + "FROM #test1 ORDER BY roworder"))
+	{
+	    var rows = result.ToArray();
+	    WVPASSEQ(rows.Length, 6);
+	    
+	    WVPASSEQ(rows[0][0], SqlMoney.MaxValue.ToDecimal());
+            WVPASSEQ(rows[0][1], 214748.3647m);
 
-        using (reader) {
-            WVASSERT(reader.Read());
-            WVPASSEQ(reader.GetDecimal(0), SqlMoney.MaxValue.ToDecimal());
-            WVPASSEQ(reader.GetDecimal(1), 214748.3647m);
+            WVPASSEQ(rows[1][0], 1337.42m);
+            WVPASSEQ(rows[1][1], 1337.42m);
 
-            WVASSERT(reader.Read());
-            WVPASSEQ(reader.GetDecimal(0), 1337.42m);
-            WVPASSEQ(reader.GetDecimal(1), 1337.42m);
+            WVPASSEQ(rows[2][0], 0m);
+            WVPASSEQ(rows[2][1], 0m);
 
-            WVASSERT(reader.Read());
-            WVPASSEQ(reader.GetDecimal(0), 0m);
-            WVPASSEQ(reader.GetDecimal(1), 0m);
+            WVPASSEQ(rows[3][0], -3.141m);
+            WVPASSEQ(rows[3][1], -3.141m);
 
-            WVASSERT(reader.Read());
-            WVPASSEQ(reader.GetDecimal(0), -3.141m);
-            WVPASSEQ(reader.GetDecimal(1), -3.141m);
+            WVPASSEQ(rows[4][0], SqlMoney.MinValue.ToDecimal());
+            WVPASSEQ(rows[4][1], -214748.3648m);
 
-            WVASSERT(reader.Read());
-            WVPASSEQ(reader.GetDecimal(0), SqlMoney.MinValue.ToDecimal());
-            WVPASSEQ(reader.GetDecimal(1), -214748.3648m);
-
-            WVASSERT(reader.Read());
-            WVPASS(reader.IsDBNull(0));
-            WVPASS(reader.IsDBNull(1));
-
-            WVFAIL(reader.Read());
+            WVPASS(rows[5][0].IsNull);
+            WVPASS(rows[5][1].IsNull);
         }
 
         WVASSERT(Exec("DROP TABLE #test1"));
@@ -722,33 +696,30 @@ class VerifyData : VersaplexTester
             Insert("#test1", DBNull.Value, j);
         }
 
-        SqlDataReader reader;
-        WVASSERT(Reader("SELECT ts,roworder FROM #test1 ORDER BY roworder",
-                    out reader));
-        
-        SqlBinary [] tsdata = new SqlBinary[numElems];
+	byte[] tsdata = new byte[numElems];
 
-        using (reader) {
+	using (var result = 
+	       Reader("SELECT ts,roworder FROM #test1 ORDER BY roworder"))
+	{
+	    var rows = result.ToArray();
+	    WVPASSEQ(rows.Length, numElems);
+	    
             for (int i=0; i < numElems; i++) {
-                WVASSERT(reader.Read());
-                WVPASSEQ(reader.GetInt32(1), i);
-                tsdata[i] = reader.GetSqlBinary(0);
+                WVPASSEQ(rows[i][1], i);
+                tsdata[i] = rows[i][0];
             }
-
-            WVFAIL(reader.Read());
         }
 
-        WVASSERT(Reader("SELECT ts,roworder FROM #test1 ORDER BY ts",
-                    out reader));
-
-        using (reader) {
+	using (var result =
+	       Reader("SELECT ts,roworder FROM #test1 ORDER BY ts"))
+	{
+	    var rows = result.ToArray();
+	    WVPASSEQ(rows.Length, numElems);
+	    
             for (int i=0, j=0; i < numElems; i++, j = (i*prime1) % numElems) {
-                WVASSERT(reader.Read());
-                WVPASSEQ(reader.GetInt32(1), j);
-                WVPASSEQ(reader.GetSqlBinary(0), tsdata[j]);
+                WVPASSEQ(rows[i][1], j);
+                WVPASSEQ(rows[i][0], tsdata[j]);
             }
-
-            WVFAIL(reader.Read());
         }
 
         WVASSERT(Exec("DROP TABLE #test1"));
@@ -771,18 +742,12 @@ class VerifyData : VersaplexTester
         WVASSERT(Insert("#test1", guid, 1));
         WVASSERT(Insert("#test1", DBNull.Value, 2));
 
-        SqlDataReader reader;
-        WVASSERT(Reader("SELECT u FROM #test1 ORDER BY roworder",
-                    out reader));
-
-        using (reader) {
-            WVASSERT(reader.Read());
-            WVPASSEQ(reader.GetSqlGuid(0), guid);
-
-            WVASSERT(reader.Read());
-            WVPASS(reader.IsDBNull(0));
-
-            WVFAIL(reader.Read());
+	using (var result = Reader("SELECT u FROM #test1 ORDER BY roworder"))
+	{
+	    var rows = result.ToArray();
+	    WVPASSEQ(rows.Length, 2);
+	    WVPASSEQ((SqlGuid)rows[0][0], guid);
+	    WVPASS  (rows[1][0].IsNull);
         }
 
         WVASSERT(Exec("DROP TABLE #test1"));
@@ -817,26 +782,21 @@ class VerifyData : VersaplexTester
 
             WVASSERT(Insert("#test1", DBNull.Value, sizes.Length));
 
-            SqlDataReader reader;
-            WVASSERT(Reader("SELECT DATALENGTH(data), data FROM "
-                        + "#test1 ORDER BY roworder",
-                        out reader));
-
-            using (reader) {
+	    using (var result = Reader("SELECT DATALENGTH(data), data FROM "
+                        + "#test1 ORDER BY roworder"))
+	    {
+		var rows = result.ToArray();
+		WVPASSEQ(rows.Length, sizes.Length+1);
+		
                 for (int k=0; k < sizes.Length; k++) {
-                    Byte [] data = new byte[sizes[k]];
+                    byte[] data = new byte[sizes[k]];
                     Array.Copy(image_data, data, sizes[k]);
 
-                    WVASSERT(reader.Read());
-
-                    WVPASSEQ(GetInt64(reader, 0), sizes[k]);
-                    WVPASSEQ(reader.GetSqlBinary(1), new SqlBinary(data));
+                    WVPASSEQ(rows[k][0], sizes[k]);
+                    WVPASSEQ((SqlBinary)rows[k][1], new SqlBinary(data));
                 }
 
-                WVASSERT(reader.Read());
-                WVPASS(reader.IsDBNull(1));
-
-                WVFAIL(reader.Read());
+                WVPASS(rows[sizes.Length][1].IsNull)
             }
 
             WVASSERT(Exec("DROP TABLE #test1"));
@@ -872,23 +832,19 @@ class VerifyData : VersaplexTester
         WVASSERT(Insert("#test1", xml, 1));
         WVASSERT(Insert("#test1", DBNull.Value, 2));
 
-        SqlDataReader reader;
-        WVASSERT(Reader("SELECT x FROM #test1 ORDER BY roworder",
-                    out reader));
-
-        using (reader) {
-            WVASSERT(reader.Read());
+	using (var result = Reader("SELECT x FROM #test1 ORDER BY roworder"))
+	{
+	    var rows = result.ToArray();
+	    WVPASSEQ(rows.Length, 2);
+	    
             // Sigh. 
-            if (reader.GetString(0) == altxml) {
-                WVPASSEQ(reader.GetString(0), altxml);
+            if (rows[0][0] == altxml) {
+                WVPASSEQ(rows[0][0], altxml);
             } else {
-                WVPASSEQ(reader.GetString(0), xml);
+                WVPASSEQ(rows[0][0], xml);
             }
 
-            WVASSERT(reader.Read());
-            WVPASS(reader.IsDBNull(0));
-
-            WVFAIL(reader.Read());
+	    WVPASS(rows[1][0].IsNull);
         }
 
         WVASSERT(Exec("DROP TABLE #test1"));

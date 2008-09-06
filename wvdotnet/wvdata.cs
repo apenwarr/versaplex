@@ -1,5 +1,6 @@
 using System;
 using System.Data;
+using System.Data.SqlTypes;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -56,6 +57,20 @@ namespace Wv
 		return DateTime.MinValue;
 	    else if (o.v is DateTime)
 		return (DateTime)o.v;
+	    else if (o.v is SqlDateTime)
+		return ((SqlDateTime)o.v).Value;
+	    else
+		return wv.date(o.v);
+	}
+
+	public static implicit operator SqlDateTime(WvAutoCast o)
+	{
+	    if (o.v == null)
+		return SqlDateTime.MinValue;
+	    else if (o.v is SqlDateTime)
+		return (SqlDateTime)o.v;
+	    else if (o.v is DateTime)
+		return (DateTime)o.v;
 	    else
 		return wv.date(o.v);
 	}
@@ -63,6 +78,16 @@ namespace Wv
         public static implicit operator byte[](WvAutoCast o)
         {
             return (byte[])o.v;
+        }
+
+        public static implicit operator SqlBinary(WvAutoCast o)
+        {
+	    if (o.v == null)
+		return null;
+	    else if (o.v is SqlBinary)
+		return (SqlBinary)o.v;
+	    else
+		return new SqlBinary((byte[])o.v);
         }
 
 	Int64 intify()
@@ -80,7 +105,7 @@ namespace Wv
             else if (v is Boolean)
                 return (Boolean)v ? 1 : 0;
 	    else
-		return wv.atoi(v);
+		return wv.atol(v);
 	}
 
 	public static implicit operator Int64(WvAutoCast o)
@@ -128,6 +153,16 @@ namespace Wv
 		return wv.atod(o.v);
 	}
 
+	public static implicit operator float(WvAutoCast o)
+	{
+	    if (o.v == null)
+		return 0;
+	    else if (o.v is float)
+		return (float)o.v;
+	    else
+		return (float)(double)o;
+	}
+
 	public static implicit operator char(WvAutoCast o)
 	{
 	    if (o.v == null)
@@ -145,6 +180,35 @@ namespace Wv
 		return (Decimal)o.v;
 	    else
 		return Decimal.MinValue;
+	}
+	
+	public static implicit operator SqlDecimal(WvAutoCast o)
+	{
+	    // FIXME:  double/int to decimal conversions?
+	    if (o.v is SqlDecimal)
+		return (SqlDecimal)o.v;
+	    else
+		return SqlDecimal.MinValue;
+	}
+	
+	public static implicit operator Guid(WvAutoCast o)
+	{
+	    if (o.v is Guid)
+		return (Guid)o.v;
+	    else if (o.v is SqlGuid)
+		return ((SqlGuid)o.v).Value;
+	    else
+		return Guid.Empty;
+	}
+	
+	public static implicit operator SqlGuid(WvAutoCast o)
+	{
+	    if (o.v is SqlGuid)
+		return (SqlGuid)o.v;
+	    else if (o.v is Guid)
+		return (Guid)o.v;
+	    else
+		return SqlGuid.Null;
 	}
     }
     

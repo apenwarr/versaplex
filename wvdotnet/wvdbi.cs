@@ -2,6 +2,7 @@ using System;
 using System.Data;
 using System.Data.Common;
 using System.Data.Odbc;
+using System.Data.SqlTypes;
 using System.Data.SqlClient;
 using System.Collections.Generic;
 using System.Linq;
@@ -101,31 +102,34 @@ namespace Wv
 	    return cmd;
 	}
 	
-	// Note: this is overridden in the MSSQL version because the binding
-	// stuff doesn't actually work in that one under mono.  Sigh.
 	protected virtual void bind(IDbCommand cmd, params object[] args)
 	{
 	    bool need_add = (cmd.Parameters.Count < args.Length);
 	    
-	    // This is the safe one, because we use normal bind() and thus
-	    // the database layer does our escaping for us.
 	    for (int i = 0; i < args.Length; i++)
 	    {
 		object a = args[i];
-		IDataParameter param;
+		IDbDataParameter param;
 		if (cmd.Parameters.Count <= i)
 		    cmd.Parameters.Add(param = cmd.CreateParameter());
 		else
-		    param = (IDataParameter)cmd.Parameters[i];
+		    param = (IDbDataParameter)cmd.Parameters[i];
 		if (a is DateTime)
 		{
 		    param.DbType = DbType.DateTime;
 		    param.Value = a;
 		}
+		else if (a is int)
+		{
+		    param.DbType = DbType.Int32;
+		    param.Value = a;
+		}
 		else
 		{
+		    string s = a.ToString();
 		    param.DbType = DbType.String; // I sure hope so...
-		    param.Value = a.ToString();
+		    param.Value = s;
+		    param.Size = s.Length;
 		}
 	    }
 	    
@@ -138,7 +142,7 @@ namespace Wv
 	    return select(prepare(sql, args.Length), args);
 	}
 	
-	public WvSqlRows select(IDbCommand cmd, params object[] args)
+	protected WvSqlRows select(IDbCommand cmd, params object[] args)
 	{
             if (args.Count() > 0)
                 bind(cmd, args);
@@ -279,24 +283,20 @@ namespace Wv
 	    cmd.CommandText = sql;
 	    return cmd;
 	}
-	
-	// FIXME: this only works the first time for a given
-	// IDBCommand object!  Don't try to recycle them.
-	protected override void bind(IDbCommand cmd, params object[] args)
+
+	protected override void bind(IDbCommand _cmd, params object[] args)
 	{
-	    object[] list = new object[args.Length];
+	    SqlCommand cmd = (SqlCommand)_cmd;
 	    for (int i = 0; i < args.Length; i++)
 	    {
-		// FIXME!!!  This doesn't escape SQL strings!!
-		if (args[i] == null)
-		    list[i] = "null";
-		else if (args[i] is int)
-		    list[i] = (int)args[i];
-		else
-		    list[i] = wv.fmt("'{0}'", args[i].ToString());
+		object a = args[i];
+		if (cmd.Parameters.Count <= i)
+		{
+		    string name = wv.fmt("@col{0}", i);
+		    cmd.Parameters.Add(new SqlParameter(name, a));
+		}
+		cmd.Parameters[i].Value = a;
 	    }
-	    cmd.CommandText = wv.fmt(cmd.CommandText, list);
-	    log.print("fake_bind: '{0}'\n", cmd.CommandText);
 	}
     }
 }

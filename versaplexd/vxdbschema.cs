@@ -386,7 +386,7 @@ internal class VxDbSchema : ISchemaBackend
                 into #checksum_calc
                 from syscomments
                 where objectproperty(id, 'Is" + type + @"') = 1
-                    and encrypted = {0}
+                    and encrypted = @col0
                     and object_name(id) like '%'
             select name, convert(varbinary(8), getchecksum(text))
                 from #checksum_calc
