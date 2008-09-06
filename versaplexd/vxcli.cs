@@ -33,6 +33,11 @@ namespace Wv
 	    public byte nullable;
 	}
 	
+	struct Stupid
+	{
+	    public string s;
+	}
+	
 	public static void wvmoniker_register()
 	{
 	    WvMoniker<WvDbi>.register("vx",
@@ -98,7 +103,22 @@ namespace Wv
 						c.size, c.precision, c.scale))
 			    .ToArray();
 		    
-		    return new WvSqlRows_Versaplex(colinfo);
+		    Signature sig = reader.ReadSignature();
+		    log.print("Variant signature: '{0}'\n", sig);
+		    
+		    WvSqlRow[] rows;
+		    if (sig.ToString() == "a(s)")
+		    {
+			Stupid[] a = (Stupid[])reader.ReadArray(typeof(Stupid));
+			rows = (from r in a
+				select new WvSqlRow(new object[] { r.s },
+						    colinfo))
+			    .ToArray();
+		    }
+		    else
+			rows = new WvSqlRow[0];
+		    
+		    return new WvSqlRows_Versaplex(rows, colinfo);
 		}
 	    default:
 		throw new Exception("D-Bus response was not a method "
@@ -115,10 +135,12 @@ namespace Wv
     
     class WvSqlRows_Versaplex : WvSqlRows, IEnumerable<WvSqlRow>
     {
+	WvSqlRow[] rows;
 	WvColInfo[] schema;
 	
-	public WvSqlRows_Versaplex(WvColInfo[] schema)
+	public WvSqlRows_Versaplex(WvSqlRow[] rows, WvColInfo[] schema)
 	{
+	    this.rows = rows;
 	    this.schema = schema;
 	}
 	
@@ -127,7 +149,8 @@ namespace Wv
 
 	public override IEnumerator<WvSqlRow> GetEnumerator()
 	{
-	    yield break;
+	    foreach (var row in rows)
+		yield return row;
 	}
     }
 }
