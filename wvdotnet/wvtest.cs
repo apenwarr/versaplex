@@ -94,11 +94,24 @@ namespace Wv.Test
 
         public int Run()
         {
-            Console.WriteLine("WvTest: Running all tests");
+	    string[] args = Environment.GetCommandLineArgs();
+	    
+	    if (args.Length <= 1)
+		Console.WriteLine("WvTest: Running all tests");
+	    else
+		Console.WriteLine("WvTest: Running only selected tests");
 
             foreach (TestInfo test in tests)
 	    {
 		string[] parts = test.name.Split(new char[] { '/' }, 2);
+		
+		bool runthis = (args.Length <= 1);
+		foreach (string arg in args)
+		    if (parts[0].StartsWith(arg) || parts[1].StartsWith(arg))
+			runthis = true;
+		
+		if (!runthis) continue;
+		
                 Console.WriteLine("\nTesting \"{0}\" in {1}:",
 				  parts[1], parts[0]);
 
