@@ -58,7 +58,8 @@ namespace Wv
 	
 	protected WvDbi()
 	{
-            wv.assert(num_active < max_active, "Too many open connections");
+            wv.assert(num_active < max_active,
+		      "BUG: Too many open WvDbi connections");
             num_active++;
 	}
 
@@ -133,6 +134,7 @@ namespace Wv
 	    if (db != null)
 		db.Dispose();
 	    _db = null;
+	    base.Dispose();
 	}
 	
 	protected void opendb(IDbConnection db)
