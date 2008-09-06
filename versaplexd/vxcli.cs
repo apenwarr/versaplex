@@ -1,11 +1,136 @@
 using System;
-using System.Linq;
+using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.IO;
+using System.Linq;
 using Wv.Mono.Terminal;
 using Wv;
 using Wv.Extensions;
+using NDesk.DBus;
+
+namespace Wv
+{
+    public class VxDbException : DbException
+    {
+        public VxDbException(string msg) : base(msg)
+	{
+	}
+    }
+    
+    [WvMoniker]
+    public class WvDbi_Versaplex : WvDbi
+    {
+	Bus bus;
+	
+	struct ColInfo
+	{
+	    public int size;
+	    public string name;
+	    public string type;
+	    public short precision;
+	    public short scale;
+	    public byte nullable;
+	}
+	
+	public static void wvmoniker_register()
+	{
+	    WvMoniker<WvDbi>.register("vx",
+		 (string m, object o) => new WvDbi_Versaplex());
+	}
+	
+	public WvDbi_Versaplex()
+	{
+	    if (Address.Session == null)
+		throw new Exception ("DBUS_SESSION_BUS_ADDRESS not set");
+	    AddressEntry aent = AddressEntry.Parse(Address.Session);
+	    DodgyTransport trans = new DodgyTransport();
+	    trans.Open(aent);
+	    bus = new Bus(trans);
+	}
+	
+	public override WvSqlRows select(string sql, params object[] args)
+	{
+	    Message call 
+		= VxDbusUtils.CreateMethodCall(bus, "ExecRecordset", "s");
+	    MessageWriter writer 
+		= new MessageWriter(Connection.NativeEndianness);
+
+	    writer.Write(typeof(string), sql);
+	    call.Body = writer.ToArray();
+	    
+	    log.print("Sending!\n");
+	    
+	    Message reply = call.Connection.SendWithReplyAndBlock(call);
+	    
+	    log.print("Answer came back!\n");
+
+	    switch (reply.Header.MessageType) 
+	    {
+	    case MessageType.MethodReturn:
+	    case MessageType.Error:
+		{
+		    object replysig;
+		    if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
+							 out replysig))
+			throw new Exception("D-Bus reply had no signature.");
+		    
+		    if (replysig == null)
+			throw new Exception("D-Bus reply had null signature");
+		    
+		    MessageReader reader = new MessageReader(reply);
+		    
+		    // Some unexpected error
+		    if (replysig.ToString() == "s")
+			throw new VxDbException(reader.ReadString());
+		    
+		    if (replysig.ToString() != "a(issnny)vaay")
+			throw new 
+			  Exception("D-Bus reply had invalid signature: " +
+				    replysig);
+		    
+		    // decode the raw column info
+		    ColInfo[] x = (ColInfo[])reader.ReadArray(typeof(ColInfo));
+		    WvColInfo[] colinfo
+			= (from c in x
+			   select new WvColInfo(c.name, typeof(string),
+						(c.nullable & 1) != 0,
+						c.size, c.precision, c.scale))
+			    .ToArray();
+		    
+		    return new WvSqlRows_Versaplex(colinfo);
+		}
+	    default:
+		throw new Exception("D-Bus response was not a method "
+				    + "return or error");
+	    }
+	}
+	
+	public override int execute(string sql, params object[] args)
+	{
+	    using (select(sql, args))
+		return 0;
+	}
+    }
+    
+    class WvSqlRows_Versaplex : WvSqlRows, IEnumerable<WvSqlRow>
+    {
+	WvColInfo[] schema;
+	
+	public WvSqlRows_Versaplex(WvColInfo[] schema)
+	{
+	    this.schema = schema;
+	}
+	
+	public override IEnumerable<WvColInfo> columns
+	    { get { return schema; } }
+
+	public override IEnumerator<WvSqlRow> GetEnumerator()
+	{
+	    yield break;
+	}
+    }
+}
 
 public static class VxCli
 {
@@ -64,21 +189,18 @@ public static class VxCli
 		inp = le.Edit("vx> ", "");
 		if (inp == null) break;
 		if (inp == "") continue;
-		bool first = true;
 		try
 		{
-		    foreach (var row in dbi.select(inp))
+		    using (var result = dbi.select(inp))
 		    {
-			if (first)
-			{
-			    var colnames =
-				from c in row.columns
-				select c.name.ToUpper();
-			    Console.Write(wv.fmt("{0}\n\n",
-						 colnames.Join(",")));
-			    first = false;
-			}
-			Console.Write(wv.fmt("{0}\n", row.Join(",")));
+			var colnames =
+			    from c in result.columns
+			    select c.name.ToUpper();
+			Console.Write(wv.fmt("{0}\n\n",
+					     colnames.Join(",")));
+			
+			foreach (var row in result)
+			    Console.Write(wv.fmt("{0}\n", row.Join(",")));
 		    }
 		}
 		catch (DbException e)

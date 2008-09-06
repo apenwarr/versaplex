@@ -22,7 +22,10 @@ versaplexd.exe: versaplexd.cs \
     ../wvdotnet/wv.dll
     
 vxcli.exe: vxcli.cs \
-	../wvdotnet/wv.dll
+    dodgytransport.cs vxsocket.cs vxnotifysocket.cs vxdbusutils.cs \
+    vxexceptions.cs \
+    ../dbus-sharp/src/NDesk.DBus.dll \
+    ../wvdotnet/wv.dll
 
 clean:: t/clean schemamatic-utils/clean
 	rm -f versaplexd

@@ -229,6 +229,17 @@ namespace Wv
 		yield return new WvColInfo(col);
 	}
 	
+	public WvColInfo(string name, Type type, bool nullable,
+			 int size, short precision, short scale)
+	{
+	    this.name = name;
+	    this.type = type;
+	    this.nullable = nullable;
+	    this.size = size;
+	    this.precision = precision;
+	    this.scale = scale;
+	}
+	
 	WvColInfo(DataRow data)
 	{
 	    name      = (string)data["ColumnName"];
