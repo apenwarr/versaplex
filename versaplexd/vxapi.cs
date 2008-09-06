@@ -133,7 +133,7 @@ internal static class VxDb {
 		int cursize = 1;  
 		
 		var columns = resultset.columns.ToArray();
-		VxColumnInfo[] colinfo  = ProcessChunkSchema(columns);
+		VxColumnInfo[] colinfo  = ProcessSchema(columns);
 		int ncols = columns.Count();
 		
 		foreach (WvSqlRow cur_row in resultset)
@@ -309,86 +309,66 @@ internal static class VxDb {
             List<byte[]> rownulls = new List<byte[]>();
 
 	    using (var dbi = VxSqlPool.create(connid))
-            using (SqlCommand cmd = new SqlCommand(query, (SqlConnection)dbi.fixme_db))
-            using (SqlDataReader reader = cmd.ExecuteReader()) 
+            using (var result = dbi.select(query))
             {
-                if (reader.FieldCount <= 0) 
+		var columns = result.columns.ToArray();
+		
+                if (columns.Length <= 0) 
                     log.print("No columns in resulting data set.");
 
-                ProcessSchema(reader, out colinfo);
+                colinfo = ProcessSchema(result.columns);
 
-                while (reader.Read()) 
+                foreach (var r in result)
                 {
-                    object[] row = new object[reader.FieldCount];
-                    byte[] rownull = new byte[reader.FieldCount];
+                    object[] row = new object[columns.Length];
+                    byte[] rownull = new byte[columns.Length];
 
-                    for (int i = 0; i < reader.FieldCount; i++) 
+                    for (int i = 0; i < columns.Length; i++) 
                     {
-                        bool isnull = reader.IsDBNull(i);
-
+                        bool isnull = r[i].IsNull;
                         row[i] = null;
-
                         rownull[i] = isnull ? (byte)1 : (byte)0;
 
                         switch (colinfo[i].VxColumnType) 
                         {
                             case VxColumnType.Int64:
-                                row[i] = !isnull ?
-                                    reader.GetInt64(i) : new Int64();
+                                row[i] = !isnull ? (Int64)r[i] : new Int64();
                                 break;
                             case VxColumnType.Int32:
-                                row[i] = !isnull ?
-                                    reader.GetInt32(i) : new Int32();
+			        row[i] = !isnull ? (Int32)r[i] : new Int32();
                                 break;
                             case VxColumnType.Int16:
-                                row[i] = !isnull ?
-                                    reader.GetInt16(i) : new Int16();
+                                row[i] = !isnull ? (Int16)r[i] : new Int16();
                                 break;
                             case VxColumnType.UInt8:
-                                row[i] = !isnull ?
-                                    reader.GetByte(i) : new Byte();
+                                row[i] = !isnull ? (Byte)r[i] : new Byte();
                                 break;
                             case VxColumnType.Bool:
-                                row[i] = !isnull ?
-                                    reader.GetBoolean(i) : new Boolean();
+                                row[i] = !isnull ? (bool)r[i] : new Boolean();
                                 break;
                             case VxColumnType.Double:
                                 // Might return a Single or Double
                                 // FIXME: Check if getting a single causes this
                                 // to croak
-                                row[i] = !isnull ?
-                                    (double)reader.GetDouble(i) : (double)0.0;
+                                row[i] = !isnull ? (double)r[i] : (double)0.0;
                                 break;
                             case VxColumnType.Uuid:
-                                row[i] = !isnull ?
-                                    reader.GetGuid(i).ToString() : "";
+                                row[i] = !isnull ? ((Guid)r[i]).ToString() : "";
                                 break;
                             case VxColumnType.Binary:
-                                {
-                                    if (isnull) 
-                                    {
-                                        row[i] = new byte[0];
-                                        break;
-                                    }
-
-                                    byte[] cell = new byte[
-                                        reader.GetBytes(i, 0, null, 0, 0)];
-                                    reader.GetBytes(i, 0, cell, 0, cell.Length);
-
-                                    row[i] = cell;
-                                    break;
-                                }
+			        row[i] = !isnull ? (byte[])r[i] : new byte[0];
+			        break;
                             case VxColumnType.String:
-                                row[i] = !isnull ? reader.GetString(i) : "";
+                                row[i] = !isnull ? (string)r[i] : "";
                                 break;
                             case VxColumnType.DateTime:
                                 row[i] = !isnull ?
-                                    new VxDbusDateTime(reader.GetDateTime(i)) :
+                                    new VxDbusDateTime(r[i]) :
                                     new VxDbusDateTime();
                                 break;
                             case VxColumnType.Decimal:
-                                row[i] = !isnull ?
-                                    reader.GetDecimal(i).ToString() : "";
+                                row[i] = !isnull 
+			             ? ((decimal)r[i]).ToString() : "";
                                 break;
                         }
                     }
@@ -407,79 +387,7 @@ internal static class VxDb {
         }
     }
 
-    private static void ProcessSchema(SqlDataReader reader,
-            out VxColumnInfo[] colinfo)
-    {
-        colinfo = new VxColumnInfo[reader.FieldCount];
-
-        if (reader.FieldCount <= 0) 
-            return;
-
-        int i = 0;
-
-        using (DataTable schema = reader.GetSchemaTable()) {
-            foreach (DataRowView col in schema.DefaultView) {
-                foreach (DataColumn c in schema.Columns) 
-                {
-                    log.print(WvLog.L.Debug4, "{0}:'{1}'  ", 
-                        c.ColumnName, col[c.ColumnName]);
-                }
-                log.print(WvLog.L.Debug4, "\n\n");
-
-                System.Type type = (System.Type)col["DataType"];
-
-                if (type == typeof(object)) {
-                    // We're not even going to try to handle this yet
-                    throw new VxBadSchemaException("Columns of type sql_variant "
-                        + "are not supported by Versaplex at this time");
-                }
-
-                VxColumnType coltype;
-
-                if (type == typeof(Int64)) {
-                    coltype = VxColumnType.Int64;
-                } else if (type == typeof(Int32)) {
-                    coltype = VxColumnType.Int32;
-                } else if (type == typeof(Int16)) {
-                    coltype = VxColumnType.Int16;
-                } else if (type == typeof(Byte)) {
-                    coltype = VxColumnType.UInt8;
-                } else if (type == typeof(Boolean)) {
-                    coltype = VxColumnType.Bool;
-                } else if (type == typeof(Single) || type == typeof(Double)) {
-                    coltype = VxColumnType.Double;
-                } else if (type == typeof(Guid)) {
-                    coltype = VxColumnType.Uuid;
-                } else if (type == typeof(Byte[])) {
-                    coltype = VxColumnType.Binary;
-                } else if (type == typeof(string)) {
-                    coltype = VxColumnType.String;
-                } else if (type == typeof(DateTime)) {
-                    coltype = VxColumnType.DateTime;
-                } else if (type == typeof(Decimal)) {
-                    coltype = VxColumnType.Decimal;
-                } else {
-                    throw new VxBadSchemaException("Columns of type "
-                            + type.ToString() + " are not supported by "
-                            + "Versaplex at this time " +
-                            "(column " + col["ColumnName"].ToString() + ")");
-                }
-
-                bool isnull = (bool)col["AllowDBNull"];
-                int size = (int)col["ColumnSize"];
-                short precision = (short)col["NumericPrecision"];
-                short scale = (short)col["NumericScale"];
-
-                colinfo[i] = new VxColumnInfo(col["ColumnName"].ToString(),
-                        coltype, isnull, size, precision, scale);
-
-                i++;
-            }
-        }
-    }
-
-    private static VxColumnInfo[] ProcessChunkSchema(
-				     IEnumerable<WvColInfo> columns)
+    private static VxColumnInfo[] ProcessSchema(IEnumerable<WvColInfo> columns)
     {
 	// FIXME:  This is stupidly similar to ProcessSchema
 	int ncols = columns.Count();
