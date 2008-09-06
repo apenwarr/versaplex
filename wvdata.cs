@@ -333,7 +333,7 @@ namespace Wv
 		{
 		    reader.GetValues(oa);
 		}
-		catch (OverflowException e)
+		catch (OverflowException)
 		{
 		    // This garbage is here because mono gets an
 		    // OverflowException when trying to use GetDecimal() on
