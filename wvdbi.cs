@@ -20,8 +20,6 @@ namespace Wv
 	IDbConnection _db;
 	protected IDbConnection db 
 	    { get { return _db; } }
-	public IDbConnection fixme_db 
-	    { get { return _db; } }
 	
         // MSSQL freaks out if there are more than 100 connections open at a
         // time.  Give ourselves a safety margin.
