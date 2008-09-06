@@ -12,15 +12,11 @@ using Wv.Extensions;
 
 namespace Wv
 {
-    public class WvDbi: IDisposable
+    public abstract class WvDbi: IDisposable
     {
 	static WvIni settings = new WvIni("wvodbc.ini");
-	    
 	protected static WvLog log = new WvLog("WvDbi", WvLog.L.Debug1);
-	IDbConnection _db;
-	protected IDbConnection db 
-	    { get { return _db; } }
-	
+
         // MSSQL freaks out if there are more than 100 connections open at a
         // time.  Give ourselves a safety margin.
         static int num_active = 0;
@@ -71,38 +67,96 @@ namespace Wv
 	    wv.assert(false, "A WvDbi object was not Dispose()d");
 	}
 	
+	// Implement IDisposable.
+	public virtual void Dispose() 
+	{
+            num_active--;
+	    GC.SuppressFinalize(this); 
+	}
+	
+	public abstract WvSqlRows select(string sql, params object[] args);
+	public abstract int execute(string sql, params object[] args);
+	    	
+	public WvSqlRow select_onerow(string sql, params object[] args)
+	{
+	    // only iterates a single row, if it exists
+	    foreach (WvSqlRow r in select(sql, args))
+		return r; // only return the first one
+	    return null;
+	}
+	
+	public WvAutoCast select_one(string sql, params object[] args)
+	{
+	    var a = select_onerow(sql, args);
+	    if (a != null && a.Length > 0)
+		return a[0];
+	    else
+		return WvAutoCast._null;
+	}
+	
+	public int exec(string sql, params object[] args)
+	{
+	    return execute(sql, args);
+	}
+	
+	public int try_execute(string sql, params object[] args)
+	{
+	    try
+	    {
+		return execute(sql, args);
+	    }
+	    catch (DbException)
+	    {
+		// well, I guess no rows were affected...
+		return 0;
+	    }
+	}
+
+	public int try_exec(string sql, params object[] args)
+	{
+	    return try_execute(sql, args);
+	}
+    }
+    
+    public class WvDbi_IDbConnection : WvDbi
+    {
+	IDbConnection _db;
+	protected IDbConnection db 
+	    { get { return _db; } }
+	
+	public WvDbi_IDbConnection()
+	{
+	}
+	
+	public override void Dispose()
+	{
+	    if (db != null)
+		db.Dispose();
+	    _db = null;
+	}
+	
 	protected void opendb(IDbConnection db)
 	{
 	    this._db = db;
             if ((db.State & System.Data.ConnectionState.Open) == 0)
                 db.Open();
 	}
-
-        public IDbConnection Conn
-        {
-            get { return db; }
-        }
 	
-	// Implement IDisposable.
-	public void Dispose() 
+	public override WvSqlRows select(string sql, params object[] args)
 	{
-            num_active--;
-	    db.Dispose();
-	    GC.SuppressFinalize(this); 
+	    return new WvSqlRows_IDataReader(prepare(sql, args)
+					       .ExecuteReader());
 	}
 	
-	protected virtual IDbCommand prepare(string sql, int nargs)
+	public override int execute(string sql, params object[] args)
+	{
+	    return prepare(sql, args).ExecuteNonQuery();
+	}
+	
+	protected virtual IDbCommand prepare(string sql, params object[] args)
 	{
 	    IDbCommand cmd = db.CreateCommand();
 	    cmd.CommandText = sql;
-	    if (nargs == 0)
-	       cmd.Prepare();
-	    return cmd;
-	}
-	
-	protected virtual void bind(IDbCommand cmd, params object[] args)
-	{
-	    bool need_add = (cmd.Parameters.Count < args.Length);
 	    
 	    for (int i = 0; i < args.Length; i++)
 	    {
@@ -131,77 +185,12 @@ namespace Wv
 		}
 	    }
 	    
-	    if (need_add)
-		cmd.Prepare();
-	}
-
-	public WvSqlRows select(string sql, params object[] args)
-	{
-	    return select(prepare(sql, args.Length), args);
-	}
-	
-	protected WvSqlRows select(IDbCommand cmd, params object[] args)
-	{
-            if (args.Count() > 0)
-                bind(cmd, args);
-	    return new WvSqlRows_IDataReader(cmd.ExecuteReader());
-	}
-	
-	public WvSqlRow select_onerow(string sql, params object[] args)
-	{
-	    // only iterates a single row, if it exists
-	    foreach (WvSqlRow r in select(sql, args))
-		return r; // only return the first one
-	    return null;
-	}
-	
-	public WvAutoCast select_one(string sql, params object[] args)
-	{
-	    var a = select_onerow(sql, args);
-	    if (a != null && a.Length > 0)
-		return a[0];
-	    else
-		return WvAutoCast._null;
-	}
-	
-	public int execute(string sql, params object[] args)
-	{
-	    return execute(prepare(sql, args.Length), args);
-	}
-	
-	public int exec(string sql, params object[] args)
-	{
-	    return execute(prepare(sql, args.Length), args);
-	}
-	
-	protected int execute(IDbCommand cmd, params object[] args)
-	{
-            if (args.Count() > 0)
-                bind(cmd, args);
-	    return cmd.ExecuteNonQuery();
-	}
-	
-	public int try_execute(string sql, params object[] args)
-	{
-	    try
-	    {
-		return execute(sql, args);
-	    }
-	    catch (DbException)
-	    {
-		// well, I guess no rows were affected...
-		return 0;
-	    }
-	}
-
-	public int try_exec(string sql, params object[] args)
-	{
-	    return try_execute(sql, args);
+	    return cmd;
 	}
     }
     
     [WvMoniker]
-    public class WvDbi_ODBC : WvDbi
+    public class WvDbi_ODBC : WvDbi_IDbConnection
     {
 	public static void wvmoniker_register()
 	{
@@ -242,18 +231,13 @@ namespace Wv
     }
     
     [WvMoniker]
-    public class WvDbi_MSSQL : WvDbi
+    public class WvDbi_MSSQL : WvDbi_IDbConnection
     {
 	public static void wvmoniker_register()
 	{
 	    WvMoniker<WvDbi>.register("mssql",
 		 (string m, object o) => new WvDbi_MSSQL(m));
 	}
-	
-        public WvDbi_MSSQL(SqlConnection conn)
-        {
-	    opendb(conn);
-        }
 	
 	public WvDbi_MSSQL(string moniker)
 	{
@@ -275,16 +259,11 @@ namespace Wv
 	    opendb(new SqlConnection(real));
 	}
 	
-	protected override IDbCommand prepare(string sql, int nargs)
+	protected override IDbCommand prepare(string sql, params object[] args)
 	{
-	    IDbCommand cmd = db.CreateCommand();
+	    SqlCommand cmd = (SqlCommand)db.CreateCommand();
 	    cmd.CommandText = sql;
-	    return cmd;
-	}
-
-	protected override void bind(IDbCommand _cmd, params object[] args)
-	{
-	    SqlCommand cmd = (SqlCommand)_cmd;
+	    
 	    for (int i = 0; i < args.Length; i++)
 	    {
 		object a = args[i];
@@ -295,6 +274,8 @@ namespace Wv
 		}
 		cmd.Parameters[i].Value = a;
 	    }
+	    
+	    return cmd;
 	}
     }
 }
