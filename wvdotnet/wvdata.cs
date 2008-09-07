@@ -245,9 +245,9 @@ namespace Wv
 	    name      = (string)data["ColumnName"];
 	    type      = (Type)  data["DataType"];
 	    nullable  = (bool)  data["AllowDBNull"];
-	    size      = (int)   data["ColumnSize"].atoi();
-	    precision = (short) data["NumericPrecision"].atoi();
-	    scale     = (short) data["NumericScale"].atoi();
+	    size      = (int)   wv.atoi(data["ColumnSize"]);
+	    precision = (short) wv.atoi(data["NumericPrecision"]);
+	    scale     = (short) wv.atoi(data["NumericScale"]);
 	}
     }
     
