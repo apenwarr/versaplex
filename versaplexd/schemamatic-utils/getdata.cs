@@ -14,6 +14,7 @@ public static class GetData
 
     static char[] whitespace = {' ', '\t'};
 
+    // Remove any leading or trailing whitespace, and any comments.
     static string FixLine(string line)
     {
         string retval = line.Trim();
