@@ -102,13 +102,13 @@ internal static class VxDb {
                     + "order by number, colid ",
                     query.Split(' ')[2].Trim(), 
                     query.Split(' ')[3].Trim());
-	else if (iquery.StartsWith("drop") || iquery.StartsWith("create") || iquery.StartsWith("insert"))
+	else if (iquery.StartsWith("drop") || iquery.StartsWith("create") ||
+		 iquery.StartsWith("insert") || iquery.StartsWith("update"))
 	{
-            reply = VxDbus.CreateError(
-                    "vx.db.exception", 
-                    "Don't use ChunkRecordset to modify the DB, silly", call);
-	    // FIXME:  Need a way to handle this?  Abort?
-	    //ExecRecordset(connid, query, out colinfo, out data, out nullity);
+	    //FIXME:  Are the above the only ways to modify a DB, aka the only
+	    //        cases where we have to call the old ExecRecordSet?
+	    //FIXME:  This is an ugly way to handle these cases, but it works!
+	    VxDbInterfaceRouter.CallExecRecordset(call, out reply);
 	    return;
 	}
 
@@ -658,7 +658,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 	    }, 8);
     }
 
-    private static void CallExecRecordset(Message call, out Message reply)
+    public static void CallExecRecordset(Message call, out Message reply)
     {
         if (call.Signature.ToString() != "s") {
             reply = CreateUnknownMethodReply(call, "ExecRecordset");
