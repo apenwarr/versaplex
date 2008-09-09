@@ -1352,7 +1352,7 @@ RETCODE SQL_API PGAPI_Tables
     VxStatement st(stmt);
     VxResultSet rs;
     st.reinit();
-    rs.runquery(st.dbus(), "ExecRecordset", "LIST TABLES");
+    rs.runquery(st.dbus(), "ExecChunkRecordset", "LIST TABLES");
     st.set_result(rs);
     stmt->catalog_result = TRUE;
 
@@ -1373,7 +1373,7 @@ RETCODE SQL_API PGAPI_Columns(HSTMT hstmt, const SQLCHAR FAR * szTableQualifier,
     VxStatement st(stmt);
     VxResultSet rs;
     st.reinit();
-    rs.runquery(st.dbus(), "ExecRecordset",
+    rs.runquery(st.dbus(), "ExecChunkRecordset",
 		WvString("LIST COLUMNS %s", (const char *)szTableName));
     st.set_result(rs);
     stmt->catalog_result = TRUE;
