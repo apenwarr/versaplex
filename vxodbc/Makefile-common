@@ -32,7 +32,8 @@ OBJS=\
 	inouealc.o \
 	win_unicode.o \
 	wvlogger.o \
-	wvssl_necessities.o
+	wvssl_necessities.o \
+	vxhelpers.o
 
 # Files made by configure
 CONFIGUREFILES=\

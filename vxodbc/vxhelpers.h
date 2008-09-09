@@ -1,6 +1,8 @@
 #ifndef __VXHELPERS_H
 #define __VXHELPERS_H
 
+#include "statement.h"
+#include "qresult.h"
 #include <wvdbusconn.h>
 #include "pgtypes.h"
 
@@ -8,6 +10,10 @@
 class VxResultSet
 {
     int maxcol;
+
+    //A bool to select whether or not the column info from an incoming
+    //message is important or not.
+    bool process_colinfo;
 
     int vxtype_to_pgtype(WvStringParm vxtype)
     {
@@ -34,10 +40,11 @@ class VxResultSet
 	else if (vxtype == "Decimal")
 	    return PG_TYPE_NUMERIC;
     }
+
 public:
     QResultClass *res;
     
-    VxResultSet()
+    VxResultSet() : process_colinfo(true)
     {
 	res = QR_Constructor();
 	maxcol = -1;
@@ -68,53 +75,9 @@ public:
     {
 	return maxcol+1;
     }
-    
-    void runquery(WvDBusConn &conn, const char *func, const char *query)
-    {
-	WvDBusMsg msg("vx.versaplexd", "/db", "vx.db", func);
-	msg.append(query);
-	WvDBusMsg reply = conn.send_and_wait(msg, 50000);
-	
-	if (reply.iserror())
-	    mylog("DBus error: '%s'\n", ((WvString)reply).cstr());
-	else
-	{
-	    WvDBusMsg::Iter top(reply);
-	    WvDBusMsg::Iter colinfo(top.getnext().open());
-	    WvDBusMsg::Iter data(top.getnext().open().getnext().open());
-	    WvDBusMsg::Iter flags(top.getnext().open());
 
-	    int num_cols;
-	    // Sadly there's no better way to get the number of columns
-	    for (num_cols = 0; colinfo.next(); num_cols++) { }
-	    colinfo.rewind();
-	    // Allocate space for the column info data.
-	    QR_set_num_fields(res, num_cols);
-	    maxcol = num_cols - 1;
-	    
-	    for (int colnum = 0; colinfo.next(); colnum++)
-	    {
-		WvDBusMsg::Iter i(colinfo.open());
-
-		int colsize = i.getnext();
-		WvString colname = i.getnext();
-		int coltype = vxtype_to_pgtype(i.getnext());
-
-		set_field_info(colnum, colname, coltype, colsize);
-	    }
-	    
-	    for (data.rewind(); data.next(); )
-	    {
-		TupleField *tuple = QR_AddNew(res);
-		
-		WvDBusMsg::Iter cols(data.open());
-		for (int colnum = 0;
-		       cols.next() && colnum < numcols();
-		       colnum++)
-		    set_tuplefield_string(&tuple[colnum], *cols);
-	    }
-	}
-    }
+    void runquery(WvDBusConn &conn, const char *func, const char *query);
+    void process_msg(WvDBusMsg &msg);
 };
 
 
