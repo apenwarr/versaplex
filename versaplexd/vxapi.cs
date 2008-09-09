@@ -214,7 +214,7 @@ internal static class VxDb {
                                 row[i] = !isnull ?
                                     new VxDbusDateTime((DateTime)cval) :
                                     new VxDbusDateTime();
-				cursize += System.Runtime.InteropServices.Marshal.SizeOf((DateTime)row[i]);
+				cursize += System.Runtime.InteropServices.Marshal.SizeOf((VxDbusDateTime)row[i]);
                                 break;
                             case VxColumnType.Decimal:
                                 row[i] = !isnull ?
