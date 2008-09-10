@@ -157,19 +157,35 @@ namespace Wv.Test
 	    return o != null;
 	}
 	
-	public static bool test(bool cond, string file, int line, string s)
+	static bool expect_fail = false;
+	public static void expect_next_failure()
+	{
+	    expect_fail = true;
+	}
+	
+	public static bool test(bool ok, string file, int line, string s)
 	{
 	    s = s.Replace("\n", "!");
 	    s = s.Replace("\r", "!");
-	    Console.WriteLine("! {0}:{1,-5} {2,-40} {3}",
-					 file, line, s,
-					 cond ? "ok" : "FAILED");
+	    string suffix = "";
+	    if (expect_fail)
+	    {
+		if (!ok)
+		    suffix = " (expected) ok";
+		else
+		    suffix = " (expected fail!) FAILED";
+	    }
+	    Console.WriteLine("! {0}:{1,-5} {2,-40} {3}{4}",
+			      file, line, s,
+			      ok ? "ok" : "FAILED",
+			      suffix);
 	    Console.Out.Flush();
+	    expect_fail = false;
 
-            if (!cond)
+            if (!ok)
 	        throw new WvAssertionFailure(String.Format("{0}:{1} {2}", file, line, s));
 
-	    return cond;
+	    return ok;
 	}
 
 	public static void test_exception(string file, int line, string s)
