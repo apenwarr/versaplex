@@ -99,9 +99,13 @@ bool VxOdbcTester::msg_received(WvDBusMsg &msg)
         msg.get_sender(), msg.get_dest(), msg.get_path(), 
         msg.get_interface(), msg.get_member());
 
-    if (msg.get_member() == "ExecRecordset")
+    if (msg.get_member() == "ExecChunkRecordset")
     {
-        log("Processing ExecRecordSet\n");
+    	// *such* a hack.  VxODBC now uses ExecChunkRecordset, and this used to
+	// be 'ExecRecordset'.  Since it still supports the codepath for
+	// ExecRecordset, we'll give it unit-testing results like that...
+	// ExecChunkRecordset is only meant for really big queries anyways.
+        log("Processing ExecChunkRecordSet\n");
         WvString query(msg.get_argstr());
         if (query == expected_query)
         {
