@@ -191,6 +191,7 @@ public static class VersaMain
                 break;
             default:
                 log.print("Register name result: \n" + rnr.ToString());
+                StopDBusServerThread();
                 return 2;
         }
 
