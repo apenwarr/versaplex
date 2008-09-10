@@ -1,3 +1,4 @@
+WVDOTNET=../../wvdotnet
 include ../../monorules.mk
 
 PKGS += /r:System.Data
@@ -9,7 +10,7 @@ XPLC=$(WVDIR)/wvports/xplc/build/xplc
 #BOOST=$(WVDIR)/wvports/boost/build/boost
 VALGRIND=valgrind --tool=memcheck --leak-check=yes --num-callers=10 \
     --suppressions=$(WVSTREAMS)/wvstreams.supp --log-file=valgrind.log
-RUNTEST=$(WVSTREAMS)/wvtesthelper
+RUNTEST:=$(WVSTREAMS)/wvtestrunner.pl
 
 CPPFLAGS += -I../../wvdotnet
 CFLAGS+=-Wall
@@ -27,7 +28,7 @@ LIBS+=$(DBUS)/dbus/.libs/libdbus-1.a $(WVSTREAMS)/gnulib/libgnu.a
 LIBS+=$(WVSTREAMS)/wvtestmain.o $(WVSTREAMS)/utils/wvcrash.o
 LIBS+=-lwsock32 -lgdi32 -lrpcrt4 -lole32 -lodbc32 -limagehlp
 VALGRIND=
-RUNTEST=wine
+RUNTEST:=$(RUNTEST) wine
 else
 CC=gcc
 CXX=g++
