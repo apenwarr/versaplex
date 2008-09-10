@@ -22,6 +22,7 @@ endif
 CSFLAGS=/warn:4 /debug
 #CSFLAGS += /warnaserror
 
+TESTRUNNER=$(WVDOTNET)/wvtestrunner.pl
 
 # Rules for generating autodependencies on header files
 $(patsubst %.cs.E,%.d,$(filter %.cs.E,$(FILES))): %.d: %.cs
@@ -73,7 +74,7 @@ endef
 
 %.pass: %.exe
 	rm -f $@
-	mono --debug ./$^
+	$(TESTRUNNER) mono --debug ./$^
 	touch $@
 
 clean::
