@@ -276,7 +276,7 @@ class DiskSchemaTests : SchemamaticTester
         string testschemafile = Path.Combine(xmldir, "TestSchema" + suffix);
         WVPASS(File.Exists(testschemafile));
         CheckExportedFileContents(testschemafile, 
-            "!!SCHEMAMATIC f45c4ea54c268c91f41c7054c8f20bc9 0xfa7736b3 ",
+            "!!SCHEMAMATIC f45c4ea54c268c91f41c7054c8f20bc9 0xf4b2c764 ",
             sc.xmlq);
     }
 
