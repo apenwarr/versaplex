@@ -1,3 +1,4 @@
+WVDOTNET=..
 include ../monorules.mk
 
 all: test

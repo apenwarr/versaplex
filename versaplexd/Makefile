@@ -1,3 +1,4 @@
+WVDOTNET=../wvdotnet
 include ../rules.mk
 include ../monorules.mk
 

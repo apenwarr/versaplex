@@ -12,7 +12,7 @@ DBUS=$(WVDIR)/wvports/dbus/build/dbus
 ARGP=$(WVDIR)/wvports/argp/build/argp
 WVSTREAMS=$(WVDIR)/wvstreams
 VALGRIND=valgrind --tool=memcheck --leak-check=yes --num-callers=10 --suppressions=$(WVSTREAMS)/wvstreams.supp --log-file=valgrind.log
-RUNTEST=$(WVSTREAMS)/wvtesthelper
+RUNTEST=$(WVSTREAMS)/wvtestrunner.pl
 
 CFLAGS+=-Wall -Wno-long-long  
 CFLAGS+=-g 
@@ -30,7 +30,7 @@ LIBS+=../vxodbc.a $(DBUS)/dbus/.libs/libdbus-1.a $(ARGP)/libargp.a
 LIBS+=$(WVSTREAMS)/wvtestmain.o $(WVSTREAMS)/utils/wvcrash.o 
 LIBS+=-lwsock32 -lgdi32 -lrpcrt4 -lole32 -lodbc32 -limagehlp -lcrypt32
 VALGRIND=
-RUNTEST=wine
+RUNTEST=$(RUNTEST) wine
 else
 CC=gcc
 CXX=g++
