@@ -79,6 +79,7 @@ public class WvTestTest
 	    caught = false;
 
 	    System.Console.WriteLine("Ignore next failure: it is expected");
+	    WvTest.expect_next_failure();
 	    try {
 		WVEXCEPT(no_throw_exception());
 	    } catch (Wv.Test.WvAssertionFailure) {
