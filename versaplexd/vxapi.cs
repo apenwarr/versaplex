@@ -253,8 +253,10 @@ internal static class VxDb {
 					  rownulls.ToArray());
 		}
 	    } // using
-	    reply = VxDbus.CreateError("vx.db.nomoredata", 
-					"No more data available.", call);
+	    MessageWriter replywriter =
+	    	new MessageWriter(Connection.NativeEndianness);
+	    replywriter.Write(typeof(string), "ChunkRecordset sent you all your data!");
+	    reply = VxDbus.CreateReply(call, "s", replywriter);
         } catch (DbException e) {
             throw new VxSqlException(e.Message, e);
         }

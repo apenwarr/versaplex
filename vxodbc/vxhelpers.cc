@@ -93,12 +93,15 @@ void VxResultSet::runquery(WvDBusConn &conn, const char *func,
     			wv::bind(&update_sigrets, _1, this));
 
     if (reply.iserror())
-    {
-	if (reply.get_error() != "vx.db.nomoredata")
 	    mylog("DBus error: '%s'\n", ((WvString)reply).cstr());
-    }
     else
-	process_msg(reply);
+    {
+    	// Method return
+	WvDBusMsg::Iter top(reply);
+	if (top.next() &&
+	    top.get_str() != "ChunkRecordset sent you all your data!")
+	    process_msg(reply);
+    }
 
     uint32_t reply_serial = reply.get_replyserial();
     if (signal_returns[reply_serial])

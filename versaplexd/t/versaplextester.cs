@@ -268,13 +268,6 @@ public class VersaplexTester: IDisposable
 		    throw new Exception("D-Bus error received but no error "
 			+ "name given");
 
-		if (errname.ToString() == "vx.db.nomoredata")  // we want this
-		{
-		    data = rowlist.ToArray();
-		    nullity = rownulllist.ToArray();
-		    break;
-		}
-
 		object errsig;
 		if (!tmp.Header.Fields.TryGetValue(FieldCode.Signature,
                         out errsig) || errsig.ToString() != "s")
@@ -287,8 +280,15 @@ public class VersaplexTester: IDisposable
 	    }
 	    else
 	    {
-		throw new Exception("Unexpected D-Bus response; not a signal "
-                    +"or error.");
+	    	//Method return
+		object retsig;
+		if (!tmp.Header.Fields.TryGetValue(FieldCode.Signature,
+		    out retsig) || retsig.ToString() != "s")
+		    throw new DbusError("Garbled response for ExecChunkRecordSet");
+		//otherwise, we presume it's our method return response
+		data = rowlist.ToArray();
+		nullity = rownulllist.ToArray();
+		break;
 	    }
 	}
 
