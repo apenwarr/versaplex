@@ -303,7 +303,7 @@ public class VersaplexTester: IDisposable
                     out replysig))
             throw new Exception("D-Bus reply had no signature");
 
-        if (replysig == null || replysig.ToString() != "a(issnny)vaay")
+        if (replysig == null || !replysig.ToString().StartsWith("a(issnny)vaay"))
             throw new Exception("D-Bus reply had invalid signature");
 
         MessageReader reader = new MessageReader(reply);

@@ -12,10 +12,13 @@ static bool signal_sorter(WvDBusMsg &msg)
 {
     WvString member = msg.get_member();
     // We have a signal, and it's a signal carrying data we want!
-    if (!!member && strstr(member.cstr(), "ChunkRecordsetSig") == member.cstr())
+    if (!!member && member == "ChunkRecordsetSig")
     {
-        //18; "ChunkRecordsetSig "
-	unsigned int reply_serial = atoi(member.cstr() + 18);
+    	WvDBusMsg::Iter top(msg);
+	top.getnext().getnext().getnext();
+	if (!top.next())
+	    return false;
+	unsigned int reply_serial = (unsigned int)top.get_int();
 	if (signal_returns[reply_serial])
 	{
 	    signal_returns[reply_serial]->process_msg(msg);
