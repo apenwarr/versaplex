@@ -1,6 +1,6 @@
 using System;
 
-struct VxDbusDateTime {
+public struct VxDbusDateTime {
     public long seconds;
     public int microseconds;
 
