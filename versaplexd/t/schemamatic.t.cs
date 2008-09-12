@@ -172,7 +172,7 @@ class SchemamaticTests : SchemamaticTester
         sums = dbus.GetChecksums();
 
         WVPASSEQ(sums["XMLSchema/TestSchema"].checksums.Count(), 1);
-        WVPASSEQ(sums["XMLSchema/TestSchema"].checksums.First(), 0xFA7736B3);
+        WVPASSEQ(sums["XMLSchema/TestSchema"].checksums.First(), 4105357156);
 
         WVASSERT(VxExec("drop xml schema collection TestSchema"));
 

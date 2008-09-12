@@ -120,8 +120,8 @@ namespace Wv.Test
                 } catch (WvAssertionFailure) {
                     failures++;
                 } catch (Exception e) {
-                    Console.WriteLine("! WvTest Exception received   FAILED");
                     Console.WriteLine(e.ToString());
+                    Console.WriteLine("! WvTest Exception received   FAILED");
                     failures++;
                 }
             }

@@ -529,7 +529,7 @@ internal class VxDbSchema : ISchemaBackend
             select sch.name owner,
                xsc.name sch,
                cast(XML_Schema_Namespace(sch.name,xsc.name) 
-                    as varchar(max)) contents
+                    as nvarchar(max)) contents
               into #checksum_calc
               from sys.xml_schema_collections xsc 
               join sys.schemas sch on xsc.schema_id = sch.schema_id
