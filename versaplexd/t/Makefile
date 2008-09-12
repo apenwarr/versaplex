@@ -53,7 +53,8 @@ TESTOBJS=$(patsubst %.cc,%.o,$(TESTSOURCES))
 TESTS=dbisanity.t.pass \
     versaplex.t.pass vxsanity.t.pass \
     verifydata.t.pass schemamatic.t.pass \
-    vxexecchunkrecordset.t.pass vxschemachecksums.t.pass vxdiskschema.t.pass
+    vxexecchunkrecordset.t.pass vxschemachecksums.t.pass vxdiskschema.t.pass \
+    vxschema.t.pass
 TESTEXES=$(patsubst %.pass,%.exe,$(TESTS))
 
 default: test
@@ -91,6 +92,13 @@ vxexecchunkrecordset.t.exe: vxexecchunkrecordset.t.cs.E \
 
 vxschemachecksums.t.exe: vxschemachecksums.t.cs.E \
 	../vxschemachecksums.cs \
+	../wv.dll ../NDesk.DBus.dll
+
+# This test file doesn't need the whole Versaplex/Schemamatic stack, 
+# so let's try to save some needless recompilations.
+vxschema.t.exe: vxschema.t.cs.E \
+	../vxschema.cs ../vxschemaerrors.cs ../vxschemachecksums.cs \
+	../vxschemadiff.cs ../ischemabackend.cs ../vxexceptions.cs \
 	../wv.dll ../NDesk.DBus.dll
 
 vxdiskschema.t.exe: vxdiskschema.t.cs.E \
