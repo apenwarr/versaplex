@@ -28,7 +28,8 @@ namespace Wv
 			     WvReflection.find_types(typeof(WvMonikerAttribute)))
 		    {
 			t.InvokeMember("wvmoniker_register",
-				       BindingFlags.Static 
+				       BindingFlags.Static
+				         | BindingFlags.Public
 				         | BindingFlags.InvokeMethod,
 				       null, null, null);
 		    }
