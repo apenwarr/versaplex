@@ -69,7 +69,7 @@ class SchemamaticTests : SchemamaticTester
             foreach (KeyValuePair<string,VxSchemaChecksum> p in sums)
                 log.print(p.Key);
         }
-        //WVPASSEQ(sums.Count, 0);
+        WVPASSEQ(sums.Count, 0);
 
         string msg1 = "Hello, world, this is Func1!";
         string msg2 = "Hello, world, this is Func2!";
@@ -91,7 +91,7 @@ class SchemamaticTests : SchemamaticTester
         WVPASSEQ(msg2, (string)outmsg);
 
         sums = dbus.GetChecksums();
-        //WVPASSEQ(sums.Count, 2);
+        WVPASSEQ(sums.Count, 2);
 
         WVASSERT(sums.ContainsKey("Procedure/Func1"));
         WVASSERT(sums.ContainsKey("Procedure-Encrypted/EncFunc"));
@@ -103,7 +103,7 @@ class SchemamaticTests : SchemamaticTester
         WVASSERT(VxExec("drop procedure EncFunc"));
 
         sums = dbus.GetChecksums();
-        //WVPASSEQ(sums.Count, 1);
+        WVPASSEQ(sums.Count, 1);
 
         WVASSERT(sums.ContainsKey("Procedure/Func1"));
         WVFAIL(sums.ContainsKey("Procedure/EncFunc"));
@@ -122,44 +122,20 @@ class SchemamaticTests : SchemamaticTester
         VxSchemaChecksums sums;
         sums = dbus.GetChecksums();
 
-        // Three columns gives us three checksums
-        WVPASSEQ(sums["Table/Tab1"].checksums.Count(), 3);
+        // Three columns, and two indexes each with two columns, gives us 
+        // seven checksums
+        WVPASSEQ(sums["Table/Tab1"].checksums.Count(), 7);
         WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(0), 0xE8634548)
         WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(1), 0xAB109B86)
         WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(2), 0xE50EE702)
+        WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(3), 0x1D32C7EA)
+        WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(4), 0x968DBEDC)
+        WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(5), 0xC1A74EA4)
+        WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(6), 0x00B0B636)
 
         WVASSERT(VxExec("drop table Tab1"));
 
         sc.Cleanup();
-    }
-
-    [Test, Category("Schemamatic"), Category("GetSchemaChecksums")]
-    public void TestIndexChecksums()
-    {
-        try { VxExec("drop table Tab1"); } catch { }
-        string query = "CREATE TABLE [Tab1] (\n" + 
-            "\t[f1] [int] NOT NULL PRIMARY KEY,\n" +
-            "\t[f2] [money] NULL,\n" + 
-            "\t[f3] [varchar] (80) NULL);\n\n";
-        WVASSERT(VxExec(query));
-
-        query = "CREATE INDEX [Index1] ON [Tab1] (f1)";
-        WVASSERT(VxExec(query));
-
-        query = "CREATE INDEX [Index2] ON [Tab1] (f1, f2)";
-        WVASSERT(VxExec(query));
-
-        VxSchemaChecksums sums;
-        sums = dbus.GetChecksums();
-
-        WVPASSEQ(sums["Index/Tab1/Index1"].checksums.Count(), 1);
-        WVPASSEQ(sums["Index/Tab1/Index1"].checksums.First(), 0x62781FDD);
-        // An index on two columns will include two checksums
-        WVPASSEQ(sums["Index/Tab1/Index2"].checksums.Count(), 2);
-        WVPASSEQ(sums["Index/Tab1/Index2"].checksums.ElementAt(0), 0x603EA184);
-        WVPASSEQ(sums["Index/Tab1/Index2"].checksums.ElementAt(1), 0x8FD2C903);
-
-        WVASSERT(VxExec("drop table Tab1"));
     }
 
     [Test, Category("Schemamatic"), Category("GetSchemaChecksums")]
@@ -361,19 +337,17 @@ class SchemamaticTests : SchemamaticTester
         
         VxSchemaChecksums sums = dbus.GetChecksums();
 
-        WVASSERT(sums.ContainsKey("Index/Tab1/Idx1"));
         WVASSERT(sums.ContainsKey("Procedure/Func1"));
         WVASSERT(sums.ContainsKey("ScalarFunction/Func2"));
         WVASSERT(sums.ContainsKey("Table/Tab1"));
         WVASSERT(sums.ContainsKey("Table/Tab2"));
         WVASSERT(sums.ContainsKey("XMLSchema/TestSchema"));
 
-        dbus.DropSchema("Index/Tab1/Idx1", "Procedure/Func1", 
-            "ScalarFunction/Func2", "Table/Tab2", "XMLSchema/TestSchema");
+        dbus.DropSchema("Procedure/Func1", "ScalarFunction/Func2", 
+            "Table/Tab2", "XMLSchema/TestSchema");
 
         sums = dbus.GetChecksums();
 
-        WVASSERT(!sums.ContainsKey("Index/Tab1/Idx1"));
         WVASSERT(!sums.ContainsKey("Procedure/Func1"));
         WVASSERT(!sums.ContainsKey("ScalarFunction/Func2"));
         WVASSERT(sums.ContainsKey("Table/Tab1"));
@@ -396,7 +370,6 @@ class SchemamaticTests : SchemamaticTester
 
         VxPutOpts no_opts = VxPutOpts.None;
         WVPASSEQ(VxPutSchema("Table", "Tab1", sc.tab1sch, no_opts), null);
-        WVPASSEQ(VxPutSchema("Index", "Tab1/Idx1", sc.idx1q, no_opts), null);
         WVPASSEQ(VxPutSchema("Procedure", "Func1", sc.func1q, no_opts), null);
         WVPASSEQ(VxPutSchema("XMLSchema", "TestSchema", sc.xmlq, no_opts), null);
         
@@ -509,12 +482,12 @@ class SchemamaticTests : SchemamaticTester
 
         srcsums.AddSum("XMLSchema/secondxml", 2);
         srcsums.AddSum("XMLSchema/firstxml", 1);
-        srcsums.AddSum("Index/Tab1/ConflictIndex", 3);
+        srcsums.AddSum("Procedure/ConflictProc", 3);
         srcsums.AddSum("Table/HarmonyTable", 6);
 
         goalsums.AddSum("Table/NewTable", 3);
         goalsums.AddSum("Procedure/NewFunc", 4);
-        goalsums.AddSum("Index/Tab1/ConflictIndex", 5);
+        goalsums.AddSum("Procedure/ConflictProc", 5);
         goalsums.AddSum("Table/HarmonyTable", 6);
 
         VxSchemaDiff diff = new VxSchemaDiff(srcsums, goalsums);
@@ -522,7 +495,7 @@ class SchemamaticTests : SchemamaticTester
         string expected = "- XMLSchema/firstxml\n" + 
             "- XMLSchema/secondxml\n" +
             "+ Table/NewTable\n" +
-            "* Index/Tab1/ConflictIndex\n" +
+            "* Procedure/ConflictProc\n" +
             "+ Procedure/NewFunc\n";
         WVPASSEQ(diff.ToString(), expected);
 
@@ -530,7 +503,7 @@ class SchemamaticTests : SchemamaticTester
         WVPASSEQ(diff.ElementAt(0).Key, "XMLSchema/firstxml");
         WVPASSEQ(diff.ElementAt(1).Key, "XMLSchema/secondxml");
         WVPASSEQ(diff.ElementAt(2).Key, "Table/NewTable");
-        WVPASSEQ(diff.ElementAt(3).Key, "Index/Tab1/ConflictIndex");
+        WVPASSEQ(diff.ElementAt(3).Key, "Procedure/ConflictProc");
         WVPASSEQ(diff.ElementAt(4).Key, "Procedure/NewFunc");
 
         // Check that a comparison with an empty set of sums returns the other
@@ -539,13 +512,13 @@ class SchemamaticTests : SchemamaticTester
         expected = "- XMLSchema/firstxml\n" + 
             "- XMLSchema/secondxml\n" + 
             "- Table/HarmonyTable\n" + 
-            "- Index/Tab1/ConflictIndex\n";
+            "- Procedure/ConflictProc\n";
         WVPASSEQ(diff.ToString(), expected);
 
         diff = new VxSchemaDiff(emptysums, goalsums);
         expected = "+ Table/HarmonyTable\n" +
             "+ Table/NewTable\n" +
-            "+ Index/Tab1/ConflictIndex\n" +
+            "+ Procedure/ConflictProc\n" +
             "+ Procedure/NewFunc\n";
         WVPASSEQ(diff.ToString(), expected);
     }

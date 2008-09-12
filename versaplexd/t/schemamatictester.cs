@@ -15,7 +15,6 @@ class SchemamaticTester : VersaplexTester
         public string tab1sch;
         public string tab2q;
         public string tab2sch;
-        public string idx1q;
         public string msg1;
         public string msg2;
         public string func1q;
@@ -33,8 +32,10 @@ class SchemamaticTester : VersaplexTester
             tab1q = "CREATE TABLE [Tab1] (\n" + 
                 "\t[f1] [int]  NOT NULL,\n" +
                 "\t[f2] [money]  NOT NULL,\n" + 
-                "\t[f3] [varchar] (80) NULL\n" + 
-                "\tPRIMARY KEY (f1,f2)\n);\n\n";
+                "\t[f3] [varchar] (80) NULL);\n" + 
+                "ALTER TABLE [Tab1] ADD CONSTRAINT [PK_Tab1] PRIMARY KEY (f1,f2)\n" +
+                "CREATE UNIQUE INDEX [Idx1] ON [Tab1]\n" + 
+                "\t(f2, f3 DESC);\n\n";
             tab1sch = "column: name=f1,type=int,null=0\n" + 
                 "column: name=f2,type=money,null=0\n" + 
                 "column: name=f3,type=varchar,null=1,length=80\n" +
@@ -43,8 +44,6 @@ class SchemamaticTester : VersaplexTester
             tab2q = "CREATE TABLE [Tab2] (\n" + 
                 "\t[f4] [binary] (1) NOT NULL);\n\n";
             tab2sch = "column: name=f4,type=binary,null=0,length=1\n";
-            idx1q = "CREATE UNIQUE INDEX [Idx1] ON [Tab1] \n" + 
-                "\t(f2, f3 DESC);\n\n";
             msg1 = "Hello, world, this is Func1!";
             msg2 = "Hello, world, this is Func2!";
             func1q = "create procedure Func1 as select '" + msg1 + "'\n";
@@ -74,7 +73,6 @@ class SchemamaticTester : VersaplexTester
         {
             WVASSERT(t.VxExec(tab1q));
             WVASSERT(t.VxExec(tab2q));
-            WVASSERT(t.VxExec(idx1q));
             WVASSERT(t.VxExec(func1q));
             WVASSERT(t.VxExec(func2q));
             WVASSERT(t.VxExec(xmlq));
@@ -82,7 +80,6 @@ class SchemamaticTester : VersaplexTester
 
         public void Cleanup()
         {
-            try { t.VxExec("drop index Tab1.Idx1"); } catch { }
             try { t.VxExec("drop table Tab1"); } catch { }
             try { t.VxExec("drop table Tab2"); } catch { }
             try { t.VxExec("drop xml schema collection TestSchema"); } catch { }

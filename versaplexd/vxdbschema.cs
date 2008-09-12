@@ -227,7 +227,7 @@ internal class VxDbSchema : ISchemaBackend
         GetTableChecksums(sums);
 
         // Do indexes separately
-        GetIndexChecksums(sums);
+        AddIndexChecksumsToTables(sums);
 
         // Do XML schema collections separately (FIXME: only if SQL2005)
         GetXmlSchemaChecksums(sums);
@@ -515,7 +515,7 @@ internal class VxDbSchema : ISchemaBackend
         }
     }
 
-    void GetIndexChecksums(VxSchemaChecksums sums)
+    void AddIndexChecksumsToTables(VxSchemaChecksums sums)
     {
         string query = @"
             select 
@@ -556,10 +556,10 @@ internal class VxDbSchema : ISchemaBackend
                 checksum |= b;
             }
 
-            string key = String.Format("Index/{0}/{1}", tablename, indexname);
+            string key = String.Format("Table/{0}", tablename);
 
-            log.print("tablename={0}, indexname={1}, checksum={2}, key={3}, colid={4}\n", 
-                tablename, indexname, checksum, key, (int)row[2]);
+            log.print("tablename={0}, indexname={1}, checksum={2}, colid={3}\n", 
+                tablename, indexname, checksum, (int)row[2]);
             sums.AddSum(key, checksum);
         }
     }

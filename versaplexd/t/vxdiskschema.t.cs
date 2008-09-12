@@ -37,14 +37,12 @@ class DiskSchemaTests : SchemamaticTester
             schema.Add("Table", "Foo", "column: name=foo,type=int\n", false);
             schema.Add("Table", "Bar", "column: name=bar,type=int\n", false);
             schema.Add("Procedure", "Func1", "Func1 contents", false);
-            schema.Add("Index", "Foo/Index1", "Index1 contents", false);
             schema.Add("ScalarFunction", "Func2", "Func2 contents", false);
 
             VxSchemaChecksums sums = new VxSchemaChecksums();
             sums.AddSum("Table/Foo", 1);
             sums.AddSum("Table/Bar", 2);
             sums.AddSum("Procedure/Func1", 3);
-            sums.AddSum("Index/Foo/Index1", 4);
             sums.AddSum("ScalarFunction/Func2", 5);
 
             backend.Put(schema, sums, VxPutOpts.None);
@@ -52,7 +50,6 @@ class DiskSchemaTests : SchemamaticTester
             WVPASS(File.Exists(Path.Combine(tmpdir, "Table/Foo")));
             WVPASS(File.Exists(Path.Combine(tmpdir, "Table/Bar")));
             WVPASS(File.Exists(Path.Combine(tmpdir, "Procedure/Func1")));
-            WVPASS(File.Exists(Path.Combine(tmpdir, "Index/Foo/Index1")));
             WVPASS(File.Exists(Path.Combine(tmpdir, "ScalarFunction/Func2")));
 
             VxSchema newschema = backend.Get(null);
@@ -63,17 +60,14 @@ class DiskSchemaTests : SchemamaticTester
             WVPASS(newschema.ContainsKey("Table/Foo"));
             WVPASS(newschema.ContainsKey("Table/Bar"));
             WVPASS(newschema.ContainsKey("Procedure/Func1"));
-            WVPASS(newschema.ContainsKey("Index/Foo/Index1"));
             WVPASS(newschema.ContainsKey("ScalarFunction/Func2"));
 
-            string[] todrop = { "Table/Foo", "Index/Foo/Index1" };
+            string[] todrop = { "Table/Foo" };
             backend.DropSchema(todrop);
 
             WVPASS(!File.Exists(Path.Combine(tmpdir, "Table/Foo")))
             WVPASS(File.Exists(Path.Combine(tmpdir, "Table/Bar")))
             WVPASS(File.Exists(Path.Combine(tmpdir, "Procedure/Func1")))
-            WVPASS(!File.Exists(Path.Combine(tmpdir, "Index/Foo/Index1")))
-            WVPASS(!Directory.Exists(Path.Combine(tmpdir, "Index/Foo")))
             WVPASS(File.Exists(Path.Combine(tmpdir, "ScalarFunction/Func2")))
 
             newschema = backend.Get(null);
@@ -83,7 +77,6 @@ class DiskSchemaTests : SchemamaticTester
             WVPASS(!newschema.ContainsKey("Table/Foo"));
             WVPASS(newschema.ContainsKey("Table/Bar"));
             WVPASS(newschema.ContainsKey("Procedure/Func1"));
-            WVPASS(!newschema.ContainsKey("Index/Foo/Index1"));
             WVPASS(newschema.ContainsKey("ScalarFunction/Func2"));
 
             todrop = new string[] { "Procedure/Func1", "ScalarFunction/Func2" };
@@ -92,8 +85,6 @@ class DiskSchemaTests : SchemamaticTester
             WVPASS(!File.Exists(Path.Combine(tmpdir, "Table/Foo")))
             WVPASS(File.Exists(Path.Combine(tmpdir, "Table/Bar")))
             WVPASS(!File.Exists(Path.Combine(tmpdir, "Procedure/Func1")))
-            WVPASS(!File.Exists(Path.Combine(tmpdir, "Index/Foo/Index1")))
-            WVPASS(!Directory.Exists(Path.Combine(tmpdir, "Index/Foo")))
             WVPASS(!File.Exists(Path.Combine(tmpdir, "ScalarFunction/Func2")))
 
             newschema = backend.Get(null);
@@ -198,6 +189,8 @@ class DiskSchemaTests : SchemamaticTester
         WVPASSEQ(dirinfo.GetFiles().Length, 0);
         WVPASS(Directory.Exists(procdir));
         WVPASS(Directory.Exists(scalardir));
+        // We no longer store indexes in a separate directory; make sure 
+        // that directory doesn't get created.
         WVPASS(!Directory.Exists(idxdir));
         WVPASS(Directory.Exists(tabdir));
         WVPASS(Directory.Exists(xmldir));
@@ -280,15 +273,6 @@ class DiskSchemaTests : SchemamaticTester
             sums = dbus.GetChecksums();
             disk.Put(schema, sums, VxPutOpts.None);
 
-            // FIXME: hideous hack while indexes are being reworked
-            List<string> todelete = new List<string>();
-            foreach (var sum in sums)
-                if (sum.Key.StartsWith("Index/"))
-                    todelete.Add(sum.Key);
-
-            foreach (string key in todelete)
-                sums.Remove(key);
-
             int backup_generation = 0;
             VerifyExportedSchema(tmpdir, schema, sums, sc, backup_generation);
 
@@ -352,15 +336,6 @@ class DiskSchemaTests : SchemamaticTester
             VxSchemaChecksums sums = dbus.GetChecksums();
             VxDiskSchema backend = new VxDiskSchema(tmpdir);
             backend.Put(schema, sums, VxPutOpts.None);
-
-            // FIXME: hideous hack while indexes are being reworked
-            List<string> todelete = new List<string>();
-            foreach (var sum in sums)
-                if (sum.Key.StartsWith("Index/"))
-                    todelete.Add(sum.Key);
-
-            foreach (string key in todelete)
-                sums.Remove(key);
 
             VxSchemaChecksums fromdisk = backend.GetChecksums();
 
@@ -501,15 +476,6 @@ class DiskSchemaTests : SchemamaticTester
         VxSchema origschema = dbus.Get();
         VxSchemaChecksums origsums = dbus.GetChecksums();
 
-        // FIXME: hideous hack while indexes are being reworked:
-        List<string> todelete = new List<string>();
-        foreach (var sum in origsums)
-            if (sum.Key.StartsWith("Index/"))
-                todelete.Add(sum.Key);
-
-        foreach (string key in todelete)
-            origsums.Remove(key);
-
         string tmpdir = GetTempDir();
         try
         {
@@ -536,15 +502,6 @@ class DiskSchemaTests : SchemamaticTester
             dbus.DropSchema("Table/Tab2");
             origschema.Remove("Table/Tab2");
             origsums = dbus.GetChecksums();
-
-            // FIXME: hideous hack while indexes are being reworked:
-            todelete = new List<string>();
-            foreach (var sum in origsums)
-                if (sum.Key.StartsWith("Index/"))
-                    todelete.Add(sum.Key);
-
-            foreach (string key in todelete)
-                origsums.Remove(key);
 
             VxSchema.CopySchema(dbus, disk);
             newschema = disk.Get(null);
