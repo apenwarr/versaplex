@@ -70,6 +70,21 @@ internal class VxDbSchema : ISchemaBackend
                 old_err_count == -1 ? schema.Count : errs.Count);
             old_err_count = errs.Count;
             errs.Clear();
+
+            /* FIXME: Waiting for Put-ing tables to be more sensible.
+            List<string> tables = new List<string>();
+            List<string> nontables = new List<string>();
+            foreach (string key in keys)
+            {
+                if (schema[key].type == "Table")
+                    tables.Add(key);
+                else
+                    nontables.Add(key);
+            }
+
+            errs.Add(PutSchemaTables(tables, schema, sums, opts));
+            foreach (string key in nontables)
+            */
             foreach (string key in keys)
             {
                 log.print("Calling PutSchema on {0}\n", key);
@@ -150,9 +165,6 @@ internal class VxDbSchema : ISchemaBackend
                 RetrieveProcSchemas(schema, proc_names, type, 1);
             }
         }
-
-        if (idx_names.Count > 0 || all_names.Count == 0)
-            RetrieveIndexSchemas(schema, idx_names);
 
         if (xml_names.Count > 0 || all_names.Count == 0)
             RetrieveXmlSchemas(schema, xml_names);
@@ -332,6 +344,35 @@ internal class VxDbSchema : ISchemaBackend
         return String.Format("DROP {0} [{1}]", type, name);
     }
 
+/*
+    private VxSchemaErrors PutSchemaTables(List<string> tables, 
+        VxSchema schema, VxSchemaChecksums sums, VxPutOpts opts)
+    {
+        VxSchema curschema = Get(tables);
+
+        foreach (string key in tables)
+        {
+            if (schema[key].type != "Table" || curschema[key].type != "Table")
+                throw new ArgumentException("PutSchemaTables called on " + 
+                    "non-table element '" + key + "'.");
+
+            VxSchemaTable table;
+            VxSchemaTable curtable;
+            if (schema[key] is VxSchemaTable)
+                table = (VxSchemaTable)schema[key];
+            else
+                table = new VxSchemaTable(schema[key]);
+
+            if (curschema[key] is VxSchemaTable)
+                curtable = (VxSchemaTable)curschema[key];
+            else
+                curtable = new VxSchemaTable(curschema[key]);
+
+            // TODO: Compute diff of the current and new tables
+        }
+    }
+    */
+
     // Replaces the named object in the database.  elem.text is a verbatim
     // hunk of text returned earlier by GetSchema.  'destructive' says whether
     // or not to perform potentially destructive operations while making the
@@ -358,7 +399,7 @@ internal class VxDbSchema : ISchemaBackend
             }
 
             if (elem.text != null && elem.text != "")
-                DbiExec(elem.text);
+                DbiExec(elem.ToSql());
         } 
         catch (VxSqlException e) 
         {
@@ -607,10 +648,11 @@ internal class VxDbSchema : ISchemaBackend
         }
     }
 
-    void RetrieveIndexSchemas(VxSchema schema, List<string> names)
+    // Adds the indexes for each table in "names" to the table elements.
+    void AddIndexesToTables(VxSchema schema, List<string> names)
     {
-        string idxnames = (names.Count > 0) ? 
-            "and ((object_name(i.object_id)+'/'+i.name) in ('" + 
+        string tabnames = (names.Count > 0) ? 
+            "and (object_name(i.object_id) in ('" + 
                 names.Join("','") + "'))"
             : "";
 
@@ -633,13 +675,17 @@ internal class VxDbSchema : ISchemaBackend
              and c.column_id = ic.column_id
           where object_name(i.object_id) not like 'sys%' 
             and object_name(i.object_id) not like 'queue_%' " + 
-            idxnames + 
+            tabnames + 
           @" order by i.name, i.object_id, ic.index_column_id";
+
+        log.print("Adding index information for {0}\n", 
+            names.Count > 0 ? names.Join(",") : "all tables");
 
         WvSqlRow[] data = DbiSelect(query).ToArray();
 
         int old_colid = 0;
         List<string> cols = new List<string>();
+        // FIXME: use foreach
         for (int ii = 0; ii < data.Length; ii++)
         {
             WvSqlRow row = data[ii];
@@ -667,32 +713,29 @@ internal class VxDbSchema : ISchemaBackend
             // index to the schema.  Note: depends on the statement's ORDER BY.
             if (tabname != next_tabname || idxname != next_idxname)
             {
-                string colstr = cols.Join(", ");
-                string indexstr;
-                if (idxprimary != 0)
+                VxSchemaTable table;
+                string tabkey = "Table/" + tabname;
+                if (schema.ContainsKey(tabkey))
                 {
-                    indexstr = String.Format(
-                        "ALTER TABLE [{0}] ADD CONSTRAINT [{1}] PRIMARY KEY{2}\n" + 
-                        "\t({3});\n\n", 
-                        tabname,
-                        idxname,
-                        (idxtype == 1 ? " CLUSTERED" : " NONCLUSTERED"),
-                        colstr);
+                    table = (VxSchemaTable)schema[tabkey];
+                    log.print("Found table, idxtype={0}, cols={1}\n",
+                        idxtype, cols.Join(","));
+
+                    if (idxprimary != 0)
+                        table.AddPrimaryKey(idxtype, cols.ToArray());
+                    else
+                        table.AddIndex(idxname, idxunique, idxtype, 
+                            cols.ToArray());
                 }
                 else
-                {
-                    indexstr = String.Format(
-                        "CREATE {0}{1}INDEX [{2}] ON [{3}] \n\t({4});\n\n",
-                        (idxunique != 0 ? "UNIQUE " : ""),
-                        (idxtype == 1 ? "CLUSTERED " : ""),
-                        idxname,
-                        tabname,
-                        colstr);
-                }
-                schema.Add("Index", tabname + "/" + idxname, indexstr, false);
+                    throw new ArgumentException(
+                        "Schema is missing table '" + tabkey + "'!");
+
                 cols.Clear();
             }
         }
+
+        return;
     }
 
     static string XmlSchemasQuery(int count, List<string> names)
@@ -779,13 +822,9 @@ internal class VxDbSchema : ISchemaBackend
 	    tablenames + @"
 	  order by tabname, c.colorder, typ.status";
 
-        WvSqlRow[] data = DbiSelect(query).ToArray();
-
-        List<string> cols = new List<string>();
-        for (int ii = 0; ii < data.Length; ii++)
+        VxSchemaTable table = null;
+        foreach (WvSqlRow row in DbiSelect(query))
         {
-            WvSqlRow row = data[ii];
-
             string tabname = row[0];
             string colname = row[1];
             string typename = row[2];
@@ -798,28 +837,37 @@ internal class VxDbSchema : ISchemaBackend
             string ident_seed = row[9];
             string ident_incr = row[10];
 
+            if (table != null && tabname != table.name)
+            {
+                schema.Add(table.key, table);
+                table = null;
+            }
+
             if (isident == 0)
                 ident_seed = ident_incr = null;
 
             string lenstr = "";
+            string precstr = null;
+            string scalestr = null;
             if (typename.EndsWith("nvarchar") || typename.EndsWith("nchar"))
             {
                 if (len == -1)
-                    lenstr = "(max)";
+                    lenstr = "max";
                 else
                 {
                     len /= 2;
-                    lenstr = String.Format("({0})", len);
+                    lenstr = len.ToString();
                 }
             }
             else if (typename.EndsWith("char") || typename.EndsWith("binary"))
             {
-                lenstr = (len == -1 ? "(max)" : String.Format("({0})", len));
+                lenstr = (len == -1 ? "max" : len.ToString());
             }
             else if (typename.EndsWith("decimal") || 
                 typename.EndsWith("numeric") || typename.EndsWith("real"))
             {
-                lenstr = String.Format("({0},{1})", xprec,xscale);
+                precstr = xprec.ToString();
+                scalestr = xscale.ToString();
             }
 
             if (defval != null && defval != "")
@@ -829,26 +877,20 @@ internal class VxDbSchema : ISchemaBackend
                     defval = defval.Substring(1, defval.Length - 2);
             }
 
-            cols.Add(String.Format("[{0}] [{1}] {2}{3}{4}{5}",
-                colname, typename, lenstr,
-                ((defval != "") ? " DEFAULT " + defval : ""),
-                ((isnullable != 0) ? " NULL" : " NOT NULL"),
-                ((isident != 0) ?  String.Format(
-                    " IDENTITY({0}, {1})", ident_seed, ident_incr) :
-                    "")));
+            if (table == null)
+                table = new VxSchemaTable(tabname);
 
-            string next_tabname = ((ii+1) < data.Length ? 
-                (string)data[ii+1][0] : null);
-            if (tabname != next_tabname)
-            {
-                string tablestr = String.Format(
-                    "CREATE TABLE [{0}] (\n\t{1});\n\n",
-                    tabname, cols.Join(",\n\t"));
-                schema.Add("Table", tabname, tablestr, false);
-
-                cols.Clear();
-            }
+            table.AddColumn(colname, typename, isnullable, lenstr, 
+                defval, precstr, scalestr, isident, ident_seed, ident_incr);
         }
+
+        if (table != null)
+        {
+            log.print("Adding table {0}\n", table.key);
+            schema.Add(table.key, table);
+        }
+
+        AddIndexesToTables(schema, names);
     }
 
     // Returns a blob of text that can be used with PutSchemaData to fill 

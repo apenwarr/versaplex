@@ -50,7 +50,7 @@ class SchemamaticTests : SchemamaticTester
 
     VxSchemaErrors VxPutSchema(VxSchema schema, VxPutOpts opts)
     {
-	log.print(" + VxPutSchema");
+	log.print(" + VxPutSchema\n");
 
         return dbus.Put(schema, null, opts);
     }
@@ -125,7 +125,7 @@ class SchemamaticTests : SchemamaticTester
         // Three columns gives us three checksums
         WVPASSEQ(sums["Table/Tab1"].checksums.Count(), 3);
         WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(0), 0xE8634548)
-        WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(1), 0xA5F77357)
+        WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(1), 0xAB109B86)
         WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(2), 0xE50EE702)
 
         WVASSERT(VxExec("drop table Tab1"));
@@ -241,39 +241,6 @@ class SchemamaticTests : SchemamaticTester
     }
 
     [Test, Category("Schemamatic"), Category("GetSchema")]
-    public void TestGetIndexSchema()
-    {
-        SchemaCreator sc = new SchemaCreator(this);
-        sc.Create();
-
-        // Check that the query limiting works
-	VxSchema schema = dbus.Get("Index/Tab1/Idx1");
-	WVPASSEQ(schema.Count, 1);
-
-	WVASSERT(schema.ContainsKey("Index/Tab1/Idx1"));
-	WVPASSEQ(schema["Index/Tab1/Idx1"].name, "Tab1/Idx1");
-	WVPASSEQ(schema["Index/Tab1/Idx1"].type, "Index");
-	WVPASSEQ(schema["Index/Tab1/Idx1"].encrypted, false);
-	WVPASSEQ(schema["Index/Tab1/Idx1"].text.Length, sc.idx1q.Length);
-	WVPASSEQ(schema["Index/Tab1/Idx1"].text, sc.idx1q);
-
-        // Now get everything, since we don't know the primary key's name
-        schema = dbus.Get();
-        WVASSERT(schema.Count >= 2);
-
-	WVASSERT(schema.ContainsKey("Index/Tab1/Idx1"));
-	WVPASSEQ(schema["Index/Tab1/Idx1"].name, "Tab1/Idx1");
-	WVPASSEQ(schema["Index/Tab1/Idx1"].type, "Index");
-	WVPASSEQ(schema["Index/Tab1/Idx1"].encrypted, false);
-	WVPASSEQ(schema["Index/Tab1/Idx1"].text.Length, sc.idx1q.Length);
-	WVPASSEQ(schema["Index/Tab1/Idx1"].text, sc.idx1q);
-
-        CheckForPrimaryKey(schema, "Tab1");
-
-        sc.Cleanup();
-    }
-
-    [Test, Category("Schemamatic"), Category("GetSchema")]
     public void TestGetXmlSchemas()
     {
         SchemaCreator sc = new SchemaCreator(this);
@@ -363,21 +330,24 @@ class SchemamaticTests : SchemamaticTester
         WVASSERT(VxExec(query));
 
         VxSchema schema = dbus.Get();
-        WVASSERT(schema.Count >= 2);
+        WVASSERT(schema.Count >= 1);
 
-        // Primary keys get returned as indexes, not in the CREATE TABLE
-        string result = query.Replace(" PRIMARY KEY", "");
-        // Check that columns default to nullable
-        result = result.Replace("[f5] [decimal] (3,2)", 
-            "[f5] [decimal] (3,2) NULL");
+        string tab1schema = "column: name=f1,type=int,null=0\n" + 
+            "column: name=f2,type=money,null=1\n" + 
+            "column: name=f3,type=varchar,null=0,length=80\n" + 
+            "column: name=f4,type=varchar,null=1,length=max,default='Default Value'\n" + 
+            "column: name=f5,type=decimal,null=1,precision=3,scale=2\n" + 
+            "column: name=f6,type=bigint,null=0,identity_seed=4,identity_incr=5\n" + 
+            "primary-key: column=f1,clustered=1\n";
+
+        log.print("Retrieved: " + schema["Table/Table1"].text);
+        log.print("Expected: " + tab1schema);
 
         WVASSERT(schema.ContainsKey("Table/Table1"));
         WVPASSEQ(schema["Table/Table1"].name, "Table1");
         WVPASSEQ(schema["Table/Table1"].type, "Table");
         WVPASSEQ(schema["Table/Table1"].encrypted, false);
-        WVPASSEQ(schema["Table/Table1"].text, result);
-
-        CheckForPrimaryKey(schema, "Table1");
+        WVPASSEQ(schema["Table/Table1"].text, tab1schema);
 
         try { VxExec("drop table Table1"); } catch { }
     }
@@ -425,17 +395,13 @@ class SchemamaticTests : SchemamaticTester
         SchemaCreator sc = new SchemaCreator(this);
 
         VxPutOpts no_opts = VxPutOpts.None;
-        WVPASSEQ(VxPutSchema("Table", "Tab1", sc.tab1q, no_opts), null);
+        WVPASSEQ(VxPutSchema("Table", "Tab1", sc.tab1sch, no_opts), null);
         WVPASSEQ(VxPutSchema("Index", "Tab1/Idx1", sc.idx1q, no_opts), null);
         WVPASSEQ(VxPutSchema("Procedure", "Func1", sc.func1q, no_opts), null);
         WVPASSEQ(VxPutSchema("XMLSchema", "TestSchema", sc.xmlq, no_opts), null);
         
         VxSchema schema = dbus.Get();
 
-        WVASSERT(schema.ContainsKey("Index/Tab1/Idx1"));
-        WVPASSEQ(schema["Index/Tab1/Idx1"].name, "Tab1/Idx1");
-        WVPASSEQ(schema["Index/Tab1/Idx1"].type, "Index");
-        WVPASSEQ(schema["Index/Tab1/Idx1"].text, sc.idx1q);
         WVASSERT(schema.ContainsKey("Procedure/Func1"));
         WVPASSEQ(schema["Procedure/Func1"].name, "Func1");
         WVPASSEQ(schema["Procedure/Func1"].type, "Procedure");
@@ -443,16 +409,15 @@ class SchemamaticTests : SchemamaticTester
         WVASSERT(schema.ContainsKey("Table/Tab1"));
         WVPASSEQ(schema["Table/Tab1"].name, "Tab1");
         WVPASSEQ(schema["Table/Tab1"].type, "Table");
-        WVPASSEQ(schema["Table/Tab1"].text, sc.tab1q_nopk);
+        WVPASSEQ(schema["Table/Tab1"].text, sc.tab1sch);
         WVASSERT(schema.ContainsKey("XMLSchema/TestSchema"));
         WVPASSEQ(schema["XMLSchema/TestSchema"].name, "TestSchema");
         WVPASSEQ(schema["XMLSchema/TestSchema"].type, "XMLSchema");
         WVPASSEQ(schema["XMLSchema/TestSchema"].text, sc.xmlq);
 
-        string tab1q2 = "CREATE TABLE [Tab1] (\n\t" + 
-            "[f4] [binary] (1) NOT NULL);\n\n";
+        string tab1sch2 = "column: name=f4,type=binary,null=0,length=1\n";
 
-        VxSchemaError err = VxPutSchema("Table", "Tab1", tab1q2, no_opts);
+        VxSchemaError err = VxPutSchema("Table", "Tab1", tab1sch2, no_opts);
         WVPASS(err != null);
         WVPASSEQ(err.key, "Table/Tab1");
         WVPASSEQ(err.msg, 
@@ -462,15 +427,15 @@ class SchemamaticTests : SchemamaticTester
         schema = dbus.Get("Table/Tab1");
         WVPASSEQ(schema["Table/Tab1"].name, "Tab1");
         WVPASSEQ(schema["Table/Tab1"].type, "Table");
-        WVPASSEQ(schema["Table/Tab1"].text, sc.tab1q_nopk);
+        WVPASSEQ(schema["Table/Tab1"].text, sc.tab1sch);
 
-        WVPASSEQ(VxPutSchema("Table", "Tab1", tab1q2, VxPutOpts.Destructive), 
+        WVPASSEQ(VxPutSchema("Table", "Tab1", tab1sch2, VxPutOpts.Destructive), 
             null);
 
         schema = dbus.Get("Table/Tab1");
         WVPASSEQ(schema["Table/Tab1"].name, "Tab1");
         WVPASSEQ(schema["Table/Tab1"].type, "Table");
-        WVPASSEQ(schema["Table/Tab1"].text, tab1q2);
+        WVPASSEQ(schema["Table/Tab1"].text, tab1sch2);
 
         string msg2 = "This is definitely not the Func1 you thought you knew.";
         string func1q2 = "create procedure Func1 as select '" + msg2 + "'";
@@ -489,7 +454,7 @@ class SchemamaticTests : SchemamaticTester
     {
         SchemaCreator sc = new SchemaCreator(this);
 
-        WVPASSEQ(VxPutSchema("Table", "Tab1", sc.tab1q, VxPutOpts.None), null);
+        WVPASSEQ(VxPutSchema("Table", "Tab1", sc.tab1sch, VxPutOpts.None), null);
 
         List<string> inserts = new List<string>();
         for (int ii = 0; ii < 22; ii++)
@@ -500,10 +465,10 @@ class SchemamaticTests : SchemamaticTester
         }
 
         inserts.Add("INSERT INTO Tab1 ([f1],[f2],[f3]) " +
-            "VALUES (100,NULL,'');\n");
-        inserts.Add("INSERT INTO Tab1 ([f1],[f2],[f3]) " +
-            "VALUES (101,NULL," + 
+            "VALUES (101,123.4567," + 
             "'This string''s good for \"testing\" escaping, isn''t it?');\n");
+        inserts.Add("INSERT INTO Tab1 ([f1],[f2],[f3]) " +
+            "VALUES (100,234.5678,NULL);\n");
 
         foreach (string ins in inserts)
             WVASSERT(VxExec(ins));
@@ -522,7 +487,7 @@ class SchemamaticTests : SchemamaticTester
             log.print(e.ToString() + "\n");
 	}
 
-        WVPASSEQ(VxPutSchema("Table", "Tab1", sc.tab1q, VxPutOpts.None), null);
+        WVPASSEQ(VxPutSchema("Table", "Tab1", sc.tab1sch, VxPutOpts.None), null);
 
         WVPASSEQ(dbus.GetSchemaData("Tab1", 0, ""), "");
 
@@ -606,10 +571,14 @@ class SchemamaticTests : SchemamaticTester
 
         VxSchemaChecksums diffsums = new VxSchemaChecksums(newsums);
 
+        // Make some changes to create an interesting diff.
+        // Change the text and sums of Func1, schedule TestSchema for
+        // deletion, and act like Tab2 is new.
         newschema["Procedure/Func1"].text = func1q2;
         newsums.AddSum("Procedure/Func1", 123);
         newsums.Remove("XMLSchema/TestSchema");
-        origsums.Remove("Index/Tab1/Idx1");
+        origsums.Remove("Table/Tab2");
+        WVASSERT(VxExec("drop table Tab2"));
 
         VxSchemaDiff diff = new VxSchemaDiff(origsums, newsums);
         using (IEnumerator<KeyValuePair<string,VxDiffType>> iter = 
@@ -619,7 +588,7 @@ class SchemamaticTests : SchemamaticTester
             WVPASSEQ(iter.Current.Key, "XMLSchema/TestSchema");
             WVPASSEQ((char)iter.Current.Value, (char)VxDiffType.Remove);
             WVPASS(iter.MoveNext());
-            WVPASSEQ(iter.Current.Key, "Index/Tab1/Idx1");
+            WVPASSEQ(iter.Current.Key, "Table/Tab2");
             WVPASSEQ((char)iter.Current.Value, (char)VxDiffType.Add);
             WVPASS(iter.MoveNext());
             WVPASSEQ(iter.Current.Key, "Procedure/Func1");
@@ -631,9 +600,9 @@ class SchemamaticTests : SchemamaticTester
         WVPASSEQ(diffschema["XMLSchema/TestSchema"].type, "XMLSchema");
         WVPASSEQ(diffschema["XMLSchema/TestSchema"].name, "TestSchema");
         WVPASSEQ(diffschema["XMLSchema/TestSchema"].text, "");
-        WVPASSEQ(diffschema["Index/Tab1/Idx1"].type, "Index");
-        WVPASSEQ(diffschema["Index/Tab1/Idx1"].name, "Tab1/Idx1");
-        WVPASSEQ(diffschema["Index/Tab1/Idx1"].text, sc.idx1q);
+        WVPASSEQ(diffschema["Table/Tab2"].type, "Table");
+        WVPASSEQ(diffschema["Table/Tab2"].name, "Tab2");
+        WVPASSEQ(diffschema["Table/Tab2"].text, sc.tab2sch);
         WVPASSEQ(diffschema["Procedure/Func1"].type, "Procedure");
         WVPASSEQ(diffschema["Procedure/Func1"].name, "Func1");
         WVPASSEQ(diffschema["Procedure/Func1"].text, func1q2);
@@ -643,11 +612,10 @@ class SchemamaticTests : SchemamaticTester
 
         VxSchema updated = backend.Get(null);
         WVASSERT(!updated.ContainsKey("XMLSchema/TestSchema"));
-        WVPASSEQ(updated["Index/Tab1/Idx1"].text, 
-            newschema["Index/Tab1/Idx1"].text);
+        WVPASSEQ(updated["Table/Tab1"].text, newschema["Table/Tab1"].text);
+        WVPASSEQ(updated["Table/Tab2"].text, newschema["Table/Tab2"].text);
         WVPASSEQ(updated["Procedure/Func1"].text, 
             newschema["Procedure/Func1"].text);
-        WVPASSEQ(updated["Table/Tab1"].text, newschema["Table/Tab1"].text);
 
         sc.Cleanup();
     }
@@ -687,8 +655,13 @@ class SchemamaticTests : SchemamaticTester
         VxSchema schema = dbus.Get();
         VxPutOpts no_opts = VxPutOpts.None;
         VxSchemaErrors errs = VxPutSchema(schema, no_opts);
+        foreach (var err in errs)
+        {
+            // FIXME: Move this to VxSchemaError.ToString()
+            log.print("Error: '{0}'='{1}: {2} ({3})'\n", 
+                err.Key, err.Value.key, err.Value.msg, err.Value.errnum);
+        }
 
-        WVPASSEQ(errs.Count, 2);
         WVPASSEQ(errs["Table/Tab1"].key, "Table/Tab1");
         WVPASSEQ(errs["Table/Tab1"].msg, 
             "There is already an object named 'Tab1' in the database.");
@@ -697,6 +670,7 @@ class SchemamaticTests : SchemamaticTester
         WVPASSEQ(errs["Table/Tab2"].msg, 
             "There is already an object named 'Tab2' in the database.");
         WVPASSEQ(errs["Table/Tab2"].errnum, 2714);
+        WVPASSEQ(errs.Count, 2);
 
         sc.Cleanup();
     }
