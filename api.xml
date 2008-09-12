@@ -37,9 +37,10 @@
 
 		Signals are called "ChunkRecordsetSig".  See below.
 
-		Throws a vx.db.nomoredata error upon completion, as a
-		response.
+		Returns a string just so that you feel good knowing
+		you got some data.
 	    -->
+            <arg name="pat_on_the_back" type="s" direction="out"/>
 	</method>
 	<signal name="ChunkRecordsetSig">
 	    <arg name="colinfo" type="a(issnny)"/>
