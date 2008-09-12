@@ -374,11 +374,18 @@ internal class VxSchemaTable : VxSchemaElement
     private string PrimaryKeyToSql(VxSchemaTableElement elem)
     {
         List<string> idxcols = elem.GetParamList("column");
+        string idxname = elem.GetParam("name");
         string clustered = elem.GetParam("clustered") == "1" ? 
-            "CLUSTERED " : "NONCLUSTERED ";
+            " CLUSTERED" : " NONCLUSTERED";
 
-        return wv.fmt("\n\tPRIMARY KEY {0}({1})\n", 
-            clustered, idxcols.Join(", "));
+        // If no name is specified, set it to "PK_TableName"
+        if (String.IsNullOrEmpty(idxname))
+            idxname = "PK_" + this.name;
+
+        return wv.fmt(
+            "ALTER TABLE [{0}] ADD CONSTRAINT [{1}] PRIMARY KEY{2}\n" +
+            "\t({3});\n\n", 
+            this.name, idxname, clustered, idxcols.Join(", "));
     }
 
     public override string ToSql()
@@ -405,7 +412,7 @@ internal class VxSchemaTable : VxSchemaElement
             }
         }
 
-        string table = String.Format("CREATE TABLE [{0}] (\n\t{1}{2});\n\n{3}\n",
+        string table = String.Format("CREATE TABLE [{0}] (\n\t{1});\n\n{2}{3}\n",
             name, cols.Join(",\n\t"), pkey, indexes.Join("\n"));
         return table;
     }
