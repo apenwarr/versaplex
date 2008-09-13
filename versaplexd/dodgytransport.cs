@@ -15,7 +15,9 @@ class DodgyTransport : NDesk.DBus.Transports.Transport
     // we're sure it's mono.
     string MonoAuthString()
     {
-	return UnixUserInfo.GetRealUserId().ToString();
+	try { //will work in Mono on Linux.
+	    return UnixUserInfo.GetRealUserId().ToString();
+	} catch { return "WIN32"; }
     }
     
     public override string AuthString()
