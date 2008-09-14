@@ -179,8 +179,10 @@ class VerifyData : VersaplexTester
     // The output of LEN() or DATALENGTH() in MS SQL is an int for most types,
     // but is a BigNum for varchar(max), nvarchar(max), and varbinary(max).
     // We don't really care, so just do what it takes to get a sensible value.
-    public int GetDataLength(object data)
+    public long GetDataLength(object data)
     {
+    	if (data.GetType() == typeof(Int64))
+	    return (long)data;
         return data.GetType() == typeof(Decimal) ? 
             (int)(Decimal)data : (int)data;
     }
