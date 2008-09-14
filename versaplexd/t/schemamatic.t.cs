@@ -69,7 +69,11 @@ class SchemamaticTests : SchemamaticTester
             foreach (KeyValuePair<string,VxSchemaChecksum> p in sums)
                 log.print(p.Key);
         }
-        WVPASSEQ(sums.Count, 0);
+        // Sometimes the database has stray elements; just check that our 
+        // changes add and remove the expected number.  It'd be nice to 
+        // have a proper test that an empty database returns an empty 
+        // set of strings, but this will have to do.
+        int baseline_sum_count = sums.Count;
 
         string msg1 = "Hello, world, this is Func1!";
         string msg2 = "Hello, world, this is Func2!";
@@ -91,7 +95,7 @@ class SchemamaticTests : SchemamaticTester
         WVPASSEQ(msg2, (string)outmsg);
 
         sums = dbus.GetChecksums();
-        WVPASSEQ(sums.Count, 2);
+        WVPASSEQ(sums.Count, baseline_sum_count + 2);
 
         WVASSERT(sums.ContainsKey("Procedure/Func1"));
         WVASSERT(sums.ContainsKey("Procedure-Encrypted/EncFunc"));
@@ -103,7 +107,7 @@ class SchemamaticTests : SchemamaticTester
         WVASSERT(VxExec("drop procedure EncFunc"));
 
         sums = dbus.GetChecksums();
-        WVPASSEQ(sums.Count, 1);
+        WVPASSEQ(sums.Count, baseline_sum_count + 1);
 
         WVASSERT(sums.ContainsKey("Procedure/Func1"));
         WVFAIL(sums.ContainsKey("Procedure/EncFunc"));
@@ -621,19 +625,21 @@ class SchemamaticTests : SchemamaticTester
     {
         SchemaCreator sc = new SchemaCreator(this);
 
-        // FIXME: Test with all the SchemaCreator elements
-        WVASSERT(VxExec(sc.tab1q));
-        WVASSERT(VxExec(sc.tab2q));
-
-        VxSchema schema = dbus.Get();
+        // Establish a baseline of errors.
         VxPutOpts no_opts = VxPutOpts.None;
+        VxSchema schema = dbus.Get();
         VxSchemaErrors errs = VxPutSchema(schema, no_opts);
+
+        int baseline_err_count = errs.Count;
+
+        sc.Create();
+
+        // Try again with the new elements, this time for keeps.
+        schema = dbus.Get();
+        errs = VxPutSchema(schema, no_opts);
+
         foreach (var err in errs)
-        {
-            // FIXME: Move this to VxSchemaError.ToString()
-            log.print("Error: '{0}'='{1}: {2} ({3})'\n", 
-                err.Key, err.Value.key, err.Value.msg, err.Value.errnum);
-        }
+            log.print("Error='{0}'\n", err.Value.ToString());
 
         WVPASSEQ(errs["Table/Tab1"].key, "Table/Tab1");
         WVPASSEQ(errs["Table/Tab1"].msg, 
@@ -643,7 +649,7 @@ class SchemamaticTests : SchemamaticTester
         WVPASSEQ(errs["Table/Tab2"].msg, 
             "There is already an object named 'Tab2' in the database.");
         WVPASSEQ(errs["Table/Tab2"].errnum, 2714);
-        WVPASSEQ(errs.Count, 2);
+        WVPASSEQ(errs.Count, baseline_err_count + 2);
 
         sc.Cleanup();
     }

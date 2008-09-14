@@ -1,3 +1,4 @@
+using System;
 using NDesk.DBus;
 
 internal class VxSchemaError
@@ -28,6 +29,11 @@ internal class VxSchemaError
         writer.Write(key);
         writer.Write(msg);
         writer.Write(errnum);
+    }
+
+    public override string ToString()
+    {
+        return String.Format("{0}: {1} ({2})", key, msg, errnum);
     }
 
     public static string GetDbusSignature()

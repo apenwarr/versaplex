@@ -172,11 +172,40 @@ class DiskSchemaTests : SchemamaticTester
         }
     }
 
-    private void VerifyExportedSchema(string exportdir, VxSchema schema, 
-        VxSchemaChecksums sums, SchemaCreator sc, int backupnum)
+    private Dictionary<string, int> GetFileCounts(string exportdir)
     {
-        DirectoryInfo dirinfo = new DirectoryInfo(exportdir);
+        string procdir = Path.Combine(exportdir, "Procedure");
+        string scalardir = Path.Combine(exportdir, "ScalarFunction");
+        string tabdir = Path.Combine(exportdir, "Table");
+        string xmldir = Path.Combine(exportdir, "XMLSchema");
 
+        Dictionary<string, int> retval = new Dictionary<string, int>();
+        int num_procs = 0;
+        int num_scalars = 0;
+        int num_tables = 0;
+        int num_xmls = 0;
+
+        if (Directory.Exists(procdir))
+            num_procs = Directory.GetFiles(procdir).Length;
+        if (Directory.Exists(scalardir))
+            num_scalars = Directory.GetFiles(scalardir).Length;
+        if (Directory.Exists(tabdir))
+            num_tables = Directory.GetFiles(tabdir).Length;
+        if (Directory.Exists(xmldir))
+            num_xmls = Directory.GetFiles(xmldir).Length;
+
+        retval.Add("Procedure", num_procs);
+        retval.Add("ScalarFunction", num_scalars);
+        retval.Add("Table", num_tables);
+        retval.Add("XMLSchema", num_xmls);
+
+        return retval;
+    }
+
+    private void VerifyExportedSchema(string exportdir, VxSchema schema, 
+        VxSchemaChecksums sums, SchemaCreator sc, int backupnum, 
+        Dictionary<string, int> base_filecounts)
+    {
         int filemultiplier = backupnum + 1;
         string suffix = backupnum == 0 ? "" : "-" + backupnum;
 
@@ -186,7 +215,7 @@ class DiskSchemaTests : SchemamaticTester
         string tabdir = Path.Combine(exportdir, "Table");
         string xmldir = Path.Combine(exportdir, "XMLSchema");
 
-        WVPASSEQ(dirinfo.GetFiles().Length, 0);
+        WVPASSEQ(Directory.GetFiles(exportdir).Length, 0);
         WVPASS(Directory.Exists(procdir));
         WVPASS(Directory.Exists(scalardir));
         // We no longer store indexes in a separate directory; make sure 
@@ -194,11 +223,14 @@ class DiskSchemaTests : SchemamaticTester
         WVPASS(!Directory.Exists(idxdir));
         WVPASS(Directory.Exists(tabdir));
         WVPASS(Directory.Exists(xmldir));
-        WVPASSEQ(dirinfo.GetDirectories().Length, 4);
+        WVPASSEQ(Directory.GetDirectories(exportdir).Length, 4);
+
+        Dictionary<string, int> filecounts = GetFileCounts(exportdir);
 
         // Procedures
         WVPASSEQ(Directory.GetDirectories(procdir).Length, 0);
-        WVPASSEQ(Directory.GetFiles(procdir).Length, 1 * filemultiplier);
+        WVPASSEQ(filecounts["Procedure"], 
+            (1 + base_filecounts["Procedure"]) * filemultiplier);
         string func1file = Path.Combine(procdir, "Func1" + suffix);
         CheckExportedFileContents(func1file, 
             "!!SCHEMAMATIC 2ae46ac0748aede839fb9cd167ea1180 0xd983a305 ",
@@ -206,7 +238,8 @@ class DiskSchemaTests : SchemamaticTester
 
         // Scalar functions
         WVPASSEQ(Directory.GetDirectories(scalardir).Length, 0);
-        WVPASSEQ(Directory.GetFiles(scalardir).Length, 1 * filemultiplier);
+        WVPASSEQ(filecounts["ScalarFunction"], 
+            (1 + base_filecounts["ScalarFunction"]) * filemultiplier);
         string func2file = Path.Combine(scalardir, "Func2" + suffix);
         CheckExportedFileContents(func2file, 
             "!!SCHEMAMATIC c7c257ba4f7817e4e460a3cef0c78985 0xd6fe554f ",
@@ -214,7 +247,8 @@ class DiskSchemaTests : SchemamaticTester
 
         // Tables
         WVPASSEQ(Directory.GetDirectories(tabdir).Length, 0);
-        WVPASSEQ(Directory.GetFiles(tabdir).Length, 2 * filemultiplier);
+        WVPASSEQ(filecounts["Table"], 
+            (2 + base_filecounts["Table"]) * filemultiplier);
 
         string tab1file = Path.Combine(tabdir, "Tab1" + suffix);
         string tab2file = Path.Combine(tabdir, "Tab2" + suffix);
@@ -232,7 +266,8 @@ class DiskSchemaTests : SchemamaticTester
 
         // XML Schemas
         WVPASSEQ(Directory.GetDirectories(xmldir).Length, 0);
-        WVPASSEQ(Directory.GetFiles(xmldir).Length, 1 * filemultiplier);
+        WVPASSEQ(filecounts["XMLSchema"], 
+            (1 + base_filecounts["XMLSchema"]) * filemultiplier);
 
         string testschemafile = Path.Combine(xmldir, "TestSchema" + suffix);
         WVPASS(File.Exists(testschemafile));
@@ -245,7 +280,6 @@ class DiskSchemaTests : SchemamaticTester
     public void TestExportSchema()
     {
         SchemaCreator sc = new SchemaCreator(this);
-        sc.Create();
 
         string tmpdir = GetTempDir();
 
@@ -254,11 +288,27 @@ class DiskSchemaTests : SchemamaticTester
         {
             tmpdirinfo.Create();
 
-            // Check that having mangled checksums fails
+            // Establish a baseline for the number of existing elements.
             VxSchema schema = dbus.Get();
-            VxSchemaChecksums sums = new VxSchemaChecksums();
+            VxSchemaChecksums sums = dbus.GetChecksums();
 
             VxDiskSchema disk = new VxDiskSchema(tmpdir);
+            disk.Put(schema, sums, VxPutOpts.None);
+
+            var base_filecounts = GetFileCounts(tmpdir);
+
+            // Clobber the directory and start fresh.
+            tmpdirinfo.Delete(true);
+            tmpdirinfo.Create();
+
+            // Now create our test schema and do the real tests.
+            sc.Create();
+
+            // Check that having mangled checksums fails
+            schema = dbus.Get();
+            sums = new VxSchemaChecksums();
+
+            disk = new VxDiskSchema(tmpdir);
             try {
                 WVEXCEPT(disk.Put(schema, sums, VxPutOpts.None));
             } catch (Wv.Test.WvAssertionFailure e) {
@@ -270,11 +320,15 @@ class DiskSchemaTests : SchemamaticTester
             }
 
             // Check that the normal exporting works.
+            schema = dbus.Get();
             sums = dbus.GetChecksums();
+
+            WVPASSEQ(schema.Count, sums.Count);
             disk.Put(schema, sums, VxPutOpts.None);
 
             int backup_generation = 0;
-            VerifyExportedSchema(tmpdir, schema, sums, sc, backup_generation);
+            VerifyExportedSchema(tmpdir, schema, sums, sc, backup_generation,
+                base_filecounts);
 
             // Check that we read back the same stuff
             VxSchema schemafromdisk = disk.Get(null);
@@ -290,7 +344,8 @@ class DiskSchemaTests : SchemamaticTester
             // Doing it twice doesn't change anything.
             disk.Put(schema, sums, VxPutOpts.None);
 
-            VerifyExportedSchema(tmpdir, schema, sums, sc, backup_generation);
+            VerifyExportedSchema(tmpdir, schema, sums, sc, backup_generation, 
+                base_filecounts);
 
             WVPASS(3);
 
@@ -298,7 +353,8 @@ class DiskSchemaTests : SchemamaticTester
             disk.Put(schema, sums, VxPutOpts.IsBackup);
             backup_generation++;
 
-            VerifyExportedSchema(tmpdir, schema, sums, sc, backup_generation);
+            VerifyExportedSchema(tmpdir, schema, sums, sc, backup_generation, 
+                base_filecounts);
 
             WVPASS(4);
 
@@ -306,7 +362,8 @@ class DiskSchemaTests : SchemamaticTester
             disk.Put(schema, sums, VxPutOpts.IsBackup);
             backup_generation++;
 
-            VerifyExportedSchema(tmpdir, schema, sums, sc, backup_generation);
+            VerifyExportedSchema(tmpdir, schema, sums, sc, backup_generation, 
+                base_filecounts);
 
             WVPASS(5);
         }
