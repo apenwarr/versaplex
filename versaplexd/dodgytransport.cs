@@ -3,14 +3,10 @@ using System.Net;
 using System.Net.Sockets;
 using NDesk.DBus;
 using Mono.Unix;
+using Wv;
 
 class DodgyTransport : NDesk.DBus.Transports.Transport
 {
-    static bool IsMono()
-    {
-	return Type.GetType("Mono.Runtime") != null;
-    }
-    
     // This has to be a separate function so we can delay JITting it until
     // we're sure it's mono.
     string MonoAuthString()
@@ -22,7 +18,7 @@ class DodgyTransport : NDesk.DBus.Transports.Transport
     
     public override string AuthString()
     {
-	if (IsMono())
+	if (Wv.wv.IsMono())
 	    return MonoAuthString();
 	else
 	    return "WIN32"; // FIXME do something better?
