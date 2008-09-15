@@ -181,7 +181,10 @@ class SchemamaticTests : SchemamaticTester
 
         // Check that the query limiting works.  Also test that the evil
         // character cleansing works (turning bad characters into !s)
-        VxSchema schema = dbus.Get("Procedure/Func1é");
+        VxSchema schema = dbus.Get("Procedure/NonExistentFunction");
+        WVPASSEQ(schema.Count, 0);
+
+        schema = dbus.Get("Procedure/Func1é");
         WVPASSEQ(schema.Count, 1);
 
         WVASSERT(schema.ContainsKey("Procedure/Func1!"));
