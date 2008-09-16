@@ -525,9 +525,7 @@ sub print_dashline
 {
 	my $endpoint = 81 - (3 - scalar(@printtables)) * 16;
 	$endpoint = 80 if ($endpoint == 81);
-	for (my $i = 0; $i < $endpoint; ++$i) {
-		print "-";
-	}
+	print "-" x $endpoint;
 }
 
 print_dashline;
