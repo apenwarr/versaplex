@@ -37,7 +37,8 @@ VxOdbcTester::VxOdbcTester(bool always_create_server) :
     WvString use_real(getenv("USE_REAL_VERSAPLEX"));
     if (always_create_server || !use_real || use_real == "0") 
     {
-        WvIStreamList::globallist.append(&vxserver_conn, false);
+        WvIStreamList::globallist.append(&vxserver_conn, false,
+					 "vxserver_conn");
 
         log("*** Registering vx.versaplexd\n");
         vxserver_conn.request_name("vx.versaplexd", &name_request_cb);
