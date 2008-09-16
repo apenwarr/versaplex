@@ -139,6 +139,7 @@ internal static class VxDb {
 		{
 		    object[] row = new object[ncols];
 		    byte[] rownull = new byte[ncols];
+		    cursize += rownull.Length;
 		    
 		    for (int i = 0; i < ncols; i++) 
 		    {
@@ -148,7 +149,6 @@ internal static class VxDb {
 			row[i] = null;
 			
 			rownull[i] = isnull ? (byte)1 : (byte)0;
-			cursize += rownull.Length;
 			
 			switch (colinfo[i].VxColumnType) 
 			{
