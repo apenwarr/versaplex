@@ -9,6 +9,7 @@ OPENSSL=$(WVPORTS)/openssl/build/openssl
 DBUS=$(WVPORTS)/dbus/build/dbus/dbus/.libs
 ARGP=$(WVPORTS)/argp/build/argp
 BOOST=$(WVPORTS)/boost/build/boost
+ZLIB=$(WVPORTS)/zlib/build/zlib
 WVSTREAMS=../wv/wvstreams
 CFLAGS=-w \
 	-D_MSC_VER=1300 \
@@ -23,6 +24,7 @@ LIBS=\
 	-L$(DBUS) -ldbus-1 \
 	-L$(XPLC) -lxplc-cxx -lxplc \
 	-L$(OPENSSL) -lssl -lcrypto $(ARGP)/libargp.a \
+	-L$(ZLIB) -lz \
 	-limagehlp \
 	-lole32 -lrpcrt4 \
 	-lodbc32 -lodbccp32 \
