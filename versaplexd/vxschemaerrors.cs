@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using NDesk.DBus;
 
 internal class VxSchemaError
@@ -41,3 +42,55 @@ internal class VxSchemaError
         return "ssi";
     }
 }
+
+internal class VxSchemaErrors : Dictionary<string, VxSchemaError>
+{
+    public VxSchemaErrors()
+    {
+    }
+
+    public VxSchemaErrors(MessageReader reader)
+    {
+        int size = reader.ReadInt32();
+
+        int endpos = reader.Position + size;
+        while (reader.Position < endpos)
+        {
+            reader.ReadPad(8);
+            VxSchemaError err = new VxSchemaError(reader);
+
+            this.Add(err.key, err);
+        }
+    }
+
+    public void Add(VxSchemaErrors other)
+    {
+        foreach (var kvp in other)
+            this.Add(kvp.Key, kvp.Value);
+    }
+
+    private void _WriteErrors(MessageWriter writer)
+    {
+        foreach (KeyValuePair<string,VxSchemaError> p in this)
+        {
+            writer.WritePad(8);
+            p.Value.WriteError(writer);
+        }
+    }
+
+    // Static so we can properly write an empty array for a null object.
+    public static void WriteErrors(MessageWriter writer, VxSchemaErrors errs)
+    {
+        writer.WriteDelegatePrependSize(delegate(MessageWriter w)
+            {
+                if (errs != null)
+                    errs._WriteErrors(w);
+            }, 8);
+    }
+
+    public static string GetDbusSignature()
+    {
+        return String.Format("a({0})", VxSchemaError.GetDbusSignature());
+    }
+}
+
