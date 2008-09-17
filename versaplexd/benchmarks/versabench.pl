@@ -66,7 +66,7 @@ use Net::DBus::Annotation qw(:call);
 # sudo edit /etc/odbc.ini and add/change it to the following:
 # [testdb]
 # Driver = VxODBC
-# Database = testdb
+# Database = $desired_name_of_connection_in_your_versaplexd.ini
 # Servername = do_i_do_anything
 # Username = lkosewsk
 # DBus = dbus:session
@@ -101,6 +101,10 @@ my $num_parallel_insert_tests = 100;
 my $sql_if = "vmnet1";
 my $dbus_if = "lo";
 my $vxodbc_if = $dbus_if;
+
+# The name of the database on your SQL server that Versaplexd talks to, and
+# which we'll now let MSSQL mangle.
+my $dbname = "testdb";
 
 # Connection goodies per test
 my $sql_port = 1433;
@@ -304,7 +308,7 @@ sub dbus_executor
 
 #It sucks, but we have to connect to *something* right now, to input the
 #initial testing data
-my $dbh = DBI->connect("DBI:Sybase:server=testdb;database=testdb", $user, $pw, {PrintError => 0}) || die "Unable to connect to SQL server";
+my $dbh = DBI->connect("DBI:Sybase:server=testdb;database=$dbname", $user, $pw, {PrintError => 0}) || die "Unable to connect to SQL server";
 
 # Create initial testing data
 $dbh->do("DROP TABLE testbitch");
