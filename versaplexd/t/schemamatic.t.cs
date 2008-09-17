@@ -303,13 +303,17 @@ class SchemamaticTests : SchemamaticTester
     public void TestGetTableSchema()
     {
         try { VxExec("drop table Table1"); } catch { }
+        // Name the primary key PK_Table1 to test that GetSchema properly
+        // omits the default name.
+        // FIXME: Should also test that it does give us a non-default name.
         string query = "CREATE TABLE [Table1] (\n\t" + 
-            "[f1] [int]  NOT NULL PRIMARY KEY,\n\t" +
+            "[f1] [int]  NOT NULL,\n\t" +
             "[f2] [money]  NULL,\n\t" + 
             "[f3] [varchar] (80) NOT NULL,\n\t" +
             "[f4] [varchar] (max) DEFAULT 'Default Value' NULL,\n\t" + 
             "[f5] [decimal] (3,2),\n\t" + 
-            "[f6] [bigint]  NOT NULL IDENTITY(4, 5));\n\n";
+            "[f6] [bigint]  NOT NULL IDENTITY(4, 5));\n\n" + 
+            "ALTER TABLE [Table1] ADD CONSTRAINT [PK_Table1] PRIMARY KEY (f1)\n";
         WVASSERT(VxExec(query));
 
         VxSchema schema = dbus.Get();
@@ -401,8 +405,8 @@ class SchemamaticTests : SchemamaticTester
         WVPASS(err != null);
         WVPASSEQ(err.key, "Table/Tab1");
         WVPASSEQ(err.msg, 
-            "There is already an object named 'Tab1' in the database.");
-        WVPASSEQ(err.errnum, 2714);
+            "Refusing to drop columns ('f1', 'f2', 'f3') when the destructive option is not set.");
+        WVPASSEQ(err.errnum, -1);
         
         schema = dbus.Get("Table/Tab1");
         WVPASSEQ(schema["Table/Tab1"].name, "Tab1");
@@ -638,21 +642,34 @@ class SchemamaticTests : SchemamaticTester
         sc.Create();
 
         // Try again with the new elements, this time for keeps.
+
+        // Check that putting the same elements doesn't cause errors
         schema = dbus.Get();
+        errs = VxPutSchema(schema, no_opts);
+
+        WVPASSEQ(errs.Count, baseline_err_count);
+
+        // Check that invalid SQL causes errors.
+
+        schema = new VxSchema();
+        schema.Add("ScalarFunction", "ErrSF", "I am not valid SQL", false);
+        schema.Add("TableFunction", "ErrTF", "I'm not valid SQL either", false);
+
         errs = VxPutSchema(schema, no_opts);
 
         foreach (var err in errs)
             log.print("Error='{0}'\n", err.Value.ToString());
 
-        WVPASSEQ(errs["Table/Tab1"].key, "Table/Tab1");
-        WVPASSEQ(errs["Table/Tab1"].msg, 
-            "There is already an object named 'Tab1' in the database.");
-        WVPASSEQ(errs["Table/Tab1"].errnum, 2714);
-        WVPASSEQ(errs["Table/Tab2"].key, "Table/Tab2");
-        WVPASSEQ(errs["Table/Tab2"].msg, 
-            "There is already an object named 'Tab2' in the database.");
-        WVPASSEQ(errs["Table/Tab2"].errnum, 2714);
         WVPASSEQ(errs.Count, baseline_err_count + 2);
+
+        WVPASSEQ(errs["ScalarFunction/ErrSF"].key, "ScalarFunction/ErrSF");
+        WVPASSEQ(errs["ScalarFunction/ErrSF"].msg, 
+            "Incorrect syntax near the keyword 'not'.");
+        WVPASSEQ(errs["ScalarFunction/ErrSF"].errnum, 156);
+        WVPASSEQ(errs["TableFunction/ErrTF"].key, "TableFunction/ErrTF");
+        WVPASSEQ(errs["TableFunction/ErrTF"].msg, 
+            "Unclosed quotation mark after the character string 'm not valid SQL either'.");
+        WVPASSEQ(errs["TableFunction/ErrTF"].errnum, 105);
 
         sc.Cleanup();
     }

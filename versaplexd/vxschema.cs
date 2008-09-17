@@ -259,7 +259,7 @@ internal class VxSchemaTable : VxSchemaElement
         }
     }
 
-    private string ColumnToSql(VxSchemaTableElement elem)
+    public string ColumnToSql(VxSchemaTableElement elem)
     {
         string colname = elem.GetParam("name");
         string typename = elem.GetParam("type");
@@ -301,7 +301,7 @@ internal class VxSchemaTable : VxSchemaElement
             colname, typename, lenstr, defval, nullstr, identstr);
     }
 
-    private string IndexToSql(VxSchemaTableElement elem)
+    public string IndexToSql(VxSchemaTableElement elem)
     {
         List<string> idxcols = elem.GetParamList("column");
         string idxname = elem.GetParam("name");
@@ -319,7 +319,7 @@ internal class VxSchemaTable : VxSchemaElement
             unique, clustered, idxname, this.name, idxcols.Join(", "));
     }
 
-    private string PrimaryKeyToSql(VxSchemaTableElement elem)
+    public string PrimaryKeyToSql(VxSchemaTableElement elem)
     {
         List<string> idxcols = elem.GetParamList("column");
         string idxname = elem.GetParam("name");
@@ -408,18 +408,71 @@ internal class VxSchemaTable : VxSchemaElement
         elems.Add(elem);
     }
 
-    public void AddPrimaryKey(int clustered, params string[] columns)
+    public void AddPrimaryKey(string name, int clustered, 
+        params string[] columns)
     {
         WvLog log = new WvLog("AddPrimaryKey");
-        log.print("Adding primary key on {0}, clustered={1}\n", 
-            columns.Join(","), clustered);
+        log.print("Adding primary key '{0}' on {1}, clustered={2}\n", 
+            name, columns.Join(","), clustered);
         var elem = new VxSchemaTableElement("primary-key");
+
+        if (!String.IsNullOrEmpty(name) && name != "PK_" + this.name)
+            elem.AddParam("name", name);
 
         foreach (string col in columns)
             elem.AddParam("column", col);
         elem.AddParam("clustered", clustered.ToString());
 
         elems.Add(elem);
+    }
+
+    // Figure out what changed between oldtable and newtable.  Returns a 
+    // dictionary mapping table element types and names (if applicable) to 
+    // diff types.  The keys are of the form "column: ColumnName" or 
+    // "index: IndexName", or just "primary-key" for primary keys, since
+    // there's only one primary key at a time.
+    public static Dictionary<VxSchemaTableElement, VxDiffType> GetDiff(
+        VxSchemaTable oldtable, VxSchemaTable newtable)
+    {
+        var diff = new Dictionary<VxSchemaTableElement, VxDiffType>();
+        var oldset = new Dictionary<string, VxSchemaTableElement>();
+        var newset = new Dictionary<string, VxSchemaTableElement>();
+
+        // Build some dictionaries so we can quickly check if a particular 
+        // entry exists in a table, even if its attributes have changed.
+        // We only have one primary key per table, no need to distinguish it
+        // further (and it might not have a name yet).  But of course there'll
+        // be multiple columns and indexes, so we need to key off of the
+        // element type and name.
+        foreach (var elem in oldtable.elems)
+        {
+            if (elem.elemtype == "primary-key")
+                oldset.Add(elem.elemtype, elem);
+            else 
+                oldset.Add(elem.elemtype + ": " + elem.GetParam("name"), elem);
+        }
+        foreach (var elem in newtable.elems)
+        {
+            if (elem.elemtype == "primary-key")
+                newset.Add(elem.elemtype, elem);
+            else
+                newset.Add(elem.elemtype + ": " + elem.GetParam("name"), elem);
+        }
+
+        foreach (var kvp in oldset)
+        {
+            if (!newset.ContainsKey(kvp.Key))
+                diff.Add(kvp.Value, VxDiffType.Remove);
+            else if (kvp.Value.ToString() != newset[kvp.Key].ToString())
+                diff.Add(newset[kvp.Key], VxDiffType.Change);
+        }
+        foreach (var kvp in newset)
+        {
+            if (!oldset.ContainsKey(kvp.Key))
+                diff.Add(kvp.Value, VxDiffType.Add);
+        }
+
+        return diff;
     }
 }
 
