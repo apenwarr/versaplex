@@ -349,8 +349,6 @@ internal class VxDbSchema : ISchemaBackend
         VxSchema curschema = Get(tables);
         VxSchemaErrors errs = new VxSchemaErrors();
 
-        bool destructive = (opts & VxPutOpts.Destructive) != 0;
-
         foreach (string key in tables)
         {
             log.print("Putting table {0}\n", key);
@@ -395,60 +393,92 @@ internal class VxDbSchema : ISchemaBackend
             else
                 curtable = new VxSchemaTable(curschema[key]);
 
-            string tabname = newtable.name;
-
-            // Compute diff of the current and new tables
-            var diff = VxSchemaTable.GetDiff(curtable, newtable);
-
-            var coladd = new List<VxSchemaTableElement>();
-            var coldel = new List<VxSchemaTableElement>();
-            var colchanged = new List<VxSchemaTableElement>();
-            var otheradd = new List<VxSchemaTableElement>();
-            var otherdel = new List<VxSchemaTableElement>();
-            foreach (var kvp in diff)
+            VxSchemaError err = null;
+            try 
             {
-                VxSchemaTableElement elem = kvp.Key;
-                VxDiffType difftype = kvp.Value;
-                if (elem.elemtype == "column")
+                err = PutSchemaTable(curtable, newtable, opts);
+            } 
+            catch (VxSqlException e)
+            {
+                log.print("Got error updating {0}: {1} ({2})\n", newtable.key, 
+                    e.Message, e.GetFirstSqlErrno());
+                err = new VxSchemaError(newtable.key, e.Message, 
+                    e.GetFirstSqlErrno());
+            }
+            if (err != null)
+                errs.Add(key, err);
+        }
+
+        return errs;
+    }
+
+    private VxSchemaError PutSchemaTable(VxSchemaTable curtable, 
+        VxSchemaTable newtable, VxPutOpts opts)
+    {
+        bool destructive = (opts & VxPutOpts.Destructive) != 0;
+
+        string tabname = newtable.name;
+        string key = newtable.key;
+
+        // Compute diff of the current and new tables
+        var diff = VxSchemaTable.GetDiff(curtable, newtable);
+
+        var coladd = new List<VxSchemaTableElement>();
+        var coldel = new List<VxSchemaTableElement>();
+        var colchanged = new List<VxSchemaTableElement>();
+        var otheradd = new List<VxSchemaTableElement>();
+        var otherdel = new List<VxSchemaTableElement>();
+        foreach (var kvp in diff)
+        {
+            VxSchemaTableElement elem = kvp.Key;
+            VxDiffType difftype = kvp.Value;
+            if (elem.elemtype == "column")
+            {
+                if (difftype == VxDiffType.Add)
+                    coladd.Add(elem);
+                else if (difftype == VxDiffType.Remove)
+                    coldel.Add(elem);
+                else if (difftype == VxDiffType.Change)
+                    colchanged.Add(elem);
+            }
+            else
+            {
+                if (difftype == VxDiffType.Add)
+                    otheradd.Add(elem);
+                else if (difftype == VxDiffType.Remove)
+                    otherdel.Add(elem);
+                else if (difftype == VxDiffType.Change)
                 {
-                    if (difftype == VxDiffType.Add)
-                        coladd.Add(elem);
-                    else if (difftype == VxDiffType.Remove)
-                        coldel.Add(elem);
-                    else if (difftype == VxDiffType.Change)
-                        colchanged.Add(elem);
-                }
-                else
-                {
-                    if (difftype == VxDiffType.Add)
-                        otheradd.Add(elem);
-                    else if (difftype == VxDiffType.Remove)
-                        otherdel.Add(elem);
-                    else if (difftype == VxDiffType.Change)
-                    {
-                        otherdel.Add(elem);
-                        otheradd.Add(elem);
-                    }
+                    otherdel.Add(elem);
+                    otheradd.Add(elem);
                 }
             }
+        }
 
-            if (!destructive && coldel.Count > 0)
-            {
-                List<string> colstrs = new List<string>();
-                foreach (var elem in coldel)
-                    colstrs.Add(elem.GetParam("name"));
-                // Sorting this is mostly unnecessary, except it makes 
-                // life a lot nicer in the unit tests.
-                colstrs.Sort();
+        if (!destructive && coldel.Count > 0)
+        {
+            List<string> colstrs = new List<string>();
+            foreach (var elem in coldel)
+                colstrs.Add(elem.GetParam("name"));
+            // Sorting this is mostly unnecessary, except it makes life a lot
+            // nicer in the unit tests.
+            colstrs.Sort();
 
-                string errmsg = wv.fmt("Refusing to drop columns ('{0}') " + 
-                        "when the destructive option is not set.", 
-                        colstrs.Join("', '"));
-                errs.Add(key, new VxSchemaError(key, errmsg, -1));
-                return errs;
-            }
+            string errmsg = wv.fmt("Refusing to drop columns ('{0}') " + 
+                    "when the destructive option is not set.", 
+                    colstrs.Join("', '"));
+            return new VxSchemaError(key, errmsg, -1);
+        }
 
-            // Perform any needed column changes.
+        // Perform any needed column changes.
+        // Note: we call dbi.execute directly, instead of DbiExec, as we're
+        // running SQL we generated ourselves and shouldn't particularly
+        // expose to the client.
+
+        bool transaction_resolved = false;
+        try
+        {
+            dbi.execute("BEGIN TRANSACTION TableUpdate");
 
             // Delete any to-delete indexes first, to get them out of the way.
             // Indexes are easy to deal with, they don't cause data loss.
@@ -458,14 +488,17 @@ internal class VxDbSchema : ISchemaBackend
             {
                 log.print("Dropping {0}\n", elem.ToString());
                 string idxname = elem.GetParam("name");
+
+                // Use the default primary key name if none was specified.
                 if (elem.elemtype == "primary-key" && 
                     String.IsNullOrEmpty(idxname))
                 {
                     idxname = "PK_" + tabname;
                 }
-                var e = DropSchemaElement("Index/" + tabname + "/" + idxname);
-                if (e != null)
-                    errs.Add(key, e);
+
+                var err = DropSchemaElement("Index/" + tabname + "/" + idxname);
+                if (err != null)
+                    return err;
             }
 
             // Add new columns before deleting old ones; MSSQL won't let a
@@ -475,8 +508,8 @@ internal class VxDbSchema : ISchemaBackend
                 log.print("Adding {0}\n", elem.ToString());
                 string query = wv.fmt("ALTER TABLE [{0}] ADD {1}\n", 
                     tabname, newtable.ColumnToSql(elem));
-                // FIXME: Catch sql errors, shove into retval.
-                DbiExec(query);
+
+                dbi.execute(query);
             }
 
             foreach (var elem in coldel)
@@ -484,8 +517,8 @@ internal class VxDbSchema : ISchemaBackend
                 log.print("Dropping {0}\n", elem.ToString());
                 string query = wv.fmt("ALTER TABLE [{0}] DROP COLUMN [{1}]\n",
                     tabname, elem.GetParam("name"));
-                // FIXME: Catch sql errors, shove into retval.
-                DbiExec(query);
+
+                dbi.execute(query);
             }
 
             foreach (var elem in colchanged)
@@ -493,8 +526,8 @@ internal class VxDbSchema : ISchemaBackend
                 log.print("Altering {0}\n", elem.ToString());
                 string query = wv.fmt("ALTER TABLE [{0}] ALTER COLUMN [{1}] {2}", 
                     tabname, elem.GetParam("name"), newtable.ColumnToSql(elem));
-                // FIXME: Catch sql errors, shove into retval.
-                DbiExec(query);
+                
+                dbi.execute(query);
             }
 
             // Now that all the columns are finalized, add in any new indices.
@@ -507,16 +540,23 @@ internal class VxDbSchema : ISchemaBackend
                 else if (elem.elemtype == "index")
                     query = newtable.IndexToSql(elem);
                 else
-                {
-                    // FIXME: Barf, or at least add an error.
-                }
-                // FIXME: Catch sql errors, shove into retval.
+                    return new VxSchemaError(key, wv.fmt(
+                        "Unknown table element '{0}'.", elem.elemtype), -1);
+
                 if (query != "")
-                    DbiExec(query);
+                    dbi.execute(query);
             }
+
+            dbi.execute("COMMIT TRANSACTION TableUpdate");
+            transaction_resolved = true;
+        }
+        finally
+        {
+            if (!transaction_resolved)
+                dbi.execute("ROLLBACK TRANSACTION TableUpdate");
         }
 
-        return errs;
+        return null;
     }
 
     // Replaces the named object in the database.  elem.text is a verbatim
