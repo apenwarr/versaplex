@@ -129,13 +129,13 @@ class SchemamaticTests : SchemamaticTester
         // Three columns, and two indexes each with two columns, gives us 
         // seven checksums
         WVPASSEQ(sums["Table/Tab1"].checksums.Count(), 7);
-        WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(0), 0xE8634548)
-        WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(1), 0xAB109B86)
-        WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(2), 0xE50EE702)
-        WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(3), 0x1D32C7EA)
-        WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(4), 0x968DBEDC)
-        WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(5), 0xC1A74EA4)
-        WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(6), 0x00B0B636)
+        WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(0), 0x00B0B636)
+        WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(1), 0x1D32C7EA)
+        WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(2), 0x968DBEDC)
+        WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(3), 0xAB109B86)
+        WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(4), 0xC1A74EA4)
+        WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(5), 0xE50EE702)
+        WVPASSEQ(sums["Table/Tab1"].checksums.ElementAt(6), 0xE8634548)
 
         WVASSERT(VxExec("drop table Tab1"));
 

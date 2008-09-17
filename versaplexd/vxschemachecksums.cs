@@ -14,9 +14,9 @@ using Wv.Extensions;
 // FIXME: Have separate type member?
 internal class VxSchemaChecksum
 {
-    readonly string _name;
-    public string name {
-        get { return _name; }
+    readonly string _key;
+    public string key {
+        get { return _key; }
     }
 
     readonly IEnumerable<ulong> _checksums;
@@ -26,37 +26,50 @@ internal class VxSchemaChecksum
 
     public VxSchemaChecksum(VxSchemaChecksum copy)
     {
-        _name = copy.name;
+        _key = copy.key;
         var list = new List<ulong>();
         foreach (ulong sum in copy.checksums)
             list.Add(sum);
         _checksums = list;
     }
 
-    public VxSchemaChecksum(string newname)
+    public VxSchemaChecksum(string newkey)
     {
-        _name = newname;
+        _key = newkey;
         _checksums = new List<ulong>();
     }
 
-    public VxSchemaChecksum(string newname, ulong newchecksum)
+    public VxSchemaChecksum(string newkey, ulong newchecksum)
     {
-        _name = newname;
+        _key = newkey;
         var list = new List<ulong>();
         list.Add(newchecksum);
         _checksums = list;
     }
 
-    public VxSchemaChecksum(string newname, IEnumerable<ulong> sumlist)
+    public VxSchemaChecksum(string newkey, IEnumerable<ulong> sumlist)
     {
-        _name = newname;
-        _checksums = sumlist;
+        _key = newkey;
+
+        // Tables need to maintain their checksums in sorted order, as the
+        // columns might get out of order when the tables are otherwise
+        // identical.
+        string type, name;
+        VxSchemaChecksums.ParseKey(newkey, out type, out name);
+        if (type == "Table")
+        {
+            List<ulong> sorted = sumlist.ToList();
+            sorted.Sort();
+            _checksums = sorted;
+        }
+        else
+            _checksums = sumlist;
     }
 
     // Read a set of checksums from a DBus message into a VxSchemaChecksum.
     public VxSchemaChecksum(MessageReader reader)
     {
-        _name = reader.ReadString();
+        _key = reader.ReadString();
 
         // Fill the list
         List<ulong> list = new List<ulong>();
@@ -68,6 +81,15 @@ internal class VxSchemaChecksum
             ulong sum = reader.ReadUInt64();
             list.Add(sum);
         }
+
+        // Tables need to maintain their checksums in sorted order, as the
+        // columns might get out of order when the tables are otherwise
+        // identical.
+        string type, name;
+        VxSchemaChecksums.ParseKey(key, out type, out name);
+        if (type == "Table")
+            list.Sort();
+
         _checksums = list;
     }
 
@@ -88,7 +110,7 @@ internal class VxSchemaChecksum
     // Write the checksum values to DBus
     public void Write(MessageWriter writer)
     {
-        writer.Write(typeof(string), name);
+        writer.Write(typeof(string), key);
         writer.WriteDelegatePrependSize(delegate(MessageWriter w)
             {
                 _WriteSums(w);
@@ -106,7 +128,7 @@ internal class VxSchemaChecksum
 
         var other = (VxSchemaChecksum)other_obj;
 
-        if (this.name != other.name)
+        if (this.key != other.key)
             return false;
 
         // FIXME: This can be replaced with Linq's SequenceEquals(), once
@@ -209,7 +231,7 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
         {
             reader.ReadPad(8);
             VxSchemaChecksum cs = new VxSchemaChecksum(reader);
-            Add(cs.name, cs);
+            Add(cs.key, cs);
         }
     }
 
@@ -231,24 +253,38 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
             }, 8);
     }
 
-    public void AddSum(string name, ulong checksum)
+    public void AddSum(string key, ulong checksum)
     {
-        if (this.ContainsKey(name))
+        if (this.ContainsKey(key))
         {
-            VxSchemaChecksum old = this[name];
+            VxSchemaChecksum old = this[key];
 
             List<ulong> list = new List<ulong>(old.checksums);
             list.Add(checksum);
 
-            this[name] = new VxSchemaChecksum(name, list);
+            this[key] = new VxSchemaChecksum(key, list);
         }
         else
-            this.Add(name, new VxSchemaChecksum(name, checksum));
+            this.Add(key, new VxSchemaChecksum(key, checksum));
     }
 
     public static string GetDbusSignature()
     {
         return String.Format("a({0})", VxSchemaChecksum.GetDbusSignature());
+    }
+
+    private static char[] slash = new char[] {'/'};
+    public static void ParseKey(string key, out string type, out string name)
+    {
+        string[] parts = key.Split(slash, 2);
+        if (parts.Length != 2)
+        {
+            type = name = null;
+            return;
+        }
+        type = parts[0];
+        name = parts[1];
+        return;
     }
 }
 
