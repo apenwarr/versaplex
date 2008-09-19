@@ -52,7 +52,7 @@ TESTOBJS=$(patsubst %.cc,%.o,$(TESTSOURCES))
 
 TESTS=dbisanity.t.pass \
     versaplex.t.pass vxsanity.t.pass \
-    verifydata.t.pass schemamatic.t.pass \
+    verifydata.t.pass schemamatic.t.pass putschema.t.pass \
     vxexecchunkrecordset.t.pass vxschemachecksums.t.pass vxdiskschema.t.pass \
     vxschema.t.pass
 TESTEXES=$(patsubst %.pass,%.exe,$(TESTS))
@@ -83,6 +83,10 @@ verifydata.t.exe: verifydata.t.cs.E \
 	../wv.dll ../NDesk.DBus.dll
 
 schemamatic.t.exe: schemamatic.t.cs.E \
+	$(VX_SOURCES) $(SCHEMAMATIC_SOURCES) \
+	../wv.dll ../NDesk.DBus.dll
+
+putschema.t.exe: putschema.t.cs.E \
 	$(VX_SOURCES) $(SCHEMAMATIC_SOURCES) \
 	../wv.dll ../NDesk.DBus.dll
 
