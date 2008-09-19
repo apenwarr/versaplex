@@ -90,7 +90,7 @@ class VxSchemaTests
         } catch (Wv.Test.WvAssertionFailure e) {
             throw e;
         } catch (System.Exception e) {
-            WVPASS(e is VxSqlException);
+            WVPASS(e is VxBadSchemaException);
             WVPASSEQ(e.Message, 
                 "Multiple primary key statements are not permitted in " + 
                 "table definitions.\n" + 

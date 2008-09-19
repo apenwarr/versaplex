@@ -351,7 +351,7 @@ internal class VxSchemaTable : VxSchemaElement
             {
                 if (pkey != "")
                 {
-                    throw new VxSqlException(
+                    throw new VxBadSchemaException(
                         "Multiple primary key statements are not " + 
                         "permitted in table definitions.\n" + 
                         "Conflicting statement: " + elem.ToString() + "\n");
@@ -453,10 +453,17 @@ internal class VxSchemaTable : VxSchemaElement
         }
         foreach (var elem in newtable.elems)
         {
+            string key;
             if (elem.elemtype == "primary-key")
-                newset.Add(elem.elemtype, elem);
+                key = elem.elemtype;
             else
-                newset.Add(elem.elemtype + ": " + elem.GetParam("name"), elem);
+                key = elem.elemtype + ": " + elem.GetParam("name");
+
+            if (newset.ContainsKey(key))
+                throw new VxBadSchemaException(wv.fmt("Duplicate table entry " + 
+                    "'{0}' found.", key));
+
+            newset.Add(key, elem);
         }
 
         foreach (var kvp in oldset)

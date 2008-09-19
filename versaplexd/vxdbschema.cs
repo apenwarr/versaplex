@@ -398,12 +398,14 @@ internal class VxDbSchema : ISchemaBackend
             {
                 err = PutSchemaTable(curtable, newtable, opts);
             } 
-            catch (VxSqlException e)
+            catch (VxRequestException e)
             {
+                int sqlerrno = (e is VxSqlException) ? 
+                    ((VxSqlException)e).GetFirstSqlErrno() : -1;
                 log.print("Got error updating {0}: {1} ({2})\n", newtable.key, 
-                    e.Message, e.GetFirstSqlErrno());
-                err = new VxSchemaError(newtable.key, e.Message, 
-                    e.GetFirstSqlErrno());
+                    e.Message, sqlerrno);
+
+                err = new VxSchemaError(newtable.key, e.Message, sqlerrno);
             }
             if (err != null)
                 errs.Add(key, err);
@@ -455,6 +457,7 @@ internal class VxDbSchema : ISchemaBackend
             }
         }
 
+        // Might as well check this sooner rather than later.
         if (!destructive && coldel.Count > 0)
         {
             List<string> colstrs = new List<string>();
@@ -473,7 +476,9 @@ internal class VxDbSchema : ISchemaBackend
         // Perform any needed column changes.
         // Note: we call dbi.execute directly, instead of DbiExec, as we're
         // running SQL we generated ourselves and shouldn't particularly
-        // expose to the client.
+        // expose to the client by throwing the VxSqlExceptions we'd get from
+        // DbiExec.  Any errors returned to the client here should come from
+        // us examining the provided table schema, not from the database.
 
         bool transaction_resolved = false;
         try
@@ -527,6 +532,8 @@ internal class VxDbSchema : ISchemaBackend
                 string query = wv.fmt("ALTER TABLE [{0}] ALTER COLUMN [{1}] {2}", 
                     tabname, elem.GetParam("name"), newtable.ColumnToSql(elem));
                 
+                // FIXME: If this fails, but the Destructive flag is set, drop
+                // the column and re-add it.
                 dbi.execute(query);
             }
 
