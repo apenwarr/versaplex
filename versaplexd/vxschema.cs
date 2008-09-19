@@ -464,7 +464,18 @@ internal class VxSchemaTable : VxSchemaElement
             if (!newset.ContainsKey(kvp.Key))
                 diff.Add(kvp.Value, VxDiffType.Remove);
             else if (kvp.Value.ToString() != newset[kvp.Key].ToString())
-                diff.Add(newset[kvp.Key], VxDiffType.Change);
+            {
+                string elemtype = kvp.Value.elemtype;
+                if (elemtype == "primary-key" || elemtype == "index")
+                {
+                    // Don't bother trying to change indexes, just delete and
+                    // re-add them.  Makes it possible to rename primary keys.
+                    diff.Add(kvp.Value, VxDiffType.Remove);
+                    diff.Add(newset[kvp.Key], VxDiffType.Add);
+                }
+                else
+                    diff.Add(newset[kvp.Key], VxDiffType.Change);
+            }
         }
         foreach (var kvp in newset)
         {
