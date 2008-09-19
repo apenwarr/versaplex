@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using System.Collections.Generic;
 using NDesk.DBus;
 
@@ -91,6 +92,16 @@ internal class VxSchemaErrors : Dictionary<string, VxSchemaError>
     public static string GetDbusSignature()
     {
         return String.Format("a({0})", VxSchemaError.GetDbusSignature());
+    }
+
+    public override string ToString()
+    {
+        StringBuilder sb = new StringBuilder();
+        foreach (var err in this)
+        {
+            sb.Append(err.Value.ToString() + "\n");
+        }
+        return sb.ToString();
     }
 }
 
