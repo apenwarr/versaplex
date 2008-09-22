@@ -50,7 +50,7 @@ class SchemamaticTests : SchemamaticTester
 
     VxSchemaErrors VxPutSchema(VxSchema schema, VxPutOpts opts)
     {
-	log.print(" + VxPutSchema");
+	log.print(" + VxPutSchema\n");
 
         return dbus.Put(schema, null, opts);
     }
