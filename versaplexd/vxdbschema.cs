@@ -990,6 +990,58 @@ internal class VxDbSchema : ISchemaBackend
         }
     }
 
+    // Removes any matching enclosing parens from around a string.
+    // E.g. "foo" => "foo", "(foo)" => "foo", "((foo))" => "foo", 
+    // "((2)-(1))" => "(2)-(1)"
+    public static string StripMatchingParens(string s)
+    {
+        WvLog log = new WvLog("StripMatchingParens");
+        int len = s.Length;
+
+        // Count the initial and trailing number of parens
+        int init_parens = 0;
+        while (init_parens < len && s[init_parens] == '(')
+            init_parens++;
+
+        log.print("len={0}, s[len-1]={1}\n", len, s[len-1]);
+        int trailing_parens = 0;
+        while (trailing_parens < len && s[len - trailing_parens - 1] == ')')
+            trailing_parens++;
+
+        log.print("leading={0}, trailing={1}\n", init_parens, trailing_parens);
+
+        // No leading or trailing parens means there can't possibly be any
+        // matching parens.
+        if (init_parens == 0 || trailing_parens == 0)
+            return s;
+
+        // Count all the parens in between the leading and trailing ones.
+        bool is_escaped = false;
+        int paren_count = init_parens;
+        int min_parens = init_parens;
+        for (int i = init_parens; i < s.Length - trailing_parens; i++)
+        {
+            if (s[i] == '(' && !is_escaped)
+                paren_count++;
+            else if (s[i] == ')' && !is_escaped)
+                paren_count--;
+            else if (s[i] == '\'')
+                is_escaped = !is_escaped;
+
+            if (paren_count < min_parens)
+                min_parens = paren_count;
+            log.print("Looked at s[{0}]={1}, count={2}, min={3}\n", 
+                i, s[i], paren_count, min_parens);
+        }
+
+        // The minimum number of outstanding parens found while iterating over
+        // the string is the number of parens to strip.  Unless there aren't
+        // enough trailing parens to match the leading ones, of course.
+        min_parens = Math.Min(min_parens, trailing_parens);
+        log.print("Trimming {0} parens\n", min_parens);
+        return s.Substring(min_parens, len - 2*min_parens);
+    }
+
     void RetrieveTableSchema(VxSchema schema, List<string> names)
     {
         string tablenames = (names.Count > 0 
@@ -1065,9 +1117,9 @@ internal class VxDbSchema : ISchemaBackend
 
             if (defval != null && defval != "")
             {
-                // MSSQL returns default values wrapped in ()s
-                if (defval[0] == '(' && defval[defval.Length - 1] == ')')
-                    defval = defval.Substring(1, defval.Length - 2);
+                // MSSQL returns default values wrapped in an irritatingly
+                // variable number of ()s
+                defval = StripMatchingParens(defval);
             }
 
             if (table == null)

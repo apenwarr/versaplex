@@ -742,6 +742,37 @@ class SchemamaticTests : SchemamaticTester
         try { VxExec("drop procedure Proc1"); } catch { }
     }
 
+    [Test, Category("Schemamatic"), Category("VxDbSchema")]
+    public void TestStripMatchingParens()
+    {
+        // Make sure that multiple levels of parens get stripped
+        WVPASSEQ(VxDbSchema.StripMatchingParens("foo"), "foo");
+        WVPASSEQ(VxDbSchema.StripMatchingParens("(foo)"), "foo");
+        WVPASSEQ(VxDbSchema.StripMatchingParens("((foo))"), "foo");
+        WVPASSEQ(VxDbSchema.StripMatchingParens("(((foo)))"), "foo");
+        // Check that we don't strip too many
+        WVPASSEQ(VxDbSchema.StripMatchingParens("((2)-(1))"), "(2)-(1)");
+        WVPASSEQ(VxDbSchema.StripMatchingParens("((1900)-(01))-(01)"), 
+            "((1900)-(01))-(01)");
+        WVPASSEQ(VxDbSchema.StripMatchingParens("(((1900)-(01))-(01))"), 
+            "((1900)-(01))-(01)");
+        // Check what happens with mismatched parens.  
+        WVPASSEQ(VxDbSchema.StripMatchingParens("((foo)"), "(foo");
+        WVPASSEQ(VxDbSchema.StripMatchingParens("(fo)o)"), "(fo)o)");
+        WVPASSEQ(VxDbSchema.StripMatchingParens("(fo)o"), "(fo)o");
+        WVPASSEQ(VxDbSchema.StripMatchingParens("(f(oo))"), "f(oo)");
+        WVPASSEQ(VxDbSchema.StripMatchingParens("((f(oo))"), "f(oo");
+        WVPASSEQ(VxDbSchema.StripMatchingParens("((f)oo))"), "(f)oo)");
+        // Check that single-quote escaping works.
+        WVPASSEQ(VxDbSchema.StripMatchingParens("('(foo)')"), "'(foo)'");
+        WVPASSEQ(VxDbSchema.StripMatchingParens("('foo)')"), "'foo)'");
+        WVPASSEQ(VxDbSchema.StripMatchingParens("('foo'')')"), "'foo'')'");
+        // Double-quote escaping doesn't work though.
+        WVPASSEQ(VxDbSchema.StripMatchingParens("(\"(foo)\")"), "\"(foo)\"");
+        WVPASSEQ(VxDbSchema.StripMatchingParens("(\"foo)\")"), "(\"foo)\")");
+        WVPASSEQ(VxDbSchema.StripMatchingParens("(\"foo'')\")"), "(\"foo'')\")");
+    }
+
     public static void Main()
     {
         WvTest.DoMain();
