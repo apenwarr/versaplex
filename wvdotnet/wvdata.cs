@@ -254,32 +254,62 @@ namespace Wv
     
     public class WvSqlRow : IEnumerable<WvAutoCast>
     {
-	object[] data;
-	IEnumerable<WvColInfo> schema;
+	object[] _data;
+	WvColInfo[] schema;
+	Dictionary<string,int> colnames = null;
 	
 	public WvSqlRow(object[] data, IEnumerable<WvColInfo> schema)
 	{
-	    this.data = data;
-	    this.schema = schema;
+	    this._data = data;
+	    this.schema = schema.ToArray();
+	    
+	    // This improves behaviour with IronPython, and doesn't seem to
+	    // hurt anything else.  WvAutoCast knows how to deal with 'real'
+	    // nulls anyway.  I don't really know what DBNull is even good
+	    // for.
+	    for (int i = 0; i < _data.Length; i++)
+		if (_data[i] != null && _data[i] is DBNull)
+		    _data[i] = null;
 	}
 
 	public WvAutoCast this[int i]
-	    { get { return new WvAutoCast(data[i]); } }
+	    { get { return new WvAutoCast(_data[i]); } }
+	
+	void init_colnames()
+	{
+	    if (colnames != null)
+		return;
+	    colnames = new Dictionary<string,int>();
+	    for (int i = 0; i < schema.Length; i++)
+		colnames.Add(schema[i].name, i);
+	}
+	
+	public WvAutoCast this[string s]
+	{
+	    get
+	    {
+		init_colnames();
+		return this[colnames[s]];
+	    }
+	}
 
 	public int Length
-	    { get { return data.Length; } }
+	    { get { return _data.Length; } }
 
 	public IEnumerator<WvAutoCast> GetEnumerator()
 	{
-	    foreach (object colval in data)
+	    foreach (object colval in _data)
 		yield return new WvAutoCast(colval);
 	}
 
 	IEnumerator IEnumerable.GetEnumerator()
 	{
-	    foreach (object colval in data)
+	    foreach (object colval in _data)
 		yield return colval;
 	}
+	
+	public object[] data
+	    { get { return _data; } }
 	
 	public IEnumerable<WvColInfo> columns
 	    { get { return schema; } }
