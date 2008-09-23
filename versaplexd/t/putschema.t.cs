@@ -222,11 +222,218 @@ class PutSchemaTests : SchemamaticTester
     [Test, Category("Schemamatic"), Category("PutSchema")]
     public void TestChangingColumns()
     {
+        try { VxExec("drop table TestTable"); } catch { }
+
+        WVPASS(1);
+        string schema1 = "column: name=f1,type=int,null=0\n" + 
+                "column: name=f2,type=money,null=0\n" + 
+                "column: name=f3,type=varchar,null=1,length=80\n" +
+                "index: column=f2,column=f3 DESC,name=Idx1,unique=1,clustered=2\n" +
+                "primary-key: column=f1,column=f2,clustered=1\n";
+        TestTableUpdate("TestTable", schema1);
+
+        // Add a new column
+        WVPASS(2);
+        string schema2 = "column: name=f1,type=int,null=0\n" + 
+                "column: name=f2,type=money,null=0\n" + 
+                "column: name=f3,type=varchar,null=1,length=80\n" +
+                "column: name=f4,type=tinyint,null=0\n" + 
+                "index: column=f2,column=f3 DESC,name=Idx1,unique=1,clustered=2\n" +
+                "primary-key: column=f1,column=f2,clustered=1\n";
+        TestTableUpdate("TestTable", schema2);
+
+        // Check that adding an identity attribute doesn't work without
+        // specifying the destructive option.
+        WVPASS(3);
+        string schema3 = "column: name=f1,type=int,null=0\n" + 
+                "column: name=f2,type=money,null=0\n" + 
+                "column: name=f3,type=varchar,null=1,length=80\n" +
+                "column: name=f4,type=tinyint,null=0,identity_seed=4,identity_incr=5\n" + 
+                "index: column=f2,column=f3 DESC,name=Idx1,unique=1,clustered=2\n" +
+                "primary-key: column=f1,column=f2,clustered=1\n";
+        string errmsg = "Refusing to drop and re-add column [f4] " + 
+            "when the destructive option is not set.  Error when altering " + 
+            "was: 'Incorrect syntax near the keyword 'IDENTITY'.'";
+        TestTableUpdateError("TestTable", schema3, errmsg, schema2);
+
+        // Check that adding a default attribute doesn't work without
+        // specifying the destructive option either.
+        WVPASS(4);
+        string schema4 = "column: name=f1,type=int,null=0\n" + 
+                "column: name=f2,type=money,null=0\n" + 
+                "column: name=f3,type=varchar,null=1,length=80\n" +
+                "column: name=f4,type=tinyint,null=0,default=5\n" + 
+                "index: column=f2,column=f3 DESC,name=Idx1,unique=1,clustered=2\n" +
+                "primary-key: column=f1,column=f2,clustered=1\n";
+        errmsg = "Refusing to drop and re-add column [f4] " + 
+            "when the destructive option is not set.  Error when altering " + 
+            "was: 'Incorrect syntax near the keyword 'DEFAULT'.'";
+        TestTableUpdateError("TestTable", schema4, errmsg, schema2);
+
+        // Just try lightly changing a column, change the nullity on f4
+        WVPASS(5);
+        string schema5 = "column: name=f1,type=int,null=0\n" + 
+                "column: name=f2,type=money,null=0\n" + 
+                "column: name=f3,type=varchar,null=1,length=80\n" +
+                "column: name=f4,type=tinyint,null=1\n" + 
+                "index: column=f2,column=f3 DESC,name=Idx1,unique=1,clustered=2\n" +
+                "primary-key: column=f1,column=f2,clustered=1\n";
+        TestTableUpdate("TestTable", schema5, VxPutOpts.Destructive);
+
+        // Try changing the column type and some attributes of f4
+        WVPASS(6);
+        string schema6 = "column: name=f1,type=int,null=0\n" + 
+                "column: name=f2,type=money,null=0\n" + 
+                "column: name=f3,type=varchar,null=1,length=80\n" +
+                "column: name=f4,type=bigint,null=0\n" + 
+                "index: column=f2,column=f3 DESC,name=Idx1,unique=1,clustered=2\n" +
+                "primary-key: column=f1,column=f2,clustered=1\n";
+        TestTableUpdate("TestTable", schema6);
+
+        // Try renaming f4 without specifying Destructive.
+        WVPASS(7);
+        string schema7 = "column: name=f1,type=int,null=0\n" + 
+                "column: name=f2,type=money,null=0\n" + 
+                "column: name=f3,type=varchar,null=1,length=80\n" +
+                "column: name=f4renamed,type=bigint,null=0\n" + 
+                "index: column=f2,column=f3 DESC,name=Idx1,unique=1,clustered=2\n" +
+                "primary-key: column=f1,column=f2,clustered=1\n";
+        errmsg = "Refusing to drop columns ([f4]) " + 
+            "when the destructive option is not set.";
+        TestTableUpdateError("TestTable", schema7, errmsg, schema6);
+
+        // Try to drop f4 without specifying Destructive.
+        WVPASS(8);
+        string schema8 = "column: name=f1,type=int,null=0\n" + 
+                "column: name=f2,type=money,null=0\n" + 
+                "column: name=f3,type=varchar,null=1,length=80\n" +
+                "index: column=f2,column=f3 DESC,name=Idx1,unique=1,clustered=2\n" +
+                "primary-key: column=f1,column=f2,clustered=1\n";
+        errmsg = "Refusing to drop columns ([f4]) " + 
+            "when the destructive option is not set.";
+        TestTableUpdateError("TestTable", schema8, errmsg, schema6);
+
+        // Actually rename f4.
+        WVPASS(9);
+        string schema9 = "column: name=f1,type=int,null=0\n" + 
+                "column: name=f2,type=money,null=0\n" + 
+                "column: name=f3,type=varchar,null=1,length=80\n" +
+                "column: name=f4renamed,type=bigint,null=0\n" + 
+                "index: column=f2,column=f3 DESC,name=Idx1,unique=1,clustered=2\n" +
+                "primary-key: column=f1,column=f2,clustered=1\n";
+        TestTableUpdate("TestTable", schema9, VxPutOpts.Destructive);
+
+        // Actually drop f4 (f4renamed at this point).
+        WVPASS(10);
+        string schema10 = "column: name=f1,type=int,null=0\n" + 
+                "column: name=f2,type=money,null=0\n" + 
+                "column: name=f3,type=varchar,null=1,length=80\n" +
+                "index: column=f2,column=f3 DESC,name=Idx1,unique=1,clustered=2\n" +
+                "primary-key: column=f1,column=f2,clustered=1\n";
+        TestTableUpdate("TestTable", schema10, VxPutOpts.Destructive);
+
+        // Get rid of all the columns, except for one that gets renamed.
+        WVPASS(11);
+        string schema11 = "column: name=f1renamed,type=int,null=0\n" + 
+                "primary-key: column=f1renamed,clustered=1\n";
+        TestTableUpdate("TestTable", schema11, VxPutOpts.Destructive);
+
+        // Try to get rid of all the columns.
+        WVPASS(12);
+        string schema12 = "primary-key: column=f1renamed,clustered=1\n";
+        errmsg = "The object 'PK_TestTable' is dependent on column 'f1renamed'.";
+        TestTableUpdateError("TestTable", schema12, errmsg, schema11, 
+            VxPutOpts.Destructive);
+
+        // Try to get rid of all the columns, and rename the remaining index.
+        WVPASS(13);
+        string schema13 = "primary-key: name=NewPK,column=f1renamed,clustered=1\n";
+        errmsg = "ALTER TABLE DROP COLUMN failed because 'f1renamed' is " + 
+            "the only data column in table 'TestTable'. A table must have " + 
+            "at least one data column.";
+        TestTableUpdateError("TestTable", schema13, errmsg, schema11, 
+            VxPutOpts.Destructive);
+
+        try { VxExec("drop table TestTable"); } catch { }
     }
 
     [Test, Category("Schemamatic"), Category("PutSchema")]
-    public void TestAddingColumns()
+    public void TestChangingColumnsWithData()
     {
+        try { VxExec("drop table TestTable"); } catch { }
+
+        WVPASS(1);
+        string schema1 = "column: name=f1,type=int,null=0\n" + 
+                "column: name=f2,type=money,null=0\n" + 
+                "column: name=f3,type=varchar,null=1,length=80\n" +
+                "index: column=f2,column=f3 DESC,name=Idx1,unique=1,clustered=2\n" +
+                "primary-key: column=f1,column=f2,clustered=1\n";
+        TestTableUpdate("TestTable", schema1);
+
+        // Insert a number big enough to overflow a tinyint, and a string long
+        // enough to overflow a varchar(10).
+        WVASSERT(VxExec("INSERT INTO [TestTable] VALUES (" + 1024*1024*1024 + 
+            ",1234.56,'I am a varchar(80).  See? 12345678901234567890')"));
+
+        // First check that you can't change a column out from under a 
+        // primary key constraint, with or without the Destructive option.
+        WVPASS(2);
+        string schema2 = "column: name=f1,type=tinyint,null=0\n" + 
+                "column: name=f2,type=money,null=0\n" + 
+                "column: name=f3,type=varchar,null=1,length=80\n" +
+                "index: column=f2,column=f3 DESC,name=Idx1,unique=1,clustered=2\n" +
+                "primary-key: column=f1,column=f2,clustered=1\n";
+        string errmsg = "Refusing to drop and re-add column [f1] when " + 
+            "the destructive option is not set.  Error when altering was: " + 
+            "'The object 'PK_TestTable' is dependent on column 'f1'.'";
+        TestTableUpdateError("TestTable", schema2, errmsg, schema1);
+
+        WVPASS(3);
+        string schema3 = "column: name=f1,type=tinyint,null=0\n" + 
+                "column: name=f2,type=money,null=0\n" + 
+                "column: name=f3,type=varchar,null=1,length=80\n" +
+                "index: column=f2,column=f3 DESC,name=Idx1,unique=1,clustered=2\n" +
+                "primary-key: column=f1,column=f2,clustered=1\n";
+        errmsg = "The object 'PK_TestTable' is dependent on column 'f1'.";
+        TestTableUpdateError("TestTable", schema3, errmsg, schema1, 
+            VxPutOpts.Destructive);
+
+        // Now try truncating columns with no indexes in the way.
+        WVPASS(4);
+        string schema4 = "column: name=f1,type=tinyint,null=0\n" + 
+                "column: name=f2,type=money,null=0\n" + 
+                "column: name=f3,type=varchar,null=1,length=80\n";
+        errmsg = "Refusing to drop and re-add column [f1] when the " + 
+            "destructive option is not set.  Error when altering was: " + 
+            "'Arithmetic overflow error for data type tinyint, " + 
+            "value = 1073741824.'";
+        TestTableUpdateError("TestTable", schema4, errmsg, schema1);
+
+        WVPASS(5);
+        string schema5 = "column: name=f1,type=int,null=0\n" + 
+                "column: name=f2,type=money,null=0\n" + 
+                "column: name=f3,type=varchar,null=1,length=10\n";
+        errmsg = "Refusing to drop and re-add column [f3] when the " + 
+            "destructive option is not set.  Error when altering was: " + 
+            "'String or binary data would be truncated.'";
+        TestTableUpdateError("TestTable", schema5, errmsg, schema1);
+
+        // FIXME: Get rid of the indexes.  Only needed due to MSSQL stupidity.
+        WVPASS(5.9);
+        string schema59 = "column: name=f1,type=int,null=0\n" + 
+                "column: name=f2,type=money,null=0\n" + 
+                "column: name=f3,type=varchar,null=1,length=80\n";
+        TestTableUpdate("TestTable", schema59);
+
+        // Oops, that pesky destructive flag wasn't set.  Set it now, and 
+        // change both columns at once.
+        WVPASS(6);
+        string schema6 = "column: name=f2,type=money,null=0\n" + 
+                "column: name=f1,type=tinyint,null=0,default=0\n" +
+                "column: name=f3,type=varchar,null=1,length=10,default='a'\n";
+        TestTableUpdate("TestTable", schema6, VxPutOpts.Destructive);
+
+        try { VxExec("drop table TestTable"); } catch { }
     }
 
     public static void Main()
