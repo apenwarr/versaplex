@@ -393,10 +393,10 @@ internal class VxDbSchema : ISchemaBackend
             else
                 curtable = new VxSchemaTable(curschema[key]);
 
-            VxSchemaError err = null;
+            VxSchemaErrors put_table_errs = null;
             try 
             {
-                err = PutSchemaTable(curtable, newtable, opts);
+                put_table_errs = PutSchemaTable(curtable, newtable, opts);
             } 
             catch (VxRequestException e)
             {
@@ -405,22 +405,51 @@ internal class VxDbSchema : ISchemaBackend
                 log.print("Got error updating {0}: {1} ({2})\n", newtable.key, 
                     e.Message, sqlerrno);
 
-                err = new VxSchemaError(newtable.key, e.Message, sqlerrno);
-            }
-            if (err != null)
+                var err = new VxSchemaError(newtable.key, e.Message, sqlerrno);
                 errs.Add(key, err);
+            }
+            if (put_table_errs != null && put_table_errs.Count > 0)
+                errs.Add(put_table_errs);
         }
 
         return errs;
     }
 
-    private VxSchemaError PutSchemaTable(VxSchemaTable curtable, 
+    private VxSchemaError PutSchemaTableIndex(string key, VxSchemaTable table, 
+        VxSchemaTableElement elem)
+    {
+        string query = "";
+        if (elem.elemtype == "primary-key")
+            query = table.PrimaryKeyToSql(elem);
+        else if (elem.elemtype == "index")
+            query = table.IndexToSql(elem);
+        else
+            return new VxSchemaError(key, wv.fmt(
+                "Unknown table element '{0}'.", elem.elemtype), -1);
+
+        try 
+        {
+            if (query != "")
+                dbi.execute(query);
+        }
+        catch (SqlException e)
+        {
+            VxSqlException v = new VxSqlException(e.Message, e);
+            return new VxSchemaError(key, v.Message, v.GetFirstSqlErrno());
+        }
+
+        return null;
+    }
+
+    private VxSchemaErrors PutSchemaTable(VxSchemaTable curtable, 
         VxSchemaTable newtable, VxPutOpts opts)
     {
         bool destructive = (opts & VxPutOpts.Destructive) != 0;
 
         string tabname = newtable.name;
         string key = newtable.key;
+
+        var errs = new VxSchemaErrors();
 
         // Compute diff of the current and new tables
         var diff = VxSchemaTable.GetDiff(curtable, newtable);
@@ -470,7 +499,8 @@ internal class VxDbSchema : ISchemaBackend
             string errmsg = wv.fmt("Refusing to drop columns ([{0}]) " + 
                     "when the destructive option is not set.", 
                     colstrs.Join("], ["));
-            return new VxSchemaError(key, errmsg, -1);
+            errs.Add(key, new VxSchemaError(key, errmsg, -1));
+            goto done;
         }
 
         // Perform any needed column changes.
@@ -502,7 +532,10 @@ internal class VxDbSchema : ISchemaBackend
 
                 var err = DropSchemaElement("Index/" + tabname + "/" + idxname);
                 if (err != null)
-                    return err;
+                {
+                    errs.Add(key, err);
+                    goto done;
+                }
             }
 
             // Add columns in a deterministic order
@@ -581,17 +614,12 @@ internal class VxDbSchema : ISchemaBackend
             foreach (var elem in otheradd)
             {
                 log.print("Adding {0}\n", elem.ToString());
-                string query = "";
-                if (elem.elemtype == "primary-key")
-                    query = newtable.PrimaryKeyToSql(elem);
-                else if (elem.elemtype == "index")
-                    query = newtable.IndexToSql(elem);
-                else
-                    return new VxSchemaError(key, wv.fmt(
-                        "Unknown table element '{0}'.", elem.elemtype), -1);
-
-                if (query != "")
-                    dbi.execute(query);
+                VxSchemaError err = PutSchemaTableIndex(key, curtable, elem);
+                if (err != null)
+                {
+                    errs.Add(key, err);
+                    goto done;
+                }
             }
 
             dbi.execute("COMMIT TRANSACTION TableUpdate");
@@ -599,7 +627,9 @@ internal class VxDbSchema : ISchemaBackend
         }
         catch (SqlException e)
         {
-            throw new VxBadSchemaException(e.Message, e);
+            VxSqlException v = new VxSqlException(e.Message, e);
+            var err = new VxSchemaError(key, v.Message, v.GetFirstSqlErrno());
+            errs.Add(key, err);
         }
         finally
         {
@@ -608,14 +638,15 @@ internal class VxDbSchema : ISchemaBackend
                 // If this fails, there's nothing much we can do, and the
                 // client can't possibly care.  Just eat the error.  It's
                 // likely due to the database rolling back the transaction for
-                // us if we gave it a command it didn't like.
+                // us automatically if we gave it a command it didn't like.
                 try {
                     dbi.execute("ROLLBACK TRANSACTION TableUpdate");
                 } catch { }
             }
         }
 
-        return null;
+    done:
+        return errs;
     }
 
     // Replaces the named object in the database.  elem.text is a verbatim

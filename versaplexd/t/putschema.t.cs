@@ -63,6 +63,12 @@ class PutSchemaTests : SchemamaticTester
     public void TestTableUpdateError(string tabname, string tabschema, 
         string errmsg, string oldval, VxPutOpts opts)
     {
+        TestTableUpdateError(tabname, tabschema, errmsg, oldval, -1, opts);
+    }
+
+    public void TestTableUpdateError(string tabname, string tabschema, 
+        string errmsg, string oldval, int errno, VxPutOpts opts)
+    {
         string key = "Table/" + tabname;
         VxSchema schema = new VxSchema();
         schema.Add("Table", tabname, tabschema, false);
@@ -73,7 +79,7 @@ class PutSchemaTests : SchemamaticTester
         WVPASSEQ(errs.Count, 1);
         WVPASSEQ(errs[key].key, key);
         WVPASSEQ(errs[key].msg, errmsg);
-        WVPASSEQ(errs[key].errnum, -1);
+        WVPASSEQ(errs[key].errnum, errno);
 
         // Ensure that we didn't break what was already there.
         schema = dbus.Get(key);
@@ -342,7 +348,7 @@ class PutSchemaTests : SchemamaticTester
         WVPASS(12);
         string schema12 = "primary-key: column=f1renamed,clustered=1\n";
         errmsg = "The object 'PK_TestTable' is dependent on column 'f1renamed'.";
-        TestTableUpdateError("TestTable", schema12, errmsg, schema11, 
+        TestTableUpdateError("TestTable", schema12, errmsg, schema11, 5074,
             VxPutOpts.Destructive);
 
         // Try to get rid of all the columns, and rename the remaining index.
@@ -351,7 +357,7 @@ class PutSchemaTests : SchemamaticTester
         errmsg = "ALTER TABLE DROP COLUMN failed because 'f1renamed' is " + 
             "the only data column in table 'TestTable'. A table must have " + 
             "at least one data column.";
-        TestTableUpdateError("TestTable", schema13, errmsg, schema11, 
+        TestTableUpdateError("TestTable", schema13, errmsg, schema11, 4923,
             VxPutOpts.Destructive);
 
         try { VxExec("drop table TestTable"); } catch { }
@@ -396,7 +402,7 @@ class PutSchemaTests : SchemamaticTester
                 "primary-key: column=f1,column=f2,clustered=1\n";
         errmsg = "The object 'PK_TestTable' is dependent on column 'f1'.";
         TestTableUpdateError("TestTable", schema3, errmsg, schema1, 
-            VxPutOpts.Destructive);
+            5074, VxPutOpts.Destructive);
 
         // Now try truncating columns with no indexes in the way.
         WVPASS(4);
