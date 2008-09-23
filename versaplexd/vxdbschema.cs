@@ -509,15 +509,19 @@ internal class VxDbSchema : ISchemaBackend
         // errors on the client's SQL.  We'll catch the DbExceptions and 
         // turn them into VxBadSchemaExceptions, instead of lying.
 
+        var deleted_indexes = new List<VxSchemaTableElement>();
+
         bool transaction_resolved = false;
         try
         {
-            dbi.execute("BEGIN TRANSACTION TableUpdate");
-
             // Delete any to-delete indexes first, to get them out of the way.
             // Indexes are easy to deal with, they don't cause data loss.
             // Just delete everything there is to delete, then add everything
             // there is to add.
+            // Note: we can't do this inside the transaction, MSSQL doesn't
+            // let you change columns that used to be covered by the dropped
+            // indexes.  Instead we'll drop the indexes outside the
+            // transaction, and restore them by hand if there's an error.
             foreach (var elem in otherdel)
             {
                 log.print("Dropping {0}\n", elem.ToString());
@@ -536,10 +540,14 @@ internal class VxDbSchema : ISchemaBackend
                     errs.Add(key, err);
                     goto done;
                 }
+
+                deleted_indexes.Add(elem);
             }
 
             // Add columns in a deterministic order
             coladd.Sort(VxSchemaTableElement.CompareTableElemsByName);
+
+            dbi.execute("BEGIN TRANSACTION TableUpdate");
 
             // Add new columns before deleting old ones; MSSQL won't let a
             // table have no data columns in it, even temporarily.
@@ -642,6 +650,14 @@ internal class VxDbSchema : ISchemaBackend
                 try {
                     dbi.execute("ROLLBACK TRANSACTION TableUpdate");
                 } catch { }
+
+                foreach (var elem in deleted_indexes)
+                {
+                    log.print("Restoring index {0}\n", elem.ToString());
+                    var err = PutSchemaTableIndex(key, curtable, elem);
+                    if (err != null)
+                        errs.Add(key, err);
+                }
             }
         }
 

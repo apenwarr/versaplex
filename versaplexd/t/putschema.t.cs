@@ -424,13 +424,6 @@ class PutSchemaTests : SchemamaticTester
             "'String or binary data would be truncated.'";
         TestTableUpdateError("TestTable", schema5, errmsg, schema1);
 
-        // FIXME: Get rid of the indexes.  Only needed due to MSSQL stupidity.
-        WVPASS(5.9);
-        string schema59 = "column: name=f1,type=int,null=0\n" + 
-                "column: name=f2,type=money,null=0\n" + 
-                "column: name=f3,type=varchar,null=1,length=80\n";
-        TestTableUpdate("TestTable", schema59);
-
         // Oops, that pesky destructive flag wasn't set.  Set it now, and 
         // change both columns at once.
         WVPASS(6);
