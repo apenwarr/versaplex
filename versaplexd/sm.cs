@@ -13,33 +13,25 @@ public static class SchemamaticCli
     static WvLog log = new WvLog("sm");
     static WvLog err = log.split(WvLog.L.Error);
     
-    // command line options
-    static string bus = null;
-    static VxCopyOpts opts = VxCopyOpts.Verbose;
-    
     static int ShowHelp()
     {
         Console.Error.WriteLine(
-@"Usage: sm [-b dbus-moniker] [--dry-run] <push|pull|dpush|dpull> <dir>
+@"Usage: sm [--dry-run] <push|pull|dpush|dpull> <dir>
   Schemamatic: copy database schemas between a database server and the
   current directory.
 
-  -b: specifies the dbus moniker to connect to.  If not provided, uses
-      DBUS_SESSION_BUS_ADDRESS.
   --dry-run: lists the files that would be changed but doesn't modify them.
 ");
 	return 99;
     }
 
-    static int DoExport(string bus_moniker, string dir, VxCopyOpts dry_run)
+    static int DoExport(ISchemaBackend remote, string dir, VxCopyOpts opts)
     {
-        log.print("Pulling from '{0}'\n", bus_moniker);
-	
-        VxDbusSchema dbus = new VxDbusSchema(bus_moniker);
+        log.print("Pulling schema.\n");
         VxDiskSchema disk = new VxDiskSchema(dir);
 
         VxSchemaErrors errs 
-	    = VxSchema.CopySchema(dbus, disk, opts | VxCopyOpts.Verbose);
+	    = VxSchema.CopySchema(remote, disk, opts | VxCopyOpts.Verbose);
 
 	int code = 0;
         foreach (var p in errs)
@@ -53,14 +45,12 @@ public static class SchemamaticCli
 	return code;
     }
 
-    static int DoApply(string bus_moniker, string dir, VxCopyOpts opts)
+    static int DoApply(ISchemaBackend remote, string dir, VxCopyOpts opts)
     {
-        log.print("Pushing to '{0}'\n", bus_moniker);
-	
-        VxDbusSchema dbus = new VxDbusSchema(bus_moniker);
+        log.print("Pushing schema.\n");
         VxDiskSchema disk = new VxDiskSchema(dir);
 
-        VxSchemaErrors errs = VxSchema.CopySchema(disk, dbus, opts);
+        VxSchemaErrors errs = VxSchema.CopySchema(disk, remote, opts);
 
 	int code = 0;
         foreach (var p in errs)
@@ -190,11 +180,10 @@ public static class SchemamaticCli
         return commands;
     }
 
-    static int DoGetData(string bus_moniker, string dir,
+    static int DoGetData(ISchemaBackend remote, string dir,
 			 VxCopyOpts opts)
     {
-        log.print("Pulling data from '{0}'\n", bus_moniker);
-        VxDbusSchema dbus = new VxDbusSchema(bus_moniker);
+        log.print("Pulling data.\n");
 
         string cmdfile = Path.Combine(dir, "data-export.txt");
         if (!File.Exists(cmdfile))
@@ -204,7 +193,7 @@ public static class SchemamaticCli
         }
 
         log.print("Retrieving schema checksums from database.\n");
-        VxSchemaChecksums dbsums = dbus.GetChecksums();
+        VxSchemaChecksums dbsums = remote.GetChecksums();
 
         log.print("Reading export commands.\n");
         string[] cmd_strings = File.ReadAllLines(cmdfile);
@@ -242,7 +231,7 @@ public static class SchemamaticCli
             if (cmd.cmd == "export")
             {
                 data.Append(wv.fmt("DELETE FROM [{0}];\n", cmd.table));
-                data.Append(dbus.GetSchemaData(cmd.table, cmd.pri, cmd.where));
+                data.Append(remote.GetSchemaData(cmd.table, cmd.pri, cmd.where));
             }
             else if (cmd.cmd == "zap")
             {
@@ -312,7 +301,8 @@ public static class SchemamaticCli
         return;
     }
 
-    static int ApplyFiles(string[] files, VxDbusSchema dbus, VxCopyOpts opts)
+    static int ApplyFiles(string[] files, ISchemaBackend remote,
+			  VxCopyOpts opts)
     {
         int seqnum;
         string tablename;
@@ -332,20 +322,22 @@ public static class SchemamaticCli
 
             if (seqnum > 0)
             {
-                dbus.PutSchemaData(tablename, data, seqnum);
+                remote.PutSchemaData(tablename, data, seqnum);
             }
             else
             {
                 // File we didn't generate, try to apply it anyway.
-                dbus.PutSchemaData("", data, 0);
+                remote.PutSchemaData("", data, 0);
             }
         }
 	
 	return 0;
     }
 
-    static int DoApplyData(string bus_moniker, string dir, VxCopyOpts opts)
+    static int DoApplyData(ISchemaBackend remote, string dir, VxCopyOpts opts)
     {
+        log.print("Pushing data.\n");
+	
         if (!Directory.Exists(dir))
             return 5; // nothing to do
 
@@ -353,22 +345,22 @@ public static class SchemamaticCli
         if (Directory.Exists(datadir))
 	    dir = datadir;
 	
-        log.print("Pushing data to '{0}'\n", bus_moniker);
-	
-        VxDbusSchema dbus = new VxDbusSchema(bus_moniker);
-
 	var files = 
 	    from f in Directory.GetFiles(dir)
 	    where !f.EndsWith("~")
 	    select f;
-	return ApplyFiles(files.ToArray(), dbus, opts);
+	return ApplyFiles(files.ToArray(), remote, opts);
     }
 
     public static void Main(string[] args)
     {
+	// command line options
+	string busname = null;
+	VxCopyOpts opts = VxCopyOpts.Verbose;
+    
 	int verbose = (int)WvLog.L.Info;
         var extra = new OptionSet()
-            .Add("b=|bus=", delegate(string v) { bus = v; } )
+            .Add("b=|bus=", delegate(string v) { busname = v; } )
             .Add("dry-run", delegate(string v) { opts |= VxCopyOpts.DryRun; } )
             .Add("f|force", delegate(string v) { opts |= VxCopyOpts.Destructive; } )
             .Add("v|verbose", delegate(string v) { verbose++; } )
@@ -385,24 +377,17 @@ public static class SchemamaticCli
 	string cmd = extra[0];
         string dir = extra[1];
 
-        if (bus.e())
-            bus = Address.Session;
-        if (bus.e())
-        {
-            log.print
-                ("DBUS_SESSION_BUS_ADDRESS not set and no -b option given.\n");
-            ShowHelp();
-        }
-
-        log.print("Connecting to '{0}'\n", bus);
+        log.print("Connecting to '{0}'\n", busname);
+        VxDbusSchema remote = new VxDbusSchema(Address.Session);
+	
 	if (cmd == "pull")
-	    DoExport(bus, dir, opts);
+	    DoExport(remote, dir, opts);
 	else if (cmd == "push")
-	    DoApply(bus, dir, opts);
+	    DoApply(remote, dir, opts);
 	else if (cmd == "dpull")
-	    DoGetData(bus, dir, opts);
+	    DoGetData(remote, dir, opts);
 	else if (cmd == "dpush")
-	    DoApplyData(bus, dir, opts);
+	    DoApplyData(remote, dir, opts);
 	else
 	{
 	    Console.Error.WriteLine("\nUnknown command '{0}'\n", cmd);
