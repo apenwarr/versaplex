@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
+using System.Linq;
 using NDesk.DBus;
 using org.freedesktop.DBus;
 using Wv;
+using Wv.Extensions;
 using Wv.NDesk.Options;
 
 public static class VersaMain
@@ -61,24 +63,33 @@ public static class VersaMain
 
         VxDbus.MessageDump("<<  ", msg);
 
-        switch (msg.Header.MessageType) {
-            case MessageType.MethodCall:
-            {
-                Message reply;
-                if (msgrouter.RouteMessage(msg, out reply)) {
-                    if (reply == null) {
-                        // FIXME: Do something if this happens, maybe?
-                        log.print("Empty reply from RouteMessage\n");
-                    } else {
-                        // XXX: Should this be done further down rather than
-                        // passing the reply out here?
-                        msg.Connection.Send(reply);
-                    }
-                    return;
-                }
-            
-                break;
-            }
+        switch (msg.Header.MessageType) 
+	{
+	case MessageType.MethodCall:
+	    Message reply;
+	    if (msgrouter.RouteMessage(msg, out reply))
+	    {
+		if (reply == null) {
+		    // FIXME: Do something if this happens, maybe?
+		    log.print("Empty reply from RouteMessage\n");
+		} else {
+		    // XXX: Should this be done further down rather than
+		    // passing the reply out here?
+		    msg.Connection.Send(reply);
+		}
+		return;
+	    }
+	    break;
+	    
+	default:
+	    Header h = msg.Header;
+	    log.print(WvLog.L.Warning,
+		      "Unexpected DBus message received: #{0} {1}\n",
+			h.Serial,
+		        (from k in h.Fields.Keys
+			 select wv.fmt("{0}={1}", k, h.Fields[k])
+			 ).Join(" "));
+	    break;
         }
 
         // FIXME: This is hacky. But it covers stuff I don't want to deal with

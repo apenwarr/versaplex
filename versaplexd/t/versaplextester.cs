@@ -237,7 +237,7 @@ public class VersaplexTester: IDisposable
 	Console.WriteLine(" + VxChunkRecordset SQL Query: {0}", query);
 
 	Message call = VxDbusUtils.CreateMethodCall(bus, "ExecChunkRecordset", "s");
-	call.Header.Flags = HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
+	//call.Header.Flags = HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
 
 	MessageWriter mw = new MessageWriter(Connection.NativeEndianness);
 	mw.Write(typeof(string), query);
