@@ -357,7 +357,7 @@ internal class VxDbSchema : ISchemaBackend
                 }
             }
 
-            if (elem.text != null && elem.text != "")
+            if (elem.text.ne())
                 DbiExec(elem.text);
         } 
         catch (VxSqlException e) 
@@ -732,7 +732,7 @@ internal class VxDbSchema : ISchemaBackend
                 string name = row[1];
                 string contents = row[2];
 
-                if (contents == "")
+                if (contents.e())
                     continue;
 
                 do_again = true;
@@ -792,7 +792,7 @@ internal class VxDbSchema : ISchemaBackend
             short len = row[3];
             byte xprec = row[4];
             byte xscale = row[5];
-            string defval = row[6];
+            string defval = row[6].IsNull ? (string)null : row[6];
             int isnullable = row[7];
             int isident = row[8];
             string ident_seed = row[9];
@@ -822,7 +822,7 @@ internal class VxDbSchema : ISchemaBackend
                 lenstr = String.Format("({0},{1})", xprec,xscale);
             }
 
-            if (defval != null && defval != "")
+            if (defval.ne())
             {
                 // MSSQL returns default values wrapped in ()s
                 if (defval[0] == '(' && defval[defval.Length - 1] == ')')
@@ -831,7 +831,7 @@ internal class VxDbSchema : ISchemaBackend
 
             cols.Add(String.Format("[{0}] [{1}] {2}{3}{4}{5}",
                 colname, typename, lenstr,
-                ((defval != "") ? " DEFAULT " + defval : ""),
+                ((defval.ne()) ? " DEFAULT " + defval : ""),
                 ((isnullable != 0) ? " NULL" : " NOT NULL"),
                 ((isident != 0) ?  String.Format(
                     " IDENTITY({0}, {1})", ident_seed, ident_incr) :
