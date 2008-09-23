@@ -505,6 +505,9 @@ internal class VxDbSchema : ISchemaBackend
                     return err;
             }
 
+            // Add columns in a deterministic order
+            coladd.Sort(VxSchemaTableElement.CompareTableElemsByName);
+
             // Add new columns before deleting old ones; MSSQL won't let a
             // table have no data columns in it, even temporarily.
             foreach (var elem in coladd)
@@ -525,15 +528,53 @@ internal class VxDbSchema : ISchemaBackend
                 dbi.execute(query);
             }
 
+            // Modify columns in a deterministic order
+            colchanged.Sort(VxSchemaTableElement.CompareTableElemsByName);
+
             foreach (var elem in colchanged)
             {
                 log.print("Altering {0}\n", elem.ToString());
-                string query = wv.fmt("ALTER TABLE [{0}] ALTER COLUMN [{1}] {2}", 
-                    tabname, elem.GetParam("name"), newtable.ColumnToSql(elem));
+                string query = wv.fmt("ALTER TABLE [{0}] ALTER COLUMN {1}", 
+                    tabname, newtable.ColumnToSql(elem));
                 
-                // FIXME: If this fails, but the Destructive flag is set, drop
-                // the column and re-add it.
-                dbi.execute(query);
+                log.print("Executing {0}\n", query);
+                try
+                {
+                    dbi.execute(query);
+                }
+                catch (SqlException e)
+                {
+                    log.print("Caught exception: {0}\n", e.Message);
+                    // Some table attributes can't be changed by ALTER TABLE, 
+                    // such as changing default or identity values, or data 
+                    // type changes that would truncate data.  If the client 
+                    // has set the Destructive flag though, we can try to 
+                    // drop and re-add the column.
+                    if (destructive)
+                    {
+                        log.print("Alter column failed, dropping and adding\n");
+                        string delquery = wv.fmt("ALTER TABLE [{0}] " + 
+                            "DROP COLUMN [{1}]\n",
+                            tabname, elem.GetParam("name"));
+                        string addquery = wv.fmt("ALTER TABLE [{0}] ADD {1}\n", 
+                            tabname, newtable.ColumnToSql(elem));
+
+                        log.print("Executing {0}\n", delquery);
+                        dbi.execute(delquery);
+                        log.print("Executing {0}\n", addquery);
+                        dbi.execute(addquery);
+                    }
+                    else
+                    {
+                        log.print("Can't alter table and destructive flag " + 
+                            "not set.  Giving up.\n");
+                        string errmsg = wv.fmt("Refusing to drop and re-add " +
+                                "column [{0}] when the destructive option " +
+                                "is not set.  Error when altering was: '{1}'", 
+                                elem.GetParam("name"), e.Message);
+                        throw new VxBadSchemaException(errmsg, e);
+                    }
+                }
             }
 
             // Now that all the columns are finalized, add in any new indices.
@@ -556,10 +597,22 @@ internal class VxDbSchema : ISchemaBackend
             dbi.execute("COMMIT TRANSACTION TableUpdate");
             transaction_resolved = true;
         }
+        catch (SqlException e)
+        {
+            throw new VxBadSchemaException(e.Message, e);
+        }
         finally
         {
             if (!transaction_resolved)
-                dbi.execute("ROLLBACK TRANSACTION TableUpdate");
+            {
+                // If this fails, there's nothing much we can do, and the
+                // client can't possibly care.  Just eat the error.  It's
+                // likely due to the database rolling back the transaction for
+                // us if we gave it a command it didn't like.
+                try {
+                    dbi.execute("ROLLBACK TRANSACTION TableUpdate");
+                } catch { }
+            }
         }
 
         return null;
@@ -1002,12 +1055,9 @@ internal class VxDbSchema : ISchemaBackend
         while (init_parens < len && s[init_parens] == '(')
             init_parens++;
 
-        log.print("len={0}, s[len-1]={1}\n", len, s[len-1]);
         int trailing_parens = 0;
         while (trailing_parens < len && s[len - trailing_parens - 1] == ')')
             trailing_parens++;
-
-        log.print("leading={0}, trailing={1}\n", init_parens, trailing_parens);
 
         // No leading or trailing parens means there can't possibly be any
         // matching parens.
@@ -1029,8 +1079,6 @@ internal class VxDbSchema : ISchemaBackend
 
             if (paren_count < min_parens)
                 min_parens = paren_count;
-            log.print("Looked at s[{0}]={1}, count={2}, min={3}\n", 
-                i, s[i], paren_count, min_parens);
         }
 
         // The minimum number of outstanding parens found while iterating over

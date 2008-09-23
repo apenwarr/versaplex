@@ -177,6 +177,12 @@ internal class VxSchemaTableElement
         }
         return sb.ToString();
     }
+
+    public static int CompareTableElemsByName(VxSchemaTableElement e1, 
+        VxSchemaTableElement e2) 
+    { 
+        return e1.GetParam("name").CompareTo(e2.GetParam("name"));
+    }
 }
 
 internal class VxSchemaTable : VxSchemaElement
