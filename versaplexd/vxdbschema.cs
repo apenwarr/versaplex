@@ -12,10 +12,17 @@ using Wv.Extensions;
 
 // An ISchemaBackend that uses a direct database connection as a backing
 // store.
+[WvMoniker]
 internal class VxDbSchema : ISchemaBackend
 {
     static WvLog log = new WvLog("VxDbSchema", WvLog.L.Debug2);
 
+    public static void wvmoniker_register()
+    {
+	WvMoniker<ISchemaBackend>.register("dbi",
+		  (string m, object o) => new VxDbSchema(WvDbi.create(m)));
+    }
+	
     static string[] ProcedureTypes = new string[] { 
 //            "CheckCnst", 
 //            "Constraint",

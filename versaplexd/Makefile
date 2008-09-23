@@ -25,7 +25,7 @@ versaplexd.exe: versaplexd.cs \
 sm.exe: \
     dodgytransport.cs ischemabackend.cs vxdbusutils.cs \
     vxexceptions.cs vxnotifysocket.cs  vxsocket.cs \
-    vxdiskschema.cs vxdbusschema.cs vxschema.cs \
+    vxdiskschema.cs vxdbschema.cs vxdbusschema.cs vxschema.cs \
     vxschemachecksums.cs vxschemadiff.cs vxschemaerrors.cs \
     ../dbus-sharp/src/NDesk.DBus.dll \
     ../wvdotnet/wv.dll

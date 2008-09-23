@@ -8,12 +8,19 @@ using Wv;
 using Wv.Extensions;
 
 // An ISchemaBackend that uses a directory on disk as a backing store.
+[WvMoniker]
 internal class VxDiskSchema : ISchemaBackend
 {
     static WvLog log = new WvLog("VxDiskSchema", WvLog.L.Debug2);
 
     private string exportdir;
 
+    public static void wvmoniker_register()
+    {
+	WvMoniker<ISchemaBackend>.register("dir",
+		  (string m, object o) => new VxDiskSchema(m));
+    }
+	
     public VxDiskSchema(string _exportdir)
     {
         exportdir = _exportdir;
@@ -148,7 +155,7 @@ internal class VxDiskSchema : ISchemaBackend
         DirectoryInfo exportdirinfo = new DirectoryInfo(exportdir);
         if (exportdirinfo.Exists)
         {
-            // Read all files that match */* and */*/*.
+            // Read all files that match */* and Index/*/*.
             foreach (DirectoryInfo dir1 in exportdirinfo.GetDirectories())
             {
                 if (dir1.Name == "DATA")
@@ -158,10 +165,10 @@ internal class VxDiskSchema : ISchemaBackend
 
                 foreach (DirectoryInfo dir2 in dir1.GetDirectories())
                 {
-                    if (dir2.Name == "DATA")
+                    if (dir2.Name == "DATA" || dir1.Name != "Index")
                         continue;
 
-                    // This is the */*/* part
+                    // This is the Index/*/* part
                     foreach (FileInfo file in dir2.GetFiles())
                     {
                         if (!IsFileNameUseful(file.Name))

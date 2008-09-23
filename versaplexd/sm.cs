@@ -16,7 +16,7 @@ public static class SchemamaticCli
     static int ShowHelp()
     {
         Console.Error.WriteLine(
-@"Usage: sm [--dry-run] <push|pull|dpush|dpull> <dir>
+@"Usage: sm [--dry-run] <push|pull|dpush|dpull> <moniker> <dir>
   Schemamatic: copy database schemas between a database server and the
   current directory.
 
@@ -355,12 +355,10 @@ public static class SchemamaticCli
     public static void Main(string[] args)
     {
 	// command line options
-	string busname = null;
 	VxCopyOpts opts = VxCopyOpts.Verbose;
     
 	int verbose = (int)WvLog.L.Info;
         var extra = new OptionSet()
-            .Add("b=|bus=", delegate(string v) { busname = v; } )
             .Add("dry-run", delegate(string v) { opts |= VxCopyOpts.DryRun; } )
             .Add("f|force", delegate(string v) { opts |= VxCopyOpts.Destructive; } )
             .Add("v|verbose", delegate(string v) { verbose++; } )
@@ -368,17 +366,18 @@ public static class SchemamaticCli
 
 	WvLog.maxlevel = (WvLog.L)verbose;
 	
-        if (extra.Count != 2)
+        if (extra.Count != 3)
         {
             ShowHelp();
             return;
         }
 
-	string cmd = extra[0];
-        string dir = extra[1];
+	string cmd     = extra[0];
+	string moniker = extra[1];
+        string dir     = extra[2];
 
-        log.print("Connecting to '{0}'\n", busname);
-        VxDbusSchema remote = new VxDbusSchema(Address.Session);
+        log.print("Connecting to '{0}'\n", moniker);
+        ISchemaBackend remote = VxSchema.create(moniker);
 	
 	if (cmd == "pull")
 	    DoExport(remote, dir, opts);
