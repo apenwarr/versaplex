@@ -2,10 +2,26 @@
 using System;
 using Wv.Test;
 using Wv;
+using Wv.Extensions;
 
 [TestFixture]
 public class WvUtilsTests
 {
+    [Test] public void string_empty()
+    {
+	string a = null, b = "", c = "0";
+	
+	WVPASS(wv.isempty(a));
+	WVPASS(wv.isempty(b));
+	WVFAIL(wv.isempty(c));
+	WVPASS(a.e());
+	WVPASS(b.e());
+	WVPASS(c.ne());
+	WVFAIL(a.ne());
+	WVFAIL(b.ne());
+	WVFAIL(c.e());
+    }
+    
     [Test] [Category("shift")] public void shift_test()
     {
 	string[] x = {"a", null, "c", "", "e", "f"};

@@ -89,6 +89,18 @@ namespace Wv.Extensions
     
     public static class DataExtensions
     {
+	// true if a string is (e)mpty (null or blank)
+	public static bool e(this string s)
+	{
+	    return wv.isempty(s);
+	}
+	
+	// true if a string is (n)on(e)mpty (nonnull and nonblank)
+	public static bool ne(this string s)
+	{
+	    return !wv.isempty(s);
+	}
+	
 	public static IEnumerable<T2> map<T1,T2>(this IEnumerable<T1> list,
 					  Func<T1,T2> f)
 	{
