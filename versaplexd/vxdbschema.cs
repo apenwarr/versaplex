@@ -467,18 +467,17 @@ internal class VxDbSchema : ISchemaBackend
             // nicer in the unit tests.
             colstrs.Sort();
 
-            string errmsg = wv.fmt("Refusing to drop columns ('{0}') " + 
+            string errmsg = wv.fmt("Refusing to drop columns ([{0}]) " + 
                     "when the destructive option is not set.", 
-                    colstrs.Join("', '"));
+                    colstrs.Join("], ["));
             return new VxSchemaError(key, errmsg, -1);
         }
 
         // Perform any needed column changes.
         // Note: we call dbi.execute directly, instead of DbiExec, as we're
-        // running SQL we generated ourselves and shouldn't particularly
-        // expose to the client by throwing the VxSqlExceptions we'd get from
-        // DbiExec.  Any errors returned to the client here should come from
-        // us examining the provided table schema, not from the database.
+        // running SQL we generated ourselves so we shouldn't blame any 
+        // errors on the client's SQL.  We'll catch the DbExceptions and 
+        // turn them into VxBadSchemaExceptions, instead of lying.
 
         bool transaction_resolved = false;
         try

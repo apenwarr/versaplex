@@ -405,7 +405,7 @@ class SchemamaticTests : SchemamaticTester
         WVPASS(err != null);
         WVPASSEQ(err.key, "Table/Tab1");
         WVPASSEQ(err.msg, 
-            "Refusing to drop columns ('f1', 'f2', 'f3') when the destructive option is not set.");
+            "Refusing to drop columns ([f1], [f2], [f3]) when the destructive option is not set.");
         WVPASSEQ(err.errnum, -1);
         
         schema = dbus.Get("Table/Tab1");
