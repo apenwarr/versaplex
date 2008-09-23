@@ -12,10 +12,17 @@ using Wv.Extensions;
 
 // An ISchemaBackend that uses a direct database connection as a backing
 // store.
+[WvMoniker]
 internal class VxDbSchema : ISchemaBackend
 {
     static WvLog log = new WvLog("VxDbSchema", WvLog.L.Debug2);
 
+    public static void wvmoniker_register()
+    {
+	WvMoniker<ISchemaBackend>.register("dbi",
+		  (string m, object o) => new VxDbSchema(WvDbi.create(m)));
+    }
+	
     static string[] ProcedureTypes = new string[] { 
 //            "CheckCnst", 
 //            "Constraint",
@@ -690,7 +697,7 @@ internal class VxDbSchema : ISchemaBackend
                 }
             }
 
-            if (elem.text != null && elem.text != "")
+            if (elem.text.ne())
                 DbiExec(elem.ToSql());
         } 
         catch (VxSqlException e) 
@@ -1067,7 +1074,7 @@ internal class VxDbSchema : ISchemaBackend
                 string name = row[1];
                 string contents = row[2];
 
-                if (contents == "")
+                if (contents.e())
                     continue;
 
                 do_again = true;
@@ -1170,7 +1177,7 @@ internal class VxDbSchema : ISchemaBackend
             short len = row[3];
             byte xprec = row[4];
             byte xscale = row[5];
-            string defval = row[6];
+            string defval = row[6].IsNull ? (string)null : row[6];
             int isnullable = row[7];
             int isident = row[8];
             string ident_seed = row[9];
@@ -1209,7 +1216,7 @@ internal class VxDbSchema : ISchemaBackend
                 scalestr = xscale.ToString();
             }
 
-            if (defval != null && defval != "")
+            if (defval.ne())
             {
                 // MSSQL returns default values wrapped in an irritatingly
                 // variable number of ()s
@@ -1340,9 +1347,39 @@ internal class VxDbSchema : ISchemaBackend
         // Schemamatic didn't create and don't have an official table name, 
         // but that we still want to run.  So if the tablename is empty, 
         // don't do anything fancy but still run the query.
-        if (!String.IsNullOrEmpty(tablename))
+        if (tablename.ne())
             DbiExec(String.Format("DELETE FROM [{0}]", tablename));
-        DbiExec(text);
+	
+	log.print("text size: {0}\n", text.Length);
+	if (text.Length > 50000)
+	{
+	    string[] parts = text.Split("\nINSERT ");
+	    log.print("Split into {0} parts.\n", parts.Length);
+	    
+	    log.print("Part 1...\n");
+	    DbiExec(parts[0]);
+	    
+	    int count = 1;
+	    var sb = new StringBuilder();
+	    for (int i = 1; i < parts.Length; i++)
+	    {
+		sb.Append("\nINSERT ");
+		sb.Append(parts[i]);
+		if (sb.Length > 50000)
+		{
+		    log.print("Part {0}...\n", ++count);
+		    DbiExec(sb.ToString());
+		    sb = new StringBuilder();
+		}
+	    }
+	    if (sb.Length > 0)
+	    {
+		log.print("Part {0}...\n", ++count);
+		DbiExec(sb.ToString());
+	    }
+	}
+	else
+	    DbiExec(text);
     }
 }
 

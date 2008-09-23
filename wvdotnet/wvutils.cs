@@ -265,6 +265,11 @@ namespace Wv
                 combined = Path.Combine(combined, elem);
             return combined;
         }
+
+	public static bool IsMono()
+	{
+	    return Type.GetType("Mono.Runtime") != null;
+	}
     }
 }
 

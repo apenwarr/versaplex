@@ -35,7 +35,7 @@ public:
 	s->listen(smoniker);
         moniker = s->get_addr();
         fprintf(stderr, "Server address is '%s'\n", moniker.cstr());
-        WvIStreamList::globallist.append(s, false);
+        WvIStreamList::globallist.append(s, false, "test-dbus-server");
     }
 
     ~TestDBusServer()

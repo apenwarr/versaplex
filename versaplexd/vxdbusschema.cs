@@ -3,22 +3,33 @@ using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
 using NDesk.DBus;
+using Wv;
+using Wv.Extensions;
 
 // An ISchemaBackend that uses a DBus connection to Versaplex as a backing
 // store.
+[WvMoniker]
 internal class VxDbusSchema : ISchemaBackend
 {
     Bus bus;
 
+    public static void wvmoniker_register()
+    {
+	WvMoniker<ISchemaBackend>.register("vx",
+		  (string m, object o) => new VxDbusSchema(m));
+    }
+	
     public VxDbusSchema()
     {
-        if (Address.Session == null)
-            throw new Exception ("DBUS_SESSION_BUS_ADDRESS not set");
         Connect(Address.Session);
     }
 
     public VxDbusSchema(string bus_moniker)
     {
+	if (bus_moniker.e())
+	    bus_moniker = Address.Session;
+        if (bus_moniker.e())
+            throw new Exception ("DBUS_SESSION_BUS_ADDRESS not set");
         Connect(bus_moniker);
     }
 

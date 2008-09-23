@@ -89,17 +89,17 @@ public static class VxDbus {
         Header hdr = msg.Header;
 	
 	if (hdr.Fields.ContainsKey(FieldCode.ReplySerial))
-	    log.print("{0} REPLY#{1}\n",
+	    log.print("MD {0} REPLY#{1}\n",
 			prefix,
 			hdr.Fields[FieldCode.ReplySerial]);
 	else if (hdr.MessageType != MessageType.Signal)
-	    log.print("{0} #{1} {2}.{3}\n",
+	    log.print("MD {0} #{1} {2}.{3}\n",
 			prefix,
 			hdr.Serial,
 			hdr.Fields[FieldCode.Interface],
 			hdr.Fields[FieldCode.Member]);
 	else
-	    log.print("{0}\n", hdr.Fields[FieldCode.Interface]);
+	    log.print("MD {0} {1}\n", prefix, hdr.Fields[FieldCode.Interface]);
 
         smalldump.print("Message dump:\n");
         smalldump.print(" endianness={0} ", hdr.Endianness);

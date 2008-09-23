@@ -5,6 +5,7 @@
 
 WV_LINK_TO(WvSSLStream);
 WV_LINK_TO(WvTCPListener);
+WV_LINK_TO(WvGzipStream);
 #ifndef __WIN32
 WV_LINK_TO(WvUnixListener);
 #endif

@@ -662,6 +662,7 @@ class SchemamaticTests : SchemamaticTester
 
         WVPASSEQ(errs.Count, baseline_err_count + 2);
 
+	log.print("Results: [\n{0}]\n", errs.Join("'\n'"));
         WVPASSEQ(errs["ScalarFunction/ErrSF"].key, "ScalarFunction/ErrSF");
         WVPASSEQ(errs["ScalarFunction/ErrSF"].msg, 
             "Incorrect syntax near the keyword 'not'.");

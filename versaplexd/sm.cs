@@ -1,16 +1,68 @@
 using System;
-using System.Text;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
+using System.Linq;
 using Wv;
 using Wv.Extensions;
 using Wv.NDesk.Options;
 using NDesk.DBus;
 
-public static class GetData
+public static class SchemamaticCli
 {
-    static WvLog log = new WvLog("GetData");
-    static WvLog err = new WvLog("GetData", WvLog.L.Error);
+    static WvLog log = new WvLog("sm");
+    static WvLog err = log.split(WvLog.L.Error);
+    
+    static int ShowHelp()
+    {
+        Console.Error.WriteLine(
+@"Usage: sm [--dry-run] <push|pull|dpush|dpull> <moniker> <dir>
+  Schemamatic: copy database schemas between a database server and the
+  current directory.
+
+  --dry-run: lists the files that would be changed but doesn't modify them.
+");
+	return 99;
+    }
+
+    static int DoExport(ISchemaBackend remote, string dir, VxCopyOpts opts)
+    {
+        log.print("Pulling schema.\n");
+        VxDiskSchema disk = new VxDiskSchema(dir);
+
+        VxSchemaErrors errs 
+	    = VxSchema.CopySchema(remote, disk, opts | VxCopyOpts.Verbose);
+
+	int code = 0;
+        foreach (var p in errs)
+        {
+            VxSchemaError err = p.Value;
+            Console.WriteLine("Error applying {0}: {1} ({2})", 
+                err.key, err.msg, err.errnum);
+	    code = 1;
+        }
+	
+	return code;
+    }
+
+    static int DoApply(ISchemaBackend remote, string dir, VxCopyOpts opts)
+    {
+        log.print("Pushing schema.\n");
+        VxDiskSchema disk = new VxDiskSchema(dir);
+
+        VxSchemaErrors errs = VxSchema.CopySchema(disk, remote, opts);
+
+	int code = 0;
+        foreach (var p in errs)
+        {
+            VxSchemaError err = p.Value;
+            Console.WriteLine("Error applying {0}: {1} ({2})", 
+                err.key, err.msg, err.errnum);
+	    code = 1;
+        }
+	
+	return code;
+    }
 
     static char[] whitespace = {' ', '\t'};
 
@@ -33,28 +85,6 @@ public static class GetData
         public string where;
     }
 
-    // Parses a 5-digit positive number from pri.  Returns -1 on error.
-    static int ParsePriority(string pri)
-    {
-        int charcount = 0;
-        foreach (char c in pri)
-        {
-            charcount++;
-            if (!Char.IsDigit(c))
-            {
-                charcount = -1;
-                break;
-            }
-        }
-        if (charcount != 5 || pri.Length != 5)
-        {
-            err.print("Priority code '{0}' must be a 5-digit number.\n", pri);
-            return -1;
-        }
-
-        return Int32.Parse(pri);
-    }
-
     // Parses a command line of the form "sequence_num command table ..."
     // A sequence number is a 5-digit integer, zero-padded if needed.
     // The current commands are:
@@ -75,7 +105,7 @@ public static class GetData
 
         Command newcmd = new Command();
 
-        newcmd.pri = ParsePriority(parts[0]);
+        newcmd.pri = wv.atoi(parts[0]);
         if (newcmd.pri < 0)
             return null;
 
@@ -150,19 +180,20 @@ public static class GetData
         return commands;
     }
 
-    static void DoGetData(string bus_moniker, string exportdir, bool dry_run)
+    static int DoGetData(ISchemaBackend remote, string dir,
+			 VxCopyOpts opts)
     {
-        VxDbusSchema dbus = new VxDbusSchema(bus_moniker);
+        log.print("Pulling data.\n");
 
-        string cmdfile = Path.Combine(exportdir, "data-export.txt");
+        string cmdfile = Path.Combine(dir, "data-export.txt");
         if (!File.Exists(cmdfile))
         {
             err.print("Missing command file: {0}\n", cmdfile);
-            return;
+            return 5;
         }
 
         log.print("Retrieving schema checksums from database.\n");
-        VxSchemaChecksums dbsums = dbus.GetChecksums();
+        VxSchemaChecksums dbsums = remote.GetChecksums();
 
         log.print("Reading export commands.\n");
         string[] cmd_strings = File.ReadAllLines(cmdfile);
@@ -175,19 +206,19 @@ public static class GetData
             if (cmd.cmd != "zap" && !dbsums.ContainsKey("Table/" + cmd.table))
             {
                 err.print("Table doesn't exist: {0}\n", cmd.table);
-                return;
+                return 4;
             }
         }
 
         if (commands == null)
-            return;
+            return 3;
 
-        string datadir = Path.Combine(exportdir, "DATA");
+        string datadir = Path.Combine(dir, "DATA");
         log.print("Cleaning destination directory '{0}'.\n", datadir);
         Directory.CreateDirectory(datadir);
         foreach (string path in Directory.GetFiles(datadir, "*.sql"))
         {
-            if (dry_run)
+            if ((opts & VxCopyOpts.DryRun) != 0)
                 log.print("Would have deleted '{0}'\n", path);
             else
                 File.Delete(path);
@@ -200,7 +231,7 @@ public static class GetData
             if (cmd.cmd == "export")
             {
                 data.Append(wv.fmt("DELETE FROM [{0}];\n", cmd.table));
-                data.Append(dbus.GetSchemaData(cmd.table, cmd.pri, cmd.where));
+                data.Append(remote.GetSchemaData(cmd.table, cmd.pri, cmd.where));
             }
             else if (cmd.cmd == "zap")
             {
@@ -229,57 +260,137 @@ public static class GetData
 
             string outname = Path.Combine(datadir, 
                 wv.fmt("{0:d5}-{1}.sql", cmd.pri, cmd.table));
-            if (dry_run)
+            if ((opts & VxCopyOpts.DryRun) != 0)
                 log.print("Would have written '{0}'\n", outname);
             else
                 File.WriteAllBytes(outname, data.ToString().ToUTF8());
         }
+	
+	return 0;
     }
 
-    static void ShowHelp()
+    // Extracts the table name and priority out of a path.  E.g. for 
+    // "/foo/12345-bar.sql", returns "12345" and "bar" as the priority and 
+    // table name.  Returns -1/null if the parse fails.
+    static void ParsePath(string pathname, out int seqnum, 
+        out string tablename)
     {
-        Console.Error.WriteLine(
-            @"Usage: getdata [-b dbus-moniker] [--dry-run] <outputdir>
-  Updates an SQL schema from Versaplex into the outputdir.
+        FileInfo info = new FileInfo(pathname);
+        seqnum = -1;
+        tablename = null;
 
-  -b: specifies the dbus moniker to connect to.  If not provided, uses
-      DBUS_SESSION_BUS_ADDRESS.
-  --dry-run: lists the files that would be changed but doesn't modify them.
-");
+        int dashidx = info.Name.IndexOf('-');
+        if (dashidx < 0)
+            return;
+
+        string pristr = info.Name.Remove(dashidx);
+        string rest = info.Name.Substring(dashidx + 1);
+        int pri = wv.atoi(pristr);
+
+        if (pri < 0)
+            return;
+
+        if (info.Extension.ToLower() == ".sql")
+            rest = rest.Remove(rest.ToLower().LastIndexOf(".sql"));
+        else
+            return;
+
+        seqnum = pri;
+        tablename = rest;
+
+        return;
+    }
+
+    static int ApplyFiles(string[] files, ISchemaBackend remote,
+			  VxCopyOpts opts)
+    {
+        int seqnum;
+        string tablename;
+
+        Array.Sort(files);
+        foreach (string file in files)
+        {
+            string data = File.ReadAllText(file, System.Text.Encoding.UTF8);
+            ParsePath(file, out seqnum, out tablename);
+
+            if (tablename == "ZAP")
+                tablename = "";
+
+            log.print("Applying data from {0}\n", file);
+            if ((opts & VxCopyOpts.DryRun) != 0)
+                continue;
+
+            if (seqnum > 0)
+            {
+                remote.PutSchemaData(tablename, data, seqnum);
+            }
+            else
+            {
+                // File we didn't generate, try to apply it anyway.
+                remote.PutSchemaData("", data, 0);
+            }
+        }
+	
+	return 0;
+    }
+
+    static int DoApplyData(ISchemaBackend remote, string dir, VxCopyOpts opts)
+    {
+        log.print("Pushing data.\n");
+	
+        if (!Directory.Exists(dir))
+            return 5; // nothing to do
+
+        string datadir = Path.Combine(dir, "DATA");
+        if (Directory.Exists(datadir))
+	    dir = datadir;
+	
+	var files = 
+	    from f in Directory.GetFiles(dir)
+	    where !f.EndsWith("~")
+	    select f;
+	return ApplyFiles(files.ToArray(), remote, opts);
     }
 
     public static void Main(string[] args)
     {
-        string bus = null;
-        string exportdir = null;
-        bool dry_run = false;
-
+	// command line options
+	VxCopyOpts opts = VxCopyOpts.Verbose;
+    
+	int verbose = (int)WvLog.L.Info;
         var extra = new OptionSet()
-            .Add("b=|bus=", delegate(string v) { bus = v; } )
-            .Add("dry-run", delegate(string v) { dry_run = (v != null); } )
+            .Add("dry-run", delegate(string v) { opts |= VxCopyOpts.DryRun; } )
+            .Add("f|force", delegate(string v) { opts |= VxCopyOpts.Destructive; } )
+            .Add("v|verbose", delegate(string v) { verbose++; } )
             .Parse(args);
 
-        if (extra.Count != 1)
+	WvLog.maxlevel = (WvLog.L)verbose;
+	
+        if (extra.Count != 3)
         {
             ShowHelp();
             return;
         }
 
-        exportdir = extra[0];
+	string cmd     = extra[0];
+	string moniker = extra[1];
+        string dir     = extra[2];
 
-        if (bus == null)
-            bus = Address.Session;
-
-        if (bus == null)
-        {
-            log.print
-                ("DBUS_SESSION_BUS_ADDRESS not set and no -b option given.\n");
-            ShowHelp();
-        }
-
-        log.print("Exporting to '{0}'\n", exportdir);
-        log.print("Connecting to '{0}'\n", bus);
-
-        DoGetData(bus, exportdir, dry_run);
+        log.print("Connecting to '{0}'\n", moniker);
+        ISchemaBackend remote = VxSchema.create(moniker);
+	
+	if (cmd == "pull")
+	    DoExport(remote, dir, opts);
+	else if (cmd == "push")
+	    DoApply(remote, dir, opts);
+	else if (cmd == "dpull")
+	    DoGetData(remote, dir, opts);
+	else if (cmd == "dpush")
+	    DoApplyData(remote, dir, opts);
+	else
+	{
+	    Console.Error.WriteLine("\nUnknown command '{0}'\n", cmd);
+	    ShowHelp();
+	}
     }
 }

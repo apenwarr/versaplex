@@ -2,7 +2,7 @@ WVDOTNET=../wvdotnet
 include ../rules.mk
 include ../monorules.mk
 
-all: versaplexd vxcli schemamatic-utils/all
+all: versaplexd sm vxcli
 
 PKGS += /unsafe /r:System.Data
 
@@ -21,6 +21,14 @@ versaplexd.exe: versaplexd.cs \
     vxsocket.cs vxsqlpool.cs wvdbusserver.cs \
     ../dbus-sharp/src/NDesk.DBus.dll \
     ../wvdotnet/wv.dll
+
+sm.exe: \
+    dodgytransport.cs ischemabackend.cs vxdbusutils.cs \
+    vxexceptions.cs vxnotifysocket.cs  vxsocket.cs \
+    vxdiskschema.cs vxdbschema.cs vxdbusschema.cs vxschema.cs \
+    vxschemachecksums.cs vxschemadiff.cs vxschemaerrors.cs \
+    ../dbus-sharp/src/NDesk.DBus.dll \
+    ../wvdotnet/wv.dll
     
 vxcli.exe: vxcli.cs \
     dodgytransport.cs vxsocket.cs vxnotifysocket.cs vxdbusutils.cs \
@@ -28,5 +36,5 @@ vxcli.exe: vxcli.cs \
     ../dbus-sharp/src/NDesk.DBus.dll \
     ../wvdotnet/wv.dll
 
-clean:: t/clean schemamatic-utils/clean
+clean:: t/clean
 	rm -f versaplexd

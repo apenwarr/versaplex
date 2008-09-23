@@ -13,6 +13,7 @@ static WvLogRcv *rcv1, *rcv2, *rcv3;
 
 WV_LINK_TO(WvTCPConn);
 WV_LINK_TO(WvSSLStream);
+WV_LINK_TO(WvGzipStream);
 #ifndef _MSC_VER
 WV_LINK_TO(WvUnixConn);
 #endif

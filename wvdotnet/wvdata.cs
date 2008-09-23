@@ -32,7 +32,7 @@ namespace Wv
 	    this.v = v;
 	}
 	
-	public bool IsNull { get { return v == null || DBNull.Value.Equals(v); } }
+	public bool IsNull { get { return v == null || v is DBNull; } }
 	
 	public static implicit operator string(WvAutoCast o)
 	{
@@ -44,7 +44,7 @@ namespace Wv
 	
 	public override string ToString()
 	{
-	    if (v == null)
+	    if (IsNull)
 		return "(nil)"; // shouldn't return null since this != null
             else if (v is Boolean)
                 return intify().ToString();
@@ -54,7 +54,7 @@ namespace Wv
 	
 	public static implicit operator DateTime(WvAutoCast o)
 	{
-	    if (o.v == null)
+	    if (o.IsNull)
 		return DateTime.MinValue;
 	    else if (o.v is DateTime)
 		return (DateTime)o.v;
@@ -66,7 +66,7 @@ namespace Wv
 
 	public static implicit operator SqlDateTime(WvAutoCast o)
 	{
-	    if (o.v == null)
+	    if (o.IsNull)
 		return SqlDateTime.MinValue;
 	    else if (o.v is SqlDateTime)
 		return (SqlDateTime)o.v;
@@ -83,7 +83,7 @@ namespace Wv
 
         public static implicit operator SqlBinary(WvAutoCast o)
         {
-	    if (o.v == null)
+	    if (o.IsNull)
 		return null;
 	    else if (o.v is SqlBinary)
 		return (SqlBinary)o.v;
@@ -93,7 +93,7 @@ namespace Wv
 
 	Int64 intify()
 	{
-	    if (v == null)
+	    if (IsNull)
 		return 0;
 	    else if (v is Int64)
 		return (Int64)v;
@@ -136,7 +136,7 @@ namespace Wv
 
 	public static implicit operator double(WvAutoCast o)
 	{
-	    if (o.v == null)
+	    if (o.IsNull)
 		return 0;
 	    else if (o.v is double)
 		return (double)o.v;
@@ -156,7 +156,7 @@ namespace Wv
 
 	public static implicit operator float(WvAutoCast o)
 	{
-	    if (o.v == null)
+	    if (o.IsNull)
 		return 0;
 	    else if (o.v is float)
 		return (float)o.v;
@@ -166,7 +166,7 @@ namespace Wv
 
 	public static implicit operator char(WvAutoCast o)
 	{
-	    if (o.v == null)
+	    if (o.IsNull)
 		return Char.MinValue;
 	    else if (o.v is char)
 		return (char)o.v;
@@ -254,32 +254,62 @@ namespace Wv
     
     public class WvSqlRow : IEnumerable<WvAutoCast>
     {
-	object[] data;
-	IEnumerable<WvColInfo> schema;
+	object[] _data;
+	WvColInfo[] schema;
+	Dictionary<string,int> colnames = null;
 	
 	public WvSqlRow(object[] data, IEnumerable<WvColInfo> schema)
 	{
-	    this.data = data;
-	    this.schema = schema;
+	    this._data = data;
+	    this.schema = schema.ToArray();
+	    
+	    // This improves behaviour with IronPython, and doesn't seem to
+	    // hurt anything else.  WvAutoCast knows how to deal with 'real'
+	    // nulls anyway.  I don't really know what DBNull is even good
+	    // for.
+	    for (int i = 0; i < _data.Length; i++)
+		if (_data[i] != null && _data[i] is DBNull)
+		    _data[i] = null;
 	}
 
 	public WvAutoCast this[int i]
-	    { get { return new WvAutoCast(data[i]); } }
+	    { get { return new WvAutoCast(_data[i]); } }
+	
+	void init_colnames()
+	{
+	    if (colnames != null)
+		return;
+	    colnames = new Dictionary<string,int>();
+	    for (int i = 0; i < schema.Length; i++)
+		colnames.Add(schema[i].name, i);
+	}
+	
+	public WvAutoCast this[string s]
+	{
+	    get
+	    {
+		init_colnames();
+		return this[colnames[s]];
+	    }
+	}
 
 	public int Length
-	    { get { return data.Length; } }
+	    { get { return _data.Length; } }
 
 	public IEnumerator<WvAutoCast> GetEnumerator()
 	{
-	    foreach (object colval in data)
+	    foreach (object colval in _data)
 		yield return new WvAutoCast(colval);
 	}
 
 	IEnumerator IEnumerable.GetEnumerator()
 	{
-	    foreach (object colval in data)
+	    foreach (object colval in _data)
 		yield return colval;
 	}
+	
+	public object[] data
+	    { get { return _data; } }
 	
 	public IEnumerable<WvColInfo> columns
 	    { get { return schema; } }

@@ -518,6 +518,19 @@ internal class VxSchemaTable : VxSchemaElement
 // The schema elements for a set of database elements
 internal class VxSchema : Dictionary<string, VxSchemaElement>
 {
+    public static ISchemaBackend create(string moniker)
+    {
+	ISchemaBackend sm = WvMoniker<ISchemaBackend>.create(moniker);
+	if (sm == null && Directory.Exists(moniker))
+	    sm = WvMoniker<ISchemaBackend>.create("dir:" + moniker);
+	if (sm == null)
+	    sm = WvMoniker<ISchemaBackend>.create("dbi:" + moniker);
+	if (sm == null)
+	    throw new Exception
+	    (wv.fmt("No moniker found for '{0}'", moniker));
+	return sm;
+    }
+    
     public VxSchema()
     {
     }
