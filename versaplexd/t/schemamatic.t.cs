@@ -688,6 +688,7 @@ class SchemamaticTests : SchemamaticTester
         VxPutOpts no_opts = VxPutOpts.None;
         VxSchemaErrors errs = VxPutSchema(schema, no_opts);
 
+	log.print("Results: [\n{0}]\n", errs.Join("'\n'"));
         WVPASSEQ(errs.Count, 2);
         WVPASSEQ(errs["Table/Tab1"].key, "Table/Tab1");
         WVPASSEQ(errs["Table/Tab1"].msg, 
