@@ -959,9 +959,39 @@ internal class VxDbSchema : ISchemaBackend
         // Schemamatic didn't create and don't have an official table name, 
         // but that we still want to run.  So if the tablename is empty, 
         // don't do anything fancy but still run the query.
-        if (!String.IsNullOrEmpty(tablename))
+        if (tablename.ne())
             DbiExec(String.Format("DELETE FROM [{0}]", tablename));
-        DbiExec(text);
+	
+	log.print("text size: {0}\n", text.Length);
+	if (text.Length > 50000)
+	{
+	    string[] parts = text.Split("\nINSERT ");
+	    log.print("Split into {0} parts.\n", parts.Length);
+	    
+	    log.print("Part 1...\n");
+	    DbiExec(parts[0]);
+	    
+	    int count = 1;
+	    var sb = new StringBuilder();
+	    for (int i = 1; i < parts.Length; i++)
+	    {
+		sb.Append("\nINSERT ");
+		sb.Append(parts[i]);
+		if (sb.Length > 50000)
+		{
+		    log.print("Part {0}...\n", ++count);
+		    DbiExec(sb.ToString());
+		    sb = new StringBuilder();
+		}
+	    }
+	    if (sb.Length > 0)
+	    {
+		log.print("Part {0}...\n", ++count);
+		DbiExec(sb.ToString());
+	    }
+	}
+	else
+	    DbiExec(text);
     }
 }
 
