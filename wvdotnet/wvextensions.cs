@@ -133,6 +133,11 @@ namespace Wv.Extensions
         {
             return String.Join(sep, list.ToArray());
         }
+	
+	public static string[] Split(this string s, params string[] splitwords)
+	{
+	    return s.Split(splitwords, StringSplitOptions.None);
+	}
 
 	public static int atoi(this object o)
 	{
