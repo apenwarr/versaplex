@@ -434,6 +434,7 @@ internal class VxSchemaTable : VxSchemaElement
     public static Dictionary<VxSchemaTableElement, VxDiffType> GetDiff(
         VxSchemaTable oldtable, VxSchemaTable newtable)
     {
+        WvLog log = new WvLog("SchemaTable GetDiff");
         var diff = new Dictionary<VxSchemaTableElement, VxDiffType>();
         var oldset = new Dictionary<string, VxSchemaTableElement>();
         var newset = new Dictionary<string, VxSchemaTableElement>();
@@ -446,10 +447,17 @@ internal class VxSchemaTable : VxSchemaElement
         // element type and name.
         foreach (var elem in oldtable.elems)
         {
+            string key;
             if (elem.elemtype == "primary-key")
-                oldset.Add(elem.elemtype, elem);
-            else 
-                oldset.Add(elem.elemtype + ": " + elem.GetParam("name"), elem);
+                key = elem.elemtype;
+            else
+                key = elem.elemtype + ": " + elem.GetParam("name");
+
+            if (oldset.ContainsKey(key))
+                throw new VxBadSchemaException(wv.fmt("Duplicate table entry " + 
+                    "'{0}' found.", key));
+
+            oldset.Add(key, elem);
         }
         foreach (var elem in newtable.elems)
         {
@@ -469,9 +477,13 @@ internal class VxSchemaTable : VxSchemaElement
         foreach (var kvp in oldset)
         {
             if (!newset.ContainsKey(kvp.Key))
+            {
+                log.print("Scheduling {0} for removal.\n", kvp.Key);
                 diff.Add(kvp.Value, VxDiffType.Remove);
+            }
             else if (kvp.Value.ToString() != newset[kvp.Key].ToString())
             {
+                log.print("Scheduling {0} for change.\n", kvp.Key);
                 string elemtype = kvp.Value.elemtype;
                 if (elemtype == "primary-key" || elemtype == "index")
                 {
@@ -487,7 +499,10 @@ internal class VxSchemaTable : VxSchemaElement
         foreach (var kvp in newset)
         {
             if (!oldset.ContainsKey(kvp.Key))
+            {
+                log.print("Scheduling {0} for addition.\n", kvp.Key);
                 diff.Add(kvp.Value, VxDiffType.Add);
+            }
         }
 
         return diff;
