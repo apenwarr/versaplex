@@ -120,16 +120,18 @@ sub count_roundtrips
 	my $curdest = "";
 	{
 		my $line1 = <$myfh>;
-		$line1 =~ m/IP ([^\s]+) > ([^\s:]+)/;
-		($curhost, $curdest) = ($1, $2);
+		if ($line1 =~ /IP ([^\s]+) > ([^\s:]+)/) {
+    		    ($curhost, $curdest) = ($1, $2);
+                }
 	}
 	while (<$myfh>) {
-		m/IP ([^\s]+) > ([^\s:]+)/;
-		if ($1 ne $curdest || $2 ne $curhost) {
-			$curhost = $1;
-			$curdest = $2;
-			++$convs;
-		}
+		if (/IP ([^\s]+) > ([^\s:]+)/) {
+                    if ($1 ne $curdest || $2 ne $curhost) {
+                            $curhost = $1;
+                            $curdest = $2;
+                            ++$convs;
+                    }
+                }
 	}
 
 	push(@{$data}, $convs / $num);
