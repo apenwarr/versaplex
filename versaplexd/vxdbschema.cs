@@ -401,20 +401,8 @@ internal class VxDbSchema : ISchemaBackend
                 curtable = new VxSchemaTable(curschema[key]);
 
             VxSchemaErrors put_table_errs = null;
-            try 
-            {
-                put_table_errs = PutSchemaTable(curtable, newtable, opts);
-            } 
-            catch (VxRequestException e)
-            {
-                int sqlerrno = (e is VxSqlException) ? 
-                    ((VxSqlException)e).GetFirstSqlErrno() : -1;
-                log.print("Got error updating {0}: {1} ({2})\n", newtable.key, 
-                    e.Message, sqlerrno);
+            put_table_errs = PutSchemaTable(curtable, newtable, opts);
 
-                var err = new VxSchemaError(newtable.key, e.Message, sqlerrno);
-                errs.Add(key, err);
-            }
             if (put_table_errs != null && put_table_errs.Count > 0)
                 errs.Add(put_table_errs);
         }
