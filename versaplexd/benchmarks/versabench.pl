@@ -11,7 +11,7 @@ use Net::DBus;
 use Net::DBus::Reactor;
 use Time::HiRes;
 use File::Temp;
-
+use Getopt::Std;
 use Net::DBus::Annotation qw(:call);
 
 ################################################################################
@@ -260,13 +260,20 @@ sub dbus_executor
 # Initial set-up
 ################################################################################
 
-print "Initial setup...\n";
+undef my %opts;
+getopts('src', \%opts);
 
 #It sucks, but we have to connect to *something* right now, to input the
 #initial testing data
 my $dbh = DBI->connect("DBI:Sybase:server=$sqlserver;database=$dbname",
                          $user, $pw, {PrintError => 0}) 
     or die "Unable to connect to SQL server ($sqlserver, db=$dbname)";
+
+if (%opts && !$opts{'s'}) {
+	goto skip_setup;
+}
+
+print "Initial setup...\n";
 
 # Create initial testing data
 $dbh->do("DROP TABLE testbitch");
@@ -280,6 +287,9 @@ for (my $i = 0; $i < 105; ++$i) {
 		$large_datasize += length($silly_text) + 4;
 	}
 }
+
+skip_setup:
+
 # Warm up DB-cache
 for (my $i = 0; $i < 10; ++$i) {
 	my $sth = $dbh->prepare("select * from testbitch limit 5");
@@ -456,6 +466,10 @@ push(@runfuncs, ["Native MS SQL", \&test_mssql]);
 # Run this thing
 ################################################################################
 
+if (%opts && !$opts{'r'}) {
+	goto skip_tests;
+}
+
 for (my $i = 0; $i < scalar(@runfuncs); ++$i) {
 	next if (!$runbools[$i]);
 
@@ -463,18 +477,30 @@ for (my $i = 0; $i < scalar(@runfuncs); ++$i) {
 	&{$runfuncs[$i][1]};
 }
 		
-
+skip_tests: 1;
 ################################################################################
 # Clean-up
 ################################################################################
+
+if (%opts && !$opts{'c'}) {
+	goto skip_cleanup;
+}
+
+print "Final takedown...\n";
 
 $dbh->do("DROP TABLE testbitch");
 
 $dbh->disconnect;
 
+skip_cleanup: 1;
 ################################################################################
 # Generate table data
 ################################################################################
+
+if (%opts && !$opts{'r'}) {
+	print "No tests run, no table data; exiting.\n";
+	exit 0;
+}
 
 print "\n";
 print "Ah, the part you've been waiting for... table data!\n";
