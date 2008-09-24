@@ -189,13 +189,11 @@ sub sql_executor
 	system("tcpdump -w $tempfile -s $max_tcp_packet_size -i $if 'tcp port $port' $tredir &");
 	sleep 1;  #Need to give tcpdump a sec to start up
 
-	my $elapsed = 0;
 	my @querya = split(/ /, $query);
+	my $t = [Time::HiRes::gettimeofday];
 	if ($querya[0] eq "INSERT") {
 		for (my $i = 0; $i < $num; ++$i) {
-			my $t = [Time::HiRes::gettimeofday];
 			my $rv = $mydbh->do($query);
-			$elapsed += Time::HiRes::tv_interval($t);
 		}
 	} else {
 		for (my $i = 0; $i < $num; ++$i) {
@@ -207,9 +205,9 @@ sub sql_executor
 				}
 			}
 			$sth->finish;
-			$elapsed += Time::HiRes::tv_interval($t);
 		}
 	}
+	my $elapsed = Time::HiRes::tv_interval($t);
 	push(@{$data}, sprintf("%.5f", $elapsed / $num));
 	sleep $stupid_tcpdump_timeout;
 	system($kill_tcpdump);
@@ -230,12 +228,11 @@ sub dbus_executor
 	my $num = shift;
 	my $data = shift;
 
-	my $elapsed;
+	my $t = [Time::HiRes::gettimeofday];
 	for (my $i = 0; $i < $num; ++$i) {
-		my $t = [Time::HiRes::gettimeofday];
 		my $response = $dbus_handle->ExecChunkRecordset($query);
-		$elapsed += Time::HiRes::tv_interval($t);
 	}
+	my $elapsed = Time::HiRes::tv_interval($t);
 	push(@{$data}, sprintf("%.5f", $elapsed / $num));
 	#print "DBUS: for statement: $query, time elapsed is: $elapsed\n";
 }
@@ -363,12 +360,11 @@ sub test_dbus
 	# We certainly want to find a way to test this with VxODBC, but really
 	# can't for now.  Pipelined inserts; note the dbus_call_noreply, which
 	# means we don't care and don't listen for responses, just keep firing.
-	my $elapsed = 0;
+	my $t = [Time::HiRes::gettimeofday];
 	for (my $i = 0; $i < $num_parallel_insert_tests; ++$i) {
-		my $t = [Time::HiRes::gettimeofday];
 		$db->ExecChunkRecordset(dbus_call_noreply, $insert_query);
-		$elapsed += Time::HiRes::tv_interval($t);
 	}
+	my $elapsed = Time::HiRes::tv_interval($t);
 	push(@dbus_data,sprintf("%.5f", $elapsed / $num_parallel_insert_tests));
 }
 
@@ -447,7 +443,7 @@ $dbh->disconnect;
 # Generate table data
 ################################################################################
 
-
+print "\n";
 print "Ah, the part you've been waiting for... table data!\n";
 print "Results are compiled from averaging capture data over:\n";
 print " - $num_large_row_tests large multi-row request(s) (",
