@@ -144,7 +144,7 @@ sub count_size
 
 	open my ($myfh), $tempfile;
 	local $/;
-	push (@{$data}, sprintf("%.2f", length(<$myfh>) / $num));
+	push (@{$data}, sprintf("%d", length(<$myfh>) / $num));
 	close $myfh;
 }
 
@@ -210,7 +210,7 @@ sub sql_executor
 			$elapsed += Time::HiRes::tv_interval($t);
 		}
 	}
-	push(@{$data}, sprintf("%.7f", $elapsed / $num));
+	push(@{$data}, sprintf("%.5f", $elapsed / $num));
 	sleep $stupid_tcpdump_timeout;
 	system($kill_tcpdump);
 	if ($querya[0] ne "INSERT") {
@@ -236,13 +236,15 @@ sub dbus_executor
 		my $response = $dbus_handle->ExecChunkRecordset($query);
 		$elapsed += Time::HiRes::tv_interval($t);
 	}
-	push(@{$data}, sprintf("%.7f", $elapsed / $num));
+	push(@{$data}, sprintf("%.5f", $elapsed / $num));
 	#print "DBUS: for statement: $query, time elapsed is: $elapsed\n";
 }
 
 ################################################################################
 # Initial set-up
 ################################################################################
+
+print "Initial setup...\n";
 
 #It sucks, but we have to connect to *something* right now, to input the
 #initial testing data
@@ -367,7 +369,7 @@ sub test_dbus
 		$db->ExecChunkRecordset(dbus_call_noreply, $insert_query);
 		$elapsed += Time::HiRes::tv_interval($t);
 	}
-	push(@dbus_data,sprintf("%.7f", $elapsed / $num_parallel_insert_tests));
+	push(@dbus_data,sprintf("%.5f", $elapsed / $num_parallel_insert_tests));
 }
 
 push(@runfuncs, ["Perl-DBus", \&test_dbus]);
@@ -381,7 +383,7 @@ sub test_vxodbc
 	my $vxodbc_port = get_dbus_port($vxodbc_moniker);
 	$ENV{DBUS_SESSION_BUS_ADDRESS} = $vxodbc_moniker;
 
-	my @vx_data = ("VxODBC\t");
+	my @vx_data = ("VxODBC");
 	push(@printtables, \@vx_data);
 	
 	my $dbh_vx = DBI->connect("DBI:ODBC:testdb", $user, $pw, {PrintError => 1}) || die "Unable to connect to SQL server";
@@ -405,7 +407,7 @@ push(@runfuncs, ["VxODBC", \&test_vxodbc]);
 
 sub test_mssql
 {
-	my @ms_data = ("Native MS SQL");
+	my @ms_data = ("Raw MS SQL");
 	unshift(@printtables, \@ms_data);
 
 	sql_executor($dbh, $large_row_query, $num_large_row_tests,
@@ -445,15 +447,6 @@ $dbh->disconnect;
 # Generate table data
 ################################################################################
 
-my @rowtitles = ("\t\t\t\t|",
-		"Multirow SELECT time\t\t|", "(secs/request)\t\t\t|",
-		"Multirow SELECT bandwidth\t|", "(bytes/request)\t\t|",
-		"Tiny SELECT time\t\t|", "(secs/request)\t\t\t|",
-		"Tiny SELECT bandwidth\t\t|", "(bytes/request)\t\t|",
-		"Tiny SELECT round-trips\t|", "(trips/request)\t\t|",
-		"Single-row INSERT speed\t|", "(secs/request)\t\t\t|",
-		"Pipelined INSERT speed\t\t|", "(secs/request)\t\t\t|"
-		);
 
 print "Ah, the part you've been waiting for... table data!\n";
 print "Results are compiled from averaging capture data over:\n";
@@ -462,44 +455,25 @@ print " - $num_large_row_tests large multi-row request(s) (",
 print " - $num_small_row_tests small 4-byte request(s)\n";
 print " - $num_small_insert_tests 104-byte row insertion(s)\n";
 print " - $num_parallel_insert_tests simultaneous 104-byte row insertion(s)\n";
-
 print "\n";
 
-sub print_dashline
-{
-	my $endpoint = 81 - (3 - scalar(@printtables)) * 16;
-	$endpoint = 80 if ($endpoint == 81);
-	print "-" x $endpoint;
-}
+printf "%-12s%18s%18s%9s%9s%9s\n", 
+        "", "BigSELECT  ", "TinySELECT ",
+        "Round", "Serial", "Pipeline";
+printf "%-12s%9s%9s%9s%9s%9s%9s%9s\n", 
+        "", "secs", "bytes", "secs", "bytes",
+        "trips", "INSERT", "INSERT";
+printf "%-12s%9s%9s%9s%9s%9s%9s%9s\n", 
+        "", "----", "-----", "----", "-----",
+        "-----", "------", "------";
 
-print_dashline;
-print "\n|";
-print (shift @rowtitles);
-foreach (@printtables) {
-	print shift(@{$_}), "\t|";
+foreach my $r (@printtables) {
+    my @r = @{$r};
+    printf("%-12s", "$r[0]:");
+    shift @r;
+    foreach my $c (@r) {
+        printf("%9s", $c);
+    }
+    printf("\n");
 }
-print "\n";
-
-print_dashline;
-print "\n";
-
-for (my $i = 0; $i < scalar(@rowtitles); ++$i) {
-	print "|", $rowtitles[$i];
-	if ($i % 2) {
-		foreach (@printtables) {
-			print "\t\t|";
-		}
-		print "\n";
-		print_dashline;
-	} else {
-		foreach (@printtables) {
-			my $p = $_->[$i / 2];
-			print $p, "\t";
-			if (length($p) <= 6) {
-				print "\t";
-			}
-			print "|";
-		}
-	}
-	print "\n";
-}
+exit 0;
