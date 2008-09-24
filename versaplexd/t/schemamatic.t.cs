@@ -305,7 +305,6 @@ class SchemamaticTests : SchemamaticTester
         try { VxExec("drop table Table1"); } catch { }
         // Name the primary key PK_Table1 to test that GetSchema properly
         // omits the default name.
-        // FIXME: Should also test that it does give us a non-default name.
         string query = "CREATE TABLE [Table1] (\n\t" + 
             "[f1] [int]  NOT NULL,\n\t" +
             "[f2] [money]  NULL,\n\t" + 
@@ -326,6 +325,45 @@ class SchemamaticTests : SchemamaticTester
             "column: name=f5,type=decimal,null=1,precision=3,scale=2\n" + 
             "column: name=f6,type=bigint,null=0,identity_seed=4,identity_incr=5\n" + 
             "primary-key: column=f1,clustered=1\n";
+
+        log.print("Retrieved: " + schema["Table/Table1"].text);
+        log.print("Expected: " + tab1schema);
+
+        WVASSERT(schema.ContainsKey("Table/Table1"));
+        WVPASSEQ(schema["Table/Table1"].name, "Table1");
+        WVPASSEQ(schema["Table/Table1"].type, "Table");
+        WVPASSEQ(schema["Table/Table1"].encrypted, false);
+        WVPASSEQ(schema["Table/Table1"].text, tab1schema);
+
+        try { VxExec("drop table Table1"); } catch { }
+    }
+
+    [Test, Category("Schemamatic"), Category("GetSchema")]
+    public void TestGetTableSchema2()
+    {
+        try { VxExec("drop table Table1"); } catch { }
+        // Name the primary key something non-default to test that GetSchema
+        // properly returns us the non-default version
+        string query = "CREATE TABLE [Table1] (\n\t" + 
+            "[f1] [int]  NOT NULL,\n\t" +
+            "[f2] [money]  NULL,\n\t" + 
+            "[f3] [varchar] (80) NOT NULL,\n\t" +
+            "[f4] [varchar] (max) DEFAULT 'Default Value' NULL,\n\t" + 
+            "[f5] [decimal] (3,2),\n\t" + 
+            "[f6] [bigint]  NOT NULL IDENTITY(4, 5));\n\n" + 
+            "ALTER TABLE [Table1] ADD CONSTRAINT [NonDefaultPK] PRIMARY KEY (f1)\n";
+        WVASSERT(VxExec(query));
+
+        VxSchema schema = dbus.Get();
+        WVASSERT(schema.Count >= 1);
+
+        string tab1schema = "column: name=f1,type=int,null=0\n" + 
+            "column: name=f2,type=money,null=1\n" + 
+            "column: name=f3,type=varchar,null=0,length=80\n" + 
+            "column: name=f4,type=varchar,null=1,length=max,default='Default Value'\n" + 
+            "column: name=f5,type=decimal,null=1,precision=3,scale=2\n" + 
+            "column: name=f6,type=bigint,null=0,identity_seed=4,identity_incr=5\n" + 
+            "primary-key: name=NonDefaultPK,column=f1,clustered=1\n";
 
         log.print("Retrieved: " + schema["Table/Table1"].text);
         log.print("Expected: " + tab1schema);
