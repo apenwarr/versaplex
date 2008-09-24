@@ -1,4 +1,8 @@
 #!/usr/bin/perl -w
+#
+# Versaplex speed/bandwidth/latency benchmark.  See file README for more
+# information.
+#
 use warnings;
 use strict;
 
@@ -10,122 +14,56 @@ use File::Temp;
 
 use Net::DBus::Annotation qw(:call);
 
-# NOTE!  You have to run this script as root, or sudo, whatever.  The reason
-# is that it invokes tcpdump which needs escalated privileges in order to
-# monitor your network interfaces.  There are ways around that, but I was too
-# lazy to bother implementing them. So, be root.
-#
-# Run this script just as "./versabench.pl" (or sudo ./versabench.pl, probably).
-# for your own sanity, it's better to run with "./versabench.pl 2>/dev/null", or
-# vxodbc will hurt you.
-#
-# You'll need tcpdump.  I hope that goes without having said... that.
-#
-# Note: In order to connect to an MS SQL database, I had to install (under
-# Linux Ubuntu) the packages:
-# freetds-dev
-# libdbd-sybase-perl (as opposed to DBD::FreeTDS, which is unmaintained)
-#
-# Then:
-# Edit the /etc/freetds/freetds.conf file and add the following entry:
-# [testdb]
-# 	host = $IP_ADDRESS_OF_YOUR_SQL_SERVER
-# 	port = 1433
-# 	tds version = 8.0
-#
-# Now this can connect to an SQL database!
-# 
-#
-# For DBus purposes, you need:
-# libnet-dbus-perl
-#
-# Set the $dbus_moniker variable below to your DBus connection string, and off
-# you go.
-#
-#
-# To get VxODBC working right, you'll need:
-# libdbd-odbc-perl
-# unixodbc-dev
-#
-# Now, this part is a little tricky.  You'll obviously need a VxODBC with its
-# supporting libraries; easiest way to do that is check out a copy of the
-# versaplex tree and compile it.
-#
-# Next:  sudo edit /etc/odbcinst.ini and add/change it to the following
-# [ODBC Drivers]
-# VxODBC		= Installed
-#
-# [VxODBC]
-# Description		= The biggest pair you've ever seen twinkleberry
-# Driver		= $ABSOLUTE_PATH_TO_VXODBC/vxodbc.so
-# Setup			= $ABSOLUTE_PATH_TO_VXODBC/vxodbc.so
-# UsageCount		= 1
-#
-# That's it, not including this line.  Next:
-# sudo edit /etc/odbc.ini and add/change it to the following:
-# [testdb]
-# Driver = VxODBC
-# Database = $desired_name_of_connection_in_your_versaplexd.ini
-# Servername = do_i_do_anything
-# Username = lkosewsk
-# DBus = dbus:session
-#
-# Done and done.  You can test that this works by running:
-# DBUS_SESSION_BUS_ADDRESS=$vxodbc_dbus_moniker isql -v testdb $username $pw
-#
-# Here, $vxodbc_dbus_moniker is the connection moniker to DBus, and
-# username and pw are the database username and password respectively.
-# Try some practice commands, and if they work, you're golden.
-#
-# THEN:  In this little script, modify the $vxodbc_moniker variable to point
-# to the DBus server moniker you want VxODBC to use.
-
 ################################################################################
-# Variables... feel free to play around!
+# Variables... edit these in versabench.conf.
 ################################################################################
 
 # Which tests do you want to run? (1 = run, 0 = don't run)
-my $test_mssql = 1;
-my $test_dbus = 1;
-my $test_vxodbc = 1;
+our $test_mssql = 1;
+our $test_dbus = 1;
+our $test_vxodbc = 1;
 
 # #tests to run for large and small queries
-my $num_large_row_tests = 20;
-my $num_small_row_tests = 500;
-my $num_small_insert_tests = 200;
-my $num_parallel_insert_tests = 100;
+our $num_large_row_tests = 20;
+our $num_small_row_tests = 500;
+our $num_small_insert_tests = 200;
+our $num_parallel_insert_tests = 100;
 
 # Interfaces we use to talk to the corresponding data sources;
 # to capture packets on, per-test
-my $sql_if = "vmnet1";
-my $dbus_if = "lo";
-my $vxodbc_if = $dbus_if;
+our $sql_if = "vmnet1";
+our $dbus_if = "lo";
+our $vxodbc_if = $dbus_if;
 
 # The name of the database on your SQL server that Versaplexd talks to, and
 # which we'll now let MSSQL mangle.
-my $sqlserver = "testdb";
-my $dbname = "testdb";
+our $sqlserver = "testdb";
+our $dbname = "testdb";
 
 # Connection goodies per test
-my $sql_port = 1433;
-my $dbus_moniker = "tcp:host=127.0.0.1,port=5556";
-my $vxodbc_moniker = "gzip:tcp:127.0.0.1:5555";
+our $sql_port = 1433;
+our $dbus_moniker = "tcp:host=127.0.0.1,port=5556";
+our $vxodbc_moniker = "gzip:tcp:127.0.0.1:5555";
 
 # Username and password to connect to the database
-my $user = "sa";
-my $pw = "scs";
+our $user = "sa";
+our $pw = "scs";
 
 # Tcpdump behaviour governing
 # Tcpdump doesn't get the packets out of the kernel right away, you have to
 # give it a second or two to get on its feet.  This governs how many seconds
 # you give it before killing it to analyze its packet stream.
-my $stupid_tcpdump_timeout = 2;
+our $stupid_tcpdump_timeout = 2;
 #1500 seems not to grab all the data.  Hmm.  We use a larger packet size for
 #tcpdump captures.
-my $max_tcp_packet_size = 2000;
+our $max_tcp_packet_size = 2000;
 # Want to see messages like "tcpdump starting on interface blah blah?"  Me
 # neither, but just in case, set this to 1 and you will.
-my $view_tcpdump_status = 0;
+our $view_tcpdump_status = 0;
+
+
+do 'versabench.conf'
+    or die("Can't use versabench.conf: $!\n");
 
 ################################################################################
 # Constants auto-generated from variables above. No touchy (unless you want to)!
@@ -308,7 +246,9 @@ sub dbus_executor
 
 #It sucks, but we have to connect to *something* right now, to input the
 #initial testing data
-my $dbh = DBI->connect("DBI:Sybase:server=$sqlserver;database=$dbname", $user, $pw, {PrintError => 0}) || die "Unable to connect to SQL server";
+my $dbh = DBI->connect("DBI:Sybase:server=$sqlserver;database=$dbname",
+                         $user, $pw, {PrintError => 0}) 
+    or die "Unable to connect to SQL server ($sqlserver, db=$dbname)";
 
 # Create initial testing data
 $dbh->do("DROP TABLE testbitch");
