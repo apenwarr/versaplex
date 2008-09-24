@@ -229,11 +229,11 @@ public static class VxEventLoop {
                 // harmless.
                 //socks[0].Shutdown(SocketShutdown.Receive);
                 //socks[1].Shutdown(SocketShutdown.Send);
-            } catch (Exception e) {
+            } catch {
                 socks[1].Close();
                 throw;
             }
-        } catch (Exception e) {
+        } catch {
             socks[0].Close();
             throw;
         }
