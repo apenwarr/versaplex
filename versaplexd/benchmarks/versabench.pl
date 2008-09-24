@@ -1,5 +1,4 @@
 #!/usr/bin/perl -w
-
 use warnings;
 use strict;
 
@@ -104,6 +103,7 @@ my $vxodbc_if = $dbus_if;
 
 # The name of the database on your SQL server that Versaplexd talks to, and
 # which we'll now let MSSQL mangle.
+my $sqlserver = "testdb";
 my $dbname = "testdb";
 
 # Connection goodies per test
@@ -308,11 +308,11 @@ sub dbus_executor
 
 #It sucks, but we have to connect to *something* right now, to input the
 #initial testing data
-my $dbh = DBI->connect("DBI:Sybase:server=testdb;database=$dbname", $user, $pw, {PrintError => 0}) || die "Unable to connect to SQL server";
+my $dbh = DBI->connect("DBI:Sybase:server=$sqlserver;database=$dbname", $user, $pw, {PrintError => 0}) || die "Unable to connect to SQL server";
 
 # Create initial testing data
 $dbh->do("DROP TABLE testbitch");
-$dbh->do("CREATE TABLE testbitch (numcol int, testcol1 TEXT, testcol2 TEXT, testcol3 TEXT, testcol4 TEXT, testcol5 TEXT, testcol6 TEXT, testcol7 TEXT, testcol8 TEXT, testcol9 TEXT, testcol10 TEXT)");
+$dbh->do("CREATE TABLE testbitch (numcol int, testcol1 TEXT NULL, testcol2 TEXT NULL, testcol3 TEXT NULL, testcol4 TEXT NULL, testcol5 TEXT NULL, testcol6 TEXT NULL, testcol7 TEXT NULL, testcol8 TEXT NULL, testcol9 TEXT NULL, testcol10 TEXT NULL)");
 
 my $large_datasize = 0;
 for (my $i = 0; $i < 105; ++$i) {
