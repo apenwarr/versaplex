@@ -246,7 +246,7 @@ public static class SchemamaticCli
                         foreach (var p in dbsums)
                         {
                             string type, name;
-                            VxSchema.ParseKey(p.Value.name, out type, out name);
+                            VxSchema.ParseKey(p.Value.key, out type, out name);
                             if (type == "Table")
                                 todelete.Add(name);
                         }

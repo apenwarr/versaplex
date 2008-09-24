@@ -51,8 +51,8 @@ internal class VxSchemaDiff : SortedList<string, VxDiffType>
     public override string ToString()
     {
         StringBuilder sb = new StringBuilder();
-        // Assume around 32 characters per entry.  May be slightly off, but
-        // it'll be way better than the default value of 16.
+        // Estimate around 32 characters per entry.  May be slightly off, but
+        // it'll be way better than the default of 16 for the whole thing.
         sb.Capacity = 32 * this.Count;
         foreach (KeyValuePair<string,VxDiffType> p in this)
         {

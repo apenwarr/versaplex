@@ -42,8 +42,7 @@ internal static class VxDb {
 					writer);
 		    
 	// For debugging
-	//signal.WriteHeader();
-	VxDbus.MessageDump(" >> ", signal);
+	VxDbus.MessageDump(" S>> ", signal);
 
 	call.Connection.Send(signal);
     }
@@ -52,6 +51,7 @@ internal static class VxDb {
     internal static void ExecChunkRecordset(Message call, out Message reply)
     {
 	string connid = VxDbInterfaceRouter.GetClientId(call);
+	
         if (connid == null)
         {
             reply = VxDbus.CreateError(
@@ -593,6 +593,9 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 	MessageWriter writer = PrepareRecordsetWriter(colinfo, data, nullity);
 	
         reply = VxDbus.CreateReply(call, "a(issnny)vaay", writer);
+	
+        // For debugging
+        VxDbus.MessageDump(" >> ", reply);
     }
 
     private static void CallQuit(Message call, out Message reply)
@@ -603,6 +606,9 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 	writer.Write(typeof(string), "Quit");
         reply = VxDbus.CreateReply(call, "s", writer);
 	VersaMain.want_to_die = true;
+	
+        // For debugging
+        VxDbus.MessageDump(" >> ", reply);
     }
 
     private static void CallExecScalar(Message call, out Message reply)
@@ -640,6 +646,9 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         writer.Write(result);
 
         reply = VxDbus.CreateReply(call, "v", writer);
+	
+        // For debugging
+        VxDbus.MessageDump(" >> ", reply);
     }
     
     private static void _WriteColInfo(MessageWriter w,
@@ -719,8 +728,9 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 	/// XXX
 
         VxDb.ExecChunkRecordset(call, out reply);
-
-        //reply = VxDbus.CreateReply(call, "a(issnny)vaay", writer);
+	
+        // For debugging
+        VxDbus.MessageDump(" >> ", reply);
     }
 
     private static Signature VxColumnInfoToArraySignature(VxColumnInfo[] vxci)

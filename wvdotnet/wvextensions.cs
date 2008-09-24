@@ -134,9 +134,12 @@ namespace Wv.Extensions
             return String.Join(sep, list.ToArray());
         }
 	
-	public static string[] Split(this string s, params string[] splitwords)
+        // Note: it would be nice to take "params string[] splitwords" here,
+        // but Mono 1.2 apparently has a bug where that won't get picked up
+        // properly.
+	public static string[] Split(this string s, string splitword)
 	{
-	    return s.Split(splitwords, StringSplitOptions.None);
+	    return s.Split(new string[] {splitword}, StringSplitOptions.None);
 	}
 
 	public static int atoi(this object o)

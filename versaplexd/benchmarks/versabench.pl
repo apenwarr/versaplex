@@ -1,5 +1,8 @@
 #!/usr/bin/perl -w
-
+#
+# Versaplex speed/bandwidth/latency benchmark.  See file README for more
+# information.
+#
 use warnings;
 use strict;
 
@@ -11,121 +14,56 @@ use File::Temp;
 
 use Net::DBus::Annotation qw(:call);
 
-# NOTE!  You have to run this script as root, or sudo, whatever.  The reason
-# is that it invokes tcpdump which needs escalated privileges in order to
-# monitor your network interfaces.  There are ways around that, but I was too
-# lazy to bother implementing them. So, be root.
-#
-# Run this script just as "./versabench.pl" (or sudo ./versabench.pl, probably).
-# for your own sanity, it's better to run with "./versabench.pl 2>/dev/null", or
-# vxodbc will hurt you.
-#
-# You'll need tcpdump.  I hope that goes without having said... that.
-#
-# Note: In order to connect to an MS SQL database, I had to install (under
-# Linux Ubuntu) the packages:
-# freetds-dev
-# libdbd-sybase-perl (as opposed to DBD::FreeTDS, which is unmaintained)
-#
-# Then:
-# Edit the /etc/freetds/freetds.conf file and add the following entry:
-# [testdb]
-# 	host = $IP_ADDRESS_OF_YOUR_SQL_SERVER
-# 	port = 1433
-# 	tds version = 8.0
-#
-# Now this can connect to an SQL database!
-# 
-#
-# For DBus purposes, you need:
-# libnet-dbus-perl
-#
-# Set the $dbus_moniker variable below to your DBus connection string, and off
-# you go.
-#
-#
-# To get VxODBC working right, you'll need:
-# libdbd-odbc-perl
-# unixodbc-dev
-#
-# Now, this part is a little tricky.  You'll obviously need a VxODBC with its
-# supporting libraries; easiest way to do that is check out a copy of the
-# versaplex tree and compile it.
-#
-# Next:  sudo edit /etc/odbcinst.ini and add/change it to the following
-# [ODBC Drivers]
-# VxODBC		= Installed
-#
-# [VxODBC]
-# Description		= The biggest pair you've ever seen twinkleberry
-# Driver		= $ABSOLUTE_PATH_TO_VXODBC/vxodbc.so
-# Setup			= $ABSOLUTE_PATH_TO_VXODBC/vxodbc.so
-# UsageCount		= 1
-#
-# That's it, not including this line.  Next:
-# sudo edit /etc/odbc.ini and add/change it to the following:
-# [testdb]
-# Driver = VxODBC
-# Database = $desired_name_of_connection_in_your_versaplexd.ini
-# Servername = do_i_do_anything
-# Username = lkosewsk
-# DBus = dbus:session
-#
-# Done and done.  You can test that this works by running:
-# DBUS_SESSION_BUS_ADDRESS=$vxodbc_dbus_moniker isql -v testdb $username $pw
-#
-# Here, $vxodbc_dbus_moniker is the connection moniker to DBus, and
-# username and pw are the database username and password respectively.
-# Try some practice commands, and if they work, you're golden.
-#
-# THEN:  In this little script, modify the $vxodbc_moniker variable to point
-# to the DBus server moniker you want VxODBC to use.
-
 ################################################################################
-# Variables... feel free to play around!
+# Variables... edit these in versabench.conf.
 ################################################################################
 
 # Which tests do you want to run? (1 = run, 0 = don't run)
-my $test_mssql = 1;
-my $test_dbus = 1;
-my $test_vxodbc = 1;
+our $test_mssql = 1;
+our $test_dbus = 1;
+our $test_vxodbc = 1;
 
 # #tests to run for large and small queries
-my $num_large_row_tests = 20;
-my $num_small_row_tests = 500;
-my $num_small_insert_tests = 200;
-my $num_parallel_insert_tests = 100;
+our $num_large_row_tests = 20;
+our $num_small_row_tests = 500;
+our $num_small_insert_tests = 200;
+our $num_parallel_insert_tests = 100;
 
 # Interfaces we use to talk to the corresponding data sources;
 # to capture packets on, per-test
-my $sql_if = "vmnet1";
-my $dbus_if = "lo";
-my $vxodbc_if = $dbus_if;
+our $sql_if = "vmnet1";
+our $dbus_if = "lo";
+our $vxodbc_if = $dbus_if;
 
 # The name of the database on your SQL server that Versaplexd talks to, and
 # which we'll now let MSSQL mangle.
-my $dbname = "testdb";
+our $sqlserver = "testdb";
+our $dbname = "testdb";
 
 # Connection goodies per test
-my $sql_port = 1433;
-my $dbus_moniker = "tcp:host=127.0.0.1,port=5556";
-my $vxodbc_moniker = "gzip:tcp:127.0.0.1:5555";
+our $sql_port = 1433;
+our $dbus_moniker = "tcp:host=127.0.0.1,port=5556";
+our $vxodbc_moniker = "gzip:tcp:127.0.0.1:5555";
 
 # Username and password to connect to the database
-my $user = "sa";
-my $pw = "scs";
+our $user = "sa";
+our $pw = "scs";
 
 # Tcpdump behaviour governing
 # Tcpdump doesn't get the packets out of the kernel right away, you have to
 # give it a second or two to get on its feet.  This governs how many seconds
 # you give it before killing it to analyze its packet stream.
-my $stupid_tcpdump_timeout = 2;
+our $stupid_tcpdump_timeout = 2;
 #1500 seems not to grab all the data.  Hmm.  We use a larger packet size for
 #tcpdump captures.
-my $max_tcp_packet_size = 2000;
+our $max_tcp_packet_size = 2000;
 # Want to see messages like "tcpdump starting on interface blah blah?"  Me
 # neither, but just in case, set this to 1 and you will.
-my $view_tcpdump_status = 0;
+our $view_tcpdump_status = 0;
+
+
+do 'versabench.conf'
+    or die("Can't use versabench.conf: $!\n");
 
 ################################################################################
 # Constants auto-generated from variables above. No touchy (unless you want to)!
@@ -182,16 +120,18 @@ sub count_roundtrips
 	my $curdest = "";
 	{
 		my $line1 = <$myfh>;
-		$line1 =~ m/IP ([^\s]+) > ([^\s:]+)/;
-		($curhost, $curdest) = ($1, $2);
+		if ($line1 =~ /IP ([^\s]+) > ([^\s:]+)/) {
+    		    ($curhost, $curdest) = ($1, $2);
+                }
 	}
 	while (<$myfh>) {
-		m/IP ([^\s]+) > ([^\s:]+)/;
-		if ($1 ne $curdest || $2 ne $curhost) {
-			$curhost = $1;
-			$curdest = $2;
-			++$convs;
-		}
+		if (/IP ([^\s]+) > ([^\s:]+)/) {
+                    if ($1 ne $curdest || $2 ne $curhost) {
+                            $curhost = $1;
+                            $curdest = $2;
+                            ++$convs;
+                    }
+                }
 	}
 
 	push(@{$data}, $convs / $num);
@@ -206,7 +146,7 @@ sub count_size
 
 	open my ($myfh), $tempfile;
 	local $/;
-	push (@{$data}, sprintf("%.2f", length(<$myfh>) / $num));
+	push (@{$data}, sprintf("%d", length(<$myfh>) / $num));
 	close $myfh;
 }
 
@@ -263,16 +203,13 @@ sub sql_executor
 	system("tcpdump -w $tempfile -s $max_tcp_packet_size -i $if 'tcp port $port' $tredir &");
 	sleep 1;  #Need to give tcpdump a sec to start up
 
-	my $elapsed = 0;
+	my $t = [Time::HiRes::gettimeofday];
 	if ($querya[0] eq "INSERT") {
 		for (my $i = 0; $i < $num; ++$i) {
-			my $t = [Time::HiRes::gettimeofday];
 			my $rv = $mydbh->do($query);
-			$elapsed += Time::HiRes::tv_interval($t);
 		}
 	} else {
 		for (my $i = 0; $i < $num; ++$i) {
-			my $t = [Time::HiRes::gettimeofday];
 			my $sth = $mydbh->prepare($query);
 
 			if ($sth->execute) {
@@ -280,10 +217,10 @@ sub sql_executor
 				}
 			}
 			$sth->finish;
-			$elapsed += Time::HiRes::tv_interval($t);
 		}
 	}
-	push(@{$data}, sprintf("%.7f", $elapsed / $num));
+	my $elapsed = Time::HiRes::tv_interval($t);
+	push(@{$data}, sprintf("%.5f", $elapsed / $num));
 	sleep $stupid_tcpdump_timeout;
 	system($kill_tcpdump);
 
@@ -310,13 +247,12 @@ sub dbus_executor
 		return;
 	}
 
-	my $elapsed;
+	my $t = [Time::HiRes::gettimeofday];
 	for (my $i = 0; $i < $num; ++$i) {
-		my $t = [Time::HiRes::gettimeofday];
 		my $response = $dbus_handle->ExecChunkRecordset($query);
-		$elapsed += Time::HiRes::tv_interval($t);
 	}
-	push(@{$data}, sprintf("%.7f", $elapsed / $num));
+	my $elapsed = Time::HiRes::tv_interval($t);
+	push(@{$data}, sprintf("%.5f", $elapsed / $num));
 	#print "DBUS: for statement: $query, time elapsed is: $elapsed\n";
 }
 
@@ -324,13 +260,17 @@ sub dbus_executor
 # Initial set-up
 ################################################################################
 
+print "Initial setup...\n";
+
 #It sucks, but we have to connect to *something* right now, to input the
 #initial testing data
-my $dbh = DBI->connect("DBI:Sybase:server=testdb;database=$dbname", $user, $pw, {PrintError => 0}) || die "Unable to connect to SQL server";
+my $dbh = DBI->connect("DBI:Sybase:server=$sqlserver;database=$dbname",
+                         $user, $pw, {PrintError => 0}) 
+    or die "Unable to connect to SQL server ($sqlserver, db=$dbname)";
 
 # Create initial testing data
 $dbh->do("DROP TABLE testbitch");
-$dbh->do("CREATE TABLE testbitch (numcol int, testcol1 TEXT, testcol2 TEXT, testcol3 TEXT, testcol4 TEXT, testcol5 TEXT, testcol6 TEXT, testcol7 TEXT, testcol8 TEXT, testcol9 TEXT, testcol10 TEXT)");
+$dbh->do("CREATE TABLE testbitch (numcol int, testcol1 TEXT NULL, testcol2 TEXT NULL, testcol3 TEXT NULL, testcol4 TEXT NULL, testcol5 TEXT NULL, testcol6 TEXT NULL, testcol7 TEXT NULL, testcol8 TEXT NULL, testcol9 TEXT NULL, testcol10 TEXT NULL)");
 
 my $large_datasize = 0;
 for (my $i = 0; $i < 105; ++$i) {
@@ -448,14 +388,14 @@ sub test_dbus
 	# We certainly want to find a way to test this with VxODBC, but really
 	# can't for now.  Pipelined inserts; note the dbus_call_noreply, which
 	# means we don't care and don't listen for responses, just keep firing.
-	my $elapsed = 0;
+	my $t = [Time::HiRes::gettimeofday];
 	for (my $i = 0; $i < $num_parallel_insert_tests; ++$i) {
-		my $t = [Time::HiRes::gettimeofday];
 		$db->ExecChunkRecordset(dbus_call_noreply, $insert_query);
-		$elapsed += Time::HiRes::tv_interval($t);
 	}
+	my $elapsed = Time::HiRes::tv_interval($t);
+	
 	if ($num_parallel_insert_tests) {
-		push(@dbus_data,sprintf("%.7f", $elapsed / $num_parallel_insert_tests));
+		push(@dbus_data,sprintf("%.5f", $elapsed / $num_parallel_insert_tests));
 	} else {
 		push(@dbus_data, "N/A");
 	}
@@ -472,7 +412,7 @@ sub test_vxodbc
 	my $vxodbc_port = get_dbus_port($vxodbc_moniker);
 	$ENV{DBUS_SESSION_BUS_ADDRESS} = $vxodbc_moniker;
 
-	my @vx_data = ("VxODBC\t");
+	my @vx_data = ("VxODBC");
 	push(@printtables, \@vx_data);
 	
 	my $dbh_vx = DBI->connect("DBI:ODBC:testdb", $user, $pw, {PrintError => 1}) || die "Unable to connect to SQL server";
@@ -496,7 +436,7 @@ push(@runfuncs, ["VxODBC", \&test_vxodbc]);
 
 sub test_mssql
 {
-	my @ms_data = ("Native MS SQL");
+	my @ms_data = ("Raw MS SQL");
 	unshift(@printtables, \@ms_data);
 
 	sql_executor($dbh, $large_row_query, $num_large_row_tests,
@@ -536,16 +476,7 @@ $dbh->disconnect;
 # Generate table data
 ################################################################################
 
-my @rowtitles = ("\t\t\t\t|",
-		"Multirow SELECT time\t\t|", "(secs/request)\t\t\t|",
-		"Multirow SELECT bandwidth\t|", "(bytes/request)\t\t|",
-		"Tiny SELECT time\t\t|", "(secs/request)\t\t\t|",
-		"Tiny SELECT bandwidth\t\t|", "(bytes/request)\t\t|",
-		"Tiny SELECT round-trips\t|", "(trips/request)\t\t|",
-		"Single-row INSERT speed\t|", "(secs/request)\t\t\t|",
-		"Pipelined INSERT speed\t\t|", "(secs/request)\t\t\t|"
-		);
-
+print "\n";
 print "Ah, the part you've been waiting for... table data!\n";
 print "Results are compiled from averaging capture data over:\n";
 print " - $num_large_row_tests large multi-row request(s) (",
@@ -553,44 +484,25 @@ print " - $num_large_row_tests large multi-row request(s) (",
 print " - $num_small_row_tests small 4-byte request(s)\n";
 print " - $num_small_insert_tests 104-byte row insertion(s)\n";
 print " - $num_parallel_insert_tests simultaneous 104-byte row insertion(s)\n";
-
 print "\n";
 
-sub print_dashline
-{
-	my $endpoint = 81 - (3 - scalar(@printtables)) * 16;
-	$endpoint = 80 if ($endpoint == 81);
-	print "-" x $endpoint;
-}
+printf "%-12s%18s%18s%9s%9s%9s\n", 
+        "", "BigSELECT  ", "TinySELECT ",
+        "Round", "Serial", "Pipeline";
+printf "%-12s%9s%9s%9s%9s%9s%9s%9s\n", 
+        "", "secs", "bytes", "secs", "bytes",
+        "trips", "INSERT", "INSERT";
+printf "%-12s%9s%9s%9s%9s%9s%9s%9s\n", 
+        "", "----", "-----", "----", "-----",
+        "-----", "------", "------";
 
-print_dashline;
-print "\n|";
-print (shift @rowtitles);
-foreach (@printtables) {
-	print shift(@{$_}), "\t|";
+foreach my $r (@printtables) {
+    my @r = @{$r};
+    printf("%-12s", "$r[0]:");
+    shift @r;
+    foreach my $c (@r) {
+        printf("%9s", $c);
+    }
+    printf("\n");
 }
-print "\n";
-
-print_dashline;
-print "\n";
-
-for (my $i = 0; $i < scalar(@rowtitles); ++$i) {
-	print "|", $rowtitles[$i];
-	if ($i % 2) {
-		foreach (@printtables) {
-			print "\t\t|";
-		}
-		print "\n";
-		print_dashline;
-	} else {
-		foreach (@printtables) {
-			my $p = $_->[$i / 2];
-			print $p, "\t";
-			if (length($p) <= 6) {
-				print "\t";
-			}
-			print "|";
-		}
-	}
-	print "\n";
-}
+exit 0;

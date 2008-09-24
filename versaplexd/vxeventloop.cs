@@ -229,13 +229,13 @@ public static class VxEventLoop {
                 // harmless.
                 //socks[0].Shutdown(SocketShutdown.Receive);
                 //socks[1].Shutdown(SocketShutdown.Send);
-            } catch (Exception e) {
+            } catch {
                 socks[1].Close();
-                throw e;
+                throw;
             }
-        } catch (Exception e) {
+        } catch {
             socks[0].Close();
-            throw e;
+            throw;
         }
 
         return socks;
@@ -336,7 +336,8 @@ public static class VxEventLoop {
                             writelist.Remove(node);
                         }
                     } catch (Exception e) {
-                        log.print("Executing write handler for socket: {0}",
+                        log.print(WvLog.L.Warning,
+				  "Executing write handler for socket: {0}",
 				  e.ToString());
                     }
                     break;
@@ -396,7 +397,8 @@ public static class VxEventLoop {
                     UnregisterRead(vs);
                 }
             } catch (Exception e) {
-                log.print("Executing read handler for socket: {0}\n", e);
+                log.print(WvLog.L.Warning,
+			  "Executing read handler for socket: {0}\n", e);
             }
         }
 
@@ -410,10 +412,11 @@ public static class VxEventLoop {
                 log.print("Running scheduled event\n");
                 nextevent.Run();
             } catch (Exception e) {
-                log.print("Executing scheduled event: {0}\n", e);
+                log.print(WvLog.L.Warning,
+			  "Executing scheduled event: {0}\n", e);
 
                 // This should probably be fatal
-                throw e;
+                throw;
             }
         }
     }
@@ -485,10 +488,11 @@ public static class VxEventLoop {
                     log.print("Running event from main thread\n");
                     e.Run();
                 } catch (Exception ex) {
-                    log.print("Executing from action queue: {0}\n", ex);
+                    log.print(WvLog.L.Warning,
+			      "Executing from action queue: {0}\n", ex);
 
                     // This should probably be fatal
-                    throw ex;
+                    throw;
                 }
                 break;
             case EventContext.ThreadPool:
@@ -499,7 +503,8 @@ public static class VxEventLoop {
                                 log.print("Running event from thread pool\n");
                                 e.Run();
                             } catch (Exception ex) {
-                                log.print("Executing in thread pool: {0}\n", ex);
+                                log.print(WvLog.L.Warning,
+				  "Executing in thread pool: {0}\n", ex);
 
                                 // XXX: Not fatal? Look at this later.
                             }

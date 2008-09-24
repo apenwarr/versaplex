@@ -19,52 +19,6 @@ public enum VxCopyOpts : int
     Verbose = ShowProgress | ShowDiff,
 }
 
-internal class VxSchemaErrors : Dictionary<string, VxSchemaError>
-{
-    public VxSchemaErrors()
-    {
-    }
-
-    public VxSchemaErrors(MessageReader reader)
-    {
-        int size = reader.ReadInt32();
-
-        int endpos = reader.Position + size;
-        while (reader.Position < endpos)
-        {
-            reader.ReadPad(8);
-            VxSchemaError err = new VxSchemaError(reader);
-
-            this.Add(err.key, err);
-        }
-    }
-
-    private void _WriteErrors(MessageWriter writer)
-    {
-        foreach (KeyValuePair<string,VxSchemaError> p in this)
-        {
-            writer.WritePad(8);
-            p.Value.WriteError(writer);
-        }
-    }
-
-    // Static so we can properly write an empty array for a null object.
-    public static void WriteErrors(MessageWriter writer, VxSchemaErrors errs)
-    {
-        writer.WriteDelegatePrependSize(delegate(MessageWriter w)
-            {
-                if (errs != null)
-                    errs._WriteErrors(w);
-            }, 8);
-    }
-
-    public static string GetDbusSignature()
-    {
-        return String.Format("a({0})", VxSchemaError.GetDbusSignature());
-    }
-}
-
-
 internal class VxSchemaElement : IComparable
 {
     string _type;
@@ -78,7 +32,7 @@ internal class VxSchemaElement : IComparable
     }
 
     string _text;
-    public string text {
+    public virtual string text {
         get { return _text; }
         set { _text = value;}
     }
@@ -131,6 +85,13 @@ internal class VxSchemaElement : IComparable
         return VxSchema.GetKey(type, name, encrypted);
     }
 
+    // It's not guaranteed that the text field will be valid SQL.  Give 
+    // subclasses a chance to translate.
+    public virtual string ToSql()
+    {
+        return this.text;
+    }
+
     // Returns the element's text, along with a header line containing the MD5
     // sum of the text, and the provided database checksums.  This format is
     // suitable for serializing to disk.
@@ -157,13 +118,400 @@ internal class VxSchemaElement : IComparable
     }
 }
 
-// Tables will be special later; for now, they act pretty much identically to
-// any other VxSchemaElement.
+// Represents an element of a table, such as a column or index.
+// Each element has a type, such as "column", and a series of key,value
+// parameters, such as ("name","MyColumn"), ("type","int"), etc.
+internal class VxSchemaTableElement
+{
+    public string elemtype;
+    // We can't use a Dictionary<string,string> because we might have repeated
+    // keys (such as two columns for an index).
+    public List<KeyValuePair<string,string>> parameters;
+
+    public VxSchemaTableElement(string type)
+    {
+        elemtype = type;
+        parameters = new List<KeyValuePair<string,string>>();
+    }
+
+    public void AddParam(string name, string val)
+    {
+        parameters.Add(new KeyValuePair<string,string>(name, val));
+    }
+
+    // Returns the first parameter found with the given name.
+    // Returns an empty string if none found.
+    public string GetParam(string name)
+    {
+        foreach (var kvp in parameters)
+            if (kvp.Key == name)
+                return kvp.Value;
+        return "";
+    }
+
+    // Returns a list of all parameters found with the given name.
+    // Returns an empty list if none found.
+    public List<string> GetParamList(string name)
+    {
+        List<string> results = new List<string>();
+        foreach (var kvp in parameters)
+            if (kvp.Key == name)
+                results.Add(kvp.Value);
+        return results;
+    }
+
+    // Serializes to "elemtype: key1=value1,key2=value2" format.
+    public override string ToString()
+    {
+        StringBuilder sb = new StringBuilder();
+        bool empty = true;
+        sb.Append(elemtype + ": ");
+        foreach (var param in parameters)
+        {
+            if (!empty)
+                sb.Append(",");
+
+            sb.Append(param.Key + "=" + param.Value);
+
+            empty = false;
+        }
+        return sb.ToString();
+    }
+
+    public static int CompareTableElemsByName(VxSchemaTableElement e1, 
+        VxSchemaTableElement e2) 
+    { 
+        return e1.GetParam("name").CompareTo(e2.GetParam("name"));
+    }
+}
+
 internal class VxSchemaTable : VxSchemaElement
 {
-    public VxSchemaTable(string newname, string newtext) :
-        base("Table", newname, newtext, false)
+    private List<VxSchemaTableElement> elems;
+
+    public VxSchemaTable(string newname) :
+        base("Table", newname, null, false)
     {
+        elems = new List<VxSchemaTableElement>();
+    }
+
+    public VxSchemaTable(string newname, string newtext) :
+        base("Table", newname, null, false)
+    {
+        elems = new List<VxSchemaTableElement>();
+        // Parse the new text
+        text = newtext;
+    }
+
+    public VxSchemaTable(VxSchemaElement elem) :
+        base("Table", elem.name, null, false)
+    {
+        elems = new List<VxSchemaTableElement>();
+        // Parse the new text
+        text = elem.text;
+    }
+
+    // Internal function to be used in unit tests.  You shouldn't call this.
+    internal IEnumerator<VxSchemaTableElement> GetElems()
+    {
+        return elems.GetEnumerator();
+    }
+
+    public override string text
+    {
+        // Other schema elements just store their text verbatim.
+        // We parse it on input and recreate it on output in order to 
+        // provide more sensible updating of tables in the database.
+        get
+        {
+            StringBuilder sb = new StringBuilder();
+            foreach (var elem in elems)
+                sb.Append(elem.ToString() + "\n");
+            return sb.ToString();
+        }
+        set
+        {
+            elems.Clear();
+            char[] equals = {'='};
+            char[] comma = {','};
+            foreach (string line in value.Split('\n'))
+            {
+                line.Trim();
+                if (line.Length == 0)
+                    continue;
+
+                string typeseparator = ": ";
+                int index = line.IndexOf(typeseparator);
+                if (index < 0)
+                    throw new ArgumentException("Malformed line: " + line);
+                string type = line.Remove(index);
+                string rest = line.Substring(index + typeseparator.Length);
+
+                var elem = new VxSchemaTableElement(type);
+
+                foreach (string kvstr in rest.Split(comma))
+                {
+                    string[] kv = kvstr.Split(equals, 2);
+                    if (kv.Length != 2)
+                        throw new ArgumentException(wv.fmt(
+                            "Invalid entry '{0}' in line '{1}'",
+                            kvstr, line));
+
+                    elem.parameters.Add(
+                        new KeyValuePair<string,string>(kv[0], kv[1]));
+                }
+                elems.Add(elem);
+            }
+        }
+    }
+
+    public string ColumnToSql(VxSchemaTableElement elem)
+    {
+        string colname = elem.GetParam("name");
+        string typename = elem.GetParam("type");
+        string lenstr = elem.GetParam("length");
+        string defval = elem.GetParam("default");
+        string nullstr = elem.GetParam("null");
+        string prec = elem.GetParam("precision");
+        string scale = elem.GetParam("scale");
+        string ident_seed = elem.GetParam("identity_seed");
+        string ident_incr = elem.GetParam("identity_incr");
+
+        string identstr = "";
+        if (!String.IsNullOrEmpty(ident_seed) && 
+            !String.IsNullOrEmpty(ident_incr))
+        {
+            identstr = wv.fmt(" IDENTITY ({0},{1})", 
+                ident_seed, ident_incr);
+        }
+
+        if (String.IsNullOrEmpty(nullstr))
+            nullstr = "";
+        else if (nullstr == "0")
+            nullstr = " NOT NULL";
+        else
+            nullstr = " NULL";
+
+        if (!String.IsNullOrEmpty(lenstr))
+            lenstr = " (" + lenstr + ")";
+        else if (!String.IsNullOrEmpty(prec) && 
+            !String.IsNullOrEmpty(scale))
+        {
+            lenstr = wv.fmt(" ({0},{1})", prec, scale);
+        }
+
+        if (!String.IsNullOrEmpty(defval))
+            defval = " DEFAULT " + defval;
+
+        return wv.fmt("[{0}] [{1}]{2}{3}{4}{5}",
+            colname, typename, lenstr, defval, nullstr, identstr);
+    }
+
+    public string IndexToSql(VxSchemaTableElement elem)
+    {
+        List<string> idxcols = elem.GetParamList("column");
+        string idxname = elem.GetParam("name");
+        string unique = elem.GetParam("unique");
+        string clustered = elem.GetParam("clustered") == "1" ? 
+            "CLUSTERED " : "";
+
+        if (unique != "" && unique != "0")
+            unique = "UNIQUE ";
+        else
+            unique = "";
+
+        return wv.fmt(
+            "CREATE {0}{1}INDEX [{2}] ON [{3}] \n\t({4});",
+            unique, clustered, idxname, this.name, idxcols.Join(", "));
+    }
+
+    public string PrimaryKeyToSql(VxSchemaTableElement elem)
+    {
+        List<string> idxcols = elem.GetParamList("column");
+        string idxname = elem.GetParam("name");
+        string clustered = elem.GetParam("clustered") == "1" ? 
+            " CLUSTERED" : " NONCLUSTERED";
+
+        // If no name is specified, set it to "PK_TableName"
+        if (String.IsNullOrEmpty(idxname))
+            idxname = "PK_" + this.name;
+
+        return wv.fmt(
+            "ALTER TABLE [{0}] ADD CONSTRAINT [{1}] PRIMARY KEY{2}\n" +
+            "\t({3});\n\n", 
+            this.name, idxname, clustered, idxcols.Join(", "));
+    }
+
+    public override string ToSql()
+    {
+        List<string> cols = new List<string>();
+        List<string> indexes = new List<string>();
+        string pkey = "";
+        foreach (var elem in elems)
+        {
+            if (elem.elemtype == "column")
+                cols.Add(ColumnToSql(elem));
+            else if (elem.elemtype == "index")
+                indexes.Add(IndexToSql(elem));
+            else if (elem.elemtype == "primary-key")
+            {
+                if (pkey != "")
+                {
+                    throw new VxBadSchemaException(
+                        "Multiple primary key statements are not " + 
+                        "permitted in table definitions.\n" + 
+                        "Conflicting statement: " + elem.ToString() + "\n");
+                }
+                pkey = PrimaryKeyToSql(elem);
+            }
+        }
+
+        string table = String.Format("CREATE TABLE [{0}] (\n\t{1});\n\n{2}{3}\n",
+            name, cols.Join(",\n\t"), pkey, indexes.Join("\n"));
+        return table;
+    }
+
+    public void AddColumn(string name, string type, int isnullable, 
+        string len, string defval, string prec, string scale, 
+        int isident, string ident_seed, string ident_incr)
+    {
+        var elem = new VxSchemaTableElement("column");
+        // FIXME: Put the table name here or not?  Might be handy, but could
+        // get out of sync with e.g. filename or whatnot.
+        elem.AddParam("name", name);
+        elem.AddParam("type", type);
+        elem.AddParam("null", isnullable.ToString());
+        if (!String.IsNullOrEmpty(len))
+            elem.AddParam("length", len);
+        if (!String.IsNullOrEmpty(defval))
+            elem.AddParam("default", defval);
+        if (!String.IsNullOrEmpty(prec))
+            elem.AddParam("precision", prec);
+        if (!String.IsNullOrEmpty(scale))
+            elem.AddParam("scale", scale);
+        if (isident != 0)
+        {
+            elem.AddParam("identity_seed", ident_seed);
+            elem.AddParam("identity_incr", ident_incr);
+        }
+        elems.Add(elem);
+    }
+
+    public void AddIndex(string name, int unique, int clustered, 
+        params string[] columns)
+    {
+        WvLog log = new WvLog("AddIndex");
+        log.print("Adding index on {0}, name={1}, unique={2}, clustered={3},\n", 
+            columns.Join(","), name, unique, clustered);
+        var elem = new VxSchemaTableElement("index");
+
+        foreach (string col in columns)
+            elem.AddParam("column", col);
+        elem.AddParam("name", name);
+        elem.AddParam("unique", unique.ToString());
+        elem.AddParam("clustered", clustered.ToString());
+
+        elems.Add(elem);
+    }
+
+    public void AddPrimaryKey(string name, int clustered, 
+        params string[] columns)
+    {
+        WvLog log = new WvLog("AddPrimaryKey");
+        log.print("Adding primary key '{0}' on {1}, clustered={2}\n", 
+            name, columns.Join(","), clustered);
+        var elem = new VxSchemaTableElement("primary-key");
+
+        if (!String.IsNullOrEmpty(name) && name != "PK_" + this.name)
+            elem.AddParam("name", name);
+
+        foreach (string col in columns)
+            elem.AddParam("column", col);
+        elem.AddParam("clustered", clustered.ToString());
+
+        elems.Add(elem);
+    }
+
+    // Figure out what changed between oldtable and newtable.  Returns a 
+    // dictionary mapping table element types and names (if applicable) to 
+    // diff types.  The keys are of the form "column: ColumnName" or 
+    // "index: IndexName", or just "primary-key" for primary keys, since
+    // there's only one primary key at a time.
+    public static Dictionary<VxSchemaTableElement, VxDiffType> GetDiff(
+        VxSchemaTable oldtable, VxSchemaTable newtable)
+    {
+        WvLog log = new WvLog("SchemaTable GetDiff");
+        var diff = new Dictionary<VxSchemaTableElement, VxDiffType>();
+        var oldset = new Dictionary<string, VxSchemaTableElement>();
+        var newset = new Dictionary<string, VxSchemaTableElement>();
+
+        // Build some dictionaries so we can quickly check if a particular 
+        // entry exists in a table, even if its attributes have changed.
+        // We only have one primary key per table, no need to distinguish it
+        // further (and it might not have a name yet).  But of course there'll
+        // be multiple columns and indexes, so we need to key off of the
+        // element type and name.
+        foreach (var elem in oldtable.elems)
+        {
+            string key;
+            if (elem.elemtype == "primary-key")
+                key = elem.elemtype;
+            else
+                key = elem.elemtype + ": " + elem.GetParam("name");
+
+            if (oldset.ContainsKey(key))
+                throw new VxBadSchemaException(wv.fmt("Duplicate table entry " + 
+                    "'{0}' found.", key));
+
+            oldset.Add(key, elem);
+        }
+        foreach (var elem in newtable.elems)
+        {
+            string key;
+            if (elem.elemtype == "primary-key")
+                key = elem.elemtype;
+            else
+                key = elem.elemtype + ": " + elem.GetParam("name");
+
+            if (newset.ContainsKey(key))
+                throw new VxBadSchemaException(wv.fmt("Duplicate table entry " + 
+                    "'{0}' found.", key));
+
+            newset.Add(key, elem);
+        }
+
+        foreach (var kvp in oldset)
+        {
+            if (!newset.ContainsKey(kvp.Key))
+            {
+                log.print("Scheduling {0} for removal.\n", kvp.Key);
+                diff.Add(kvp.Value, VxDiffType.Remove);
+            }
+            else if (kvp.Value.ToString() != newset[kvp.Key].ToString())
+            {
+                log.print("Scheduling {0} for change.\n", kvp.Key);
+                string elemtype = kvp.Value.elemtype;
+                if (elemtype == "primary-key" || elemtype == "index")
+                {
+                    // Don't bother trying to change indexes, just delete and
+                    // re-add them.  Makes it possible to rename primary keys.
+                    diff.Add(kvp.Value, VxDiffType.Remove);
+                    diff.Add(newset[kvp.Key], VxDiffType.Add);
+                }
+                else
+                    diff.Add(newset[kvp.Key], VxDiffType.Change);
+            }
+        }
+        foreach (var kvp in newset)
+        {
+            if (!oldset.ContainsKey(kvp.Key))
+            {
+                log.print("Scheduling {0} for addition.\n", kvp.Key);
+                diff.Add(kvp.Value, VxDiffType.Add);
+            }
+        }
+
+        return diff;
     }
 }
 
@@ -207,6 +555,10 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
         {
             reader.ReadPad(8);
             VxSchemaElement elem = new VxSchemaElement(reader);
+            if (elem.type == "Table")
+            {
+                elem = new VxSchemaTable(elem);
+            }
             Add(elem.GetKey(), elem);
         }
     }
@@ -239,7 +591,8 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
         {
             if (!this.ContainsKey(p.Key))
                 throw new ArgumentException("The provided diff does not " + 
-                    "match the schema: extra element '" + p.Value + "'");
+                    "match the schema: extra element '" + 
+                    (char)p.Value + " " + p.Key + "'");
             if (p.Value == VxDiffType.Remove)
             {
                 VxSchemaElement elem = new VxSchemaElement(this[p.Key]);
@@ -274,17 +627,10 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
         return String.Format("{0}{1}/{2}", type, enc_str, name);
     }
 
-    private static char[] slash = new char[] {'/'};
+    // ParseKey used to live here, but moved to VxSchemaChecksums.  
     public static void ParseKey(string key, out string type, out string name)
     {
-        string[] parts = key.Split(slash, 2);
-        if (parts.Length != 2)
-        {
-            type = name = null;
-            return;
-        }
-        type = parts[0];
-        name = parts[1];
+        VxSchemaChecksums.ParseKey(key, out type, out name);
         return;
     }
 

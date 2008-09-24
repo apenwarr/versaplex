@@ -4,6 +4,7 @@ using System;
 using System.Data;
 using System.Data.SqlClient;
 using System.Data.SqlTypes;
+using Wv;
 using Wv.Test;
 
 [TestFixture]
@@ -12,6 +13,8 @@ class VxExecChunkRecordsetTests : VersaplexTester
     [Test, Category("ExecChunkRecordset")]
     public void EmptyTableTest()
     {
+	WvLog.maxlevel = WvLog.L.Debug5;
+	
 	// Check that column types are copied correctly to the output table
         try { VxExec("DROP TABLE test1"); } catch {}
 
