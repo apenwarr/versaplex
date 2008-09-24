@@ -152,7 +152,7 @@ END { unlink $tempfile; }
 
 my $kill_tcpdump = "kill `pgrep tcpdump`";
 
-my $small_row_query = "select 1";
+my $small_row_query = "SELECT TOP 1 * FROM testbitch ORDER BY NEWID()";
 my $large_row_query = "select * from testbitch";
 my $insert_query = "INSERT INTO testbitch (numcol, testcol1, testcol2, " .
 		"testcol3, testcol4) VALUES (" .
@@ -216,6 +216,11 @@ sub perform_counts
 	my $num = shift;
 	my $data = shift;
 
+	if (!$num) {
+		push(@{$data}, "N/A", "N/A");
+		return;
+	}
+
 	count_size($num, $data);
 	count_roundtrips($num, $data);
 }
@@ -247,12 +252,18 @@ sub sql_executor
 	my $if = shift;
 	my $port = shift;
 	my $data = shift;
+
+	my @querya = split(/ /, $query);
+	
+	if (!$num) {
+		push(@{$data}, "N/A");
+		goto do_counts;
+	}
 	
 	system("tcpdump -w $tempfile -s $max_tcp_packet_size -i $if 'tcp port $port' $tredir &");
 	sleep 1;  #Need to give tcpdump a sec to start up
 
 	my $elapsed = 0;
-	my @querya = split(/ /, $query);
 	if ($querya[0] eq "INSERT") {
 		for (my $i = 0; $i < $num; ++$i) {
 			my $t = [Time::HiRes::gettimeofday];
@@ -275,6 +286,8 @@ sub sql_executor
 	push(@{$data}, sprintf("%.7f", $elapsed / $num));
 	sleep $stupid_tcpdump_timeout;
 	system($kill_tcpdump);
+
+do_counts:
 	if ($querya[0] ne "INSERT") {
 		perform_counts($num, $data);
 	}
@@ -291,6 +304,11 @@ sub dbus_executor
 	my $query = shift;
 	my $num = shift;
 	my $data = shift;
+
+	if (!$num) {
+		push(@{$data}, "N/A");
+		return;
+	}
 
 	my $elapsed;
 	for (my $i = 0; $i < $num; ++$i) {
@@ -359,8 +377,13 @@ sub test_dbus
 	my $tcpdump_dbus = "tcpdump -w $tempfile -s $max_tcp_packet_size " .
 			"-i $dbus_if 'tcp port $dbus_port' $tredir &";
 
-	system($tcpdump_dbus);
-	sleep 1;  #Give tcpdump a chance to get on its feet
+	my $tcpdump_active = 0;
+	# UGLY
+	if ($num_large_row_tests) {
+		system($tcpdump_dbus);
+		sleep 1;  #Give tcpdump a chance to get on its feet
+		$tcpdump_active = 1;
+	}
 
 	my $runtest = 1;
 	my $del;
@@ -390,7 +413,8 @@ sub test_dbus
 	my $runtimes = 0;
 	$del = $reactor->add_timeout($stupid_tcpdump_timeout * 1000 + 500,
 		Net::DBus::Callback->new(method => sub {
-		system($kill_tcpdump);
+		system($kill_tcpdump) if ($tcpdump_active);
+		$tcpdump_active = 0;
 		my $num;
 		if (++$runtimes == 1) {
 			$reactor->remove_timeout($big);
@@ -403,8 +427,11 @@ sub test_dbus
 		perform_counts($num, \@dbus_data);
 		if ($runtimes == 1) {
 			pop(@dbus_data);  # Remove # round-trips, nobody cares?
-			system($tcpdump_dbus);
-			sleep 1;
+			if ($num_small_row_tests) {
+				system($tcpdump_dbus);
+				sleep 1;
+				$tcpdump_active = 1;
+			}
 		} elsif ($runtimes == 2) {
 			$reactor->shutdown;
 		}
@@ -427,7 +454,11 @@ sub test_dbus
 		$db->ExecChunkRecordset(dbus_call_noreply, $insert_query);
 		$elapsed += Time::HiRes::tv_interval($t);
 	}
-	push(@dbus_data,sprintf("%.7f", $elapsed / $num_parallel_insert_tests));
+	if ($num_parallel_insert_tests) {
+		push(@dbus_data,sprintf("%.7f", $elapsed / $num_parallel_insert_tests));
+	} else {
+		push(@dbus_data, "N/A");
+	}
 }
 
 push(@runfuncs, ["Perl-DBus", \&test_dbus]);
