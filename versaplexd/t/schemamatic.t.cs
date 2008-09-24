@@ -40,8 +40,8 @@ class SchemamaticTests : SchemamaticTester
         WVPASSEQ(errs.Count, 1);
 
         // Just return the first error
-        foreach (KeyValuePair<string,VxSchemaError> p in errs)
-            return p.Value;
+        foreach (var p in errs)
+            return p.Value[0];
 
         WVFAIL("Shouldn't happen: couldn't find error to return");
 
@@ -405,7 +405,7 @@ class SchemamaticTests : SchemamaticTester
 
         VxSchemaErrors errs = dbus.DropSchema("Procedure/Func1");
         WVPASSEQ(errs.Count, 1);
-        WVPASSEQ(errs["Procedure/Func1"].msg, 
+        WVPASSEQ(errs["Procedure/Func1"][0].msg, 
             "Cannot drop the procedure 'Func1', because it does not exist " + 
             "or you do not have permission.");
 
@@ -695,20 +695,20 @@ class SchemamaticTests : SchemamaticTester
 
         errs = VxPutSchema(schema, no_opts);
 
-        foreach (var err in errs)
-            log.print("Error='{0}'\n", err.Value.ToString());
+        log.print("Results: \n{0}", errs.ToString());
+        log.print("Done results.\n");
 
         WVPASSEQ(errs.Count, baseline_err_count + 2);
-
-	log.print("Results: [\n{0}]\n", errs.Join("'\n'"));
-        WVPASSEQ(errs["ScalarFunction/ErrSF"].key, "ScalarFunction/ErrSF");
-        WVPASSEQ(errs["ScalarFunction/ErrSF"].msg, 
+        WVPASSEQ(errs["ScalarFunction/ErrSF"][0].key, "ScalarFunction/ErrSF");
+        WVPASSEQ(errs["ScalarFunction/ErrSF"][0].msg, 
             "Incorrect syntax near the keyword 'not'.");
-        WVPASSEQ(errs["ScalarFunction/ErrSF"].errnum, 156);
-        WVPASSEQ(errs["TableFunction/ErrTF"].key, "TableFunction/ErrTF");
-        WVPASSEQ(errs["TableFunction/ErrTF"].msg, 
+        WVPASSEQ(errs["ScalarFunction/ErrSF"][0].errnum, 156);
+        WVPASSEQ(errs["ScalarFunction/ErrSF"].Count, 1);
+        WVPASSEQ(errs["TableFunction/ErrTF"][0].key, "TableFunction/ErrTF");
+        WVPASSEQ(errs["TableFunction/ErrTF"][0].msg, 
             "Unclosed quotation mark after the character string 'm not valid SQL either'.");
-        WVPASSEQ(errs["TableFunction/ErrTF"].errnum, 105);
+        WVPASSEQ(errs["TableFunction/ErrTF"][0].errnum, 105);
+        WVPASSEQ(errs["TableFunction/ErrTF"].Count, 1);
 
         sc.Cleanup();
     }
@@ -738,15 +738,18 @@ class SchemamaticTests : SchemamaticTester
         VxSchemaErrors errs = VxPutSchema(schema, VxPutOpts.NoRetry);
 
         WVPASSEQ(errs.Count, 3);
-        WVPASSEQ(errs["View/View1"].key, "View/View1");
-        WVPASSEQ(errs["View/View2"].key, "View/View2");
-        WVPASSEQ(errs["View/View3"].key, "View/View3");
-        WVPASSEQ(errs["View/View1"].msg, "Invalid object name 'View2'.");
-        WVPASSEQ(errs["View/View2"].msg, "Invalid object name 'View3'.");
-        WVPASSEQ(errs["View/View3"].msg, "Invalid object name 'View4'.");
-        WVPASSEQ(errs["View/View1"].errnum, 208);
-        WVPASSEQ(errs["View/View2"].errnum, 208);
-        WVPASSEQ(errs["View/View3"].errnum, 208);
+        WVPASSEQ(errs["View/View1"][0].key, "View/View1");
+        WVPASSEQ(errs["View/View2"][0].key, "View/View2");
+        WVPASSEQ(errs["View/View3"][0].key, "View/View3");
+        WVPASSEQ(errs["View/View1"][0].msg, "Invalid object name 'View2'.");
+        WVPASSEQ(errs["View/View2"][0].msg, "Invalid object name 'View3'.");
+        WVPASSEQ(errs["View/View3"][0].msg, "Invalid object name 'View4'.");
+        WVPASSEQ(errs["View/View1"][0].errnum, 208);
+        WVPASSEQ(errs["View/View2"][0].errnum, 208);
+        WVPASSEQ(errs["View/View3"][0].errnum, 208);
+        WVPASSEQ(errs["View/View1"].Count, 1);
+        WVPASSEQ(errs["View/View2"].Count, 1);
+        WVPASSEQ(errs["View/View3"].Count, 1);
 
         try { VxExec("drop view View4"); } catch { }
         errs = VxPutSchema(schema, VxPutOpts.None);
