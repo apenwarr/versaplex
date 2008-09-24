@@ -1,0 +1,68 @@
+NOTE!  You have to run this script as root, or sudo, whatever.  The reason
+is that it invokes tcpdump which needs escalated privileges in order to
+monitor your network interfaces.  There are ways around that, but I was too
+lazy to bother implementing them. So, be root.
+
+Run this script just as "./versabench.pl" (or sudo ./versabench.pl, probably).
+for your own sanity, it's better to run with "./versabench.pl 2>/dev/null", or
+vxodbc will hurt you.
+
+You'll need tcpdump.  I hope that goes without having said... that.
+
+Note: In order to connect to an MS SQL database, I had to install (under
+Linux Ubuntu) the packages:
+	freetds-dev
+	libdbd-sybase-perl (as opposed to DBD::FreeTDS, which is unmaintained)
+
+Add this to /etc/freetds/freetds.conf:
+	[testdb]
+		host = $IP_ADDRESS_OF_YOUR_SQL_SERVER
+		port = 1433
+		tds version = 8.0
+
+Now this can connect to an SQL database!
+
+
+For DBus purposes, you need:
+	libnet-dbus-perl
+
+Set the $dbus_moniker variable below to your DBus connection string, and off
+you go.
+
+
+To get VxODBC working right, you'll need:
+	libdbd-odbc-perl
+	unixodbc-dev
+
+Now, this part is a little tricky.  You'll obviously need a VxODBC with its
+supporting libraries; easiest way to do that is check out a copy of the
+versaplex tree and compile it.
+
+Add this to /etc/odbcinst.ini:
+	[ODBC Drivers]
+	VxODBC		= Installed
+
+	[VxODBC]
+	Description	= The biggest pair you've ever seen twinkleberry
+	Driver		= $ABSOLUTE_PATH_TO_VXODBC/vxodbc.so
+	Setup		= $ABSOLUTE_PATH_TO_VXODBC/vxodbc.so
+	UsageCount	= 1
+
+Add this to /etc/odbc.ini:
+	[testdb]
+	Driver = VxODBC
+	Database = $desired_name_of_connection_in_your_versaplexd.ini
+	Servername = do_i_do_anything
+	Username = lkosewsk
+	DBus = dbus:session
+
+Done and done.  You can test that this works by running:
+	export DBUS_SESSION_BUS_ADDRESS=$vxodbc_dbus_moniker
+	isql -v testdb $username $pw
+
+Here, $vxodbc_dbus_moniker is the connection moniker to DBus, and
+username and pw are the database username and password respectively.
+Try some practice commands, and if they work, you're golden.
+
+THEN: edit versabench.conf and modify the configuration variables to match
+the ones you want to use.
