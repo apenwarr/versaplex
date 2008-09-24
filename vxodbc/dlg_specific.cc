@@ -16,6 +16,8 @@
 #include "multibyte.h"
 #include "pgapifunc.h"
 
+#include "wvlogger.h"
+
 extern GLOBAL_VALUES globals;
 
 void makeConnectString(char *connect_string, const ConnInfo * ci, UWORD len)
@@ -110,7 +112,7 @@ copyAttributes(ConnInfo * ci, const char *attribute, const char *value)
 
     else if (stricmp(attribute, INI_DBUS) == 0)
         strcpy(ci->dbus_moniker, value);
-
+    
     else
 	found = FALSE;
 
@@ -252,6 +254,14 @@ void getDSNinfo(ConnInfo * ci, char overwrite)
     if (ci->dbus_moniker[0] == '\0' || overwrite)
         SQLGetPrivateProfileString(DSN, INI_DBUS, "dbus:session", 
                 ci->dbus_moniker, sizeof(ci->dbus_moniker), ODBC_INI);
+
+    if (log_level[0] == '\0' || overwrite)
+	SQLGetPrivateProfileString(DSN, "LogLevel", "4", log_level,
+		sizeof(log_level), ODBC_INI);
+    if (log_moniker[0] == '\0' || overwrite)
+	SQLGetPrivateProfileString(DSN, "LogMoniker", "", log_moniker,
+		sizeof(log_moniker), ODBC_INI);
+    wvlog_open();
 
     /* Allow override of odbcinst.ini parameters here */
     getCommonDefaults(DSN, ODBC_INI, ci);

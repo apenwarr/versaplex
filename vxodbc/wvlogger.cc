@@ -8,8 +8,11 @@
 #include <wvcrash.h>
 #include "psqlodbc.h"
 
-static WvLog *wvlog;
-static WvLogRcv *rcv1, *rcv2, *rcv3;
+static WvLog *wvlog = NULL;
+static WvLogRcv *rcv = NULL;
+
+char log_level[2];
+char log_moniker[255];
 
 WV_LINK_TO(WvTCPConn);
 WV_LINK_TO(WvSSLStream);
@@ -23,20 +26,40 @@ void wvlog_open()
 #ifdef _MSC_VER
     setup_console_crash();
 #endif
-    rcv1 = new WvLogConsole(dup(2), WvLog::Debug5);
-    rcv2 = new WvLogFile(MYLOGDIR "/vxodbc.log", WvLog::Debug4);
-    IWvStream *s = wvcreate<IWvStream>("tcp:averyp-server:4444");
-    assert(s);
-    WvIStreamList::globallist.append(s, false, "tcp logger");
-    rcv3 = new WvLogStream(s, WvLog::Debug4);
-    wvlog = new WvLog(getpid(), WvLog::Debug);
+    WvLog::LogLevel priii = WvLog::Info;
+    if (log_level != '\0')
+    {
+	int prii = atoi(log_level);
+	if (prii >= (int)WvLog::NUM_LOGLEVELS)
+	    priii = WvLog::Debug5;
+	else if (prii >= (int)WvLog::Info)
+	    priii = (WvLog::LogLevel)prii;
+    }
+
+    if (rcv)
+	delete rcv;
+
+    if (log_moniker[0] != '\0')
+    {
+	IWvStream *s = wvcreate<IWvStream>(log_moniker);
+	assert(s);
+	WvIStreamList::globallist.append(s, false, "VxODBC logger");
+	rcv = new WvLogStream(s, priii);
+    }
+    else
+    {
+	rcv = new WvLogConsole(dup(2), priii);
+    }
+	
+    if (!wvlog)
+	wvlog = new WvLog(getpid(), WvLog::Debug);
 }
 
 
 void wvlog_print(const char *file, int line, const char *s)
 {
     if (!wvlog)
-	wvlog_open();
+	return;
     while (WvIStreamList::globallist.select(0))
 	WvIStreamList::globallist.callback();
     WvString ss("%s:%s: %s", file, line, s);
@@ -47,9 +70,7 @@ void wvlog_print(const char *file, int line, const char *s)
 void wvlog_close()
 {
     if (wvlog) delete wvlog;
-    if (rcv1) delete rcv1;
-    if (rcv2) delete rcv2;
-    if (rcv3) delete rcv3;
+    if (rcv) delete rcv;
     wvlog = NULL;
-    rcv1 = rcv2 = rcv3 = NULL;
+    rcv = NULL;
 }
