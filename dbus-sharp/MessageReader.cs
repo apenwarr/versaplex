@@ -38,14 +38,21 @@ namespace Wv
 
 	    this.message = message;
 	}
+	
+	public T ReadValue<T>()
+	{
+	    return (T)ReadValue(typeof(T));
+	}
 
-	public object ReadValue (Type type)
+	public object ReadValue(Type type)
 	{
 	    if (type == typeof (void))
 		return null;
 
 	    if (type.IsArray) {
-		return ReadArray (type.GetElementType ());
+		wv.assert(false, "Don't use ReadValue(t) on arrays!");
+		return null;
+		//return ReadArray<T>();
 	    }
 	    else if (type == typeof (ObjectPath)) {
 		return ReadObjectPath ();
@@ -355,37 +362,25 @@ namespace Wv
 	}
 
 	//this could be made generic to avoid boxing
-	public Array ReadArray (Type elemType)
+	public T[] ReadArray<T>()
 	{
-	    uint ln = ReadUInt32 ();
+	    uint _ln = ReadUInt32();
+	    if (_ln > Protocol.MaxArrayLength)
+		throw new Exception(wv.fmt("Array length {0} is > {1} bytes",
+					   _ln, Protocol.MaxArrayLength));
+	    int ln = (int)_ln;
 
-	    if (ln > Protocol.MaxArrayLength)
-		throw new Exception ("Array length " + ln + " exceeds maximum allowed " + Protocol.MaxArrayLength + " bytes");
-
-	    //TODO: more fast paths for primitive arrays
-	    if (elemType == typeof (byte)) {
-		byte[] valb = new byte[ln];
-		Array.Copy (data, pos, valb, 0, (int)ln);
-		pos += (int)ln;
-		return valb;
-	    }
-
-	    //advance to the alignment of the element
-	    uint before = (uint)pos;
-	    ReadPad (Protocol.GetAlignment (Signature.TypeToDType (elemType)));
-	    ln -= (uint)pos-(uint)before;
+	    // advance to the alignment of the element
+	    int align = Protocol.GetAlignment(Signature.TypeToDType(typeof(T)));
+	    ReadPad(align);
  
-	    int endPos = pos + (int)ln;
+	    int nelems = ln/align;
 
-	    ArrayList vals = new ArrayList ();
+	    var a = new List<T>();
+	    for (int i = 0; i < nelems; i++)
+		a.Add(ReadValue<T>());
 
-	    while (pos < endPos)
-		vals.Add (ReadValue (elemType));
-
-	    if (pos != endPos)
-		throw new Exception ("Read pos " + pos + " != ep " + endPos);
-
-	    return vals.ToArray (elemType);
+	    return a.ToArray();
 	}
 
 	//struct

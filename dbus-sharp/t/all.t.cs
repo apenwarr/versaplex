@@ -44,7 +44,7 @@ class DbusTest
 	    WVPASSEQ(r.ReadByte(), 42);
 	    WVPASSEQ(r.ReadInt32(), 42);
 	    WVPASSEQ(r.ReadString(), "hello world");
-	    Array a = r.ReadArray(typeof(Int64));
+	    Array a = r.ReadArray<Int64>();
 	    WVPASSEQ(a.Length, 3);
 	    WVPASSEQ(((Int64[])a)[2], 0x44);
 	}

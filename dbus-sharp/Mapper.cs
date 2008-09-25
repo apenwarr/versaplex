@@ -245,16 +245,6 @@ namespace Wv
 
 		public static object[] GetDynamicValues (Message msg, ParameterInfo[] parms)
 		{
-			//TODO: this validation check should provide better information, eg. message dump or a stack trace, or at least the interface/member
-			/*
-			if (Protocol.Verbose) {
-				Signature expected = Signature.GetSig (types);
-				Signature actual = msg.Signature;
-				if (actual != expected)
-					Console.Error.WriteLine ("Warning: The signature of the message does not match that of the handler: " + "Expected '" + expected + "', got '" + actual + "'");
-			}
-			*/
-
 			object[] vals = new object[parms.Length];
 
 			if (msg.Body != null) {
@@ -263,7 +253,7 @@ namespace Wv
 					if (parm.IsOut)
 						continue;
 
-					vals[parm.Position] = reader.ReadValue (parm.ParameterType);
+					vals[parm.Position] = reader.ReadValue(parm.ParameterType);
 				}
 			}
 
