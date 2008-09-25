@@ -28,9 +28,6 @@ namespace Wv
 			message.Header.Fields[FieldCode.Destination] = destination;
 			//TODO: consider setting Sender here for p2p situations
 			//this will allow us to remove the p2p hacks in MethodCall and Message
-#if PROTO_REPLY_SIGNATURE
-			//TODO
-#endif
 			//message.Header.Fields[FieldCode.Signature] = signature;
 			//use the wrapper in Message because it checks for emptiness
 			message.Signature = signature;
@@ -48,13 +45,6 @@ namespace Wv
 			//so we make it optional here, but this needs some more thought
 			if (message.Header.Fields.ContainsKey (FieldCode.Sender))
 				Sender = (string)message.Header.Fields[FieldCode.Sender];
-#if PROTO_REPLY_SIGNATURE
-			//TODO: note that an empty ReplySignature should really be treated differently to the field not existing!
-			if (message.Header.Fields.ContainsKey (FieldCode.ReplySignature))
-				ReplySignature = (Signature)message.Header.Fields[FieldCode.ReplySignature];
-			else
-				ReplySignature = Signature.Empty;
-#endif
 			//Signature = (Signature)message.Header.Fields[FieldCode.Signature];
 			//use the wrapper in Message because it checks for emptiness
 			Signature = message.Signature;
@@ -65,9 +55,6 @@ namespace Wv
 		public string Member;
 		public string Destination;
 		public string Sender;
-#if PROTO_REPLY_SIGNATURE
-		public Signature ReplySignature;
-#endif
 		public Signature Signature;
 	}
 

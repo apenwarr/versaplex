@@ -132,13 +132,6 @@ namespace Wv
 				return null;
 			}
 
-#if PROTO_REPLY_SIGNATURE
-			if (needsReply) {
-				Signature outSig = Signature.GetSig (outTypes);
-				callMsg.Header.Fields[FieldCode.ReplySignature] = outSig;
-			}
-#endif
-
 			Message retMsg = conn.SendWithReplyAndBlock (callMsg);
 
 			object retVal = null;
@@ -248,13 +241,6 @@ namespace Wv
 				conn.Send (callMsg);
 				return;
 			}
-
-#if PROTO_REPLY_SIGNATURE
-			if (needsReply) {
-				Signature outSig = Signature.GetSig (outTypes);
-				callMsg.Header.Fields[FieldCode.ReplySignature] = outSig;
-			}
-#endif
 
 			Message retMsg = conn.SendWithReplyAndBlock (callMsg);
 
