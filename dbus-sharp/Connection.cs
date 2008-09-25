@@ -14,7 +14,7 @@ namespace Wv
 	using Authentication;
 	using Transports;
 
-	public partial class Connection
+	public class Connection
 	{
 		//TODO: reconsider this field
 		public Stream ns = null;
@@ -51,16 +51,6 @@ namespace Wv
 			OpenPrivate (address);
 			Authenticate ();
 		}
-
-		/*
-		bool isConnected = false;
-		public bool IsConnected
-		{
-			get {
-				return isConnected;
-			}
-		}
-		*/
 
 		//should we do connection sharing here?
 		public static Connection Open (string address)
@@ -150,10 +140,6 @@ namespace Wv
 
 			WriteMessage (msg);
 
-			//Outbound.Enqueue (msg);
-			//temporary
-			//Flush ();
-
 			return msg.Header.Serial;
 		}
 
@@ -174,54 +160,11 @@ namespace Wv
 		}
 
 		Queue<Message> Inbound = new Queue<Message> ();
-		/*
-		Queue<Message> Outbound = new Queue<Message> ();
 
-		public void Flush ()
-		{
-			//should just iterate the enumerator here
-			while (Outbound.Count != 0) {
-				Message msg = Outbound.Dequeue ();
-				WriteMessage (msg);
-			}
-		}
-
-		public bool ReadWrite (int timeout_milliseconds)
-		{
-			//TODO
-
-			return true;
-		}
-
-		public bool ReadWrite ()
-		{
-			return ReadWrite (-1);
-		}
-
-		public bool Dispatch ()
-		{
-			//TODO
-			Message msg = Inbound.Dequeue ();
-			//HandleMessage (msg);
-
-			return true;
-		}
-
-		public bool ReadWriteDispatch (int timeout_milliseconds)
-		{
-			//TODO
-			return Dispatch ();
-		}
-
-		public bool ReadWriteDispatch ()
-		{
-			return ReadWriteDispatch (-1);
-		}
-		*/
-
-		// Given the first 16 bytes of the header, returns the full header and
-		// body lengths (including the 16 bytes of the header already read)
-		// Positions the stream after execution at the point where it began
+		// Given the first 16 bytes of the header, returns the full
+		// header and body lengths (including the 16 bytes of the
+		// header already read) Positions the stream after
+		// execution at the point where it began
 		internal static void GetMessageSize(Stream s, out int headerSize,
 				out int bodySize)
 		{
@@ -298,7 +241,7 @@ namespace Wv
 			return msg;
 		}
 
-		internal Message ReadMessage ()
+	        public Message ReadMessage()
 		{
 			byte[] header;
 			byte[] body = null;
@@ -339,12 +282,6 @@ namespace Wv
 			reader.ReadUInt32 ();
 			uint headerLength = reader.ReadUInt32 ();
 
-			//this check may become relevant if a future version of the protocol allows larger messages
-			/*
-			if (bodyLength > Int32.MaxValue || headerLength > Int32.MaxValue)
-				throw new NotImplementedException ("Long messages are not yet supported");
-			*/
-
 			int bodyLen = (int)bodyLength;
 			int toRead = (int)headerLength;
 
@@ -375,7 +312,6 @@ namespace Wv
 					numRead += lastRead;
 				}
 
-				//if (len != msg.Body.Length)
 				if (numRead != bodyLen)
 					throw new Exception (String.Format(
 						"Message body size mismatch: numRead={0}, bodyLen={1}",

@@ -96,12 +96,6 @@ namespace Wv
 		public Bus (string address) : base (address)
 		{
 			bus = GetObject<IBus> (DBusName, DBusPath);
-
-			/*
-					bus.NameAcquired += delegate (string acquired_name) {
-			Console.WriteLine ("NameAcquired: " + acquired_name);
-		};
-		*/
 			Register ();
 		}
 
@@ -110,12 +104,6 @@ namespace Wv
 			Authenticate();
 
 			bus = GetObject<IBus> (DBusName, DBusPath);
-
-			/*
-					bus.NameAcquired += delegate (string acquired_name) {
-			Console.WriteLine ("NameAcquired: " + acquired_name);
-		};
-		*/
 			Register ();
 		}
 
