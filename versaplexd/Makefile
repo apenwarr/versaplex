@@ -19,7 +19,7 @@ versaplexd.exe: versaplexd.cs \
     vxevent.cs vxeventloop.cs vxexceptions.cs vxnotifysocket.cs \
     vxschema.cs vxschemachecksums.cs vxschemadiff.cs vxschemaerrors.cs \
     vxsocket.cs vxsqlpool.cs wvdbusserver.cs \
-    ../dbus-sharp/src/NDesk.DBus.dll \
+    ../dbus-sharp/wvdbus-sharp.dll \
     ../wvdotnet/wv.dll
 
 sm.exe: \
@@ -27,13 +27,13 @@ sm.exe: \
     vxexceptions.cs vxnotifysocket.cs  vxsocket.cs \
     vxdiskschema.cs vxdbschema.cs vxdbusschema.cs vxschema.cs \
     vxschemachecksums.cs vxschemadiff.cs vxschemaerrors.cs \
-    ../dbus-sharp/src/NDesk.DBus.dll \
+    ../dbus-sharp/wvdbus-sharp.dll \
     ../wvdotnet/wv.dll
     
 vxcli.exe: vxcli.cs \
     dodgytransport.cs vxsocket.cs vxnotifysocket.cs vxdbusutils.cs \
     vxexceptions.cs \
-    ../dbus-sharp/src/NDesk.DBus.dll \
+    ../dbus-sharp/wvdbus-sharp.dll \
     ../wvdotnet/wv.dll
 
 clean:: t/clean

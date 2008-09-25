@@ -68,46 +68,46 @@ test: $(TESTS) all.t
 
 versaplex.t.exe: versaplex.t.cs.E \
 	$(VX_SOURCES) \
-	../wv.dll ../NDesk.DBus.dll
+	../wv.dll ../wvdbus-sharp.dll
 
 vxsanity.t.exe: vxsanity.t.cs.E \
 	$(VX_SOURCES) \
-	../wv.dll ../NDesk.DBus.dll
+	../wv.dll ../wvdbus-sharp.dll
 
 dbisanity.t.exe: dbisanity.t.cs.E \
 	$(VX_SOURCES) \
-	../wv.dll ../NDesk.DBus.dll
+	../wv.dll ../wvdbus-sharp.dll
 
 verifydata.t.exe: verifydata.t.cs.E \
 	$(VX_SOURCES) \
-	../wv.dll ../NDesk.DBus.dll
+	../wv.dll ../wvdbus-sharp.dll
 
 schemamatic.t.exe: schemamatic.t.cs.E \
 	$(VX_SOURCES) $(SCHEMAMATIC_SOURCES) \
-	../wv.dll ../NDesk.DBus.dll
+	../wv.dll ../wvdbus-sharp.dll
 
 putschema.t.exe: putschema.t.cs.E \
 	$(VX_SOURCES) $(SCHEMAMATIC_SOURCES) \
-	../wv.dll ../NDesk.DBus.dll
+	../wv.dll ../wvdbus-sharp.dll
 
 vxexecchunkrecordset.t.exe: vxexecchunkrecordset.t.cs.E \
 	$(VX_SOURCES) \
-	../wv.dll ../NDesk.DBus.dll
+	../wv.dll ../wvdbus-sharp.dll
 
 vxschemachecksums.t.exe: vxschemachecksums.t.cs.E \
 	../vxschemachecksums.cs \
-	../wv.dll ../NDesk.DBus.dll
+	../wv.dll ../wvdbus-sharp.dll
 
 # This test file doesn't need the whole Versaplex/Schemamatic stack, 
 # so let's try to save some needless recompilations.
 vxschema.t.exe: vxschema.t.cs.E \
 	../vxschema.cs ../vxschemaerrors.cs ../vxschemachecksums.cs \
 	../vxschemadiff.cs ../ischemabackend.cs ../vxexceptions.cs \
-	../wv.dll ../NDesk.DBus.dll
+	../wv.dll ../wvdbus-sharp.dll
 
 vxdiskschema.t.exe: vxdiskschema.t.cs.E \
 	$(VX_SOURCES) $(SCHEMAMATIC_SOURCES) \
-	../wv.dll ../NDesk.DBus.dll
+	../wv.dll ../wvdbus-sharp.dll
 
 %.o: %.cc
 	$(CXX) $(CXXFLAGS) -c -o $@ $< 
