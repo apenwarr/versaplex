@@ -80,6 +80,7 @@ class PutSchemaTests : SchemamaticTester
         WVPASSEQ(errs[key][0].key, key);
         WVPASSEQ(errs[key][0].msg, errmsg);
         WVPASSEQ(errs[key][0].errnum, errno);
+        WVPASSEQ((int)errs[key][0].level, (int)WvLog.L.Error);
         WVPASSEQ(errs[key].Count, 1);
 
         // Ensure that we didn't break what was already there.
