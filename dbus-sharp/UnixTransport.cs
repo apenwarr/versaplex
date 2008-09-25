@@ -6,7 +6,7 @@ using System;
 using System.IO;
 using Mono.Unix;
 
-namespace NDesk.DBus.Transports
+namespace Wv.Transports
 {
 	abstract class UnixTransport : Transport
 	{

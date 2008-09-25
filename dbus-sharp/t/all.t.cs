@@ -9,9 +9,15 @@ using Wv.Test;
 class DbusTest
 {
     [Test]
-    public void basics()
+    public void create_bus()
     {
+        Bus bus = new Bus(Address.Session);
 	WVPASS(true);
+    }
+    
+    [Test] void message_read_write()
+    {
+	
     }
 
     public static void Main()

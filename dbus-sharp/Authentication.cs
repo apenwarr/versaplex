@@ -9,7 +9,7 @@ using System.IO;
 using System.Text;
 using System.Globalization;
 
-namespace NDesk.DBus.Authentication
+namespace Wv.Authentication
 {
 	enum ClientState
 	{

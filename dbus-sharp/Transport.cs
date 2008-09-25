@@ -5,7 +5,7 @@
 using System;
 using System.IO;
 
-namespace NDesk.DBus.Transports
+namespace Wv.Transports
 {
 	public abstract class Transport
 	{

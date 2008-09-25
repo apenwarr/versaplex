@@ -6,6 +6,8 @@ all: wvdbus-sharp.dll
 
 CSFLAGS=/unsafe
 
+wv.dll:
+
 wvdbus-sharp.dll: \
 	assemblyinfo.cs \
 	Address.cs \
@@ -33,10 +35,11 @@ wvdbus-sharp.dll: \
 	UnixMonoTransport.cs \
 	UnixNativeTransport.cs \
 	UnixTransport.cs \
-	Wrapper.cs
+	Wrapper.cs \
+	$(WVDOTNET)/wv.dll
 
-tests: t/tests
+tests: all t/tests
 
-test: t/test
+test: tests t/test
 
 clean:: t/clean

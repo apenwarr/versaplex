@@ -7,7 +7,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Collections.Generic;
 
-namespace NDesk.DBus
+namespace Wv
 {
 	public class BusObject
 	{

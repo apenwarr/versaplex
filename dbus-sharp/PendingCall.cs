@@ -5,7 +5,7 @@
 using System;
 using System.Threading;
 
-namespace NDesk.DBus
+namespace Wv
 {
 	class PendingCall
 	{

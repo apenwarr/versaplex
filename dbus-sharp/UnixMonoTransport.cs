@@ -10,7 +10,7 @@ using System.Net.Sockets;
 using Mono.Unix;
 using Mono.Unix.Native;
 
-namespace NDesk.DBus.Transports
+namespace Wv.Transports
 {
 	class UnixMonoTransport : UnixTransport
 	{

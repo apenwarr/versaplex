@@ -7,7 +7,7 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 
-namespace NDesk.DBus
+namespace Wv
 {
 	//TODO: complete this class
 	class Server

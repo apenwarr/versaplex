@@ -7,7 +7,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Collections.Generic;
 
-namespace NDesk.DBus
+namespace Wv
 {
 	static class TypeImplementer
 	{
@@ -19,7 +19,7 @@ namespace NDesk.DBus
 			if (asmB != null)
 				return;
 
-			asmB = AppDomain.CurrentDomain.DefineDynamicAssembly (new AssemblyName ("NDesk.DBus.Proxies"), AssemblyBuilderAccess.Run);
+			asmB = AppDomain.CurrentDomain.DefineDynamicAssembly (new AssemblyName ("Wv.Proxies"), AssemblyBuilderAccess.Run);
 			modB = asmB.DefineDynamicModule ("ProxyModule");
 		}
 

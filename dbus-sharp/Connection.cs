@@ -9,7 +9,7 @@ using System.IO;
 using System.Threading;
 using System.Reflection;
 
-namespace NDesk.DBus
+namespace Wv
 {
 	using Authentication;
 	using Transports;

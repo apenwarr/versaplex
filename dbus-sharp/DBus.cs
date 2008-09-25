@@ -4,7 +4,7 @@
 
 using System;
 using System.Collections.Generic;
-using NDesk.DBus;
+using Wv;
 
 namespace org.freedesktop.DBus
 {

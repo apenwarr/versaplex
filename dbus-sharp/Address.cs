@@ -6,7 +6,7 @@ using System;
 using System.Text;
 using System.Collections.Generic;
 
-namespace NDesk.DBus
+namespace Wv
 {
 	public class BadAddressException : Exception
 	{
