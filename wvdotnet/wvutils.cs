@@ -20,7 +20,7 @@ namespace Wv
 	    if (msec_delay < 0)
 		Thread.Sleep(Int32.MaxValue);
 	    else
-		Thread.Sleep(msec_delay * 1000);
+		Thread.Sleep(msec_delay);
 	}
 
 	public static string shift(ref string[] array, int index)
