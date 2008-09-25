@@ -40,10 +40,60 @@ class DbusTest
     }
 
     [Test]
-    public void create_bus()
+    public void bus_activity()
     {
-        new Bus(Address.Session);
-	WVPASS(true);
+        Bus bus = new Bus(Address.Session);
+	WVPASS("got bus");
+	
+	Message m = new Message();
+	m.Signature = new Signature("si");
+	m.Header.MessageType = MessageType.MethodCall;
+	m.ReplyExpected = true;
+	m.Header.Fields[FieldCode.Destination] = "org.freedesktop.DBus";
+	m.Header.Fields[FieldCode.Path] = new ObjectPath("/org/freedesktop/DBus");
+	m.Header.Fields[FieldCode.Interface] = "org.freedesktop.DBus";
+	m.Header.Fields[FieldCode.Member] = "RequestName";
+	MessageWriter w = new MessageWriter();
+	w.Write("all.t.cs");
+	w.Write(0);
+	m.Body = w.ToArray();
+	
+	uint serial = bus.Send(m);
+	
+	Message reply;
+	bool got_reply = false;
+	for (int i = 0; i < 5000000; i++)
+	{
+	    reply = bus.ReadMessage();
+	    if (reply == null)
+	    {
+		wv.sleep(100);
+		continue;
+	    }
+	    
+	    wv.print("<< #{0}\n", reply.Header.Serial);
+	    wv.print("{0}\n", wv.hexdump(reply.Body));
+	    
+	    if (!reply.Header.Fields.ContainsKey(FieldCode.ReplySerial)
+		|| (uint)reply.Header.Fields[FieldCode.ReplySerial] != serial)
+	    {
+		WVPASS("skipping unwanted serial");
+		continue;
+	    }
+	    
+	    uint rserial = (uint)reply.Header.Fields[FieldCode.ReplySerial];
+	    wv.print("ReplySerial is: {0} (want {1})\n", rserial, serial);
+	    WVPASSEQ(rserial, serial);
+	    got_reply = true;
+	    
+	    MessageReader r = new MessageReader(reply);
+	    int rv = r.ReadInt32();
+	    WVPASSEQ(rv, 1);
+	    
+	    break;
+	}
+	
+	WVPASS(got_reply);
     }
     
     public static void Main()
