@@ -279,12 +279,10 @@ print "Initial setup...\n";
 $dbh->do("DROP TABLE testbitch");
 $dbh->do("CREATE TABLE testbitch (numcol int, testcol1 TEXT NULL, testcol2 TEXT NULL, testcol3 TEXT NULL, testcol4 TEXT NULL, testcol5 TEXT NULL, testcol6 TEXT NULL, testcol7 TEXT NULL, testcol8 TEXT NULL, testcol9 TEXT NULL, testcol10 TEXT NULL)");
 
-my $large_datasize = 0;
 for (my $i = 0; $i < 105; ++$i) {
 	$dbh->do("INSERT INTO testbitch (numcol) values ($i)");
 	for (my $j = 1; $j <= 10; ++$j) {
 		$dbh->do("UPDATE testbitch SET testcol$j = '$silly_text' where NUMCOL = $i");
-		$large_datasize += length($silly_text) + 4;
 	}
 }
 
@@ -505,8 +503,7 @@ if (%opts && !$opts{'r'}) {
 print "\n";
 print "Ah, the part you've been waiting for... table data!\n";
 print "Results are compiled from averaging capture data over:\n";
-print " - $num_large_row_tests large multi-row request(s) (",
-	"~$large_datasize bytes/request)\n";
+print " - $num_large_row_tests large multi-row request(s) (~1 MB/request)\n";
 print " - $num_small_row_tests small 4-byte request(s)\n";
 print " - $num_small_insert_tests 104-byte row insertion(s)\n";
 print " - $num_parallel_insert_tests simultaneous 104-byte row insertion(s)\n";
