@@ -4,7 +4,7 @@ include $(WVDOTNET)/rules.mk
 
 all: wvdbus-sharp.dll
 
-CSFLAGS=/unsafe
+CSFLAGS+=/unsafe
 
 wv.dll:
 
