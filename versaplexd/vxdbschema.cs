@@ -499,7 +499,7 @@ internal class VxDbSchema : ISchemaBackend
         var errs = new VxSchemaErrors();
 
         // Compute diff of the current and new tables
-        Dictionary<VxSchemaTableElement,VxDiffType> diff = null;
+        List<KeyValuePair<VxSchemaTableElement,VxDiffType>> diff = null;
         try
         {
             diff = VxSchemaTable.GetDiff(curtable, newtable);
@@ -598,9 +598,6 @@ internal class VxDbSchema : ISchemaBackend
                 deleted_indexes.Add(elem);
             }
 
-            // Add columns in a deterministic order
-            coladd.Sort(VxSchemaTableElement.CompareTableElemsByName);
-
             dbi.execute("BEGIN TRANSACTION TableUpdate");
 
             // Add new columns before deleting old ones; MSSQL won't let a
@@ -622,9 +619,6 @@ internal class VxDbSchema : ISchemaBackend
 
                 dbi.execute(query);
             }
-
-            // Modify columns in a deterministic order
-            colchanged.Sort(VxSchemaTableElement.CompareTableElemsByName);
 
             foreach (var elem in colchanged)
             {

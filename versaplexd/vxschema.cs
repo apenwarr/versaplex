@@ -178,10 +178,14 @@ internal class VxSchemaTableElement
         return sb.ToString();
     }
 
-    public static int CompareTableElemsByName(VxSchemaTableElement e1, 
-        VxSchemaTableElement e2) 
-    { 
-        return e1.GetParam("name").CompareTo(e2.GetParam("name"));
+    // Returns a string uniquely identifying this element within the table.
+    // Generally includes the element's name, if it has one.
+    public string GetColKey()
+    {
+        if (elemtype == "primary-key")
+            return elemtype;
+        else
+            return elemtype + ": " + GetParam("name");
     }
 }
 
@@ -432,82 +436,79 @@ internal class VxSchemaTable : VxSchemaElement
         elems.Add(elem);
     }
 
-    // Figure out what changed between oldtable and newtable.  Returns a 
-    // dictionary mapping table element types and names (if applicable) to 
-    // diff types.  The keys are of the form "column: ColumnName" or 
-    // "index: IndexName", or just "primary-key" for primary keys, since
-    // there's only one primary key at a time.
-    public static Dictionary<VxSchemaTableElement, VxDiffType> GetDiff(
+    // Figure out what changed between oldtable and newtable.  
+    // Returns any deleted elements first, followed by any modified or added
+    // elements in the same order they occur in newtable.
+    public static List<KeyValuePair<VxSchemaTableElement, VxDiffType>> GetDiff(
         VxSchemaTable oldtable, VxSchemaTable newtable)
     {
         WvLog log = new WvLog("SchemaTable GetDiff");
-        var diff = new Dictionary<VxSchemaTableElement, VxDiffType>();
+        var diff = new List<KeyValuePair<VxSchemaTableElement, VxDiffType>>();
         var oldset = new Dictionary<string, VxSchemaTableElement>();
         var newset = new Dictionary<string, VxSchemaTableElement>();
 
         // Build some dictionaries so we can quickly check if a particular 
         // entry exists in a table, even if its attributes have changed.
         // We only have one primary key per table, no need to distinguish it
-        // further (and it might not have a name yet).  But of course there'll
-        // be multiple columns and indexes, so we need to key off of the
-        // element type and name.
+        // further (and it might not have a name yet).  
         foreach (var elem in oldtable.elems)
         {
-            string key;
-            if (elem.elemtype == "primary-key")
-                key = elem.elemtype;
-            else
-                key = elem.elemtype + ": " + elem.GetParam("name");
+            string colkey = elem.GetColKey();
 
-            if (oldset.ContainsKey(key))
+            if (oldset.ContainsKey(colkey))
                 throw new VxBadSchemaException(wv.fmt("Duplicate table entry " + 
-                    "'{0}' found.", key));
+                    "'{0}' found.", colkey));
 
-            oldset.Add(key, elem);
+            oldset.Add(colkey, elem);
         }
         foreach (var elem in newtable.elems)
         {
-            string key;
-            if (elem.elemtype == "primary-key")
-                key = elem.elemtype;
-            else
-                key = elem.elemtype + ": " + elem.GetParam("name");
+            string colkey = elem.GetColKey();
 
-            if (newset.ContainsKey(key))
+            if (newset.ContainsKey(colkey))
                 throw new VxBadSchemaException(wv.fmt("Duplicate table entry " + 
-                    "'{0}' found.", key));
+                    "'{0}' found.", colkey));
 
-            newset.Add(key, elem);
+            newset.Add(colkey, elem);
         }
 
-        foreach (var kvp in oldset)
+        foreach (var elem in oldtable.elems)
         {
-            if (!newset.ContainsKey(kvp.Key))
+            string colkey = elem.GetColKey();
+            if (!newset.ContainsKey(colkey))
             {
-                log.print("Scheduling {0} for removal.\n", kvp.Key);
-                diff.Add(kvp.Value, VxDiffType.Remove);
+                log.print("Scheduling {0} for removal.\n", colkey);
+                diff.Add(new KeyValuePair<VxSchemaTableElement, VxDiffType>(
+                    oldset[colkey], VxDiffType.Remove));
             }
-            else if (kvp.Value.ToString() != newset[kvp.Key].ToString())
+        }
+        foreach (var elem in newtable.elems)
+        {
+            string colkey = elem.GetColKey();
+            if (!oldset.ContainsKey(colkey))
             {
-                log.print("Scheduling {0} for change.\n", kvp.Key);
-                string elemtype = kvp.Value.elemtype;
+                log.print("Scheduling {0} for addition.\n", colkey);
+                diff.Add(new KeyValuePair<VxSchemaTableElement, VxDiffType>(
+                    newset[colkey], VxDiffType.Add));
+            }
+            else if (elem.ToString() != oldset[colkey].ToString())
+            {
+                log.print("Scheduling {0} for change.\n", colkey);
+                string elemtype = elem.elemtype;
                 if (elemtype == "primary-key" || elemtype == "index")
                 {
                     // Don't bother trying to change indexes, just delete and
                     // re-add them.  Makes it possible to rename primary keys.
-                    diff.Add(kvp.Value, VxDiffType.Remove);
-                    diff.Add(newset[kvp.Key], VxDiffType.Add);
+                    diff.Add(new KeyValuePair<VxSchemaTableElement, VxDiffType>(
+                        oldset[colkey], VxDiffType.Remove));
+                    diff.Add(new KeyValuePair<VxSchemaTableElement, VxDiffType>(
+                        newset[colkey], VxDiffType.Add));
                 }
                 else
-                    diff.Add(newset[kvp.Key], VxDiffType.Change);
-            }
-        }
-        foreach (var kvp in newset)
-        {
-            if (!oldset.ContainsKey(kvp.Key))
-            {
-                log.print("Scheduling {0} for addition.\n", kvp.Key);
-                diff.Add(kvp.Value, VxDiffType.Add);
+                {
+                    diff.Add(new KeyValuePair<VxSchemaTableElement, VxDiffType>(
+                        newset[colkey], VxDiffType.Change));
+                }
             }
         }
 
