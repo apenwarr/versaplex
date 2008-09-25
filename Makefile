@@ -34,7 +34,7 @@ ntest: nall wvdotnet/test dbus-sharp/test # versaplexd/test
 
 tests: nall ntests vxodbc/tests
 
-test: all ntest vxodbc/test
+test: all ntest # vxodbc/test
 	
 nclean: versaplexd/clean wvdotnet/clean dbus-sharp/clean
 

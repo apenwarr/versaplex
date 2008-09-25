@@ -14,27 +14,27 @@ namespace Wv
 	public Connection Connection;
 	public byte[] Body;
 
-	public Message ()
+	public Message()
 	{
 	    Header.Endianness = Connection.NativeEndianness;
 	    Header.MessageType = MessageType.MethodCall;
-	    Header.Flags = HeaderFlag.NoReplyExpected; //TODO: is this the right place to do this?
+	    Header.Flags = HeaderFlag.NoReplyExpected;
 	    Header.MajorVersion = Protocol.Version;
-	    Header.Fields = new Dictionary<FieldCode,object> ();
+	    Header.Fields = new Dictionary<FieldCode,object>();
 	}
 
 	public Signature Signature
 	{
 	    get {
 		object o;
-		if (Header.Fields.TryGetValue (FieldCode.Signature, out o))
+		if (Header.Fields.TryGetValue(FieldCode.Signature, out o))
 		    return (Signature)o;
 		else
 		    return Signature.Empty;
 	    }
 	    set {
 		if (value == Signature.Empty)
-		    Header.Fields.Remove (FieldCode.Signature);
+		    Header.Fields.Remove(FieldCode.Signature);
 		else
 		    Header.Fields[FieldCode.Signature] = value;
 	    }
@@ -43,34 +43,35 @@ namespace Wv
 	public bool ReplyExpected
 	{
 	    get {
-		return (Header.Flags & HeaderFlag.NoReplyExpected) == HeaderFlag.None;
+		return (Header.Flags & HeaderFlag.NoReplyExpected)
+		          == HeaderFlag.None;
 	    }
 	    set {
 		if (value)
-		    Header.Flags &= ~HeaderFlag.NoReplyExpected; //flag off
+		    Header.Flags &= ~HeaderFlag.NoReplyExpected;
 		else
-		    Header.Flags |= HeaderFlag.NoReplyExpected; //flag on
+		    Header.Flags |= HeaderFlag.NoReplyExpected;
 	    }
 	}
 
-	public void SetHeaderData (byte[] data)
+	public void SetHeaderData(byte[] data)
 	{
 	    EndianFlag endianness = (EndianFlag)data[0];
-	    MessageReader reader = new MessageReader (endianness, data);
+	    MessageReader reader = new MessageReader(endianness, data);
 
-	    Header = (Header)reader.ReadStruct (typeof (Header));
+	    Header = (Header)reader.ReadStruct(typeof(Header));
 	}
 
-	public byte[] GetHeaderData ()
+	public byte[] GetHeaderData()
 	{
 	    if (Body != null)
 		Header.Length = (uint)Body.Length;
 
-	    MessageWriter writer = new MessageWriter (Header.Endianness);
-	    writer.WriteValueType (Header, typeof (Header));
-	    writer.CloseWrite ();
+	    MessageWriter writer = new MessageWriter(Header.Endianness);
+	    writer.WriteValueType(Header, typeof(Header));
+	    writer.CloseWrite();
 
-	    return writer.ToArray ();
+	    return writer.ToArray();
 	}
     }
 }

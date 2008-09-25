@@ -13,45 +13,45 @@ namespace Wv
 {
     public class MessageWriter
     {
-	protected EndianFlag endianness;
-	protected MemoryStream stream;
+	EndianFlag endianness;
+	MemoryStream stream;
 
 	public Connection connection;
 
 	// a default constructor is a bad idea for now as we want to make
 	// sure the header and content-type match
-        public MessageWriter () : this (Connection.NativeEndianness) {}
+        public MessageWriter() : this (Connection.NativeEndianness) {}
 
-	public MessageWriter (EndianFlag endianness)
+	public MessageWriter(EndianFlag endianness)
 	{
 	    this.endianness = endianness;
 	    stream = new MemoryStream ();
 	}
 
-	public byte[] ToArray ()
+	public byte[] ToArray()
 	{
 	    //TODO: mark the writer locked or something here
-	    return stream.ToArray ();
+	    return stream.ToArray();
 	}
 
-	public void CloseWrite ()
+	public void CloseWrite()
 	{
-	    WritePad (8);
+	    WritePad(8);
 	}
 
-	public void Write (byte val)
+	public void Write(byte val)
 	{
-	    stream.WriteByte (val);
+	    stream.WriteByte(val);
 	}
 
-	public void Write (bool val)
+	public void Write(bool val)
 	{
 	    Write ((uint) (val ? 1 : 0));
 	}
 
-	unsafe protected void MarshalUShort (byte *data)
+	unsafe protected void MarshalUShort(byte *data)
 	{
-	    WritePad (2);
+	    WritePad(2);
 	    byte[] dst = new byte[2];
 
 	    if (endianness == Connection.NativeEndianness) {
@@ -63,22 +63,22 @@ namespace Wv
 		dst[1] = data[0];
 	    }
 
-	    stream.Write (dst, 0, 2);
+	    stream.Write(dst, 0, 2);
 	}
 
-	unsafe public void Write (short val)
+	unsafe public void Write(short val)
 	{
-	    MarshalUShort ((byte*)&val);
+	    MarshalUShort((byte*)&val);
 	}
 
-	unsafe public void Write (ushort val)
+	unsafe public void Write(ushort val)
 	{
-	    MarshalUShort ((byte*)&val);
+	    MarshalUShort((byte*)&val);
 	}
 
-	unsafe protected void MarshalUInt (byte *data)
+	unsafe protected void MarshalUInt(byte *data)
 	{
-	    WritePad (4);
+	    WritePad(4);
 	    byte[] dst = new byte[4];
 
 	    if (endianness == Connection.NativeEndianness) {
@@ -94,20 +94,20 @@ namespace Wv
 		dst[3] = data[0];
 	    }
 
-	    stream.Write (dst, 0, 4);
+	    stream.Write(dst, 0, 4);
 	}
 
-	unsafe public void Write (int val)
+	unsafe public void Write(int val)
 	{
-	    MarshalUInt ((byte*)&val);
+	    MarshalUInt((byte*)&val);
 	}
 
-	unsafe public void Write (uint val)
+	unsafe public void Write(uint val)
 	{
-	    MarshalUInt ((byte*)&val);
+	    MarshalUInt((byte*)&val);
 	}
 
-	unsafe protected void MarshalULong (byte *data)
+	unsafe protected void MarshalULong(byte *data)
 	{
 	    WritePad (8);
 	    byte[] dst = new byte[8];
@@ -121,30 +121,30 @@ namespace Wv
 		    dst[i] = data[7 - i];
 	    }
 
-	    stream.Write (dst, 0, 8);
+	    stream.Write(dst, 0, 8);
 	}
 
-	unsafe public void Write (long val)
+	unsafe public void Write(long val)
 	{
-	    MarshalULong ((byte*)&val);
+	    MarshalULong((byte*)&val);
 	}
 
 	unsafe public void Write (ulong val)
 	{
-	    MarshalULong ((byte*)&val);
+	    MarshalULong((byte*)&val);
 	}
 
 	unsafe public void Write (float val)
 	{
-	    MarshalUInt ((byte*)&val);
+	    MarshalUInt((byte*)&val);
 	}
 
 	unsafe public void Write (double val)
 	{
-	    MarshalULong ((byte*)&val);
+	    MarshalULong((byte*)&val);
 	}
 
-	public void Write (string val)
+	public void Write(string val)
 	{
 	    byte[] utf8_data = Encoding.UTF8.GetBytes (val);
 	    Write ((uint)utf8_data.Length);
@@ -152,12 +152,12 @@ namespace Wv
 	    WriteNull ();
 	}
 
-	public void Write (ObjectPath val)
+	public void Write(ObjectPath val)
 	{
 	    Write (val.Value);
 	}
 
-	public void Write (Signature val)
+	public void Write(Signature val)
 	{
 	    byte[] ascii_data = val.GetBuffer ();
 
@@ -169,9 +169,9 @@ namespace Wv
 	    WriteNull ();
 	}
 
-	public void WriteComplex (object val, Type type)
+	public void WriteComplex(object val, Type type)
 	{
-	    if (type == typeof (void))
+	    if (type == typeof(void))
 		return;
 
 	    if (type.IsArray) {
@@ -193,43 +193,43 @@ namespace Wv
 	    }
 	}
 
-	public void Write (Type type, object val)
+	public void Write(Type type, object val)
 	{
-	    if (type == typeof (void))
+	    if (type == typeof(void))
 		return;
 
 	    if (type.IsArray) {
-		WriteArray (val, type.GetElementType ());
+		WriteArray(val, type.GetElementType());
 	    }
-	    else if (type == typeof (ObjectPath)) {
-		Write ((ObjectPath)val);
+	    else if (type == typeof(ObjectPath)) {
+		Write((ObjectPath)val);
 	    }
-	    else if (type == typeof (Signature)) {
-		Write ((Signature)val);
+	    else if (type == typeof(Signature)) {
+		Write((Signature)val);
 	    }
-	    else if (type == typeof (object)) {
-		Write (val);
+	    else if (type == typeof(object)) {
+		Write(val);
 	    }
-	    else if (type == typeof (string)) {
-		Write ((string)val);
+	    else if (type == typeof(string)) {
+		Write((string)val);
 	    }
 	    else if (type.IsGenericType 
-		     && (type.GetGenericTypeDefinition () 
+		     && (type.GetGenericTypeDefinition() 
 			   == typeof(IDictionary<,>) 
-			 || type.GetGenericTypeDefinition () 
+			 || type.GetGenericTypeDefinition() 
 			   == typeof(Dictionary<,>))) {
-		Type[] genArgs = type.GetGenericArguments ();
+		Type[] genArgs = type.GetGenericArguments();
 		IDictionary idict = (IDictionary)val;
-		WriteFromDict (genArgs[0], genArgs[1], idict);
+		WriteFromDict(genArgs[0], genArgs[1], idict);
 	    }
-	    else if (Mapper.IsPublic (type)) {
-		WriteObject (type, val);
+	    else if (Mapper.IsPublic(type)) {
+		WriteObject(type, val);
 	    }
 	    else if (!type.IsPrimitive && !type.IsEnum) {
-		WriteValueType (val, type);
+		WriteValueType(val, type);
 	    }
 	    else {
-		Write (Signature.TypeToDType (type), val);
+		Write(Signature.TypeToDType(type), val);
 	    }
 	}
 
@@ -239,81 +239,53 @@ namespace Wv
 	    switch (dtype)
 	    {
 	    case DType.Byte:
-		{
-		    Write ((byte)val);
-		}
+		Write((byte)val);
 		break;
 	    case DType.Boolean:
-		{
-		    Write ((bool)val);
-		}
+		Write((bool)val);
 		break;
 	    case DType.Int16:
-		{
-		    Write ((short)val);
-		}
+		Write((short)val);
 		break;
 	    case DType.UInt16:
-		{
-		    Write ((ushort)val);
-		}
+		Write((ushort)val);
 		break;
 	    case DType.Int32:
-		{
-		    Write ((int)val);
-		}
+		Write((int)val);
 		break;
 	    case DType.UInt32:
-		{
-		    Write ((uint)val);
-		}
+		Write((uint)val);
 		break;
 	    case DType.Int64:
-		{
-		    Write ((long)val);
-		}
+		Write((long)val);
 		break;
 	    case DType.UInt64:
-		{
-		    Write ((ulong)val);
-		}
+		Write((ulong)val);
 		break;
 	    case DType.Single:
-		{
-		    Write ((float)val);
-		}
+		Write((float)val);
 		break;
 	    case DType.Double:
-		{
-		    Write ((double)val);
-		}
+		Write((double)val);
 		break;
 	    case DType.String:
-		{
-		    Write ((string)val);
-		}
+		Write((string)val);
 		break;
 	    case DType.ObjectPath:
-		{
-		    Write ((ObjectPath)val);
-		}
+		Write((ObjectPath)val);
 		break;
 	    case DType.Signature:
-		{
-		    Write ((Signature)val);
-		}
+		Write((Signature)val);
 		break;
 	    case DType.Variant:
-		{
-		    Write ((object)val);
-		}
+		Write((object)val);
 		break;
 	    default:
 		throw new Exception ("Unhandled D-Bus type: " + dtype);
 	    }
 	}
 
-	public void WriteObject (Type type, object val)
+	public void WriteObject(Type type, object val)
 	{
 	    ObjectPath path;
 
@@ -332,24 +304,23 @@ namespace Wv
 	}
 
 	//variant
-	public void Write (object val)
+	public void Write(object val)
 	{
 	    //TODO: maybe support sending null variants
 
 	    if (val == null)
 		throw new NotSupportedException ("Cannot send null variant");
 
-	    Type type = val.GetType ();
+	    Type type = val.GetType();
 
-	    WriteVariant (type, val);
+	    WriteVariant(type, val);
 	}
 
-	public void WriteVariant (Type type, object val)
+	public void WriteVariant(Type type, object val)
 	{
-	    Signature sig = Signature.GetSig (type);
-
-	    Write (sig);
-	    Write (type, val);
+	    Signature sig = Signature.GetSig(type);
+	    Write(sig);
+	    Write(type, val);
 	}
 
 	//this requires a seekable stream for now
@@ -371,7 +342,7 @@ namespace Wv
 	    Write ((uint)0);
 
 	    //advance to the alignment of the element
-	    WritePad (Protocol.GetAlignment (Signature.TypeToDType (elemType)));
+	    WritePad(Protocol.GetAlignment (Signature.TypeToDType (elemType)));
 
 	    long startPos = stream.Position;
 
@@ -389,7 +360,7 @@ namespace Wv
 	    stream.Position = endPos;
 	}
 
-	public void WriteFromDict (Type keyType, Type valType, System.Collections.IDictionary val)
+	public void WriteFromDict(Type keyType, Type valType, System.Collections.IDictionary val)
 	{
 	    long origPos = stream.Position;
 	    Write ((uint)0);
@@ -419,18 +390,18 @@ namespace Wv
 	    stream.Position = endPos;
 	}
 
-	public void WriteValueType (object val, Type type)
+	public void WriteValueType(object val, Type type)
 	{
 	    MethodInfo mi = TypeImplementer.GetWriteMethod (type);
 	    mi.Invoke (null, new object[] {this, val});
 	}
 
-	public void WriteNull ()
+	public void WriteNull()
 	{
-	    stream.WriteByte (0);
+	    stream.WriteByte(0);
 	}
 
-	public void WritePad (int alignment)
+	public void WritePad(int alignment)
 	{
 	    int needed = Protocol.PadNeeded ((int)stream.Position, alignment);
 	    for (int i = 0 ; i != needed ; i++)
@@ -438,7 +409,7 @@ namespace Wv
 	}
 
 	public delegate void WriterDelegate(MessageWriter w);
-	public void WriteDelegatePrependSize (WriterDelegate wd, int alignment)
+	public void WriteDelegatePrependSize(WriterDelegate wd, int alignment)
 	{
 	    WritePad(4);
 
