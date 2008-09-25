@@ -40,13 +40,13 @@ class DbusTest
     }
 
     [Test]
-    public void bus_activity()
+    public void send_receive()
     {
         Bus bus = new Bus(Address.Session);
 	WVPASS("got bus");
 	
 	Message m = new Message();
-	m.Signature = new Signature("si");
+	m.Signature = new Signature("su");
 	m.Header.MessageType = MessageType.MethodCall;
 	m.ReplyExpected = true;
 	m.Header.Fields[FieldCode.Destination] = "org.freedesktop.DBus";
@@ -94,6 +94,9 @@ class DbusTest
 	}
 	
 	WVPASS(got_reply);
+	
+	WVPASS(bus.NameHasOwner("all.t.cs"));
+	WVFAIL(bus.NameHasOwner("all.t.cs.nonexist"));
     }
     
     public static void Main()
