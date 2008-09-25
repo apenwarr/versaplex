@@ -7,6 +7,5 @@ cat >config.mk <<EOF
 	BUILD_TARGET=`uname`
 EOF
 
-(cd dbus-sharp && ./autogen.sh && ./configure)
 (cd wv && ./configure) || exit $?
 (cd vxodbc && make configure && ./configure) || exit $?

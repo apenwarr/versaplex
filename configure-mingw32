@@ -7,7 +7,6 @@ cat >config.mk <<EOF
 	BUILD_TARGET=win32
 EOF
 
-(cd dbus-sharp && ./autogen.sh && ./configure)
 (cd wv && ./configure-mingw32) || exit $?
 
 # Not needed on win32
