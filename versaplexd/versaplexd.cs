@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Linq;
-using NDesk.DBus;
 using org.freedesktop.DBus;
 using Wv;
 using Wv.Extensions;

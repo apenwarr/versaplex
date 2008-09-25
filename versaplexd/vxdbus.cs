@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using NDesk.DBus;
 using Wv;
 
 public static class VxDbus {

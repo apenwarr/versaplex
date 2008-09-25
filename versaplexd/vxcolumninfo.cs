@@ -1,5 +1,5 @@
 using System;
-using NDesk.DBus;
+using Wv;
 
 public struct VxColumnInfo {
     private int size;

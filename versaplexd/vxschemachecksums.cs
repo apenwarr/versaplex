@@ -3,7 +3,6 @@ using System.IO;
 using System.Linq;
 using System.Collections.Generic;
 using System.Security.Cryptography;
-using NDesk.DBus;
 using Wv;
 using Wv.Extensions;
 

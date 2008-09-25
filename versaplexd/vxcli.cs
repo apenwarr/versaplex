@@ -7,7 +7,6 @@ using System.Linq;
 using Wv.Mono.Terminal;
 using Wv;
 using Wv.Extensions;
-using NDesk.DBus;
 
 namespace Wv
 {

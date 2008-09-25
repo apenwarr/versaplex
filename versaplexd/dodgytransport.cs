@@ -1,11 +1,10 @@
 using System;
 using System.Net;
 using System.Net.Sockets;
-using NDesk.DBus;
 using Mono.Unix;
 using Wv;
 
-class DodgyTransport : NDesk.DBus.Transports.Transport
+class DodgyTransport : Wv.Transports.Transport
 {
     // This has to be a separate function so we can delay JITting it until
     // we're sure it's mono.

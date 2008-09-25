@@ -7,7 +7,6 @@ using System.IO;
 using System.Text;
 using Wv;
 using Wv.Test;
-using NDesk.DBus;
 
 // Several mono bugs worked around in this test fixture are filed as mono bug
 // #81940

@@ -6,7 +6,6 @@ using System.Linq;
 using Wv;
 using Wv.Extensions;
 using Wv.NDesk.Options;
-using NDesk.DBus;
 
 public static class SchemamaticCli
 {

@@ -5,7 +5,6 @@ using System.Data;
 using System.Data.Common;
 using System.Data.SqlClient;
 using System.Collections.Generic;
-using NDesk.DBus;
 using Wv;
 using Wv.Extensions;
 

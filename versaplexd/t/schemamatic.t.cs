@@ -10,7 +10,6 @@ using System.Security.Cryptography;
 using Wv;
 using Wv.Extensions;
 using Wv.Test;
-using NDesk.DBus;
 
 [TestFixture]
 class SchemamaticTests : SchemamaticTester

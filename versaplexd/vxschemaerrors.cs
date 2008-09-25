@@ -1,7 +1,7 @@
 using System;
 using System.Text;
 using System.Collections.Generic;
-using NDesk.DBus;
+using Wv;
 
 internal class VxSchemaError
 {

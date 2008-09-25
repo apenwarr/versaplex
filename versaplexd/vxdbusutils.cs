@@ -1,5 +1,5 @@
 using System;
-using NDesk.DBus;
+using Wv;
 
 // Utility methods for dealing with DBus
 class VxDbusUtils
