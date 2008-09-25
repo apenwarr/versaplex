@@ -62,13 +62,36 @@ namespace Wv
 	    Header = (Header)reader.ReadStruct(typeof(Header));
 	}
 
+	// Header format is: yyyyuua{yv}
 	public byte[] GetHeaderData()
 	{
 	    if (Body != null)
 		Header.Length = (uint)Body.Length;
 
 	    MessageWriter writer = new MessageWriter(Header.Endianness);
-	    writer.WriteValueType(Header, typeof(Header));
+	    
+	    Header h = Header;
+	    writer.Write((byte)h.Endianness);
+	    writer.Write((byte)h.MessageType);
+	    writer.Write((byte)h.Flags);
+	    writer.Write((byte)h.MajorVersion);
+	    writer.Write((uint)h.Length);
+	    writer.Write((uint)h.Serial);
+	    
+	    {
+		MessageWriter w2 = new MessageWriter(Header.Endianness);
+		
+		foreach (var i in h.Fields)
+		{
+		    w2.WritePad(8);
+		    w2.Write((byte)i.Key);
+		    w2.WriteVariant(i.Value.GetType(), i.Value);
+		}
+		
+		byte[] a = w2.ToArray();
+		writer.Write((uint)a.Length);
+		writer.stream.Write(a, 0, a.Length);
+	    }
 	    writer.CloseWrite();
 
 	    return writer.ToArray();

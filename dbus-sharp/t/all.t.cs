@@ -62,7 +62,7 @@ class DbusTest
 	
 	Message reply;
 	bool got_reply = false;
-	for (int i = 0; i < 5000000; i++)
+	for (int i = 0; i < 50; i++)
 	{
 	    reply = bus.ReadMessage();
 	    if (reply == null)

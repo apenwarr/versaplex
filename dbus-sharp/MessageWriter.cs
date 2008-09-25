@@ -14,7 +14,7 @@ namespace Wv
     public class MessageWriter
     {
 	EndianFlag endianness;
-	MemoryStream stream;
+	internal MemoryStream stream;
 
 	public Connection connection;
 
@@ -360,7 +360,7 @@ namespace Wv
 	    stream.Position = endPos;
 	}
 
-	public void WriteFromDict(Type keyType, Type valType, System.Collections.IDictionary val)
+	public void WriteFromDict(Type keyType, Type valType, IDictionary val)
 	{
 	    long origPos = stream.Position;
 	    Write ((uint)0);

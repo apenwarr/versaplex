@@ -7,7 +7,6 @@ using System.Collections.Generic;
 
 namespace Wv
 {
-    //yyyyuua{yv}
     public struct Header
     {
 	public EndianFlag Endianness;
