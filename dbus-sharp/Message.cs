@@ -70,6 +70,9 @@ namespace Wv
 
 	    MessageWriter writer = new MessageWriter(Header.Endianness);
 	    
+#if false
+	    writer.WriteValueType(Header, typeof(Header));
+#else
 	    Header h = Header;
 	    writer.Write((byte)h.Endianness);
 	    writer.Write((byte)h.MessageType);
@@ -77,7 +80,8 @@ namespace Wv
 	    writer.Write((byte)h.MajorVersion);
 	    writer.Write((uint)h.Length);
 	    writer.Write((uint)h.Serial);
-	    
+	
+#if false
 	    {
 		MessageWriter w2 = new MessageWriter(Header.Endianness);
 		
@@ -92,8 +96,16 @@ namespace Wv
 		writer.Write((uint)a.Length);
 		writer.stream.Write(a, 0, a.Length);
 	    }
+#else
+	    writer.WriteArray(h.Fields, (w2, i) => {
+		w2.WritePad(8);
+		w2.Write((byte)i.Key);
+		w2.WriteVariant(i.Value.GetType(), i.Value);
+	    });
+#endif
+#endif
+	    
 	    writer.CloseWrite();
-
 	    return writer.ToArray();
 	}
     }

@@ -16,10 +16,14 @@ class DbusTest
 	// write
 	{
 	    Message m = new Message();
-	    m.Signature = new Signature("is");
+	    m.Signature = new Signature("yisax");
 	    MessageWriter w = new MessageWriter();
+	    w.Write((byte)42);
 	    w.Write(42);
 	    w.Write("hello world");
+	    w.WriteArray(new Int64[] { 0x42, 0x43, 0x44 }, (w2, i) => {
+		w2.Write(i);
+	    });
 	    m.Body = w.ToArray();
 	    
 	    var buf = new WvBuf();
@@ -28,14 +32,21 @@ class DbusTest
 	    msgdata = buf.getall();
 	}
 	
+	wv.print("message:\n{0}\n", wv.hexdump(msgdata));
+	
 	// read
 	{
 	    Message m = new Message();
 	    m.Body = msgdata;
 	    MessageReader r = new MessageReader(m);
 	    m.Header = (Header)r.ReadStruct(typeof(Header));
+	    r.ReadPad(8); // header is always a multiple of 8
+	    WVPASSEQ(r.ReadByte(), 42);
 	    WVPASSEQ(r.ReadInt32(), 42);
 	    WVPASSEQ(r.ReadString(), "hello world");
+	    Array a = r.ReadArray(typeof(Int64));
+	    WVPASSEQ(a.Length, 3);
+	    WVPASSEQ(((Int64[])a)[2], 0x44);
 	}
     }
 

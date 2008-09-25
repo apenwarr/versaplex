@@ -371,8 +371,10 @@ namespace Wv
 	    }
 
 	    //advance to the alignment of the element
+	    uint before = (uint)pos;
 	    ReadPad (Protocol.GetAlignment (Signature.TypeToDType (elemType)));
-
+	    ln -= (uint)pos-(uint)before;
+ 
 	    int endPos = pos + (int)ln;
 
 	    ArrayList vals = new ArrayList ();

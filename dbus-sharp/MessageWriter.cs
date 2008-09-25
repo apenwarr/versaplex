@@ -175,7 +175,7 @@ namespace Wv
 		return;
 
 	    if (type.IsArray) {
-		WriteArray (val, type.GetElementType ());
+		xWriteArray(val, type.GetElementType());
 	    }
 	    else if (type.IsGenericType && (type.GetGenericTypeDefinition () == typeof (IDictionary<,>) || type.GetGenericTypeDefinition () == typeof (Dictionary<,>))) {
 		Type[] genArgs = type.GetGenericArguments ();
@@ -199,7 +199,7 @@ namespace Wv
 		return;
 
 	    if (type.IsArray) {
-		WriteArray(val, type.GetElementType());
+		xWriteArray(val, type.GetElementType());
 	    }
 	    else if (type == typeof(ObjectPath)) {
 		Write((ObjectPath)val);
@@ -324,7 +324,7 @@ namespace Wv
 	}
 
 	//this requires a seekable stream for now
-	public void WriteArray (object obj, Type elemType)
+	public void xWriteArray(object obj, Type elemType)
 	{
 	    Array val = (Array)obj;
 
@@ -358,6 +358,27 @@ namespace Wv
 
 	    Write (ln);
 	    stream.Position = endPos;
+	}
+	
+	static byte[] zeroes = new byte[8] { 0,0,0,0,0,0,0,0 };
+	public void WriteArray<T>(IEnumerable<T> list,
+				  Action<MessageWriter,T> doelement)
+	{
+	    var tmp = new MessageWriter(endianness);
+	    
+	    // after the arraylength, we'll be aligned to size 4, but that
+	    // might not be enough, so maybe we need to fix it up.
+	    WritePad(4);
+	    
+	    int startpad = (int)(stream.Position+4) % 8;
+	    tmp.stream.Write(zeroes, 0, startpad);
+			     
+	    foreach (T i in list)
+		doelement(tmp, i);
+	    
+	    byte[] a = tmp.ToArray();
+	    Write((uint)(a.Length - startpad));
+	    stream.Write(a, startpad, a.Length - startpad);
 	}
 
 	public void WriteFromDict(Type keyType, Type valType, IDictionary val)
