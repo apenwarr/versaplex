@@ -1,5 +1,6 @@
 WVDOTNET=../wvdotnet
 include $(WVDOTNET)/monorules.mk
+include $(WVDOTNET)/rules.mk
 
 all: wvdbus-sharp.dll
 
@@ -34,3 +35,8 @@ wvdbus-sharp.dll: \
 	UnixTransport.cs \
 	Wrapper.cs
 
+tests: t/tests
+
+test: t/test
+
+clean:: t/clean
