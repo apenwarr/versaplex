@@ -1,3 +1,10 @@
+
+
+NOTE: This version of dbus-sharp has been hugely changed from Alp Toker's
+version.  It is no longer the same product.  All bugs and responsibility for
+problems with this version go to Avery Pennarun <apenwarr@gmail.com>.
+
+
 D-Bus for .NET
 ==============
 
