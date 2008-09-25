@@ -16,7 +16,6 @@ wvdbus-sharp.dll: \
 	DProxy.cs \
 	ExportObject.cs \
 	Introspection.cs \
-	IntrospectionSchema.cs \
 	Mapper.cs \
 	MatchRule.cs \
 	Message.cs \
@@ -29,7 +28,6 @@ wvdbus-sharp.dll: \
 	Signature.cs \
 	SocketTransport.cs \
 	Transport.cs \
-	TypeDefiner.cs \
 	TypeImplementer.cs \
 	UnixMonoTransport.cs \
 	UnixNativeTransport.cs \
