@@ -16,7 +16,7 @@ wvdotnet dbus-sharp versaplexd wvstreams vxodbc: FORCE
 
 dbus-sharp: dbus-sharp/Makefile
 
-nall: versaplexd
+nall: wvdotnet dbus-sharp # versaplexd
 
 all: nall vxodbc
 
@@ -28,9 +28,9 @@ vxodbc: wvstreams
 
 versaplexd: wvdotnet dbus-sharp
 
-ntests: nall wvdotnet/tests dbus-sharp/tests versaplexd/tests
+ntests: nall wvdotnet/tests dbus-sharp/tests # versaplexd/tests
 
-ntest: nall wvdotnet/test dbus-sharp/test versaplexd/test
+ntest: nall wvdotnet/test dbus-sharp/test # versaplexd/test
 
 tests: nall ntests vxodbc/tests
 
