@@ -149,6 +149,16 @@ namespace Wv
 	    return String.Format(format, args);
 	}
 	
+	public static void print(string format, params object[] args)
+	{
+	    Console.Write(format, args);
+	}
+	
+	public static void printerr(string format, params object[] args)
+	{
+	    Console.Error.Write(format, args);
+	}
+	
 	public static Array sort(ICollection keys, IComparer comparer)
 	{
 	    object[] sorted = new object[keys.Count];
