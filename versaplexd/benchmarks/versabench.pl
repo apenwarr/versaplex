@@ -200,7 +200,7 @@ sub sql_executor
 		goto do_counts;
 	}
 	
-	system("tcpdump -w $tempfile -s $max_tcp_packet_size -i $if 'tcp port $port' $tredir &");
+	system("nice -n -20 tcpdump -w $tempfile -s $max_tcp_packet_size -i $if 'tcp port $port' $tredir &");
 	sleep 1;  #Need to give tcpdump a sec to start up
 
 	my $t = [Time::HiRes::gettimeofday];
@@ -324,7 +324,7 @@ sub test_dbus
 
 	my $reactor = Net::DBus::Reactor->main();
 
-	my $tcpdump_dbus = "tcpdump -w $tempfile -s $max_tcp_packet_size " .
+	my $tcpdump_dbus = "nice -n -20 tcpdump -w $tempfile -s $max_tcp_packet_size " .
 			"-i $dbus_if 'tcp port $dbus_port' $tredir &";
 
 	my $tcpdump_active = 0;

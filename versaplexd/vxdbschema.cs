@@ -401,20 +401,8 @@ internal class VxDbSchema : ISchemaBackend
                 curtable = new VxSchemaTable(curschema[key]);
 
             VxSchemaErrors put_table_errs = null;
-            try 
-            {
-                put_table_errs = PutSchemaTable(curtable, newtable, opts);
-            } 
-            catch (VxRequestException e)
-            {
-                int sqlerrno = (e is VxSqlException) ? 
-                    ((VxSqlException)e).GetFirstSqlErrno() : -1;
-                log.print("Got error updating {0}: {1} ({2})\n", newtable.key, 
-                    e.Message, sqlerrno);
+            put_table_errs = PutSchemaTable(curtable, newtable, opts);
 
-                var err = new VxSchemaError(newtable.key, e.Message, sqlerrno);
-                errs.Add(key, err);
-            }
             if (put_table_errs != null && put_table_errs.Count > 0)
                 errs.Add(put_table_errs);
         }
@@ -459,7 +447,16 @@ internal class VxDbSchema : ISchemaBackend
         var errs = new VxSchemaErrors();
 
         // Compute diff of the current and new tables
-        var diff = VxSchemaTable.GetDiff(curtable, newtable);
+        Dictionary<VxSchemaTableElement,VxDiffType> diff = null;
+        try
+        {
+            diff = VxSchemaTable.GetDiff(curtable, newtable);
+        }
+        catch (VxBadSchemaException e)
+        {
+            errs.Add(key, new VxSchemaError(key, e.Message, -1));
+            goto done;
+        }
 
         var coladd = new List<VxSchemaTableElement>();
         var coldel = new List<VxSchemaTableElement>();
@@ -514,7 +511,7 @@ internal class VxDbSchema : ISchemaBackend
         // Note: we call dbi.execute directly, instead of DbiExec, as we're
         // running SQL we generated ourselves so we shouldn't blame any 
         // errors on the client's SQL.  We'll catch the DbExceptions and 
-        // turn them into VxBadSchemaExceptions, instead of lying.
+        // turn them into VxSchemaErrors.
 
         var deleted_indexes = new List<VxSchemaTableElement>();
 
@@ -620,7 +617,8 @@ internal class VxDbSchema : ISchemaBackend
                                 "column [{0}] when the destructive option " +
                                 "is not set.  Error when altering was: '{1}'", 
                                 elem.GetParam("name"), e.Message);
-                        throw new VxBadSchemaException(errmsg, e);
+                        errs.Add(key, new VxSchemaError(key, errmsg, -1));
+                        goto done;
                     }
                 }
             }

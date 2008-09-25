@@ -40,8 +40,8 @@ class SchemamaticTests : SchemamaticTester
         WVPASSEQ(errs.Count, 1);
 
         // Just return the first error
-        foreach (KeyValuePair<string,VxSchemaError> p in errs)
-            return p.Value;
+        foreach (var p in errs)
+            return p.Value[0];
 
         WVFAIL("Shouldn't happen: couldn't find error to return");
 
@@ -305,7 +305,6 @@ class SchemamaticTests : SchemamaticTester
         try { VxExec("drop table Table1"); } catch { }
         // Name the primary key PK_Table1 to test that GetSchema properly
         // omits the default name.
-        // FIXME: Should also test that it does give us a non-default name.
         string query = "CREATE TABLE [Table1] (\n\t" + 
             "[f1] [int]  NOT NULL,\n\t" +
             "[f2] [money]  NULL,\n\t" + 
@@ -326,6 +325,45 @@ class SchemamaticTests : SchemamaticTester
             "column: name=f5,type=decimal,null=1,precision=3,scale=2\n" + 
             "column: name=f6,type=bigint,null=0,identity_seed=4,identity_incr=5\n" + 
             "primary-key: column=f1,clustered=1\n";
+
+        log.print("Retrieved: " + schema["Table/Table1"].text);
+        log.print("Expected: " + tab1schema);
+
+        WVASSERT(schema.ContainsKey("Table/Table1"));
+        WVPASSEQ(schema["Table/Table1"].name, "Table1");
+        WVPASSEQ(schema["Table/Table1"].type, "Table");
+        WVPASSEQ(schema["Table/Table1"].encrypted, false);
+        WVPASSEQ(schema["Table/Table1"].text, tab1schema);
+
+        try { VxExec("drop table Table1"); } catch { }
+    }
+
+    [Test, Category("Schemamatic"), Category("GetSchema")]
+    public void TestGetTableSchema2()
+    {
+        try { VxExec("drop table Table1"); } catch { }
+        // Name the primary key something non-default to test that GetSchema
+        // properly returns us the non-default version
+        string query = "CREATE TABLE [Table1] (\n\t" + 
+            "[f1] [int]  NOT NULL,\n\t" +
+            "[f2] [money]  NULL,\n\t" + 
+            "[f3] [varchar] (80) NOT NULL,\n\t" +
+            "[f4] [varchar] (max) DEFAULT 'Default Value' NULL,\n\t" + 
+            "[f5] [decimal] (3,2),\n\t" + 
+            "[f6] [bigint]  NOT NULL IDENTITY(4, 5));\n\n" + 
+            "ALTER TABLE [Table1] ADD CONSTRAINT [NonDefaultPK] PRIMARY KEY (f1)\n";
+        WVASSERT(VxExec(query));
+
+        VxSchema schema = dbus.Get();
+        WVASSERT(schema.Count >= 1);
+
+        string tab1schema = "column: name=f1,type=int,null=0\n" + 
+            "column: name=f2,type=money,null=1\n" + 
+            "column: name=f3,type=varchar,null=0,length=80\n" + 
+            "column: name=f4,type=varchar,null=1,length=max,default='Default Value'\n" + 
+            "column: name=f5,type=decimal,null=1,precision=3,scale=2\n" + 
+            "column: name=f6,type=bigint,null=0,identity_seed=4,identity_incr=5\n" + 
+            "primary-key: name=NonDefaultPK,column=f1,clustered=1\n";
 
         log.print("Retrieved: " + schema["Table/Table1"].text);
         log.print("Expected: " + tab1schema);
@@ -367,7 +405,7 @@ class SchemamaticTests : SchemamaticTester
 
         VxSchemaErrors errs = dbus.DropSchema("Procedure/Func1");
         WVPASSEQ(errs.Count, 1);
-        WVPASSEQ(errs["Procedure/Func1"].msg, 
+        WVPASSEQ(errs["Procedure/Func1"][0].msg, 
             "Cannot drop the procedure 'Func1', because it does not exist " + 
             "or you do not have permission.");
 
@@ -657,20 +695,20 @@ class SchemamaticTests : SchemamaticTester
 
         errs = VxPutSchema(schema, no_opts);
 
-        foreach (var err in errs)
-            log.print("Error='{0}'\n", err.Value.ToString());
+        log.print("Results: \n{0}", errs.ToString());
+        log.print("Done results.\n");
 
         WVPASSEQ(errs.Count, baseline_err_count + 2);
-
-	log.print("Results: [\n{0}]\n", errs.Join("'\n'"));
-        WVPASSEQ(errs["ScalarFunction/ErrSF"].key, "ScalarFunction/ErrSF");
-        WVPASSEQ(errs["ScalarFunction/ErrSF"].msg, 
+        WVPASSEQ(errs["ScalarFunction/ErrSF"][0].key, "ScalarFunction/ErrSF");
+        WVPASSEQ(errs["ScalarFunction/ErrSF"][0].msg, 
             "Incorrect syntax near the keyword 'not'.");
-        WVPASSEQ(errs["ScalarFunction/ErrSF"].errnum, 156);
-        WVPASSEQ(errs["TableFunction/ErrTF"].key, "TableFunction/ErrTF");
-        WVPASSEQ(errs["TableFunction/ErrTF"].msg, 
+        WVPASSEQ(errs["ScalarFunction/ErrSF"][0].errnum, 156);
+        WVPASSEQ(errs["ScalarFunction/ErrSF"].Count, 1);
+        WVPASSEQ(errs["TableFunction/ErrTF"][0].key, "TableFunction/ErrTF");
+        WVPASSEQ(errs["TableFunction/ErrTF"][0].msg, 
             "Unclosed quotation mark after the character string 'm not valid SQL either'.");
-        WVPASSEQ(errs["TableFunction/ErrTF"].errnum, 105);
+        WVPASSEQ(errs["TableFunction/ErrTF"][0].errnum, 105);
+        WVPASSEQ(errs["TableFunction/ErrTF"].Count, 1);
 
         sc.Cleanup();
     }
@@ -700,15 +738,18 @@ class SchemamaticTests : SchemamaticTester
         VxSchemaErrors errs = VxPutSchema(schema, VxPutOpts.NoRetry);
 
         WVPASSEQ(errs.Count, 3);
-        WVPASSEQ(errs["View/View1"].key, "View/View1");
-        WVPASSEQ(errs["View/View2"].key, "View/View2");
-        WVPASSEQ(errs["View/View3"].key, "View/View3");
-        WVPASSEQ(errs["View/View1"].msg, "Invalid object name 'View2'.");
-        WVPASSEQ(errs["View/View2"].msg, "Invalid object name 'View3'.");
-        WVPASSEQ(errs["View/View3"].msg, "Invalid object name 'View4'.");
-        WVPASSEQ(errs["View/View1"].errnum, 208);
-        WVPASSEQ(errs["View/View2"].errnum, 208);
-        WVPASSEQ(errs["View/View3"].errnum, 208);
+        WVPASSEQ(errs["View/View1"][0].key, "View/View1");
+        WVPASSEQ(errs["View/View2"][0].key, "View/View2");
+        WVPASSEQ(errs["View/View3"][0].key, "View/View3");
+        WVPASSEQ(errs["View/View1"][0].msg, "Invalid object name 'View2'.");
+        WVPASSEQ(errs["View/View2"][0].msg, "Invalid object name 'View3'.");
+        WVPASSEQ(errs["View/View3"][0].msg, "Invalid object name 'View4'.");
+        WVPASSEQ(errs["View/View1"][0].errnum, 208);
+        WVPASSEQ(errs["View/View2"][0].errnum, 208);
+        WVPASSEQ(errs["View/View3"][0].errnum, 208);
+        WVPASSEQ(errs["View/View1"].Count, 1);
+        WVPASSEQ(errs["View/View2"].Count, 1);
+        WVPASSEQ(errs["View/View3"].Count, 1);
 
         try { VxExec("drop view View4"); } catch { }
         errs = VxPutSchema(schema, VxPutOpts.None);

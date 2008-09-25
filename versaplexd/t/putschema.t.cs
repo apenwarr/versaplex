@@ -77,9 +77,10 @@ class PutSchemaTests : SchemamaticTester
         log.print("Received errors: {0}\n", errs.ToString());
 
         WVPASSEQ(errs.Count, 1);
-        WVPASSEQ(errs[key].key, key);
-        WVPASSEQ(errs[key].msg, errmsg);
-        WVPASSEQ(errs[key].errnum, errno);
+        WVPASSEQ(errs[key][0].key, key);
+        WVPASSEQ(errs[key][0].msg, errmsg);
+        WVPASSEQ(errs[key][0].errnum, errno);
+        WVPASSEQ(errs[key].Count, 1);
 
         // Ensure that we didn't break what was already there.
         schema = dbus.Get(key);

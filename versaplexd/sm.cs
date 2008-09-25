@@ -35,12 +35,12 @@ public static class SchemamaticCli
 
 	int code = 0;
         foreach (var p in errs)
-        {
-            VxSchemaError err = p.Value;
-            Console.WriteLine("Error applying {0}: {1} ({2})", 
-                err.key, err.msg, err.errnum);
-	    code = 1;
-        }
+            foreach (var err in p.Value)
+            {
+                Console.WriteLine("Error applying {0}: {1} ({2})", 
+                    err.key, err.msg, err.errnum);
+                code = 1;
+            }
 	
 	return code;
     }
@@ -54,12 +54,12 @@ public static class SchemamaticCli
 
 	int code = 0;
         foreach (var p in errs)
-        {
-            VxSchemaError err = p.Value;
-            Console.WriteLine("Error applying {0}: {1} ({2})", 
-                err.key, err.msg, err.errnum);
-	    code = 1;
-        }
+            foreach (var err in p.Value)
+            {
+                Console.WriteLine("Error applying {0}: {1} ({2})", 
+                    err.key, err.msg, err.errnum);
+                code = 1;
+            }
 	
 	return code;
     }

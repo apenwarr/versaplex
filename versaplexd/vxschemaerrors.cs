@@ -19,6 +19,13 @@ internal class VxSchemaError
         errnum = newerrnum;
     }
 
+    public VxSchemaError(VxSchemaError other)
+    {
+        key = other.key;
+        msg = other.msg;
+        errnum = other.errnum;
+    }
+
     public VxSchemaError(MessageReader reader)
     {
         key = reader.ReadString();
@@ -44,7 +51,7 @@ internal class VxSchemaError
     }
 }
 
-internal class VxSchemaErrors : Dictionary<string, VxSchemaError>
+internal class VxSchemaErrors : Dictionary<string, List<VxSchemaError>>
 {
     public VxSchemaErrors()
     {
@@ -64,19 +71,37 @@ internal class VxSchemaErrors : Dictionary<string, VxSchemaError>
         }
     }
 
+    public void Add(string key, VxSchemaError val)
+    {
+        if (!this.ContainsKey(key))
+        {
+            var list = new List<VxSchemaError>();
+            list.Add(val);
+            this.Add(key, list);
+        }
+        else
+            this[key].Add(val);
+    }
+
     public void Add(VxSchemaErrors other)
     {
         foreach (var kvp in other)
-            this.Add(kvp.Key, kvp.Value);
+        {
+            var list = new List<VxSchemaError>();
+            foreach (var elem in kvp.Value)
+                list.Add(new VxSchemaError(elem));
+            this.Add(kvp.Key, list);
+        }
     }
 
     private void _WriteErrors(MessageWriter writer)
     {
-        foreach (KeyValuePair<string,VxSchemaError> p in this)
-        {
-            writer.WritePad(8);
-            p.Value.WriteError(writer);
-        }
+        foreach (var kvp in this)
+            foreach (VxSchemaError err in kvp.Value)
+            {
+                writer.WritePad(8);
+                err.WriteError(writer);
+            }
     }
 
     // Static so we can properly write an empty array for a null object.
@@ -97,10 +122,9 @@ internal class VxSchemaErrors : Dictionary<string, VxSchemaError>
     public override string ToString()
     {
         StringBuilder sb = new StringBuilder();
-        foreach (var err in this)
-        {
-            sb.Append(err.Value.ToString() + "\n");
-        }
+        foreach (var kvp in this)
+            foreach (var err in kvp.Value)
+                sb.Append(err.ToString() + "\n");
         return sb.ToString();
     }
 }
