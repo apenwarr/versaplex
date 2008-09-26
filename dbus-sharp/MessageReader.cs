@@ -315,7 +315,7 @@ namespace Wv
 	    byte ln = ReadByte ();
 
 	    if (ln > Protocol.MaxSignatureLength)
-		throw new Exception ("Signature length " + ln + " exceeds maximum allowed " + Protocol.MaxSignatureLength + " bytes");
+		throw new Exception("Signature length " + ln + " exceeds maximum allowed " + Protocol.MaxSignatureLength + " bytes");
 
 	    byte[] sigData = new byte[ln];
 	    Array.Copy (data, pos, sigData, 0, (int)ln);
@@ -360,6 +360,16 @@ namespace Wv
 	    if (pos != endPos)
 		throw new Exception ("Read pos " + pos + " != ep " + endPos);
 	}
+	
+	int GetAlignment(Type t)
+	{
+	    wv.printerr("GetAlignment: {0}/{1}/{2}\n",
+			t, t.IsPrimitive, t.IsEnum);
+/*	    if (!t.IsPrimitive && !t.IsEnum)
+		return 8;
+	    else*/
+		return Protocol.GetAlignment(Signature.TypeToDType(t));
+	}
 
 	//this could be made generic to avoid boxing
 	public T[] ReadArray<T>()
@@ -369,15 +379,16 @@ namespace Wv
 		throw new Exception(wv.fmt("Array length {0} is > {1} bytes",
 					   _ln, Protocol.MaxArrayLength));
 	    int ln = (int)_ln;
+	    int oldpos = pos;
+	    int end = pos + ln;
 
 	    // advance to the alignment of the element
-	    int align = Protocol.GetAlignment(Signature.TypeToDType(typeof(T)));
+	    int align = GetAlignment(typeof(T));
 	    ReadPad(align);
+	    end -= (pos-oldpos);
  
-	    int nelems = ln/align;
-
 	    var a = new List<T>();
-	    for (int i = 0; i < nelems; i++)
+	    while (pos < end)
 		a.Add(ReadValue<T>());
 
 	    return a.ToArray();
@@ -386,21 +397,24 @@ namespace Wv
 	//struct
 	//probably the wrong place for this
 	//there might be more elegant solutions
-	public object ReadStruct (Type type)
+	public object ReadStruct(Type type)
 	{
-	    ReadPad (8);
+	    wv.printerr("pos={0}, type={1}\n", pos, type);
+	    ReadPad(8);
 
-	    object val = Activator.CreateInstance (type);
+	    object val = Activator.CreateInstance(type);
 
-	    FieldInfo[] fis = type.GetFields (BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+	    FieldInfo[] fis = type.GetFields(BindingFlags.Public
+			     | BindingFlags.NonPublic | BindingFlags.Instance);
 
 	    foreach (System.Reflection.FieldInfo fi in fis)
-		fi.SetValue (val, ReadValue (fi.FieldType));
+		fi.SetValue(val, ReadValue(fi.FieldType));
 
+	    wv.printerr("  done: pos={0}\n", pos);
 	    return val;
 	}
 
-	public void ReadNull ()
+	public void ReadNull()
 	{
 	    if (data[pos] != 0)
 		throw new Exception ("Read non-zero byte at position " + pos + " while expecting null terminator");

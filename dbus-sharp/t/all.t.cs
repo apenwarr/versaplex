@@ -8,6 +8,11 @@ using Wv.Test;
 [TestFixture]
 class DbusTest
 {
+    struct Stupid
+    {
+	public string s;
+    }
+    
     [Test]
     public void message_read_write()
     {
@@ -16,12 +21,16 @@ class DbusTest
 	// write
 	{
 	    Message m = new Message();
-	    m.Signature = new Signature("yisax");
+	    m.Signature = new Signature("yisaxa(s)");
 	    MessageWriter w = new MessageWriter();
 	    w.Write((byte)42);
 	    w.Write(42);
 	    w.Write("hello world");
 	    w.WriteArray(new Int64[] { 0x42, 0x43, 0x44 }, (w2, i) => {
+		w2.Write(i);
+	    });
+	    w.WriteArray(new string[] { "a", "aaa", "aaaaa" }, (w2, i) => {
+		w2.WritePad(8); // struct elements must be 8-padded
 		w2.Write(i);
 	    });
 	    m.Body = w.ToArray();
@@ -44,9 +53,14 @@ class DbusTest
 	    WVPASSEQ(r.ReadByte(), 42);
 	    WVPASSEQ(r.ReadInt32(), 42);
 	    WVPASSEQ(r.ReadString(), "hello world");
-	    Array a = r.ReadArray<Int64>();
+
+	    Int64[] a = r.ReadArray<Int64>();
 	    WVPASSEQ(a.Length, 3);
-	    WVPASSEQ(((Int64[])a)[2], 0x44);
+	    WVPASSEQ(a[2], 0x44);
+
+	    Stupid[] a2 = r.ReadArray<Stupid>();
+	    WVPASSEQ(a2.Length, 3);
+	    WVPASSEQ(a2[2].s, "aaaaa");
 	}
     }
 
