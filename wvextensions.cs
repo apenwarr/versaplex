@@ -165,6 +165,7 @@ namespace Wv.Extensions
 		return default(WvAutoCast);
 	}
 	
+	// pray that you never need to use this.
 	public static WvAutoCast autocast(this object o)
 	{
 	    if (o is WvAutoCast)

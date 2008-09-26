@@ -248,6 +248,8 @@ namespace Wv
 		yield return i;
 	}
 	
+	// FIXME: How do we know which of these enumerators gets chosen
+	// by default?
 	public IEnumerator<WvAutoCast> 
 	    GetEnumerator()
 	{
