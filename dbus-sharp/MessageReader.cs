@@ -10,9 +10,243 @@ using System.Reflection;
 using System.Text;
 using System.Linq;
 using Mono;
+using Wv.Extensions;
 
 namespace Wv
 {
+    public class WvDBusIter : IEnumerator<WvAutoCast>
+    {
+	DataConverter conv;
+	byte[] sig;
+	int sigstart, sigend, sigpos;
+	byte[] data;
+	int start, end, pos;
+	WvAutoCast cur;
+	
+	public static WvDBusIter open(Message m)
+	{
+	    DataConverter conv = m.Header.Endianness==EndianFlag.Little 
+		    ? DataConverter.LittleEndian : DataConverter.BigEndian;
+	    
+	    byte[] sig = m.Header.Signature.ToUTF8();
+	    byte[] data = m.Body;
+	    return new WvDBusIter(conv,
+				  sig, 0, sig.Length,
+				  data, 0, data.Length);
+	}
+	
+	internal WvDBusIter(DataConverter conv,
+			    byte[] sig, int sigstart, int sigend,
+			    byte[] data, int start, int end)
+	{
+	    this.conv = conv;
+	    this.sig = sig;
+	    this.sigstart = sigstart;
+	    this.sigend = sigend;
+	    this.data = data;
+	    this.start = start;
+	    this.end = end;
+	    Reset();
+	}
+	
+	// IEnumerator
+	public void Reset()
+	{
+	    sigpos = sigstart;
+	    pos = start;
+	}
+	
+	object getone()
+	{
+	    DType dtype = (DType)sig[sigpos];
+	    switch (dtype)
+	    {
+	    case DType.Byte:
+		return ReadByte();
+	    case DType.Boolean:
+		return ReadBoolean();
+	    case DType.Int16:
+		return ReadInt16();
+	    case DType.UInt16:
+		return ReadUInt16();
+	    case DType.Int32:
+		return ReadInt32();
+	    case DType.UInt32:
+		return ReadUInt32();
+	    case DType.Int64:
+		return ReadInt64();
+	    case DType.UInt64:
+		return ReadUInt64();
+	    case DType.Single:
+		return ReadSingle();
+	    case DType.Double:
+		return ReadDouble();
+	    case DType.String:
+	    case DType.ObjectPath:
+		return ReadString();
+	    case DType.Signature:
+		return ReadSignature();
+//	    case DType.Array:
+//		return ReadArray();
+	    default:
+		throw new Exception("Unhandled D-Bus type: " + dtype);
+	    }
+	}
+	
+	// IEnumerator
+	public bool MoveNext()
+	{
+	    if (sigpos >= sigend)
+		return false;
+	    else
+	    {
+		cur = new WvAutoCast(getone());
+		sigpos++;
+		return true;
+	    }
+	}
+	
+	// IEnumerator
+	public void Dispose()
+	{
+	}
+	
+	public WvAutoCast Current 
+	    { get { return cur; } }
+	object System.Collections.IEnumerator.Current 
+	    { get { return cur; } }
+	
+	public WvAutoCast getnext()
+	{
+	    MoveNext();
+	    return Current;
+	}
+
+	void pad(int align)
+	{
+	    int pad = (align - (pos % align)) % align;
+	    int upto = pos + pad;
+
+	    for (; pos < upto; pos++)
+		if (data[pos] != 0)
+		    throw new Exception
+		         (wv.fmt("Read non-zero byte at position {0} "
+				 + "while expecting padding", pos));
+	}
+	
+	int _advance(int amt)
+	{
+	    int oldpos = pos;
+	    pos += amt;
+	    wv.assert(pos <= end, "Oops, decoded past end of buffer!");
+	    return oldpos;
+	}
+	
+	int advance(int amt)
+	{
+	    pad(amt);
+	    return _advance(amt);
+	}
+	
+	void ReadNull()
+	{
+	    advance(1);
+	}
+	
+	byte ReadByte()
+	{
+	    return data[pos++];
+	}
+
+	bool ReadBoolean()
+	{
+	    uint intval = ReadUInt32();
+
+	    switch (intval) {
+	    case 0:
+		return false;
+	    case 1:
+		return true;
+	    default:
+		throw new Exception("Read value " + intval + " at position " + pos + " while expecting boolean (0/1)");
+	    }
+	}
+
+	short ReadInt16()
+	{
+	    return conv.GetInt16(data, advance(2));
+	}
+
+	ushort ReadUInt16()
+	{
+	    return (UInt16)ReadInt16();
+	}
+
+	int ReadInt32()
+	{
+	    return conv.GetInt32(data, advance(4));
+	}
+
+	uint ReadUInt32()
+	{
+	    return (UInt32)ReadInt32();
+	}
+
+	long ReadInt64()
+	{
+	    return conv.GetInt64(data, advance(8));
+	}
+
+	ulong ReadUInt64()
+	{
+	    return (UInt64)ReadInt64();
+	}
+
+	float ReadSingle()
+	{
+	    return conv.GetFloat(data, advance(4));
+	}
+
+	double ReadDouble()
+	{
+	    return conv.GetDouble(data, advance(8));
+	}
+	
+	int ReadLength()
+	{
+	    uint len = ReadUInt32();
+	    if (len > Int32.MaxValue)
+		throw new Exception(wv.fmt("Invalid string length ({0})", len));
+	    return (int)len;
+	}
+
+	string ReadString()
+	{
+	    int len = ReadLength();
+	    string val = Encoding.UTF8.GetString(data, pos, len);
+	    pos += len;
+	    ReadNull();
+	    return val;
+	}
+
+	string ReadSignature()
+	{
+	    int len = ReadByte();
+	    return Encoding.UTF8.GetString(data, advance(len+1), len);
+	}
+	
+/*	IEnumerable<WvAutoCast> ReadArray()
+	{
+	    DType etype = (DType)sig[++sigpos];
+	    int len = ReadLength();
+	    
+	    var x = new WvDBusIter(conv, etype,
+				   data, pos, pos+len);
+	    advance(len);
+	    return x;
+	}*/
+    }
+    
     public class MessageReader
     {
 	DataConverter conv;
@@ -83,7 +317,7 @@ namespace Wv
 		return val;
 	    }
 	}
-	
+
 	//helper method, should not be used generally
 	public object ReadValue(DType dtype)
 	{
@@ -162,50 +396,50 @@ namespace Wv
 	    }
 	}
 
-	unsafe public short ReadInt16()
+	public short ReadInt16()
 	{
 	    ReadPad(2);
 	    pos += 2;
 	    return conv.GetInt16(data, pos-2);
 	}
 
-	unsafe public ushort ReadUInt16()
+	public ushort ReadUInt16()
 	{
 	    return (UInt16)ReadInt16();
 	}
 
-	unsafe public int ReadInt32()
+	public int ReadInt32()
 	{
 	    ReadPad(4);
 	    pos += 4;
 	    return conv.GetInt32(data, pos-4);
 	}
 
-	unsafe public uint ReadUInt32()
+	public uint ReadUInt32()
 	{
 	    return (UInt32)ReadInt32();
 	}
 
-	unsafe public long ReadInt64()
+	public long ReadInt64()
 	{
 	    ReadPad(8);
 	    pos += 8;
 	    return conv.GetInt64(data, pos-8);
 	}
 
-	unsafe public ulong ReadUInt64()
+	public ulong ReadUInt64()
 	{
 	    return (UInt64)ReadInt64();
 	}
 
-	unsafe public float ReadSingle()
+	public float ReadSingle()
 	{
 	    ReadPad(4);
 	    pos += 4;
 	    return conv.GetFloat(data, pos-4);
 	}
 
-	unsafe public double ReadDouble()
+        public double ReadDouble()
 	{
 	    ReadPad(8);
 	    pos += 8;

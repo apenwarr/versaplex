@@ -2,6 +2,7 @@
 
 using System;
 using System.Linq;
+using System.Collections.Generic;
 using Wv;
 using Wv.Test;
 
@@ -16,7 +17,7 @@ class DbusTest
     [Test]
     public void message_read_write()
     {
-	byte[] msgdata;
+	byte[] msgdata, content;
 	
 	// write
 	{
@@ -38,6 +39,7 @@ class DbusTest
 	    var buf = new WvBuf();
 	    buf.put(m.GetHeaderData());
 	    buf.put(m.Body);
+	    content = m.Body;
 	    msgdata = buf.getall();
 	}
 	
@@ -61,6 +63,32 @@ class DbusTest
 	    Stupid[] a2 = r.ReadArray<Stupid>();
 	    WVPASSEQ(a2.Length, 3);
 	    WVPASSEQ(a2[2].s, "aaaaa");
+	}
+	
+	// new-style read
+	{
+	    Message m = new Message();
+	    m.Body = msgdata;
+	    {
+		MessageReader r = new MessageReader(m);
+		m.Header = (Header)r.ReadStruct(typeof(Header));
+		r.ReadPad(8); // header is always a multiple of 8
+	    }
+	    m.Body = content;
+	    
+	    var i = WvDBusIter.open(m);
+
+	    WVPASSEQ(i.getnext(), 42);
+	    WVPASSEQ(i.getnext(), 42);
+	    WVPASSEQ(i.getnext(), "hello world");
+
+/*	    Int64[] a = i.getnext().iter<Int64>().ToArray();
+	    WVPASSEQ(a.Length, 3);
+            WVPASSEQ(a[2], 0x44);*/
+
+/*	    Stupid[] a2 = r.ReadArray<Stupid>();
+	    WVPASSEQ(a2.Length, 3);
+	    WVPASSEQ(a2[2].s, "aaaaa"); */
 	}
     }
 

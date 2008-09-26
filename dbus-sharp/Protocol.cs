@@ -16,6 +16,10 @@ namespace Wv
 	public uint Length;
 	public uint Serial;
 	public IDictionary<FieldCode,object> Fields;
+	
+	public string Signature {
+	    get { return Fields[FieldCode.Signature].ToString(); }
+	}
     }
 
     public enum MessageType : byte
