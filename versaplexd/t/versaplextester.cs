@@ -131,10 +131,7 @@ public class VersaplexTester: IDisposable
                         out errsig) || errsig.ToString() != "s")
                 throw new DbusError(errname.ToString());
 
-            MessageReader mr = new MessageReader(reply);
-
-            string errmsg = mr.ReadString();
-
+	    string errmsg = reply.iter().pop();
             throw new DbusError(errname.ToString() + ": " + errmsg.ToString());
         }
         default:
@@ -167,9 +164,7 @@ public class VersaplexTester: IDisposable
             if (replysig == null || replysig.ToString() != "v")
                 throw new Exception("D-Bus reply had invalid signature");
 
-            MessageReader reader = new MessageReader(reply);
-            result = reader.ReadVariant();
-
+	    result = reply.iter().pop().inner;
             return true;
         }
         case MessageType.Error:
@@ -185,11 +180,8 @@ public class VersaplexTester: IDisposable
                         out errsig) || errsig.ToString() != "s")
                 throw new DbusError(errname.ToString());
 
-            MessageReader mr = new MessageReader(reply);
-
-            object errmsg = mr.ReadString();
-
-            throw new DbusError(errname.ToString() + ": " + errmsg.ToString());
+            string errmsg = reply.iter().pop();
+            throw new DbusError(errname.ToString() + ": " + errmsg);
         }
         default:
             throw new Exception("D-Bus response was not a method return or "
@@ -268,9 +260,7 @@ public class VersaplexTester: IDisposable
                         out errsig) || errsig.ToString() != "s")
 		    throw new DbusError(errname.ToString());
 
-		MessageReader mr = new MessageReader(tmp);
-
-		string errmsg = mr.ReadString();
+		string errmsg = tmp.iter().pop();
 		throw new DbusError(errname.ToString() + ": " + errmsg);
 	    }
 	    else
@@ -458,10 +448,7 @@ public class VersaplexTester: IDisposable
                         out errsig) || errsig.ToString() != "s")
                 throw new DbusError(errname.ToString());
 
-            MessageReader mr = new MessageReader(reply);
-
-            string errmsg = mr.ReadString();
-
+	    string errmsg = reply.iter().pop();
             throw new DbusError(errname.ToString() + ": " + errmsg.ToString());
         }
         default:

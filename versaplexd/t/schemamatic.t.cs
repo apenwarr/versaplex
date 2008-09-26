@@ -660,8 +660,8 @@ class SchemamaticTests : SchemamaticTester
         finally
         {
             Directory.Delete(tmpdir, true);
-            WVPASS(!Directory.Exists(tmpdir));
         }
+	WVPASS(!Directory.Exists(tmpdir));
     }
 
     [Test, Category("Schemamatic"), Category("PutSchema")]
