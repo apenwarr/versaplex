@@ -26,10 +26,7 @@ class VxDbusUtils
                 errsig.ToString() != "s")
             return new DbusError(errname.ToString());
 
-        MessageReader mr = new MessageReader(reply);
-
-        string errmsg = mr.ReadString();
-
+        string errmsg = reply.iter().pop();
         return new DbusError(errname.ToString() + ": " + errmsg.ToString());
     }
 

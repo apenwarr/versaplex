@@ -85,9 +85,7 @@ internal class VxDbusSchema : ISchemaBackend
                 throw new Exception("D-Bus reply had invalid signature: " +
                     replysig);
 
-            MessageReader reader = new MessageReader(reply);
-            VxSchemaErrors errors = new VxSchemaErrors(reader);
-
+            VxSchemaErrors errors = new VxSchemaErrors(reply.iter().pop());
             return errors;
         }
         default:
@@ -209,9 +207,7 @@ internal class VxDbusSchema : ISchemaBackend
                 throw new Exception("D-Bus reply had invalid signature: " +
                     replysig);
 
-            MessageReader reader = new MessageReader(reply);
-            VxSchemaErrors errors = new VxSchemaErrors(reader);
-
+            VxSchemaErrors errors = new VxSchemaErrors(reply.iter().pop());
             return errors;
         }
         default:

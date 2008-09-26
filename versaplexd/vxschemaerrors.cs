@@ -2,6 +2,7 @@ using System;
 using System.Text;
 using System.Collections.Generic;
 using Wv;
+using Wv.Extensions;
 
 internal class VxSchemaError
 {
@@ -39,12 +40,13 @@ internal class VxSchemaError
         level = other.level;
     }
 
-    public VxSchemaError(MessageReader reader)
+    public VxSchemaError(IEnumerable<WvAutoCast> _err)
     {
-        key = reader.ReadString();
-        msg = reader.ReadString();
-        errnum = reader.ReadInt32();
-        int intlevel = reader.ReadInt32();
+	var err = _err.GetEnumerator();
+        key = err.pop();
+        msg = err.pop();
+        errnum = err.pop();
+        int intlevel = err.pop();
         // Note: C# lets you cast an invalid value to an enum without an
         // exception, we have to check this ourselves.  Default to 
         // Critical (i.e. 0) if someone sends us something unexpected.
@@ -79,12 +81,13 @@ internal class VxSchemaErrors : Dictionary<string, List<VxSchemaError>>
     {
     }
 
-    public VxSchemaErrors(MessageReader reader)
+    public VxSchemaErrors(IEnumerable<WvAutoCast> errs)
     {
-	reader.ReadArrayFunc(8, (r) => {
-            VxSchemaError err = new VxSchemaError(r);
-            this.Add(err.key, err);
-	});
+	foreach (var err in errs)
+	{
+            VxSchemaError e = new VxSchemaError(err);
+            this.Add(e.key, e);
+	}
     }
 
     public void Add(string key, VxSchemaError val)
