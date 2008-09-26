@@ -160,6 +160,11 @@ internal class VxSchemaTableElement
         return results;
     }
 
+    public bool HasDefault()
+    {
+        return elemtype == "column" && GetParam("default").ne();
+    }
+
     // Serializes to "elemtype: key1=value1,key2=value2" format.
     public override string ToString()
     {
@@ -300,7 +305,13 @@ internal class VxSchemaTable : VxSchemaElement
         return wv.fmt("{0}_{1}_default", this.name, colname);
     }
 
+    // Include any default constraints by, er, default.
     public string ColumnToSql(VxSchemaTableElement elem)
+    {
+        return ColumnToSql(elem, true);
+    }
+
+    public string ColumnToSql(VxSchemaTableElement elem, bool include_default)
     {
         string colname = elem.GetParam("name");
         string typename = elem.GetParam("type");
@@ -328,11 +339,13 @@ internal class VxSchemaTable : VxSchemaElement
         else if (prec.ne() && scale.ne())
             lenstr = wv.fmt(" ({0},{1})", prec, scale);
 
-        if (defval.ne())
+        if (include_default && defval.ne())
         {
             string defname = GetDefaultDefaultName(colname);
             defval = " CONSTRAINT " + defname + " DEFAULT " + defval;
         }
+        else
+            defval = "";
 
         return wv.fmt("[{0}] [{1}]{2}{3}{4}{5}",
             colname, typename, lenstr, defval, nullstr, identstr);
