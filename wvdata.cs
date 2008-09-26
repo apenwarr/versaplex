@@ -124,6 +124,21 @@ namespace Wv
 	    return (Int16)o.intify();
 	}
 
+	public static implicit operator UInt64(WvAutoCast o)
+	{
+	    return (UInt64) o.intify();
+	}
+
+	public static implicit operator UInt32(WvAutoCast o)
+	{
+	    return (UInt32)o.intify();
+	}
+
+	public static implicit operator UInt16(WvAutoCast o)
+	{
+	    return (UInt16)o.intify();
+	}
+
 	public static implicit operator Byte(WvAutoCast o)
 	{
 	    return (Byte)o.intify();
@@ -212,16 +227,18 @@ namespace Wv
 		return SqlGuid.Null;
 	}
 	
-	public IEnumerable<T> iter<T>()
+	public IEnumerable<WvAutoCast> iter()
 	{
-	    if (IsNull)
-		return null;
-	    else if (v is IEnumerable<T>)
-		return (IEnumerable<T>)(v);
-	    else if (v is IEnumerable)
-		return ((IEnumerable)v).Cast<T>();
-	    else
-		return null;
+	    if (!IsNull && v is IEnumerable)
+	    {
+		foreach (object i in (IEnumerable)v)
+		{
+		    if (i is WvAutoCast)
+			yield return (WvAutoCast)i;
+		    else
+			yield return new WvAutoCast(i);
+		}
+	    }
 	}
     }
     
