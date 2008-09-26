@@ -11,12 +11,24 @@ internal class VxSchemaError
     public string msg;
     // The SQL error number, or -1 if not applicable.
     public int errnum;
+    public WvLog.L level;
 
+    // Default to a level of Error; 
     public VxSchemaError(string newkey, string newmsg, int newerrnum)
     {
         key = newkey;
         msg = newmsg;
         errnum = newerrnum;
+        level = WvLog.L.Error;
+    }
+
+    public VxSchemaError(string newkey, string newmsg, int newerrnum, 
+        WvLog.L newlevel)
+    {
+        key = newkey;
+        msg = newmsg;
+        errnum = newerrnum;
+        level = newlevel;
     }
 
     public VxSchemaError(VxSchemaError other)
@@ -24,6 +36,7 @@ internal class VxSchemaError
         key = other.key;
         msg = other.msg;
         errnum = other.errnum;
+        level = other.level;
     }
 
     public VxSchemaError(MessageReader reader)
@@ -31,6 +44,14 @@ internal class VxSchemaError
         key = reader.ReadString();
         msg = reader.ReadString();
         errnum = reader.ReadInt32();
+        int intlevel = reader.ReadInt32();
+        // Note: C# lets you cast an invalid value to an enum without an
+        // exception, we have to check this ourselves.  Default to 
+        // Critical (i.e. 0) if someone sends us something unexpected.
+        if (Enum.IsDefined(typeof(WvLog.L), intlevel))
+            level = (WvLog.L)intlevel;
+        else
+            level = WvLog.L.Critical;
     }
 
     public void WriteError(MessageWriter writer)
@@ -38,16 +59,17 @@ internal class VxSchemaError
         writer.Write(key);
         writer.Write(msg);
         writer.Write(errnum);
+        writer.Write((int)level);
     }
 
     public override string ToString()
     {
-        return String.Format("{0}: {1} ({2})", key, msg, errnum);
+        return String.Format("{0} {1}: {2} ({3})", key, level, msg, errnum);
     }
 
     public static string GetDbusSignature()
     {
-        return "ssi";
+        return "ssii";
     }
 }
 

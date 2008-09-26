@@ -436,6 +436,58 @@ internal class VxDbSchema : ISchemaBackend
         return null;
     }
 
+    private VxSchemaErrors ApplyChangedColumn(VxSchemaTable table, 
+        VxSchemaTableElement elem, VxPutOpts opts)
+    {
+        VxSchemaErrors errs = new VxSchemaErrors();
+        log.print("Altering {0}\n", elem.ToString());
+
+        bool destructive = (opts & VxPutOpts.Destructive) != 0;
+        string query = wv.fmt("ALTER TABLE [{0}] ALTER COLUMN {1}", 
+            table.name, table.ColumnToSql(elem));
+        
+        log.print("Executing {0}\n", query);
+        try
+        {
+            dbi.execute(query);
+        }
+        catch (SqlException e)
+        {
+            log.print("Caught exception: {0}\n", e.Message);
+            // Some table attributes can't be changed by ALTER TABLE, 
+            // such as changing default or identity values, or data 
+            // type changes that would truncate data.  If the client 
+            // has set the Destructive flag though, we can try to 
+            // drop and re-add the column.
+            if (destructive)
+            {
+                log.print("Alter column failed, dropping and adding\n");
+                string delquery = wv.fmt("ALTER TABLE [{0}] " + 
+                    "DROP COLUMN [{1}]\n",
+                    table.name, elem.GetParam("name"));
+                string addquery = wv.fmt("ALTER TABLE [{0}] ADD {1}\n", 
+                    table.name, table.ColumnToSql(elem));
+
+                log.print("Executing {0}\n", delquery);
+                dbi.execute(delquery);
+                log.print("Executing {0}\n", addquery);
+                dbi.execute(addquery);
+            }
+            else
+            {
+                log.print("Can't alter table and destructive flag " + 
+                    "not set.  Giving up.\n");
+                string errmsg = wv.fmt("Refusing to drop and re-add " +
+                        "column [{0}] when the destructive option " +
+                        "is not set.  Error when altering was: '{1}'", 
+                        elem.GetParam("name"), e.Message);
+                errs.Add(table.key, new VxSchemaError(table.key, errmsg, -1));
+            }
+        }
+
+        return errs;
+    }
+
     private VxSchemaErrors PutSchemaTable(VxSchemaTable curtable, 
         VxSchemaTable newtable, VxPutOpts opts)
     {
@@ -447,7 +499,7 @@ internal class VxDbSchema : ISchemaBackend
         var errs = new VxSchemaErrors();
 
         // Compute diff of the current and new tables
-        Dictionary<VxSchemaTableElement,VxDiffType> diff = null;
+        List<KeyValuePair<VxSchemaTableElement,VxDiffType>> diff = null;
         try
         {
             diff = VxSchemaTable.GetDiff(curtable, newtable);
@@ -520,8 +572,6 @@ internal class VxDbSchema : ISchemaBackend
         {
             // Delete any to-delete indexes first, to get them out of the way.
             // Indexes are easy to deal with, they don't cause data loss.
-            // Just delete everything there is to delete, then add everything
-            // there is to add.
             // Note: we can't do this inside the transaction, MSSQL doesn't
             // let you change columns that used to be covered by the dropped
             // indexes.  Instead we'll drop the indexes outside the
@@ -548,9 +598,6 @@ internal class VxDbSchema : ISchemaBackend
                 deleted_indexes.Add(elem);
             }
 
-            // Add columns in a deterministic order
-            coladd.Sort(VxSchemaTableElement.CompareTableElemsByName);
-
             dbi.execute("BEGIN TRANSACTION TableUpdate");
 
             // Add new columns before deleting old ones; MSSQL won't let a
@@ -573,53 +620,14 @@ internal class VxDbSchema : ISchemaBackend
                 dbi.execute(query);
             }
 
-            // Modify columns in a deterministic order
-            colchanged.Sort(VxSchemaTableElement.CompareTableElemsByName);
-
             foreach (var elem in colchanged)
             {
-                log.print("Altering {0}\n", elem.ToString());
-                string query = wv.fmt("ALTER TABLE [{0}] ALTER COLUMN {1}", 
-                    tabname, newtable.ColumnToSql(elem));
-                
-                log.print("Executing {0}\n", query);
-                try
-                {
-                    dbi.execute(query);
-                }
-                catch (SqlException e)
-                {
-                    log.print("Caught exception: {0}\n", e.Message);
-                    // Some table attributes can't be changed by ALTER TABLE, 
-                    // such as changing default or identity values, or data 
-                    // type changes that would truncate data.  If the client 
-                    // has set the Destructive flag though, we can try to 
-                    // drop and re-add the column.
-                    if (destructive)
-                    {
-                        log.print("Alter column failed, dropping and adding\n");
-                        string delquery = wv.fmt("ALTER TABLE [{0}] " + 
-                            "DROP COLUMN [{1}]\n",
-                            tabname, elem.GetParam("name"));
-                        string addquery = wv.fmt("ALTER TABLE [{0}] ADD {1}\n", 
-                            tabname, newtable.ColumnToSql(elem));
+                var change_errs = ApplyChangedColumn(newtable, elem, opts);
 
-                        log.print("Executing {0}\n", delquery);
-                        dbi.execute(delquery);
-                        log.print("Executing {0}\n", addquery);
-                        dbi.execute(addquery);
-                    }
-                    else
-                    {
-                        log.print("Can't alter table and destructive flag " + 
-                            "not set.  Giving up.\n");
-                        string errmsg = wv.fmt("Refusing to drop and re-add " +
-                                "column [{0}] when the destructive option " +
-                                "is not set.  Error when altering was: '{1}'", 
-                                elem.GetParam("name"), e.Message);
-                        errs.Add(key, new VxSchemaError(key, errmsg, -1));
-                        goto done;
-                    }
+                if (change_errs != null && change_errs.Count > 0)
+                {
+                    errs.Add(change_errs);
+                    goto done;
                 }
             }
 

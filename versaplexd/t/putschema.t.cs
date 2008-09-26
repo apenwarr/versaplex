@@ -79,6 +79,7 @@ class PutSchemaTests : SchemamaticTester
         WVPASSEQ(errs[key][0].key, key);
         WVPASSEQ(errs[key][0].msg, errmsg);
         WVPASSEQ(errs[key][0].errnum, errno);
+        WVPASSEQ((int)errs[key][0].level, (int)WvLog.L.Error);
         WVPASSEQ(errs[key].Count, 1);
 
         // Ensure that we didn't break what was already there.
@@ -433,6 +434,76 @@ class PutSchemaTests : SchemamaticTester
         TestTableUpdate("TestTable", schema6, VxPutOpts.Destructive);
 
         try { VxExec("drop table TestTable"); } catch { }
+    }
+
+    [Test, Category("Schemamatic"), Category("PutSchema")]
+    public void TestColumnInsertOrder()
+    {
+        string tabname = "TestTable";
+        try { VxExec("drop table " + tabname); } catch { }
+
+        // Make sure that table columns get added in the order we give them,
+        // not alphabetical or something.
+        WVPASS(1);
+        string schema1 = "column: name=c,type=int,null=0\n" + 
+                "column: name=d,type=int,null=0\n" +
+                "column: name=b,type=int,null=0\n";
+        TestTableUpdate(tabname, schema1);
+
+        // Modified columns go to the end if we had to drop and add them.
+        WVPASS(2);
+        string schema2_sent = "column: name=c,type=tinyint,null=0,identity_seed=1,identity_incr=1\n" + 
+                "column: name=d,type=int,null=0\n" +
+                "column: name=b,type=int,null=0\n";
+        string schema2_returned = "column: name=d,type=int,null=0\n" +
+                "column: name=b,type=int,null=0\n" + 
+                "column: name=c,type=tinyint,null=0,identity_seed=1,identity_incr=1\n";
+
+        VxSchema schema = new VxSchema();
+        schema.Add("Table", tabname, schema2_sent, false);
+
+        VxSchemaErrors errs = dbus.Put(schema, null, VxPutOpts.Destructive);
+
+        log.print("Received errors: {0}\n", errs.ToString());
+        WVPASSEQ(errs.Count, 0);
+
+        schema = dbus.Get("Table/" + tabname);
+        WVPASSEQ(schema.Count, 1);
+        CheckTable(schema, tabname, schema2_returned);
+
+        // New columns go to the end too, but stay in order.
+        WVPASS(3);
+        string schema3_sent = "column: name=e,type=int,null=0\n" +
+                "column: name=a,type=int,null=0\n" +
+                "column: name=c,type=tinyint,null=0,identity_seed=1,identity_incr=1\n" +
+                "column: name=d,type=int,null=0\n" +
+                "column: name=b,type=int,null=0\n";
+        string schema3_returned = "column: name=d,type=int,null=0\n" +
+                "column: name=b,type=int,null=0\n" +
+                "column: name=c,type=tinyint,null=0,identity_seed=1,identity_incr=1\n" + 
+                "column: name=e,type=int,null=0\n" +
+                "column: name=a,type=int,null=0\n";
+
+        schema = new VxSchema();
+        schema.Add("Table", tabname, schema3_sent, false);
+
+        errs = dbus.Put(schema, null, VxPutOpts.Destructive);
+
+        log.print("Received errors: {0}\n", errs.ToString());
+        WVPASSEQ(errs.Count, 0);
+
+        schema = dbus.Get("Table/" + tabname);
+        WVPASSEQ(schema.Count, 1);
+        CheckTable(schema, tabname, schema3_returned);
+
+        // Changing the columns completely inserts the new ones in order
+        WVPASS(4);
+        string schema4 = "column: name=cc,type=int,null=0\n" + 
+                "column: name=bb,type=int,null=0\n" +
+                "column: name=dd,type=int,null=0\n";
+        TestTableUpdate(tabname, schema4, VxPutOpts.Destructive);
+
+        try { VxExec("drop table " + tabname); } catch { }
     }
 
     public static void Main()
