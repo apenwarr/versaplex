@@ -290,6 +290,16 @@ internal class VxSchemaTable : VxSchemaElement
         }
     }
 
+    public string GetDefaultPKName()
+    {
+        return "PK_" + this.name;
+    }
+
+    public string GetDefaultDefaultName(string colname)
+    {
+        return wv.fmt("{0}_{1}_default", this.name, colname);
+    }
+
     public string ColumnToSql(VxSchemaTableElement elem)
     {
         string colname = elem.GetParam("name");
@@ -326,7 +336,10 @@ internal class VxSchemaTable : VxSchemaElement
         }
 
         if (!String.IsNullOrEmpty(defval))
-            defval = " DEFAULT " + defval;
+        {
+            string defname = GetDefaultDefaultName(colname);
+            defval = " CONSTRAINT " + defname + " DEFAULT " + defval;
+        }
 
         return wv.fmt("[{0}] [{1}]{2}{3}{4}{5}",
             colname, typename, lenstr, defval, nullstr, identstr);
@@ -357,9 +370,8 @@ internal class VxSchemaTable : VxSchemaElement
         string clustered = elem.GetParam("clustered") == "1" ? 
             " CLUSTERED" : " NONCLUSTERED";
 
-        // If no name is specified, set it to "PK_TableName"
         if (String.IsNullOrEmpty(idxname))
-            idxname = "PK_" + this.name;
+            idxname = GetDefaultPKName();
 
         return wv.fmt(
             "ALTER TABLE [{0}] ADD CONSTRAINT [{1}] PRIMARY KEY{2}\n" +
@@ -460,7 +472,7 @@ internal class VxSchemaTable : VxSchemaElement
             name, columns.Join(","), clustered);
         var elem = new VxSchemaTableElement("primary-key");
 
-        if (!String.IsNullOrEmpty(name) && name != "PK_" + this.name)
+        if (!String.IsNullOrEmpty(name) && name != GetDefaultPKName())
             elem.AddParam("name", name);
 
         foreach (string col in columns)

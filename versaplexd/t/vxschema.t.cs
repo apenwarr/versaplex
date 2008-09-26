@@ -40,7 +40,7 @@ class VxSchemaTests
             "\t[f1] [int] NOT NULL,\n" +
             "\t[f2] [money] NOT NULL,\n" + 
             "\t[f3] [varchar] (80) NOT NULL,\n" + 
-            "\t[f4] [varchar] (max) DEFAULT 'Default Value' NULL,\n" + 
+            "\t[f4] [varchar] (max) CONSTRAINT testtable_f4_default DEFAULT 'Default Value' NULL,\n" + 
             "\t[f5] [decimal] (3,2) NULL,\n" +
             "\t[f6] [bigint] NOT NULL IDENTITY (4,5));\n\n" + 
             "ALTER TABLE [testtable] ADD CONSTRAINT [PK_testtable] " + 

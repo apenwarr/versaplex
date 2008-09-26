@@ -575,11 +575,8 @@ internal class VxDbSchema : ISchemaBackend
                 string idxname = elem.GetParam("name");
 
                 // Use the default primary key name if none was specified.
-                if (elem.elemtype == "primary-key" && 
-                    String.IsNullOrEmpty(idxname))
-                {
-                    idxname = "PK_" + tabname;
-                }
+                if (elem.elemtype == "primary-key" && idxname.e())
+                    idxname = curtable.GetDefaultPKName();
 
                 var err = DropSchemaElement("Index/" + tabname + "/" + idxname);
                 if (err != null)

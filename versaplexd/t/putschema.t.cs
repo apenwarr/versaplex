@@ -300,7 +300,7 @@ class PutSchemaTests : SchemamaticTester
                 "primary-key: column=f1,column=f2,clustered=1\n";
         errmsg = "Refusing to drop and re-add column [f4] " + 
             "when the destructive option is not set.  Error when altering " + 
-            "was: 'Incorrect syntax near the keyword 'DEFAULT'.'";
+            "was: 'Incorrect syntax near the keyword 'CONSTRAINT'.'";
         TestTableUpdateError("TestTable", schema4, errmsg, schema2);
 
         // Just try lightly changing a column, change the nullity on f4
