@@ -15,7 +15,7 @@ ifeq ($(OS),Windows_NT)
   SYMLINK=cp
 else
   CSC?=gmcs -langversion:linq
-  SYMLINK=ln -s
+  SYMLINK=ln -sf
   PKGS += /r:Mono.Posix
 endif
 
