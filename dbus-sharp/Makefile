@@ -26,6 +26,7 @@ wvdbus-sharp.dll: \
 	MessageFilter.cs \
 	MessageReader.cs \
 	MessageWriter.cs \
+	msgiter.cs \
 	PendingCall.cs \
 	Protocol.cs \
 	Server.cs \
