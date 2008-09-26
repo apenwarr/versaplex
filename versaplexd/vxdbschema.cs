@@ -507,16 +507,7 @@ internal class VxDbSchema : ISchemaBackend
         {
             VxSchemaTableElement elem = kvp.Key;
             VxDiffType difftype = kvp.Value;
-            if (elem.elemtype == "column")
-            {
-                if (difftype == VxDiffType.Add)
-                    coladd.Add(elem);
-                else if (difftype == VxDiffType.Remove)
-                    coldel.Add(elem);
-                else if (difftype == VxDiffType.Change)
-                    colchanged.Add(elem);
-            }
-            else
+            if (elem.elemtype == "primary-key" || elem.elemtype == "index")
             {
                 if (difftype == VxDiffType.Add)
                     otheradd.Add(elem);
@@ -524,9 +515,21 @@ internal class VxDbSchema : ISchemaBackend
                     otherdel.Add(elem);
                 else if (difftype == VxDiffType.Change)
                 {
-                    otherdel.Add(elem);
+                    // We don't want to bother trying to change indexes or
+                    // primary keys; it's easier to just delete and re-add
+                    // them.
+                    otherdel.Add(curtable[elem.GetElemKey()]);
                     otheradd.Add(elem);
                 }
+            }
+            else
+            {
+                if (difftype == VxDiffType.Add)
+                    coladd.Add(elem);
+                else if (difftype == VxDiffType.Remove)
+                    coldel.Add(elem);
+                else if (difftype == VxDiffType.Change)
+                    colchanged.Add(elem);
             }
         }
 

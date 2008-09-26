@@ -472,7 +472,8 @@ internal class VxSchemaTable : VxSchemaElement
 
     // Figure out what changed between oldtable and newtable.  
     // Returns any deleted elements first, followed by any modified or added
-    // elements in the same order they occur in newtable.
+    // elements in the same order they occur in newtable.  Any returned
+    // elements scheduled for changing are from the new table.
     public static List<KeyValuePair<VxSchemaTableElement, VxDiffType>> GetDiff(
         VxSchemaTable oldtable, VxSchemaTable newtable)
     {
@@ -501,21 +502,8 @@ internal class VxSchemaTable : VxSchemaElement
             else if (elem.ToString() != oldtable[elemkey].ToString())
             {
                 log.print("Scheduling {0} for change.\n", elemkey);
-                string elemtype = elem.elemtype;
-                if (elemtype == "primary-key" || elemtype == "index")
-                {
-                    // Don't bother trying to change indexes, just delete and
-                    // re-add them.  Makes it possible to rename primary keys.
-                    diff.Add(new KeyValuePair<VxSchemaTableElement, VxDiffType>(
-                        oldtable[elemkey], VxDiffType.Remove));
-                    diff.Add(new KeyValuePair<VxSchemaTableElement, VxDiffType>(
-                        newtable[elemkey], VxDiffType.Add));
-                }
-                else
-                {
-                    diff.Add(new KeyValuePair<VxSchemaTableElement, VxDiffType>(
-                        newtable[elemkey], VxDiffType.Change));
-                }
+                diff.Add(new KeyValuePair<VxSchemaTableElement, VxDiffType>(
+                    newtable[elemkey], VxDiffType.Change));
             }
         }
 
