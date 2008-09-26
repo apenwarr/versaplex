@@ -34,11 +34,6 @@ namespace Wv
 	    return stream.ToArray();
 	}
 
-	public void CloseWrite()
-	{
-	    WritePad(8);
-	}
-
 	public void Write(byte val)
 	{
 	    stream.WriteByte(val);
@@ -379,6 +374,16 @@ namespace Wv
 	    byte[] a = tmp.ToArray();
 	    Write((uint)(a.Length - startpad));
 	    stream.Write(a, startpad, a.Length - startpad);
+	}
+	
+	// not used!
+	public void WriteDict<K,V>(IDictionary<K,V> dict)
+	{
+	    WriteArray(dict, (w2, i) => {
+		w2.WritePad(8);
+		w2.Write(i.Key);
+		w2.Write(i.Value);
+	    });
 	}
 
 	public void WriteFromDict(Type keyType, Type valType, IDictionary val)

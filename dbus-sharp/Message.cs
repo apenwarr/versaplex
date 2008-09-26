@@ -53,13 +53,31 @@ namespace Wv
 		    Header.Flags |= HeaderFlag.NoReplyExpected;
 	    }
 	}
+	
+	struct SillyType
+	{
+	    public FieldCode Code;
+	    public object Value;
+	}
 
+	// Header format is: yyyyuua{yv}
 	public void SetHeaderData(byte[] data)
 	{
 	    EndianFlag endianness = (EndianFlag)data[0];
 	    MessageReader reader = new MessageReader(endianness, data);
 
-	    Header = (Header)reader.ReadStruct(typeof(Header));
+	    Header h;
+	    h.Endianness = (EndianFlag)reader.ReadByte();
+	    h.MessageType = (MessageType)reader.ReadByte();
+	    h.Flags = (HeaderFlag)reader.ReadByte();
+	    h.MajorVersion = reader.ReadByte();
+	    h.Length = reader.ReadUInt32();
+	    h.Serial = reader.ReadUInt32();
+	    h.Fields = new Dictionary<FieldCode,object>();
+	    SillyType[] sta = reader.ReadArray<SillyType>();
+	    foreach (var st in sta)
+		h.Fields[st.Code] = st.Value;
+	    Header = h;
 	}
 
 	// Header format is: yyyyuua{yv}
@@ -70,9 +88,6 @@ namespace Wv
 
 	    MessageWriter writer = new MessageWriter(Header.Endianness);
 	    
-#if false
-	    writer.WriteValueType(Header, typeof(Header));
-#else
 	    Header h = Header;
 	    writer.Write((byte)h.Endianness);
 	    writer.Write((byte)h.MessageType);
@@ -81,31 +96,13 @@ namespace Wv
 	    writer.Write((uint)h.Length);
 	    writer.Write((uint)h.Serial);
 	
-#if false
-	    {
-		MessageWriter w2 = new MessageWriter(Header.Endianness);
-		
-		foreach (var i in h.Fields)
-		{
-		    w2.WritePad(8);
-		    w2.Write((byte)i.Key);
-		    w2.WriteVariant(i.Value.GetType(), i.Value);
-		}
-		
-		byte[] a = w2.ToArray();
-		writer.Write((uint)a.Length);
-		writer.stream.Write(a, 0, a.Length);
-	    }
-#else
 	    writer.WriteArray(h.Fields, (w2, i) => {
 		w2.WritePad(8);
 		w2.Write((byte)i.Key);
 		w2.WriteVariant(i.Value.GetType(), i.Value);
 	    });
-#endif
-#endif
 	    
-	    writer.CloseWrite();
+	    writer.WritePad(8); // the header is *always* a multiple of 8
 	    return writer.ToArray();
 	}
     }
