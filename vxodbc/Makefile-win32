@@ -38,7 +38,7 @@ OBJS+=\
 	vxodbc.def
 
 
-all: wvdbusd.dll vxodbc.dll	
+all: wvdbusd.dll vxodbc.dll regwriter.exe
 
 %.res.o: %.rc
 	$(WINDRES) $< $@
@@ -66,5 +66,13 @@ vxodbc.dll: $(OBJS)
 		-Wl,-Map,vxodbc.map \
 		$(LIBS) \
 		2>&1 | grep -v '^Warning: resolving .* by linking to' >&2
+
+regwriter.exe: regwriter.o
+	@echo Linking $@...
+	@$(CXX) \
+		-o $@ \
+		$(LDFLAGS) \
+		$^ \
+		$(LIBS)
 
 test: vxodbc.dll vxodbc.a
