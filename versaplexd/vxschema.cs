@@ -180,7 +180,7 @@ internal class VxSchemaTableElement
 
     // Returns a string uniquely identifying this element within the table.
     // Generally includes the element's name, if it has one.
-    public string GetColKey()
+    public string GetElemKey()
     {
         if (elemtype == "primary-key")
             return elemtype;
@@ -191,18 +191,24 @@ internal class VxSchemaTableElement
 
 internal class VxSchemaTable : VxSchemaElement
 {
+    // A list of table elements, so we can maintain the original order
     private List<VxSchemaTableElement> elems;
+    // A dictionary of table elements, so we can quickly check if we have 
+    // an element.
+    private Dictionary<string, VxSchemaTableElement> elemdict;
 
     public VxSchemaTable(string newname) :
         base("Table", newname, null, false)
     {
         elems = new List<VxSchemaTableElement>();
+        elemdict = new Dictionary<string, VxSchemaTableElement>();
     }
 
     public VxSchemaTable(string newname, string newtext) :
         base("Table", newname, null, false)
     {
         elems = new List<VxSchemaTableElement>();
+        elemdict = new Dictionary<string, VxSchemaTableElement>();
         // Parse the new text
         text = newtext;
     }
@@ -211,8 +217,22 @@ internal class VxSchemaTable : VxSchemaElement
         base("Table", elem.name, null, false)
     {
         elems = new List<VxSchemaTableElement>();
+        elemdict = new Dictionary<string, VxSchemaTableElement>();
         // Parse the new text
         text = elem.text;
+    }
+
+    public bool Contains(string elemkey)
+    {
+        return elemdict.ContainsKey(elemkey);
+    }
+
+    public VxSchemaTableElement this[string elemkey]
+    {
+        get
+        {
+            return elemdict[elemkey];
+        }
     }
 
     // Internal function to be used in unit tests.  You shouldn't call this.
@@ -236,6 +256,7 @@ internal class VxSchemaTable : VxSchemaElement
         set
         {
             elems.Clear();
+            elemdict.Clear();
             char[] equals = {'='};
             char[] comma = {','};
             foreach (string line in value.Split('\n'))
@@ -264,7 +285,7 @@ internal class VxSchemaTable : VxSchemaElement
                     elem.parameters.Add(
                         new KeyValuePair<string,string>(kv[0], kv[1]));
                 }
-                elems.Add(elem);
+                Add(elem);
             }
         }
     }
@@ -375,6 +396,19 @@ internal class VxSchemaTable : VxSchemaElement
         return table;
     }
 
+    private void Add(VxSchemaTableElement elem)
+    {
+        elems.Add(elem);
+
+        string elemkey = elem.GetElemKey();
+
+        if (elemdict.ContainsKey(elemkey))
+            throw new VxBadSchemaException(wv.fmt("Duplicate table entry " + 
+                "'{0}' found.", elemkey));
+
+        elemdict.Add(elemkey, elem);
+    }
+
     public void AddColumn(string name, string type, int isnullable, 
         string len, string defval, string prec, string scale, 
         int isident, string ident_seed, string ident_incr)
@@ -398,7 +432,7 @@ internal class VxSchemaTable : VxSchemaElement
             elem.AddParam("identity_seed", ident_seed);
             elem.AddParam("identity_incr", ident_incr);
         }
-        elems.Add(elem);
+        Add(elem);
     }
 
     public void AddIndex(string name, int unique, int clustered, 
@@ -415,7 +449,7 @@ internal class VxSchemaTable : VxSchemaElement
         elem.AddParam("unique", unique.ToString());
         elem.AddParam("clustered", clustered.ToString());
 
-        elems.Add(elem);
+        Add(elem);
     }
 
     public void AddPrimaryKey(string name, int clustered, 
@@ -433,7 +467,7 @@ internal class VxSchemaTable : VxSchemaElement
             elem.AddParam("column", col);
         elem.AddParam("clustered", clustered.ToString());
 
-        elems.Add(elem);
+        Add(elem);
     }
 
     // Figure out what changed between oldtable and newtable.  
@@ -444,70 +478,43 @@ internal class VxSchemaTable : VxSchemaElement
     {
         WvLog log = new WvLog("SchemaTable GetDiff");
         var diff = new List<KeyValuePair<VxSchemaTableElement, VxDiffType>>();
-        var oldset = new Dictionary<string, VxSchemaTableElement>();
-        var newset = new Dictionary<string, VxSchemaTableElement>();
-
-        // Build some dictionaries so we can quickly check if a particular 
-        // entry exists in a table, even if its attributes have changed.
-        // We only have one primary key per table, no need to distinguish it
-        // further (and it might not have a name yet).  
-        foreach (var elem in oldtable.elems)
-        {
-            string colkey = elem.GetColKey();
-
-            if (oldset.ContainsKey(colkey))
-                throw new VxBadSchemaException(wv.fmt("Duplicate table entry " + 
-                    "'{0}' found.", colkey));
-
-            oldset.Add(colkey, elem);
-        }
-        foreach (var elem in newtable.elems)
-        {
-            string colkey = elem.GetColKey();
-
-            if (newset.ContainsKey(colkey))
-                throw new VxBadSchemaException(wv.fmt("Duplicate table entry " + 
-                    "'{0}' found.", colkey));
-
-            newset.Add(colkey, elem);
-        }
 
         foreach (var elem in oldtable.elems)
         {
-            string colkey = elem.GetColKey();
-            if (!newset.ContainsKey(colkey))
+            string elemkey = elem.GetElemKey();
+            if (!newtable.Contains(elemkey))
             {
-                log.print("Scheduling {0} for removal.\n", colkey);
+                log.print("Scheduling {0} for removal.\n", elemkey);
                 diff.Add(new KeyValuePair<VxSchemaTableElement, VxDiffType>(
-                    oldset[colkey], VxDiffType.Remove));
+                    oldtable[elemkey], VxDiffType.Remove));
             }
         }
         foreach (var elem in newtable.elems)
         {
-            string colkey = elem.GetColKey();
-            if (!oldset.ContainsKey(colkey))
+            string elemkey = elem.GetElemKey();
+            if (!oldtable.Contains(elemkey))
             {
-                log.print("Scheduling {0} for addition.\n", colkey);
+                log.print("Scheduling {0} for addition.\n", elemkey);
                 diff.Add(new KeyValuePair<VxSchemaTableElement, VxDiffType>(
-                    newset[colkey], VxDiffType.Add));
+                    newtable[elemkey], VxDiffType.Add));
             }
-            else if (elem.ToString() != oldset[colkey].ToString())
+            else if (elem.ToString() != oldtable[elemkey].ToString())
             {
-                log.print("Scheduling {0} for change.\n", colkey);
+                log.print("Scheduling {0} for change.\n", elemkey);
                 string elemtype = elem.elemtype;
                 if (elemtype == "primary-key" || elemtype == "index")
                 {
                     // Don't bother trying to change indexes, just delete and
                     // re-add them.  Makes it possible to rename primary keys.
                     diff.Add(new KeyValuePair<VxSchemaTableElement, VxDiffType>(
-                        oldset[colkey], VxDiffType.Remove));
+                        oldtable[elemkey], VxDiffType.Remove));
                     diff.Add(new KeyValuePair<VxSchemaTableElement, VxDiffType>(
-                        newset[colkey], VxDiffType.Add));
+                        newtable[elemkey], VxDiffType.Add));
                 }
                 else
                 {
                     diff.Add(new KeyValuePair<VxSchemaTableElement, VxDiffType>(
-                        newset[colkey], VxDiffType.Change));
+                        newtable[elemkey], VxDiffType.Change));
                 }
             }
         }

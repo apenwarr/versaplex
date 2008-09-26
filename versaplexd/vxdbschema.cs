@@ -496,19 +496,7 @@ internal class VxDbSchema : ISchemaBackend
         string tabname = newtable.name;
         string key = newtable.key;
 
-        var errs = new VxSchemaErrors();
-
-        // Compute diff of the current and new tables
-        List<KeyValuePair<VxSchemaTableElement,VxDiffType>> diff = null;
-        try
-        {
-            diff = VxSchemaTable.GetDiff(curtable, newtable);
-        }
-        catch (VxBadSchemaException e)
-        {
-            errs.Add(key, new VxSchemaError(key, e.Message, -1));
-            goto done;
-        }
+        var diff = VxSchemaTable.GetDiff(curtable, newtable);
 
         var coladd = new List<VxSchemaTableElement>();
         var coldel = new List<VxSchemaTableElement>();
@@ -541,6 +529,8 @@ internal class VxDbSchema : ISchemaBackend
                 }
             }
         }
+
+        var errs = new VxSchemaErrors();
 
         // Might as well check this sooner rather than later.
         if (!destructive && coldel.Count > 0)
