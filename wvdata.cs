@@ -211,6 +211,18 @@ namespace Wv
 	    else
 		return SqlGuid.Null;
 	}
+	
+	public IEnumerable<T> iter<T>()
+	{
+	    if (IsNull)
+		return null;
+	    else if (v is IEnumerable<T>)
+		return (IEnumerable<T>)(v);
+	    else if (v is IEnumerable)
+		return ((IEnumerable)v).Cast<T>();
+	    else
+		return null;
+	}
     }
     
     
