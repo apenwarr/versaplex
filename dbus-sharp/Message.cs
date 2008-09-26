@@ -110,7 +110,7 @@ namespace Wv
 	
 	// FIXME: this whole Message class is junk, so this will presumably
 	// migrate elsewhere eventually.
-	public WvDBusIter open()
+	public WvDBusIter iter()
 	{
 	    DataConverter conv = Header.Endianness==EndianFlag.Little 
 		    ? DataConverter.LittleEndian : DataConverter.BigEndian;

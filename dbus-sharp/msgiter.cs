@@ -69,7 +69,7 @@ namespace Wv
 	object System.Collections.IEnumerator.Current 
 	    { get { return cur; } }
 	
-	public WvAutoCast getnext()
+	public WvAutoCast pop()
 	{
 	    MoveNext();
 	    return Current;
@@ -126,7 +126,7 @@ namespace Wv
 	object System.Collections.IEnumerator.Current 
 	    { get { return cur; } }
 	
-	public WvAutoCast getnext()
+	public WvAutoCast pop()
 	{
 	    MoveNext();
 	    return Current;

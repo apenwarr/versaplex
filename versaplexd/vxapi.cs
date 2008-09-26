@@ -59,9 +59,9 @@ internal static class VxDb {
             return;
         }
         
-	var it = call.open();
+	var it = call.iter();
 
-        string query = it.getnext();
+        string query = it.pop();
 	string iquery = query.ToLower().Trim();
 	reply = null;
         // XXX this is fishy, really... whitespace fucks it up.
@@ -633,8 +633,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
-	var it = call.open();
-        string query = it.getnext();
+	var it = call.iter();
+        string query = it.pop();
 
         object result;
         VxDb.ExecScalar(clientid, (string)query, out result);
@@ -689,8 +689,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
-	var it = call.open();
-        string query = it.getnext();
+	var it = call.iter();
+        string query = it.pop();
 
         VxColumnInfo[] colinfo;
         object[][] data;
@@ -891,8 +891,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
-	var it = call.open();
-        string[] names = it.getnext().oiter().Cast<string>().ToArray();
+	var it = call.iter();
+        string[] names = it.pop().oiter().Cast<string>().ToArray();
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
@@ -925,8 +925,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
-	var it = call.open();
-	string[] keys = it.getnext().oiter().Cast<string>().ToArray();
+	var it = call.iter();
+	string[] keys = it.pop().oiter().Cast<string>().ToArray();
 
         VxSchemaErrors errs;
         using (var dbi = VxSqlPool.create(clientid))
@@ -1006,9 +1006,9 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
-	var it = call.open();
-        string tablename = it.getnext();
-	string where = it.getnext();
+	var it = call.iter();
+        string tablename = it.pop();
+	string where = it.pop();
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
@@ -1038,9 +1038,9 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
-	var it = call.open();
-        string tablename = it.getnext();
-        string text = it.getnext();
+	var it = call.iter();
+        string tablename = it.pop();
+        string text = it.pop();
 
         using (var dbi = VxSqlPool.create(clientid))
         {

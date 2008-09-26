@@ -81,13 +81,13 @@ class DbusTest
 	    }
 	    m.Body = content;
 	    
-	    var i = m.open();
+	    var i = m.iter();
 
-	    WVPASSEQ(i.getnext(), 42);
-	    WVPASSEQ(i.getnext(), 42);
-	    WVPASSEQ(i.getnext(), "hello world");
+	    WVPASSEQ(i.pop(), 42);
+	    WVPASSEQ(i.pop(), 42);
+	    WVPASSEQ(i.pop(), "hello world");
 
-	    var it = i.getnext();
+	    var it = i.pop();
 	    var a = it.iter().ToArray(); 
 	    WVPASSEQ(a.Length, 3);
             WVPASSEQ(a[2], 0x44);
@@ -95,9 +95,9 @@ class DbusTest
 	    foreach (long v in it.iter())
 		wv.print("value: {0:x}\n", v);
 	    
-	    WVPASSEQ(i.getnext(), "VSTRING");
+	    WVPASSEQ(i.pop(), "VSTRING");
 
-	    var a2 = i.getnext().iter().ToArray();
+	    var a2 = i.pop().iter().ToArray();
 	    WVPASSEQ(a2.Length, 3);
 	    WVPASSEQ(a2[2].iter().Join(""), "aaaaa");
 	}

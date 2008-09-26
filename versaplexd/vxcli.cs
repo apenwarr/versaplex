@@ -75,11 +75,11 @@ namespace Wv
 	    case MessageType.Error:
 		{
 		    string sig = reply.Header.Signature;
-		    var it = reply.open();
+		    var it = reply.iter();
 		    
 		    // Some unexpected error
 		    if (sig == "s")
-			throw new VxDbException(it.getnext());
+			throw new VxDbException(it.pop());
 		    
 		    if (sig != "a(issnny)vaay")
 			throw new Exception
@@ -87,7 +87,7 @@ namespace Wv
 		    
 		    // decode the raw column info
 		    var l = new List<WvColInfo>();
-		    foreach (var c in it.getnext().iter())
+		    foreach (var c in it.pop().iter())
 		    {
 			WvAutoCast[] cols = c.iter().ToArray();
 			int size = cols[0];
@@ -103,7 +103,7 @@ namespace Wv
 		    }
 		    
 		    WvColInfo[] colinfo = l.ToArray();
-		    WvSqlRow[] rows = (from r in it.getnext().iter()
+		    WvSqlRow[] rows = (from r in it.pop().iter()
 				       select new WvSqlRow(r.oiter().ToArray(),
 							   colinfo)).ToArray();
 		    
