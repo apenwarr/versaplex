@@ -393,6 +393,27 @@ namespace Wv
 	{
 	    return (T[])ReadArray(typeof(T));
 	}
+	
+	public void ReadArrayFunc(int align, Action<MessageReader> action)
+	{
+	    uint _ln = ReadUInt32();
+	    if (_ln > Protocol.MaxArrayLength)
+		throw new Exception(wv.fmt("Array length {0} is > {1} bytes",
+					   _ln, Protocol.MaxArrayLength));
+	    int ln = (int)_ln;
+	    int oldpos = pos;
+	    int end = pos + ln;
+
+	    // advance to the alignment of the element
+	    ReadPad(align);
+	    end -= (pos-oldpos);
+ 
+	    while (pos < end)
+	    {
+		ReadPad(align);
+		action(this);
+	    }
+	}
 
 	//struct
 	//probably the wrong place for this

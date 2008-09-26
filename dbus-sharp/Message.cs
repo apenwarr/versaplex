@@ -74,9 +74,11 @@ namespace Wv
 	    h.Length = reader.ReadUInt32();
 	    h.Serial = reader.ReadUInt32();
 	    h.Fields = new Dictionary<FieldCode,object>();
-	    SillyType[] sta = reader.ReadArray<SillyType>();
-	    foreach (var st in sta)
-		h.Fields[st.Code] = st.Value;
+	    reader.ReadArrayFunc(8, (r) => {
+	        FieldCode c = (FieldCode)r.ReadByte();
+		object o = r.ReadVariant();
+		h.Fields[c] = o;
+	    });
 	    Header = h;
 	}
 
