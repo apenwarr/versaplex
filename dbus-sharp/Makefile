@@ -15,6 +15,7 @@ wvdbus-sharp.dll: \
 	Bus.cs \
 	BusObject.cs \
 	Connection.cs \
+	DataConverter.cs \
 	DBus.cs \
 	DProxy.cs \
 	ExportObject.cs \

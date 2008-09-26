@@ -63,11 +63,8 @@ namespace Mono {
 
 		public abstract short  GetInt16  (byte [] data, int index);
 
-                [CLSCompliant (false)]
 		public abstract uint   GetUInt32 (byte [] data, int index);
-                [CLSCompliant (false)]
 		public abstract ushort GetUInt16 (byte [] data, int index);
-                [CLSCompliant (false)]
 		public abstract ulong  GetUInt64 (byte [] data, int index);
 		
 		public abstract void PutBytes (byte [] dest, int destIdx, double value);
@@ -76,11 +73,8 @@ namespace Mono {
 		public abstract void PutBytes (byte [] dest, int destIdx, long value);
 		public abstract void PutBytes (byte [] dest, int destIdx, short value);
 
-                [CLSCompliant (false)]
 		public abstract void PutBytes (byte [] dest, int destIdx, ushort value);
-                [CLSCompliant (false)]
 		public abstract void PutBytes (byte [] dest, int destIdx, uint value);
-                [CLSCompliant (false)]
 		public abstract void PutBytes (byte [] dest, int destIdx, ulong value);
 
 		public byte[] GetBytes (double value)
@@ -118,7 +112,6 @@ namespace Mono {
 			return ret;
 		}
 
-                [CLSCompliant (false)]
 		public byte[] GetBytes (ushort value)
 		{
 			byte [] ret = new byte [2];
@@ -126,7 +119,6 @@ namespace Mono {
 			return ret;
 		}
 		
-                [CLSCompliant (false)]
 		public byte[] GetBytes (uint value)
 		{
 			byte [] ret = new byte [4];
@@ -134,7 +126,6 @@ namespace Mono {
 			return ret;
 		}
 		
-                [CLSCompliant (false)]
 		public byte[] GetBytes (ulong value)
 		{
 			byte [] ret = new byte [8];
@@ -1694,19 +1685,16 @@ namespace Mono {
                         return GetBytesPtr ((byte *) &value, 8);
                 }
 
-                [CLSCompliant (false)]
                 unsafe public static byte[] GetBytesNative (ushort value)
                 {
                         return GetBytesPtr ((byte *) &value, 2);
                 }
 
-                [CLSCompliant (false)]
                 unsafe public static byte[] GetBytesNative (uint value)
                 {
                         return GetBytesPtr ((byte *) &value, 4);
                 }
 
-                [CLSCompliant (false)]
                 unsafe public static byte[] GetBytesNative (ulong value)
                 {
                         return GetBytesPtr ((byte *) &value, 8);
@@ -1747,19 +1735,16 @@ namespace Mono {
                         return GetBytesSwap (!BitConverter.IsLittleEndian, (byte *) &value, 8);
                 }
 
-                [CLSCompliant (false)]
                 unsafe public static byte[] GetBytesLE (ushort value)
                 {
                         return GetBytesSwap (!BitConverter.IsLittleEndian, (byte *) &value, 2);
                 }
 
-                [CLSCompliant (false)]
                 unsafe public static byte[] GetBytesLE (uint value)
                 {
                         return GetBytesSwap (!BitConverter.IsLittleEndian, (byte *) &value, 4);
                 }
 
-                [CLSCompliant (false)]
                 unsafe public static byte[] GetBytesLE (ulong value)
                 {
                         return GetBytesSwap (!BitConverter.IsLittleEndian, (byte *) &value, 8);
@@ -1800,19 +1785,16 @@ namespace Mono {
                         return GetBytesSwap (BitConverter.IsLittleEndian, (byte *) &value, 8);
                 }
 
-                [CLSCompliant (false)]
                 unsafe public static byte[] GetBytesBE (ushort value)
                 {
                         return GetBytesSwap (BitConverter.IsLittleEndian, (byte *) &value, 2);
                 }
 
-                [CLSCompliant (false)]
                 unsafe public static byte[] GetBytesBE (uint value)
                 {
                         return GetBytesSwap (BitConverter.IsLittleEndian, (byte *) &value, 4);
                 }
 
-                [CLSCompliant (false)]
                 unsafe public static byte[] GetBytesBE (ulong value)
                 {
                         return GetBytesSwap (BitConverter.IsLittleEndian, (byte *) &value, 8);
