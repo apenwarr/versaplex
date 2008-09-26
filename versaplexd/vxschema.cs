@@ -313,29 +313,22 @@ internal class VxSchemaTable : VxSchemaElement
         string ident_incr = elem.GetParam("identity_incr");
 
         string identstr = "";
-        if (!String.IsNullOrEmpty(ident_seed) && 
-            !String.IsNullOrEmpty(ident_incr))
-        {
-            identstr = wv.fmt(" IDENTITY ({0},{1})", 
-                ident_seed, ident_incr);
-        }
+        if (ident_seed.ne() && ident_incr.ne())
+            identstr = wv.fmt(" IDENTITY ({0},{1})", ident_seed, ident_incr);
 
-        if (String.IsNullOrEmpty(nullstr))
+        if (nullstr.e())
             nullstr = "";
         else if (nullstr == "0")
             nullstr = " NOT NULL";
         else
             nullstr = " NULL";
 
-        if (!String.IsNullOrEmpty(lenstr))
+        if (lenstr.ne())
             lenstr = " (" + lenstr + ")";
-        else if (!String.IsNullOrEmpty(prec) && 
-            !String.IsNullOrEmpty(scale))
-        {
+        else if (prec.ne() && scale.ne())
             lenstr = wv.fmt(" ({0},{1})", prec, scale);
-        }
 
-        if (!String.IsNullOrEmpty(defval))
+        if (defval.ne())
         {
             string defname = GetDefaultDefaultName(colname);
             defval = " CONSTRAINT " + defname + " DEFAULT " + defval;
@@ -370,7 +363,7 @@ internal class VxSchemaTable : VxSchemaElement
         string clustered = elem.GetParam("clustered") == "1" ? 
             " CLUSTERED" : " NONCLUSTERED";
 
-        if (String.IsNullOrEmpty(idxname))
+        if (idxname.e())
             idxname = GetDefaultPKName();
 
         return wv.fmt(
@@ -431,13 +424,13 @@ internal class VxSchemaTable : VxSchemaElement
         elem.AddParam("name", name);
         elem.AddParam("type", type);
         elem.AddParam("null", isnullable.ToString());
-        if (!String.IsNullOrEmpty(len))
+        if (len.ne())
             elem.AddParam("length", len);
-        if (!String.IsNullOrEmpty(defval))
+        if (defval.ne())
             elem.AddParam("default", defval);
-        if (!String.IsNullOrEmpty(prec))
+        if (prec.ne())
             elem.AddParam("precision", prec);
-        if (!String.IsNullOrEmpty(scale))
+        if (scale.ne())
             elem.AddParam("scale", scale);
         if (isident != 0)
         {
@@ -472,7 +465,7 @@ internal class VxSchemaTable : VxSchemaElement
             name, columns.Join(","), clustered);
         var elem = new VxSchemaTableElement("primary-key");
 
-        if (!String.IsNullOrEmpty(name) && name != GetDefaultPKName())
+        if (name.ne() && name != GetDefaultPKName())
             elem.AddParam("name", name);
 
         foreach (string col in columns)
