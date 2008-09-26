@@ -240,6 +240,12 @@ namespace Wv
 		}
 	    }
 	}
+	
+	public IEnumerable<object> oiter()
+	{
+	    foreach (var i in iter())
+		yield return i.inner;
+	}
     }
     
     
