@@ -82,9 +82,9 @@ class DbusTest
 	    WVPASSEQ(i.getnext(), 42);
 	    WVPASSEQ(i.getnext(), "hello world");
 
-/*	    Int64[] a = i.getnext().iter<Int64>().ToArray();
+	    Int64[] a = i.getnext().iter<Int64>().ToArray();
 	    WVPASSEQ(a.Length, 3);
-            WVPASSEQ(a[2], 0x44);*/
+            WVPASSEQ(a[2], 0x44);
 
 /*	    Stupid[] a2 = r.ReadArray<Stupid>();
 	    WVPASSEQ(a2.Length, 3);

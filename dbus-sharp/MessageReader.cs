@@ -14,13 +14,9 @@ using Wv.Extensions;
 
 namespace Wv
 {
-    public class WvDBusIter : IEnumerator<WvAutoCast>
+    public class WvDBusIter : WvDBusIterBase, IEnumerator<WvAutoCast>
     {
-	DataConverter conv;
-	byte[] sig;
-	int sigstart, sigend, sigpos;
-	byte[] data;
-	int start, end, pos;
+	int sigpos;
 	WvAutoCast cur;
 	
 	public static WvDBusIter open(Message m)
@@ -28,37 +24,140 @@ namespace Wv
 	    DataConverter conv = m.Header.Endianness==EndianFlag.Little 
 		    ? DataConverter.LittleEndian : DataConverter.BigEndian;
 	    
-	    byte[] sig = m.Header.Signature.ToUTF8();
 	    byte[] data = m.Body;
-	    return new WvDBusIter(conv,
-				  sig, 0, sig.Length,
+	    return new WvDBusIter(conv, m.Header.Signature,
 				  data, 0, data.Length);
 	}
 	
-	internal WvDBusIter(DataConverter conv,
-			    byte[] sig, int sigstart, int sigend,
+	internal WvDBusIter(DataConverter conv, string sig,
 			    byte[] data, int start, int end)
+	    : base(conv, sig, data, start, end)
 	{
-	    this.conv = conv;
-	    this.sig = sig;
-	    this.sigstart = sigstart;
-	    this.sigend = sigend;
-	    this.data = data;
-	    this.start = start;
-	    this.end = end;
 	    Reset();
 	}
 	
 	// IEnumerator
 	public void Reset()
 	{
-	    sigpos = sigstart;
+	    sigpos = 0;
+	    _Reset();
+	}
+	
+	// IEnumerator
+	public bool MoveNext()
+	{
+	    if (sigpos >= sig.Length || atend())
+	    {
+		cur = new WvAutoCast(null);
+		return false;
+	    }
+	    else
+	    {
+		cur = new WvAutoCast(getone(subsig(sig, sigpos)));
+		sigpos++;
+		return true;
+	    }
+	}
+	
+	// IEnumerator
+	public void Dispose()
+	{
+	}
+	
+	public WvAutoCast Current 
+	    { get { return cur; } }
+	object System.Collections.IEnumerator.Current 
+	    { get { return cur; } }
+	
+	public WvAutoCast getnext()
+	{
+	    MoveNext();
+	    return Current;
+	}
+    }
+    
+    class WvDBusIter_Array : WvDBusIterBase, IEnumerator<WvAutoCast>
+    {
+	int pos;
+	WvAutoCast cur;
+	
+	internal WvDBusIter_Array(DataConverter conv, string sig,
+				  byte[] data, int start, int end)
+	    : base(conv, sig, data, start, end)
+	{
+	    Reset();
+	}
+	
+	// IEnumerator
+	public void Reset()
+	{
+	    _Reset();
+	}
+	
+	// IEnumerator
+	public bool MoveNext()
+	{
+	    if (atend())
+		return false;
+	    else
+	    {
+		cur = new WvAutoCast(getone(sig));
+		return true;
+	    }
+	}
+	
+	// IEnumerator
+	public void Dispose()
+	{
+	}
+	
+	public WvAutoCast Current 
+	    { get { return cur; } }
+	object System.Collections.IEnumerator.Current 
+	    { get { return cur; } }
+	
+	public WvAutoCast getnext()
+	{
+	    MoveNext();
+	    return Current;
+	}
+    }
+    
+    public class WvDBusIterBase
+    {
+	DataConverter conv;
+	protected string sig;
+	byte[] data;
+	int start, end, pos;
+	
+	internal WvDBusIterBase(DataConverter conv, string sig,
+				byte[] data, int start, int end)
+	{
+	    this.conv = conv;
+	    this.sig = sig;
+	    this.data = data;
+	    this.start = start;
+	    this.end = end;
+	}
+	
+	protected void _Reset()
+	{
 	    pos = start;
 	}
 	
-	object getone()
+	protected bool atend()
 	{
-	    DType dtype = (DType)sig[sigpos];
+	    return pos >= end;
+	}
+	
+	protected static string subsig(string sig, int offset)
+	{
+	    return sig.Substring(offset);
+	}
+	
+	protected object getone(string sig)
+	{
+	    DType dtype = (DType)sig[0];
 	    switch (dtype)
 	    {
 	    case DType.Byte:
@@ -86,42 +185,13 @@ namespace Wv
 		return ReadString();
 	    case DType.Signature:
 		return ReadSignature();
-//	    case DType.Array:
-//		return ReadArray();
+	    case DType.Array:
+		return ReadArray(subsig(sig, 1));
 	    default:
 		throw new Exception("Unhandled D-Bus type: " + dtype);
 	    }
 	}
 	
-	// IEnumerator
-	public bool MoveNext()
-	{
-	    if (sigpos >= sigend)
-		return false;
-	    else
-	    {
-		cur = new WvAutoCast(getone());
-		sigpos++;
-		return true;
-	    }
-	}
-	
-	// IEnumerator
-	public void Dispose()
-	{
-	}
-	
-	public WvAutoCast Current 
-	    { get { return cur; } }
-	object System.Collections.IEnumerator.Current 
-	    { get { return cur; } }
-	
-	public WvAutoCast getnext()
-	{
-	    MoveNext();
-	    return Current;
-	}
-
 	void pad(int align)
 	{
 	    int pad = (align - (pos % align)) % align;
@@ -235,16 +305,14 @@ namespace Wv
 	    return Encoding.UTF8.GetString(data, advance(len+1), len);
 	}
 	
-/*	IEnumerable<WvAutoCast> ReadArray()
+	IEnumerator<WvAutoCast> ReadArray(string subsig)
 	{
-	    DType etype = (DType)sig[++sigpos];
 	    int len = ReadLength();
-	    
-	    var x = new WvDBusIter(conv, etype,
-				   data, pos, pos+len);
+	    var x = new WvDBusIter_Array(conv, subsig,
+					 data, pos, pos+len);
 	    advance(len);
 	    return x;
-	}*/
+	}
     }
     
     public class MessageReader
