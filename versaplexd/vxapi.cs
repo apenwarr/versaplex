@@ -59,9 +59,9 @@ internal static class VxDb {
             return;
         }
         
-	MessageReader reader = new MessageReader(call);
+	var it = call.open();
 
-        string query = reader.ReadString();
+        string query = it.getnext();
 	string iquery = query.ToLower().Trim();
 	reply = null;
         // XXX this is fishy, really... whitespace fucks it up.
@@ -633,9 +633,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
-        MessageReader reader = new MessageReader(call);
-
-        string query = reader.ReadString();
+	var it = call.open();
+        string query = it.getnext();
 
         object result;
         VxDb.ExecScalar(clientid, (string)query, out result);
@@ -690,9 +689,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
-        MessageReader reader = new MessageReader(call);
-
-        string query = reader.ReadString();
+	var it = call.open();
+        string query = it.getnext();
 
         VxColumnInfo[] colinfo;
         object[][] data;
@@ -893,8 +891,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
-        MessageReader mr = new MessageReader(call);
-        string[] names = mr.ReadArray<string>();
+	var it = call.open();
+        string[] names = it.getnext().oiter().Cast<string>().ToArray();
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
@@ -927,8 +925,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
-        MessageReader mr = new MessageReader(call);
-	string[] keys = mr.ReadArray<string>();
+	var it = call.open();
+	string[] keys = it.getnext().oiter().Cast<string>().ToArray();
 
         VxSchemaErrors errs;
         using (var dbi = VxSqlPool.create(clientid))
@@ -1008,9 +1006,9 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
-        MessageReader mr = new MessageReader(call);
-        string tablename = mr.ReadString();
-	string where = mr.ReadString();
+	var it = call.open();
+        string tablename = it.getnext();
+	string where = it.getnext();
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
@@ -1040,9 +1038,9 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
-        MessageReader mr = new MessageReader(call);
-        string tablename = mr.ReadString();
-        string text = mr.ReadString();
+	var it = call.open();
+        string tablename = it.getnext();
+        string text = it.getnext();
 
         using (var dbi = VxSqlPool.create(clientid))
         {
