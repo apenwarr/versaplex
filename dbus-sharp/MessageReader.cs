@@ -64,8 +64,9 @@ namespace Wv
 	    }
 	    else
 	    {
-		cur = new WvAutoCast(getone(subsig(sig, sigpos)));
-		sigpos++;
+		string sub = subsig(sig, sigpos);
+		cur = new WvAutoCast(getone(sub));
+		sigpos += sub.Length;
 		return true;
 	    }
 	}
@@ -173,12 +174,44 @@ namespace Wv
 	
 	protected static string subsig(string sig, int offset)
 	{
-	    return sig.Substring(offset);
+	    DType dtype = (DType)sig[offset];
+	    switch (dtype)
+	    {
+	    case DType.Array:
+		return "a" + subsig(sig, offset+1);
+	    case DType.StructBegin:
+	    case DType.DictEntryBegin:
+		{
+		    int depth = 0, i;
+		    for (i = offset; i < sig.Length; i++)
+		    {
+			DType c = (DType)sig[i];
+			if (c == DType.StructBegin 
+			       || c == DType.DictEntryBegin)
+			    depth++;
+			else if (c == DType.StructEnd 
+				 || c == DType.DictEntryEnd)
+			{
+			    depth--;
+			    if (depth <= 0) break;
+			}
+		    }
+		    
+		    wv.assert(depth==0,
+			      wv.fmt("Mismatched brackets in '{0}'", sig));
+		    return sig.Substring(offset, i-offset+1);
+		}
+	    default:
+		return sig.Substring(offset, 1);
+	    }
 	}
 	
 	protected object getone(string sig)
 	{
 	    DType dtype = (DType)sig[0];
+	    
+	    wv.print("type char:{0} [total={1}]\n", (char)dtype, sig);
+	    
 	    switch (dtype)
 	    {
 	    case DType.Byte:
@@ -206,8 +239,13 @@ namespace Wv
 		return ReadString();
 	    case DType.Signature:
 		return ReadSignature();
+	    case DType.Variant:
+		return ReadVariant();
 	    case DType.Array:
 		return ReadArray(subsig(sig, 1));
+	    case DType.StructBegin:
+	    case DType.DictEntryBegin:
+		return ReadStruct(sig);
 	    default:
 		throw new Exception("Unhandled D-Bus type: " + dtype);
 	    }
@@ -221,7 +259,7 @@ namespace Wv
 	    for (; pos < upto; pos++)
 		if (data[pos] != 0)
 		    throw new Exception
-		         (wv.fmt("Read non-zero byte at position {0} "
+		         (wv.fmt("Read non-zero byte at position 0x{0:x} "
 				 + "while expecting padding", pos));
 	}
 	
@@ -315,7 +353,7 @@ namespace Wv
 	{
 	    int len = ReadLength();
 	    string val = Encoding.UTF8.GetString(data, pos, len);
-	    pos += len;
+	    _advance(len);
 	    ReadNull();
 	    return val;
 	}
@@ -323,16 +361,54 @@ namespace Wv
 	string ReadSignature()
 	{
 	    int len = ReadByte();
-	    return Encoding.UTF8.GetString(data, advance(len+1), len);
+	    return Encoding.UTF8.GetString(data, _advance(len+1), len);
+	}
+	
+	object ReadVariant()
+	{
+	    wv.print("Variant...\n");
+	    string vsig = ReadSignature();
+	    wv.print("Variant!  Sig=/{0}/\n", vsig);
+	    return getone(vsig);
 	}
 	
 	IEnumerable<WvAutoCast> ReadArray(string subsig)
 	{
 	    int len = ReadLength();
+	    wv.print("Array length is {0} bytes\n", len);
 	    var x = new WvDBusIter_Array(conv, subsig,
 					 data, pos, pos+len);
-	    advance(len);
+	    _advance(len);
 	    return x;
+	}
+	
+	IEnumerable<WvAutoCast> ReadStruct(string structsig)
+	{
+	    wv.print("Struct!  Sig=/{0}/\n", structsig);
+	    DType first = (DType)structsig[0];
+	    DType last  = (DType)structsig[structsig.Length-1];
+	    
+	    if (first == DType.StructBegin)
+		wv.assert(last == DType.StructEnd, "No matching ')'");
+	    else if (first == DType.DictEntryBegin)
+		wv.assert(last == DType.DictEntryEnd, "No matching '}'");
+	    else
+		wv.assert(false,
+			  wv.fmt("ReadStruct called for unknown type '{0}'",
+				 (char)first));
+	    
+	    structsig = structsig.Substring(1, structsig.Length-2);
+	    pad(8); // structs are always 8-padded
+	    
+	    List<WvAutoCast> list = new List<WvAutoCast>();
+	    for (int subpos = 0; subpos < structsig.Length; )
+	    {
+		string sub = subsig(structsig, subpos);
+		list.Add(new WvAutoCast(getone(sub)));
+		subpos += sub.Length;
+	    }
+	    
+	    return list;
 	}
     }
     

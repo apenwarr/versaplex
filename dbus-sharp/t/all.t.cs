@@ -5,6 +5,7 @@ using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
 using Wv;
+using Wv.Extensions;
 using Wv.Test;
 
 [TestFixture]
@@ -23,7 +24,7 @@ class DbusTest
 	// write
 	{
 	    Message m = new Message();
-	    m.Signature = new Signature("yisaxa(s)");
+	    m.Signature = new Signature("yisaxva(s)");
 	    MessageWriter w = new MessageWriter();
 	    w.Write((byte)42);
 	    w.Write(42);
@@ -31,6 +32,7 @@ class DbusTest
 	    w.WriteArray(new Int64[] { 0x42, 0x43, 0x44 }, (w2, i) => {
 		w2.Write(i);
 	    });
+	    w.WriteVariant(typeof(string), "VSTRING");
 	    w.WriteArray(new string[] { "a", "aaa", "aaaaa" }, (w2, i) => {
 		w2.WritePad(8); // struct elements must be 8-padded
 		w2.Write(i);
@@ -60,6 +62,9 @@ class DbusTest
 	    Int64[] a = r.ReadArray<Int64>();
 	    WVPASSEQ(a.Length, 3);
 	    WVPASSEQ(a[2], 0x44);
+	    
+	    object s = r.ReadVariant();
+	    WVPASSEQ((string)s, "VSTRING");
 
 	    Stupid[] a2 = r.ReadArray<Stupid>();
 	    WVPASSEQ(a2.Length, 3);
@@ -90,10 +95,12 @@ class DbusTest
 	    
 	    foreach (long v in it.iter())
 		wv.print("value: {0:x}\n", v);
+	    
+	    WVPASSEQ(i.getnext(), "VSTRING");
 
-/*	    Stupid[] a2 = r.ReadArray<Stupid>();
+	    var a2 = i.getnext().iter().ToArray();
 	    WVPASSEQ(a2.Length, 3);
-	    WVPASSEQ(a2[2].s, "aaaaa"); */
+	    WVPASSEQ(a2[2].iter().Join(""), "aaaaa");
 	}
     }
 
