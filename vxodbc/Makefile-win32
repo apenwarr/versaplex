@@ -10,21 +10,22 @@ DBUS=$(WVPORTS)/dbus/build/dbus/dbus/.libs
 ARGP=$(WVPORTS)/argp/build/argp
 BOOST=$(WVPORTS)/boost/build/boost
 ZLIB=$(WVPORTS)/zlib/build/zlib
+W32API=$(WVPORTS)/win32api/build/w32api
 WVSTREAMS=../wv/wvstreams
 CFLAGS=-w \
 	-D_MSC_VER=1300 \
 	-DUNICODE_SUPPORT -DODBCVER=0x0351 -D_WIN32_WINNT=0x0501 \
 	-DWIN_MULTITHREAD_SUPPORT \
 	-I$(WVSTREAMS)/include -I$(XPLC)/include -I$(BOOST) \
-	-I/usr/include/postgresql
+	-I/usr/include/postgresql -I$(W32API)/include
 CXXFLAGS=$(CFLAGS)
 RSCFLAGS=-DUNICODE_SUPPORT
 LIBS=\
 	-L$(WVSTREAMS) -lwvstatic \
 	-L$(DBUS) -ldbus-1 \
 	-L$(XPLC) -lxplc-cxx -lxplc \
-	-L$(OPENSSL) -lssl -lcrypto $(ARGP)/libargp.a \
-	-L$(ZLIB) -lz \
+	-L$(OPENSSL) -lssl -lcrypto -L$(ARGP) -largp \
+	-L$(ZLIB) -lz -L$(W32API)/lib \
 	-limagehlp \
 	-lole32 -lrpcrt4 \
 	-lodbc32 -lodbccp32 \
@@ -37,7 +38,7 @@ OBJS+=\
 	vxodbc.def
 
 
-all: wvdbusd.dll vxodbc.dll	
+all: wvdbusd.dll vxodbc.dll regwriter.exe
 
 %.res.o: %.rc
 	$(WINDRES) $< $@
@@ -65,5 +66,13 @@ vxodbc.dll: $(OBJS)
 		-Wl,-Map,vxodbc.map \
 		$(LIBS) \
 		2>&1 | grep -v '^Warning: resolving .* by linking to' >&2
+
+regwriter.exe: regwriter.o
+	@echo Linking $@...
+	@$(CXX) \
+		-o $@ \
+		$(LDFLAGS) \
+		$^ \
+		$(LIBS)
 
 test: vxodbc.dll vxodbc.a

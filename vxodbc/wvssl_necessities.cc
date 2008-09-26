@@ -3,6 +3,12 @@
 #include "wvsslstream.h"
 #include "wvstrutils.h"
 #include "uniconfroot.h";
+#include "wvlinkerhack.h"
+
+#include <wincrypt.h>
+#include "wvbase64.h"
+
+WV_LINK_TO(UniGenHack);
 
 WvX509Mgr *clicert = NULL;
 
@@ -28,9 +34,39 @@ static WvMoniker<IWvStream> ssl_override("ssl", create_ssl, true);
 static char *dbus_cert = NULL;
 
 #ifdef _WIN32
-    #define data_decrypt(x) wvunprotectdata(x)
+static WvString wvunprotectdata(WvStringParm data)
+{
+    /* Data is base64 encoded, must first decrypt it */
+    WvBase64Decoder decoder64;
+    WvDynBuf databuf;
+
+    decoder64.flushstrbuf(data, databuf, true);
+    DATA_BLOB decrypt_me, return_me;
+    decrypt_me.cbData = databuf.used();
+    decrypt_me.pbData = new BYTE[decrypt_me.cbData];
+    databuf.copy(decrypt_me.pbData, 0, decrypt_me.cbData);
+    WvString ret = WvString::null;
+
+    char *strdata;
+    if (!CryptUnprotectData(&decrypt_me, NULL, NULL, NULL, NULL, 0, &return_me))
+    {
+	goto out;
+    }
+
+    /* Since, clearly, all went well, we should have a null-terminated
+     * char * array stored in return_me.pbData */
+    strdata = new char[return_me.cbData];
+    memcpy(strdata, return_me.pbData, return_me.cbData);
+    ret = WvString(strdata).unique();
+
+    delete [] strdata;
+    LocalFree(return_me.pbData);
+out:
+    delete [] decrypt_me.pbData;
+    return ret;
+}
 #else
-    #define data_decrypt(x) x
+    #define wvunprotectdata
 #endif
 
 static bool verify_server(WvX509 *, WvSSLStream *s)
@@ -63,10 +99,10 @@ void init_wvssl()
     if (conf.isok() && conf["cert"].exists() && conf["privrsa"].exists())
     {
 	clicert = new WvX509Mgr;
-	clicert->decode(WvX509::CertPEM, data_decrypt(*conf["cert"]));
-	clicert->decode(WvRSAKey::RsaPEM, data_decrypt(*conf["privrsa"]));
+	clicert->decode(WvX509::CertPEM, wvunprotectdata(*conf["cert"]));
+	clicert->decode(WvRSAKey::RsaPEM, wvunprotectdata(*conf["privrsa"]));
 
-	if (!clicert->test())
+	if (!clicert->isok())
 	    WVRELEASE(clicert);
     }
 
