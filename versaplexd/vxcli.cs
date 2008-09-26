@@ -87,9 +87,9 @@ namespace Wv
 		    
 		    // decode the raw column info
 		    var l = new List<WvColInfo>();
-		    foreach (var c in it.pop().iter())
+		    foreach (var c in it.pop())
 		    {
-			WvAutoCast[] cols = c.iter().ToArray();
+			WvAutoCast[] cols = c.Cast<WvAutoCast>().ToArray();
 			int size = cols[0];
 			string name = cols[1];
 			// string type = cols[2];
@@ -103,11 +103,11 @@ namespace Wv
 		    }
 		    
 		    WvColInfo[] colinfo = l.ToArray();
-		    WvSqlRow[] rows = (from r in it.pop().iter()
-				       select new WvSqlRow(r.oiter().ToArray(),
-							   colinfo)).ToArray();
+		    var rows = new List<WvSqlRow>();
+		    foreach (var r in it.pop())
+			rows.Add(new WvSqlRow(r.ToArray(), colinfo));
 		    
-		    return new WvSqlRows_Versaplex(rows, colinfo);
+		    return new WvSqlRows_Versaplex(rows.ToArray(), colinfo);
 		}
 	    default:
 		throw new Exception("D-Bus response was not a method "

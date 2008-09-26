@@ -64,26 +64,7 @@ internal class VxSchemaChecksum
         else
             _checksums = sumlist;
     }
-
-    // Read a set of checksums from a DBus message into a VxSchemaChecksum.
-    public VxSchemaChecksum(MessageReader reader)
-    {
-        _key = reader.ReadString();
-
-        // Fill the list
-        var list = reader.ReadArray<UInt64>().ToList();
-
-        // Tables need to maintain their checksums in sorted order, as the
-        // columns might get out of order when the tables are otherwise
-        // identical.
-        string type, name;
-        VxSchemaChecksums.ParseKey(key, out type, out name);
-        if (type == "Table")
-            list.Sort();
-
-        _checksums = list;
-    }
-
+    
     public string GetSumString()
     {
         List<string> l = new List<string>();
@@ -214,12 +195,19 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
     }
 
     // Read an array of checksums from a DBus message.
-    public VxSchemaChecksums(MessageReader reader)
+    // Signature: a(sat)
+    public VxSchemaChecksums(Message reply)
     {
-	reader.ReadArrayFunc(8, (r) => {
-            VxSchemaChecksum cs = new VxSchemaChecksum(r);
-            Add(cs.key, cs);
-	});
+	var array = reply.iter().pop();
+	
+	foreach (WvAutoCast i in array)
+	{
+	    var ii = i.GetEnumerator();
+	    string key = ii.pop();
+	    var sums = ii.pop().Cast<UInt64>();
+	    var cs = new VxSchemaChecksum(key, sums);
+	    Add(cs.key, cs);
+	}
     }
 
     private void _WriteChecksums(MessageWriter writer)

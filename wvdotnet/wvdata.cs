@@ -4,6 +4,7 @@ using System.Data.SqlTypes;
 using System.Data.SqlClient;
 using System.Collections;
 using System.Collections.Generic;
+using SCG = System.Collections.Generic;
 using System.Linq;
 using Wv.Extensions;
 
@@ -22,7 +23,7 @@ namespace Wv
      * When converting to bool, we assume any non-zero int is true, just
      * like C/C++ would do. 
      */
-    public struct WvAutoCast
+    public struct WvAutoCast : IEnumerable<WvAutoCast>, IEnumerable<object>
     {
 	object v;
 	public static readonly WvAutoCast _null = new WvAutoCast(null);
@@ -227,24 +228,38 @@ namespace Wv
 		return SqlGuid.Null;
 	}
 	
-	public IEnumerable<WvAutoCast> iter()
+	IEnumerable<object> _iter()
 	{
 	    if (!IsNull && v is IEnumerable)
 	    {
 		foreach (object i in (IEnumerable)v)
 		{
 		    if (i is WvAutoCast)
-			yield return (WvAutoCast)i;
+			yield return ((WvAutoCast)i).inner;
 		    else
-			yield return new WvAutoCast(i);
+			yield return i;
 		}
 	    }
 	}
 	
-	public IEnumerable<object> oiter()
+	IEnumerator System.Collections.IEnumerable.GetEnumerator()
 	{
-	    foreach (var i in iter())
-		yield return i.inner;
+	    foreach (var i in _iter())
+		yield return i;
+	}
+	
+	public IEnumerator<WvAutoCast> 
+	    GetEnumerator()
+	{
+	    foreach (object i in _iter())
+		yield return new WvAutoCast(i);
+	}
+	
+	IEnumerator<object>
+	    SCG.IEnumerable<object>.GetEnumerator()
+	{
+	    foreach (var i in _iter())
+		yield return i;
 	}
     }
     

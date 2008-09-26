@@ -156,5 +156,21 @@ namespace Wv.Extensions
 	{
 	    return wv.atod(o);
 	}
+	
+	public static WvAutoCast pop(this IEnumerator<WvAutoCast> list)
+	{
+	    if (list.MoveNext())
+		return list.Current;
+	    else
+		return default(WvAutoCast);
+	}
+	
+	public static WvAutoCast autocast(this object o)
+	{
+	    if (o is WvAutoCast)
+		return (WvAutoCast)o;
+	    else
+		return new WvAutoCast(o);
+	}
     }
 }

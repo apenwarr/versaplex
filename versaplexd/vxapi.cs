@@ -892,7 +892,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         }
 
 	var it = call.iter();
-        string[] names = it.pop().oiter().Cast<string>().ToArray();
+        string[] names = it.pop().Cast<string>().ToArray();
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
@@ -926,7 +926,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         }
 
 	var it = call.iter();
-	string[] keys = it.pop().oiter().Cast<string>().ToArray();
+	string[] keys = it.pop().Cast<string>().ToArray();
 
         VxSchemaErrors errs;
         using (var dbi = VxSqlPool.create(clientid))

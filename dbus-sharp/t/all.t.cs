@@ -88,18 +88,18 @@ class DbusTest
 	    WVPASSEQ(i.pop(), "hello world");
 
 	    var it = i.pop();
-	    var a = it.iter().ToArray(); 
+	    var a = it.ToArray<WvAutoCast>();
 	    WVPASSEQ(a.Length, 3);
             WVPASSEQ(a[2], 0x44);
 	    
-	    foreach (long v in it.iter())
+	    foreach (long v in it)
 		wv.print("value: {0:x}\n", v);
 	    
 	    WVPASSEQ(i.pop(), "VSTRING");
 
-	    var a2 = i.pop().iter().ToArray();
+	    var a2 = i.pop().ToArray();
 	    WVPASSEQ(a2.Length, 3);
-	    WVPASSEQ(a2[2].iter().Join(""), "aaaaa");
+	    WVPASSEQ(a2[2].autocast().Join(""), "aaaaa");
 	}
     }
 

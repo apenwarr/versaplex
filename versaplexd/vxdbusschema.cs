@@ -160,8 +160,7 @@ internal class VxDbusSchema : ISchemaBackend
                 throw new Exception("D-Bus reply had invalid signature: " +
                     replysig);
 
-            MessageReader reader = new MessageReader(reply);
-            VxSchemaChecksums sums = new VxSchemaChecksums(reader);
+            VxSchemaChecksums sums = new VxSchemaChecksums(reply);
             return sums;
         }
         case MessageType.Error:
@@ -248,8 +247,7 @@ internal class VxDbusSchema : ISchemaBackend
                 throw new Exception("D-Bus reply had invalid signature: " +
                     replysig);
 
-            MessageReader reader = new MessageReader(reply);
-            return reader.ReadString();
+            return reply.iter().pop();
         }
         case MessageType.Error:
             throw VxDbusUtils.GetDbusException(reply);
