@@ -2,6 +2,7 @@
 
 using System;
 using System.Linq;
+using System.Collections;
 using System.Collections.Generic;
 using Wv;
 using Wv.Test;
@@ -82,9 +83,13 @@ class DbusTest
 	    WVPASSEQ(i.getnext(), 42);
 	    WVPASSEQ(i.getnext(), "hello world");
 
-	    Int64[] a = i.getnext().iter<Int64>().ToArray();
+	    var it = i.getnext();
+	    var a = it.iter().ToArray(); 
 	    WVPASSEQ(a.Length, 3);
             WVPASSEQ(a[2], 0x44);
+	    
+	    foreach (long v in it.iter())
+		wv.print("value: {0:x}\n", v);
 
 /*	    Stupid[] a2 = r.ReadArray<Stupid>();
 	    WVPASSEQ(a2.Length, 3);

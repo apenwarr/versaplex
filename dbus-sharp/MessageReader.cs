@@ -14,7 +14,8 @@ using Wv.Extensions;
 
 namespace Wv
 {
-    public class WvDBusIter : WvDBusIterBase, IEnumerator<WvAutoCast>
+    public class WvDBusIter 
+	: WvDBusIterBase, IEnumerator<WvAutoCast>, IEnumerable<WvAutoCast>
     {
 	int sigpos;
 	WvAutoCast cur;
@@ -34,6 +35,16 @@ namespace Wv
 	    : base(conv, sig, data, start, end)
 	{
 	    Reset();
+	}
+	
+	// IEnumerable
+	public IEnumerator<WvAutoCast> GetEnumerator()
+	{
+	    return new WvDBusIter(conv, sig, data, start, end);
+	}
+	IEnumerator System.Collections.IEnumerable.GetEnumerator()
+	{
+	    return new WvDBusIter(conv, sig, data, start, end);
 	}
 	
 	// IEnumerator
@@ -76,9 +87,9 @@ namespace Wv
 	}
     }
     
-    class WvDBusIter_Array : WvDBusIterBase, IEnumerator<WvAutoCast>
+    class WvDBusIter_Array 
+	: WvDBusIterBase, IEnumerator<WvAutoCast>, IEnumerable<WvAutoCast>
     {
-	int pos;
 	WvAutoCast cur;
 	
 	internal WvDBusIter_Array(DataConverter conv, string sig,
@@ -86,6 +97,16 @@ namespace Wv
 	    : base(conv, sig, data, start, end)
 	{
 	    Reset();
+	}
+	
+	// IEnumerable
+	public IEnumerator<WvAutoCast> GetEnumerator()
+	{
+	    return new WvDBusIter_Array(conv, sig, data, start, end);
+	}
+	IEnumerator System.Collections.IEnumerable.GetEnumerator()
+	{
+	    return new WvDBusIter_Array(conv, sig, data, start, end);
 	}
 	
 	// IEnumerator
@@ -125,10 +146,10 @@ namespace Wv
     
     public class WvDBusIterBase
     {
-	DataConverter conv;
+	internal DataConverter conv;
 	protected string sig;
-	byte[] data;
-	int start, end, pos;
+	protected byte[] data;
+	protected int start, end, pos;
 	
 	internal WvDBusIterBase(DataConverter conv, string sig,
 				byte[] data, int start, int end)
@@ -305,7 +326,7 @@ namespace Wv
 	    return Encoding.UTF8.GetString(data, advance(len+1), len);
 	}
 	
-	IEnumerator<WvAutoCast> ReadArray(string subsig)
+	IEnumerable<WvAutoCast> ReadArray(string subsig)
 	{
 	    int len = ReadLength();
 	    var x = new WvDBusIter_Array(conv, subsig,
