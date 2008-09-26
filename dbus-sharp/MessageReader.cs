@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Text;
+using System.Linq;
 
 namespace Wv
 {
@@ -39,20 +40,13 @@ namespace Wv
 	    this.message = message;
 	}
 	
-	public T ReadValue<T>()
-	{
-	    return (T)ReadValue(typeof(T));
-	}
-
 	public object ReadValue(Type type)
 	{
 	    if (type == typeof (void))
 		return null;
 
 	    if (type.IsArray) {
-		wv.assert(false, "Don't use ReadValue(t) on arrays!");
-		return null;
-		//return ReadArray<T>();
+		return ReadArray(type.GetElementType());
 	    }
 	    else if (type == typeof (ObjectPath)) {
 		return ReadObjectPath ();
@@ -90,7 +84,7 @@ namespace Wv
 		return val;
 	    }
 	}
-
+	
 	//helper method, should not be used generally
 	public object ReadValue (DType dtype)
 	{
@@ -371,9 +365,10 @@ namespace Wv
 		return Protocol.GetAlignment(Signature.TypeToDType(t));
 	}
 
-	//this could be made generic to avoid boxing
-	public T[] ReadArray<T>()
+	public Array ReadArray(Type type)
 	{
+	    wv.printerr("ReadArray({0}) @ 0x{1:x}\n", type, pos);
+	    
 	    uint _ln = ReadUInt32();
 	    if (_ln > Protocol.MaxArrayLength)
 		throw new Exception(wv.fmt("Array length {0} is > {1} bytes",
@@ -383,15 +378,20 @@ namespace Wv
 	    int end = pos + ln;
 
 	    // advance to the alignment of the element
-	    int align = GetAlignment(typeof(T));
+	    int align = GetAlignment(type);
 	    ReadPad(align);
 	    end -= (pos-oldpos);
  
-	    var a = new List<T>();
+	    var a = new ArrayList();
 	    while (pos < end)
-		a.Add(ReadValue<T>());
+		a.Add(ReadValue(type));
 
-	    return a.ToArray();
+	    return a.ToArray(type);
+	}
+	
+	public T[] ReadArray<T>()
+	{
+	    return (T[])ReadArray(typeof(T));
 	}
 
 	//struct

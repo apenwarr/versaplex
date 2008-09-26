@@ -94,7 +94,7 @@ namespace Wv
 				    replysig);
 		    
 		    // decode the raw column info
-		    ColInfo[] x = (ColInfo[])reader.ReadArray(typeof(ColInfo));
+		    ColInfo[] x = reader.ReadArray<ColInfo>();
 		    WvColInfo[] colinfo
 			= (from c in x
 			   select new WvColInfo(c.name, typeof(string),
@@ -108,7 +108,7 @@ namespace Wv
 		    WvSqlRow[] rows;
 		    if (sig.ToString() == "a(s)")
 		    {
-			Stupid[] a = (Stupid[])reader.ReadArray(typeof(Stupid));
+			Stupid[] a = reader.ReadArray<Stupid>();
 			rows = (from r in a
 				select new WvSqlRow(new object[] { r.s },
 						    colinfo))

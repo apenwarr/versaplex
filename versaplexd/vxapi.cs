@@ -893,17 +893,15 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
-        Array names_untyped;
-
         MessageReader mr = new MessageReader(call);
-        names_untyped = mr.ReadArray(typeof(string));
+        string[] names = mr.ReadArray<string>();
 
         MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
 
         using (var dbi = VxSqlPool.create(clientid))
         {
             VxDbSchema backend = new VxDbSchema(dbi);
-            VxSchema schema = backend.Get(names_untyped.Cast<string>());
+            VxSchema schema = backend.Get(names);
             schema.WriteSchema(writer);
         }
 
@@ -930,7 +928,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         }
 
         MessageReader mr = new MessageReader(call);
-	string[] keys = (string[])mr.ReadArray(typeof(string));
+	string[] keys = mr.ReadArray<string>();
 
         VxSchemaErrors errs;
         using (var dbi = VxSqlPool.create(clientid))

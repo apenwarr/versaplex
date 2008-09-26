@@ -395,7 +395,7 @@ public class VersaplexTester: IDisposable
                 {
                     Console.WriteLine("Reading Binary from pos {0}",
                            reader.Position);
-                        object cell = reader.ReadArray(typeof(byte));
+                        object cell = reader.ReadArray<byte>();
                     row[i] = cell;
                     break;
                 }
@@ -449,7 +449,7 @@ public class VersaplexTester: IDisposable
  
         data = results.ToArray();
 
-            object rawnulls = reader.ReadArray(typeof(byte[]));
+	object rawnulls = reader.ReadArray<byte[]>();
 
         byte[][] rawnulls_typed = (byte[][])rawnulls;
 
