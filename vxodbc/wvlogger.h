@@ -6,9 +6,16 @@
 extern "C" {
 #endif
 
-extern char log_level[2];
-extern char log_moniker[255];
+extern int log_level;
 
+struct pstring
+{
+    char *const string;
+    const int length;
+};
+
+struct pstring wvlog_get_moniker();
+int wvlog_isset();
 void wvlog_open();
 void wvlog_print(const char *file, int line, const char *s);
 void wvlog_close();
