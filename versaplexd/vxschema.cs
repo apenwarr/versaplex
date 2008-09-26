@@ -62,12 +62,13 @@ internal class VxSchemaElement : IComparable
         _encrypted = copy.encrypted;
     }
 
-    public VxSchemaElement(MessageReader reader)
+    public VxSchemaElement(IEnumerable<WvAutoCast> _elem)
     {
-        _type = reader.ReadString();
-        _name = reader.ReadString();
-        _text = reader.ReadString();
-        _encrypted = reader.ReadByte() > 0;
+	var elem = _elem.GetEnumerator();
+        _type = elem.pop();
+        _name = elem.pop();
+        _text = elem.pop();
+        _encrypted = elem.pop() > 0;
     }
 
     public void Write(MessageWriter writer)
@@ -547,14 +548,15 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
             this.Add(p.Key, new VxSchemaElement(p.Value));
     }
 
-    public VxSchema(MessageReader reader)
+    public VxSchema(IEnumerable<WvAutoCast> sch)
     {
-	reader.ReadArrayFunc(8, (r) => {
-            VxSchemaElement elem = new VxSchemaElement(r);
+	foreach (var row in sch)
+	{
+            VxSchemaElement elem = new VxSchemaElement(row);
             if (elem.type == "Table")
                 elem = new VxSchemaTable(elem);
             Add(elem.GetKey(), elem);
-	});
+	}
     }
 
     private void _WriteSchema(MessageWriter writer)

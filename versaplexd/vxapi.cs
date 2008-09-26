@@ -965,9 +965,9 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             return;
         }
 
-        MessageReader mr = new MessageReader(call);
-        VxSchema schema = new VxSchema(mr);
-        int opts = mr.ReadInt32();
+	var it = call.iter();
+        VxSchema schema = new VxSchema(it.pop());
+        int opts = it.pop();
 
         VxSchemaErrors errs;
         

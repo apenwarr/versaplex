@@ -121,8 +121,7 @@ internal class VxDbusSchema : ISchemaBackend
                 throw new Exception("D-Bus reply had invalid signature: " +
                     replysig);
 
-            MessageReader reader = new MessageReader(reply);
-            VxSchema schema = new VxSchema(reader);
+            VxSchema schema = new VxSchema(reply.iter().pop());
             return schema;
         }
         case MessageType.Error:
