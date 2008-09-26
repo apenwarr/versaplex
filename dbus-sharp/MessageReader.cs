@@ -16,16 +16,12 @@ namespace Wv
     public class MessageReader
     {
 	DataConverter conv;
-//	EndianFlag endianness;
 	byte[] data;
 	int pos = 0;
 	Message message;
 	
-	public int Position { get { return pos; } }
-
 	public MessageReader(EndianFlag endianness, byte[] data)
 	{
-//	    this.endianness = endianness;
 	    this.data = data;
 	    this.conv = endianness==EndianFlag.Little 
 		? DataConverter.LittleEndian : DataConverter.BigEndian;
@@ -284,12 +280,7 @@ namespace Wv
 	
 	int GetAlignment(Type t)
 	{
-	    wv.printerr("GetAlignment: {0}/{1}/{2}\n",
-			t, t.IsPrimitive, t.IsEnum);
-/*	    if (!t.IsPrimitive && !t.IsEnum)
-		return 8;
-	    else*/
-		return Protocol.GetAlignment(Signature.TypeToDType(t));
+	    return Protocol.GetAlignment(Signature.TypeToDType(t));
 	}
 
 	public Array ReadArray(Type type)
@@ -301,17 +292,17 @@ namespace Wv
 		throw new Exception(wv.fmt("Array length {0} is > {1} bytes",
 					   _ln, Protocol.MaxArrayLength));
 	    int ln = (int)_ln;
-	    int oldpos = pos;
 	    int end = pos + ln;
 
 	    // advance to the alignment of the element
 	    int align = GetAlignment(type);
-	    ReadPad(align);
-	    end -= (pos-oldpos);
- 
+	    
 	    var a = new ArrayList();
 	    while (pos < end)
+	    {
+		ReadPad(align);
 		a.Add(ReadValue(type));
+	    }
 
 	    return a.ToArray(type);
 	}
@@ -328,13 +319,8 @@ namespace Wv
 		throw new Exception(wv.fmt("Array length {0} is > {1} bytes",
 					   _ln, Protocol.MaxArrayLength));
 	    int ln = (int)_ln;
-	    int oldpos = pos;
 	    int end = pos + ln;
 
-	    // advance to the alignment of the element
-	    ReadPad(align);
-	    end -= (pos-oldpos);
- 
 	    while (pos < end)
 	    {
 		ReadPad(align);

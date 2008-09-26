@@ -548,18 +548,12 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
 
     public VxSchema(MessageReader reader)
     {
-        int size = reader.ReadInt32();
-        int endpos = reader.Position + size;
-        while (reader.Position < endpos)
-        {
-            reader.ReadPad(8);
-            VxSchemaElement elem = new VxSchemaElement(reader);
+	reader.ReadArrayFunc(8, (r) => {
+            VxSchemaElement elem = new VxSchemaElement(r);
             if (elem.type == "Table")
-            {
                 elem = new VxSchemaTable(elem);
-            }
             Add(elem.GetKey(), elem);
-        }
+	});
     }
 
     private void _WriteSchema(MessageWriter writer)

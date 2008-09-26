@@ -71,15 +71,7 @@ internal class VxSchemaChecksum
         _key = reader.ReadString();
 
         // Fill the list
-        List<ulong> list = new List<ulong>();
-	int size = reader.ReadInt32();
-        int endpos = reader.Position + size;
-        while (reader.Position < endpos)
-        {
-            reader.ReadPad(8);
-            ulong sum = reader.ReadUInt64();
-            list.Add(sum);
-        }
+        var list = reader.ReadArray<UInt64>().ToList();
 
         // Tables need to maintain their checksums in sorted order, as the
         // columns might get out of order when the tables are otherwise
@@ -224,14 +216,10 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
     // Read an array of checksums from a DBus message.
     public VxSchemaChecksums(MessageReader reader)
     {
-        int size = reader.ReadInt32();
-        int endpos = reader.Position + size;
-        while (reader.Position < endpos)
-        {
-            reader.ReadPad(8);
-            VxSchemaChecksum cs = new VxSchemaChecksum(reader);
+	reader.ReadArrayFunc(8, (r) => {
+            VxSchemaChecksum cs = new VxSchemaChecksum(r);
             Add(cs.key, cs);
-        }
+	});
     }
 
     private void _WriteChecksums(MessageWriter writer)

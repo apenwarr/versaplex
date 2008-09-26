@@ -204,11 +204,7 @@ public class VersaplexTester: IDisposable
     {
         List<VxColumnInfo> colinfolist = new List<VxColumnInfo>();
 
-        int colinfosize = reader.ReadInt32();
-        int endpos = reader.Position + colinfosize;
-        while (reader.Position < endpos)
-        {
-            reader.ReadPad(8);
+	reader.ReadArrayFunc(8, (r) => {
 	    int size = reader.ReadInt32();
 	    string colname = reader.ReadString();
 	    string coltype_str = reader.ReadString();
@@ -225,7 +221,7 @@ public class VersaplexTester: IDisposable
 
             colinfolist.Add(new VxColumnInfo(colname, coltype, nullable > 0,
                 size, precision, scale));
-        }
+	});
 
         return colinfolist.ToArray();
     }
@@ -294,7 +290,7 @@ public class VersaplexTester: IDisposable
 	return true;
     }
 
-    internal bool RecordsetWorker(Message reply, out VxColumnInfo[] colinfo,
+    internal bool RecordsetWorker(Message reply, out VxColumnInfo[] _colinfo,
 				    out object[][] data, out bool[][] nullity)
     {
         object replysig;
@@ -308,81 +304,58 @@ public class VersaplexTester: IDisposable
         MessageReader reader = new MessageReader(reply);
 
         // Read the column information
-        colinfo = ReadColInfo(reader);
+        VxColumnInfo[] colinfo = _colinfo = ReadColInfo(reader);
 
-            reader.ReadSignature();
+	reader.ReadSignature();
 
         // TODO: Check that sig matches colinfo
         // Sig should be of the form a(...)
 
-            int arraysz = reader.ReadInt32();
-
-        // The header is 8-byte aligned
-        reader.ReadPad(8);
-        int endpos = reader.Position + arraysz;
-
         List<object[]> results = new List<object[]>();
-        while (reader.Position < endpos) {
+	reader.ReadArrayFunc(8, (r) => {
             object[] row = new object[colinfo.Length];
-
-            // Each structure element is 8-byte aligned
-            reader.ReadPad(8);
 
             for (int i=0; i < row.Length; i++) {
                 switch (colinfo[i].VxColumnType) {
                 case VxColumnType.Int64:
                 {
-                    Console.WriteLine("Reading Int64 from pos {0}",
-                            reader.Position);
-                        long cell = reader.ReadInt64();
+		    long cell = r.ReadInt64();
                     row[i] = cell;
                     break;
                 }
                 case VxColumnType.Int32:
                 {
-                    Console.WriteLine("Reading Int32 from pos {0}",
-                           reader.Position);
-                        int cell = reader.ReadInt32();
+		    int cell = r.ReadInt32();
                     row[i] = cell;
                     break;
                 }
                 case VxColumnType.Int16:
                 {
-                    Console.WriteLine("Reading Int16 from pos {0}",
-                            reader.Position);
-                        short cell = reader.ReadInt16();
+		    short cell = r.ReadInt16();
                     row[i] = cell;
                     break;
                 }
                 case VxColumnType.UInt8:
                 {
-                    Console.WriteLine("Reading UInt8 from pos {0}",
-                            reader.Position);
-                        byte cell = reader.ReadByte();
+		    byte cell = r.ReadByte();
                     row[i] = cell;
                     break;
                 }
                 case VxColumnType.Bool:
                 {
-                    Console.WriteLine("Reading Bool from pos {0}",
-                            reader.Position);
-                        bool cell = reader.ReadBoolean();
+		    bool cell = r.ReadBoolean();
                     row[i] = cell;
                     break;
                 }
                 case VxColumnType.Double:
                 {
-                    Console.WriteLine("Reading Double from pos {0}",
-                           reader.Position);
-                        double cell = reader.ReadDouble();
+		    double cell = r.ReadDouble();
                     row[i] = cell;
                     break;
                 }
                 case VxColumnType.Uuid:
                 {
-                    Console.WriteLine("Reading UUID from pos {0}",
-                            reader.Position);
-                        string cell = reader.ReadString();
+		    string cell = r.ReadString();
 
                     if (cell == "") {
                         row[i] = new Guid();
@@ -393,27 +366,20 @@ public class VersaplexTester: IDisposable
                 }
                 case VxColumnType.Binary:
                 {
-                    Console.WriteLine("Reading Binary from pos {0}",
-                           reader.Position);
-                        object cell = reader.ReadArray<byte>();
+		    object cell = r.ReadArray<byte>();
                     row[i] = cell;
                     break;
                 }
                 case VxColumnType.String:
                 {
-                    Console.WriteLine("Reading string from pos {0}",
-                            reader.Position);
-                        string cell = reader.ReadString();
+		    string cell = r.ReadString();
                     row[i] = cell;
                     break;
                 }
                 case VxColumnType.DateTime:
                 {
-                    Console.WriteLine("Reading DateTime from pos {0}",
-                                reader.Position);
-                    reader.ReadPad(8);
-                        long seconds = reader.ReadInt64();
-                        int microseconds = reader.ReadInt32();
+		    long seconds = r.ReadInt64();
+		    int microseconds = r.ReadInt32();
 
                     VxDbusDateTime dt = new VxDbusDateTime();
                     dt.seconds = seconds;
@@ -424,9 +390,7 @@ public class VersaplexTester: IDisposable
                 }
                 case VxColumnType.Decimal:
                 {
-                    Console.WriteLine("Reading Decimal from pos {0}",
-                           reader.Position);
-                        string cell = reader.ReadString();
+		    string cell = r.ReadString();
 
                     if (cell == "") {
                         row[i] = new Decimal();
@@ -441,12 +405,8 @@ public class VersaplexTester: IDisposable
             }
 
 	    results.Add(row);
-        }
+	});
 
-        WVPASSEQ(reader.Position, endpos);
-        if (reader.Position != endpos)
-            throw new Exception("Position mismatch after reading data");
- 
         data = results.ToArray();
 
 	object rawnulls = reader.ReadArray<byte[]>();

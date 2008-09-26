@@ -59,16 +59,10 @@ internal class VxSchemaErrors : Dictionary<string, List<VxSchemaError>>
 
     public VxSchemaErrors(MessageReader reader)
     {
-        int size = reader.ReadInt32();
-
-        int endpos = reader.Position + size;
-        while (reader.Position < endpos)
-        {
-            reader.ReadPad(8);
-            VxSchemaError err = new VxSchemaError(reader);
-
+	reader.ReadArrayFunc(8, (r) => {
+            VxSchemaError err = new VxSchemaError(r);
             this.Add(err.key, err);
-        }
+	});
     }
 
     public void Add(string key, VxSchemaError val)
