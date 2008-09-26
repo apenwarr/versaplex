@@ -356,7 +356,8 @@ namespace Wv
 	}
 	
 	static byte[] zeroes = new byte[8] { 0,0,0,0,0,0,0,0 };
-	public void WriteArray<T>(IEnumerable<T> list,
+	public void WriteArray<T>(int align,
+				  IEnumerable<T> list,
 				  Action<MessageWriter,T> doelement)
 	{
 	    var tmp = new MessageWriter(endianness);
@@ -368,19 +369,24 @@ namespace Wv
 	    int startpad = (int)(stream.Position+4) % 8;
 	    tmp.stream.Write(zeroes, 0, startpad);
 			     
+	    int first = -1;
 	    foreach (T i in list)
+	    {
+		tmp.WritePad(align);
+		if (first < 0)
+		    first = (int)tmp.stream.Position;
 		doelement(tmp, i);
+	    }
 	    
 	    byte[] a = tmp.ToArray();
-	    Write((uint)(a.Length - startpad));
+	    Write((uint)(a.Length - first));
 	    stream.Write(a, startpad, a.Length - startpad);
 	}
 	
 	// not used!
 	public void WriteDict<K,V>(IDictionary<K,V> dict)
 	{
-	    WriteArray(dict, (w2, i) => {
-		w2.WritePad(8);
+	    WriteArray(8, dict, (w2, i) => {
 		w2.Write(i.Key);
 		w2.Write(i.Value);
 	    });

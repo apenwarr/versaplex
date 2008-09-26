@@ -20,16 +20,6 @@ namespace Wv
 	int sigpos;
 	WvAutoCast cur;
 	
-	public static WvDBusIter open(Message m)
-	{
-	    DataConverter conv = m.Header.Endianness==EndianFlag.Little 
-		    ? DataConverter.LittleEndian : DataConverter.BigEndian;
-	    
-	    byte[] data = m.Body;
-	    return new WvDBusIter(conv, m.Header.Signature,
-				  data, 0, data.Length);
-	}
-	
 	internal WvDBusIter(DataConverter conv, string sig,
 			    byte[] data, int start, int end)
 	    : base(conv, sig, data, start, end)
@@ -210,7 +200,8 @@ namespace Wv
 	{
 	    DType dtype = (DType)sig[0];
 	    
-	    wv.print("type char:{0} [total={1}]\n", (char)dtype, sig);
+	    wv.print("type char:{0} [total={1}] pos=0x{2:x}, end=0x{3:x}\n",
+		     (char)dtype, sig, pos, end);
 	    
 	    switch (dtype)
 	    {
@@ -246,6 +237,45 @@ namespace Wv
 	    case DType.StructBegin:
 	    case DType.DictEntryBegin:
 		return ReadStruct(sig);
+	    default:
+		throw new Exception("Unhandled D-Bus type: " + dtype);
+	    }
+	}
+	
+	protected int getalign(string sig)
+	{
+	    DType dtype = (DType)sig[0];
+	    
+	    switch (dtype)
+	    {
+	    case DType.Byte:
+		return 1;
+	    case DType.Boolean:
+		return 4;
+	    case DType.Int16:
+	    case DType.UInt16:
+		return 2;
+	    case DType.Int32:
+	    case DType.UInt32:
+		return 4;
+	    case DType.Int64:
+	    case DType.UInt64:
+		return 8;
+	    case DType.Single:
+		return 4;
+	    case DType.Double:
+		return 8;
+	    case DType.String:
+	    case DType.ObjectPath:
+		return 4;
+	    case DType.Signature:
+	    case DType.Variant:
+		return 1;
+	    case DType.Array:
+		return 4;
+	    case DType.StructBegin:
+	    case DType.DictEntryBegin:
+		return 8;
 	    default:
 		throw new Exception("Unhandled D-Bus type: " + dtype);
 	    }
@@ -375,7 +405,8 @@ namespace Wv
 	IEnumerable<WvAutoCast> ReadArray(string subsig)
 	{
 	    int len = ReadLength();
-	    wv.print("Array length is {0} bytes\n", len);
+	    wv.print("Array length is 0x{0:x} bytes\n", len);
+	    pad(getalign(subsig));
 	    var x = new WvDBusIter_Array(conv, subsig,
 					 data, pos, pos+len);
 	    _advance(len);

@@ -29,12 +29,11 @@ class DbusTest
 	    w.Write((byte)42);
 	    w.Write(42);
 	    w.Write("hello world");
-	    w.WriteArray(new Int64[] { 0x42, 0x43, 0x44 }, (w2, i) => {
+	    w.WriteArray(8, new Int64[] { 0x42, 0x43, 0x44 }, (w2, i) => {
 		w2.Write(i);
 	    });
 	    w.WriteVariant(typeof(string), "VSTRING");
-	    w.WriteArray(new string[] { "a", "aaa", "aaaaa" }, (w2, i) => {
-		w2.WritePad(8); // struct elements must be 8-padded
+	    w.WriteArray(8, new string[] { "a", "aaa", "aaaaa" }, (w2, i) => {
 		w2.Write(i);
 	    });
 	    m.Body = w.ToArray();
@@ -82,7 +81,7 @@ class DbusTest
 	    }
 	    m.Body = content;
 	    
-	    var i = WvDBusIter.open(m);
+	    var i = m.open();
 
 	    WVPASSEQ(i.getnext(), 42);
 	    WVPASSEQ(i.getnext(), 42);

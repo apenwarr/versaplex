@@ -74,48 +74,38 @@ namespace Wv
 	    case MessageType.MethodReturn:
 	    case MessageType.Error:
 		{
-		    object replysig;
-		    if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-							 out replysig))
-			throw new Exception("D-Bus reply had no signature.");
-		    
-		    if (replysig == null)
-			throw new Exception("D-Bus reply had null signature");
-		    
-		    MessageReader reader = new MessageReader(reply);
+		    string sig = reply.Header.Signature;
+		    var it = reply.open();
 		    
 		    // Some unexpected error
-		    if (replysig.ToString() == "s")
-			throw new VxDbException(reader.ReadString());
+		    if (sig == "s")
+			throw new VxDbException(it.getnext());
 		    
-		    if (replysig.ToString() != "a(issnny)vaay")
-			throw new 
-			  Exception("D-Bus reply had invalid signature: " +
-				    replysig);
+		    if (sig != "a(issnny)vaay")
+			throw new Exception
+			   ("D-Bus reply had invalid signature: " + sig);
 		    
 		    // decode the raw column info
-		    ColInfo[] x = reader.ReadArray<ColInfo>();
-		    WvColInfo[] colinfo
-			= (from c in x
-			   select new WvColInfo(c.name, typeof(string),
-						(c.nullable & 1) != 0,
-						c.size, c.precision, c.scale))
-			    .ToArray();
-		    
-		    Signature sig = reader.ReadSignature();
-		    log.print("Variant signature: '{0}'\n", sig);
-		    
-		    WvSqlRow[] rows;
-		    if (sig.ToString() == "a(s)")
+		    var l = new List<WvColInfo>();
+		    foreach (var c in it.getnext().iter())
 		    {
-			Stupid[] a = reader.ReadArray<Stupid>();
-			rows = (from r in a
-				select new WvSqlRow(new object[] { r.s },
-						    colinfo))
-			    .ToArray();
+			WvAutoCast[] cols = c.iter().ToArray();
+			int size = cols[0];
+			string name = cols[1];
+			// string type = cols[2];
+			short precision = cols[3];
+			short scale = cols[4];
+			byte nullable = cols[5];
+			
+			l.Add(new WvColInfo(name, typeof(string),
+					    nullable != 0,
+					    size, precision, scale));
 		    }
-		    else
-			rows = new WvSqlRow[0];
+		    
+		    WvColInfo[] colinfo = l.ToArray();
+		    WvSqlRow[] rows = (from r in it.getnext().iter()
+				       select new WvSqlRow(r.oiter().ToArray(),
+							   colinfo)).ToArray();
 		    
 		    return new WvSqlRows_Versaplex(rows, colinfo);
 		}

@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Mono;
 
 namespace Wv
 {
@@ -98,14 +99,28 @@ namespace Wv
 	    writer.Write((uint)h.Length);
 	    writer.Write((uint)h.Serial);
 	
-	    writer.WriteArray(h.Fields, (w2, i) => {
-		w2.WritePad(8);
+	    writer.WriteArray(8, h.Fields, (w2, i) => {
 		w2.Write((byte)i.Key);
 		w2.WriteVariant(i.Value.GetType(), i.Value);
 	    });
 	    
 	    writer.WritePad(8); // the header is *always* a multiple of 8
 	    return writer.ToArray();
+	}
+	
+	// FIXME: this whole Message class is junk, so this will presumably
+	// migrate elsewhere eventually.
+	public WvDBusIter open()
+	{
+	    DataConverter conv = Header.Endianness==EndianFlag.Little 
+		    ? DataConverter.LittleEndian : DataConverter.BigEndian;
+	    
+	    byte[] data = Body;
+	    
+	    wv.print("Decoding message:\n{0}\n", wv.hexdump(data));
+	    
+	    return new WvDBusIter(conv, Header.Signature,
+				  data, 0, data.Length);
 	}
     }
 }
