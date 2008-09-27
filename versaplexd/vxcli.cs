@@ -105,7 +105,8 @@ namespace Wv
 		    WvColInfo[] colinfo = l.ToArray();
 		    var rows = new List<WvSqlRow>();
 		    foreach (var r in it.pop())
-			rows.Add(new WvSqlRow(r.ToArray(), colinfo));
+			rows.Add(new WvSqlRow(r.Cast<object>().ToArray(), 
+                            colinfo));
 		    
 		    return new WvSqlRows_Versaplex(rows.ToArray(), colinfo);
 		}
