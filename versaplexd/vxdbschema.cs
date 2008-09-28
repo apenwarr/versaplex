@@ -283,7 +283,7 @@ internal class VxDbSchema : ISchemaBackend
         } catch (VxSqlException e) {
             log.print("Got error dropping {0}: {1} ({2})\n", key, 
                 e.Message, e.GetFirstSqlErrno());
-            return new VxSchemaError(key, e.Message, e.GetFirstSqlErrno());
+            return new VxSchemaError(key, e);
         }
 
         return null;
@@ -454,8 +454,7 @@ internal class VxDbSchema : ISchemaBackend
         }
         catch (SqlException e)
         {
-            VxSqlException v = new VxSqlException(e.Message, e);
-            return new VxSchemaError(key, v.Message, v.GetFirstSqlErrno());
+            return new VxSchemaError(key, e);
         }
 
         return null;
@@ -760,8 +759,7 @@ internal class VxDbSchema : ISchemaBackend
         }
         catch (SqlException e)
         {
-            VxSqlException v = new VxSqlException(e.Message, e);
-            var err = new VxSchemaError(key, v.Message, v.GetFirstSqlErrno());
+            var err = new VxSchemaError(key, e);
             log.print("Caught exception: {0}\n", err.ToString());
             errs.Add(key, err);
         }
@@ -819,7 +817,7 @@ internal class VxDbSchema : ISchemaBackend
         {
             log.print("Got error from {0}: {1} ({2})\n", elem.key, 
                 e.Message, e.GetFirstSqlErrno());
-            return new VxSchemaError(elem.key, e.Message, e.GetFirstSqlErrno());
+            return new VxSchemaError(elem.key, e);
         }
 
         return null;
