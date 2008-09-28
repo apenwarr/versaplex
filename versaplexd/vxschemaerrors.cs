@@ -60,16 +60,15 @@ internal class VxSchemaError
     {
         key = newkey;
         msg = e.Message;
-        errnum = e.GetFirstSqlErrno();
+        errnum = e.Number;
         level = WvLog.L.Error;
     }
 
     public VxSchemaError(string newkey, SqlException e)
     {
-        VxSqlException v = new VxSqlException(e.Message, e);
         key = newkey;
-        msg = v.Message;
-        errnum = v.GetFirstSqlErrno();
+        msg = e.Message;
+        errnum = e.Number;
         level = WvLog.L.Error;
     }
 

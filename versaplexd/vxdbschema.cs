@@ -282,7 +282,7 @@ internal class VxDbSchema : ISchemaBackend
             DbiExec(query);
         } catch (VxSqlException e) {
             log.print("Got error dropping {0}: {1} ({2})\n", key, 
-                e.Message, e.GetFirstSqlErrno());
+                e.Message, e.Number);
             return new VxSchemaError(key, e);
         }
 
@@ -315,14 +315,13 @@ internal class VxDbSchema : ISchemaBackend
         } 
         catch (SqlException e)
         { 
-            var v = new VxSqlException(e.Message, e);
             log.print("Caught rollback exception: {0} ({1})\n", 
-                v.Message, v.GetFirstSqlErrno());
+                e.Message, e.Number);
             // Eat any "The Rollback Transaction request has no
             // corresponding Begin Transaction." errors - some errors 
             // will automatically roll us back, some won't.
-            if (v.GetFirstSqlErrno() != 3903)
-                throw v;
+            if (e.Number != 3903)
+                throw;
         }
         return false;
     }
@@ -677,12 +676,11 @@ internal class VxDbSchema : ISchemaBackend
                 }
                 catch (SqlException e)
                 {
-                    VxSqlException v = new VxSqlException(e.Message, e);
                     // OK, the easy way doesn't work.  Remember the error for
                     // when we do it for real.
                     log.print("Caught exception in trial run: {0} ({1})\n", 
-                        v.Message, v.GetFirstSqlErrno());
-                    errmsg = v.Message;
+                        e.Message, e.Number);
+                    errmsg = e.Message;
                 }
 
                 log.print("Rolling back, errmsg='{0}'\n", errmsg);
@@ -806,7 +804,7 @@ internal class VxDbSchema : ISchemaBackend
                     // SQL Error 15151 means "can't drop XML Schema collection 
                     // because it doesn't exist or you don't have permission."
                     if (!e.ContainsSqlError(3701) && !e.ContainsSqlError(15151))
-                        throw e;
+                        throw;
                 }
             }
 
@@ -815,8 +813,8 @@ internal class VxDbSchema : ISchemaBackend
         } 
         catch (VxSqlException e) 
         {
-            log.print("Got error from {0}: {1} ({2})\n", elem.key, 
-                e.Message, e.GetFirstSqlErrno());
+            log.print("Got error from {0}: {1} ({2})\n", 
+                elem.key, e.Message, e.Number);
             return new VxSchemaError(elem.key, e);
         }
 

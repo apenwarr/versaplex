@@ -69,17 +69,16 @@ class VxSqlException : VxRequestException {
 
     // Returns the SQL error number of the first SQL Exception in the list, or
     // -1 if none can be found.
-    public int GetFirstSqlErrno()
+    public int Number
     {
-        if (!(InnerException is SqlException))
-            return -1;
-
-        SqlException sqle = (SqlException)InnerException;
-        foreach (SqlError err in sqle.Errors)
+        get
         {
-            return err.Number;
+            if (!(InnerException is SqlException))
+                return -1;
+
+            SqlException sqle = (SqlException)InnerException;
+            return sqle.Number;
         }
-        return -1;
     }
 }
 
