@@ -21,6 +21,10 @@ namespace Wv
 	public string Signature {
 	    get { return Fields[FieldCode.Signature].ToString(); }
 	}
+	
+	public ObjectPath ObjectPath {
+	    get { return new ObjectPath((string)Fields[FieldCode.Path]); }
+	}
     }
 
     public enum MessageType : byte

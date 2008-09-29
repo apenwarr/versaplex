@@ -36,7 +36,7 @@ namespace Wv
 		public MethodCall (Message message)
 		{
 			this.message = message;
-			Path = (ObjectPath)message.Header.Fields[FieldCode.Path];
+			Path = message.Header.ObjectPath;
 			if (message.Header.Fields.ContainsKey (FieldCode.Interface))
 				Interface = (string)message.Header.Fields[FieldCode.Interface];
 			Member = (string)message.Header.Fields[FieldCode.Member];
@@ -121,7 +121,7 @@ namespace Wv
 		public Signal (Message message)
 		{
 			this.message = message;
-			Path = (ObjectPath)message.Header.Fields[FieldCode.Path];
+			Path = message.Header.ObjectPath;
 			Interface = (string)message.Header.Fields[FieldCode.Interface];
 			Member = (string)message.Header.Fields[FieldCode.Member];
 			if (message.Header.Fields.ContainsKey (FieldCode.Sender))

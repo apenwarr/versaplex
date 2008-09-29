@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using Mono;
+using Wv.Extensions;
 
 namespace Wv
 {
@@ -29,7 +30,7 @@ namespace Wv
 	    get {
 		object o;
 		if (Header.Fields.TryGetValue(FieldCode.Signature, out o))
-		    return (Signature)o;
+		    return new Signature((string)o);
 		else
 		    return Signature.Empty;
 	    }
@@ -65,21 +66,29 @@ namespace Wv
 	public void SetHeaderData(byte[] data)
 	{
 	    EndianFlag endianness = (EndianFlag)data[0];
-	    MessageReader reader = new MessageReader(endianness, data);
+	    DataConverter conv = endianness==EndianFlag.Little 
+		    ? DataConverter.LittleEndian : DataConverter.BigEndian;
+	    
+	    var it = new WvDBusIter(conv, "yyyyuua{yv}",
+				    data, 0, data.Length).GetEnumerator();
 
 	    Header h;
-	    h.Endianness = (EndianFlag)reader.ReadByte();
-	    h.MessageType = (MessageType)reader.ReadByte();
-	    h.Flags = (HeaderFlag)reader.ReadByte();
-	    h.MajorVersion = reader.ReadByte();
-	    h.Length = reader.ReadUInt32();
-	    h.Serial = reader.ReadUInt32();
+	    h.Endianness   = (EndianFlag)(byte)it.pop();
+	    h.MessageType  = (MessageType)(byte)it.pop();
+	    h.Flags        = (HeaderFlag)(byte)it.pop();
+	    h.MajorVersion = it.pop();
+	    h.Length       = it.pop();
+	    h.Serial       = it.pop();
 	    h.Fields = new Dictionary<FieldCode,object>();
-	    reader.ReadArrayFunc(8, (r) => {
-	        FieldCode c = (FieldCode)r.ReadByte();
-		object o = r.ReadVariant();
+	    foreach (var _f in it.pop())
+	    {
+		var f = _f.GetEnumerator();
+	        FieldCode c = (FieldCode)(byte)f.pop();
+		object o = f.pop().inner;
+		wv.print("code:{0} type:{1} val:'{2}'\n",
+			 c, o.GetType(), o);
 		h.Fields[c] = o;
-	    });
+	    }
 	    Header = h;
 	}
 
