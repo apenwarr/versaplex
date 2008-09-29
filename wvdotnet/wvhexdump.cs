@@ -66,7 +66,10 @@ namespace Wv
 		sb.Append(" ");
 		
 		for (int j=8-co; j < 16-co && i+j < length; j++)
+		{
+		    if (i+j < 0) continue;
 		    sb.Append(data[i+j].ToString("x2")).Append(" ");
+		}
 		
 		// extra space if incomplete line
 		if (i + 16-co > length) {
