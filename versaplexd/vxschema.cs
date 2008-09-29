@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Collections;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 using NDesk.DBus;
@@ -194,7 +195,8 @@ internal class VxSchemaTableElement
     }
 }
 
-internal class VxSchemaTable : VxSchemaElement
+internal class VxSchemaTable : VxSchemaElement, 
+    IEnumerable<VxSchemaTableElement>
 {
     // A list of table elements, so we can maintain the original order
     private List<VxSchemaTableElement> elems;
@@ -240,8 +242,13 @@ internal class VxSchemaTable : VxSchemaElement
         }
     }
 
-    // Internal function to be used in unit tests.  You shouldn't call this.
-    internal IEnumerator<VxSchemaTableElement> GetElems()
+    // Implement the IEnumerator interface - just punt to the list
+    IEnumerator IEnumerable.GetEnumerator()
+    {
+        return elems.GetEnumerator();
+    }
+
+    public IEnumerator<VxSchemaTableElement> GetEnumerator()
     {
         return elems.GetEnumerator();
     }

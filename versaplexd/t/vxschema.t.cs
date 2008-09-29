@@ -140,7 +140,7 @@ class VxSchemaTests
         table.text = tab1schema;
 
         // Check that it gets parsed as expected.
-        IEnumerator<VxSchemaTableElement> iter = table.GetElems();
+        var iter = table.GetEnumerator();
 
         iter.Reset();
         WVPASS(iter.MoveNext());
