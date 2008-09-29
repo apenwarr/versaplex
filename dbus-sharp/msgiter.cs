@@ -240,45 +240,6 @@ namespace Wv
 	    }
 	}
 	
-	protected int getalign(string sig)
-	{
-	    DType dtype = (DType)sig[0];
-	    
-	    switch (dtype)
-	    {
-	    case DType.Byte:
-		return 1;
-	    case DType.Boolean:
-		return 4;
-	    case DType.Int16:
-	    case DType.UInt16:
-		return 2;
-	    case DType.Int32:
-	    case DType.UInt32:
-		return 4;
-	    case DType.Int64:
-	    case DType.UInt64:
-		return 8;
-	    case DType.Single:
-		return 4;
-	    case DType.Double:
-		return 8;
-	    case DType.String:
-	    case DType.ObjectPath:
-		return 4;
-	    case DType.Signature:
-	    case DType.Variant:
-		return 1;
-	    case DType.Array:
-		return 4;
-	    case DType.StructBegin:
-	    case DType.DictEntryBegin:
-		return 8;
-	    default:
-		throw new Exception("Unhandled D-Bus type: " + dtype);
-	    }
-	}
-	
 	void pad(int align)
 	{
 	    int pad = (align - (pos % align)) % align;
@@ -404,7 +365,7 @@ namespace Wv
 	{
 	    int len = ReadLength();
 	    wv.print("Array length is 0x{0:x} bytes\n", len);
-	    pad(getalign(subsig));
+	    pad(Protocol.GetAlignment((DType)subsig[0]));
 	    var x = new WvDBusIter_Array(conv, subsig,
 					 data, pos, pos+len);
 	    _advance(len);

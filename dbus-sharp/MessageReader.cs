@@ -264,7 +264,6 @@ namespace Wv
 
 	    int endPos = pos + (int)ln;
 
-	    //while (stream.Position != endPos)
 	    while (pos < endPos)
 	    {
 		ReadPad(8);

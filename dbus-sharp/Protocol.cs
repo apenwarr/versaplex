@@ -4,6 +4,7 @@
 //
 using System;
 using System.Collections.Generic;
+using Wv.Extensions;
 
 namespace Wv
 {
@@ -128,7 +129,8 @@ namespace Wv
 	public const uint MaxArrayDepth = 32;
 	public const uint MaxStructDepth = 32;
 
-	//this is not strictly related to Protocol since names are passed around as strings
+	// this is not strictly related to Protocol since names are passed
+	// around as strings
 	internal const uint MaxNameLength = 255;
 
 	public static int PadNeeded (int pos, int alignment)
@@ -148,7 +150,7 @@ namespace Wv
 	    return pos;
 	}
 
-	public static int GetAlignment (DType dtype)
+	public static int GetAlignment(DType dtype)
 	{
 	    switch (dtype) {
 	    case DType.Byte:
@@ -164,7 +166,7 @@ namespace Wv
 	    case DType.Int64:
 	    case DType.UInt64:
 		return 8;
-	    case DType.Single: //Not yet supported!
+	    case DType.Single:
 		return 4;
 	    case DType.Double:
 		return 8;
@@ -177,23 +179,26 @@ namespace Wv
 	    case DType.Array:
 		return 4;
 	    case DType.Struct:
+	    case DType.StructBegin:
+	    case DType.StructEnd:
+	    case DType.DictEntry:
+	    case DType.DictEntryBegin:
+	    case DType.DictEntryEnd:
 		return 8;
 	    case DType.Variant:
 		return 1;
-	    case DType.DictEntry:
-		return 8;
 	    case DType.Invalid:
 	    default:
-		throw new Exception ("Cannot determine alignment of " + dtype);
+		throw new Exception("Cannot determine alignment of " + dtype);
 	    }
 	}
 
-	//this class may not be the best place for Verbose
+	// this class may not be the best place for Verbose
 	public readonly static bool Verbose;
 
-	static Protocol ()
+	static Protocol()
 	{
-	    Verbose = !String.IsNullOrEmpty (Environment.GetEnvironmentVariable ("DBUS_VERBOSE"));
+	    Verbose = wv.getenv("DBUS_VERBOSE").ne();
 	}
     }
 }
