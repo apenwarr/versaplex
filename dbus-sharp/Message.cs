@@ -62,15 +62,10 @@ namespace Wv
 	    public object Value;
 	}
 
-	// Header format is: yyyyuua{yv}
 	public void SetHeaderData(byte[] data)
 	{
-	    EndianFlag endianness = (EndianFlag)data[0];
-	    DataConverter conv = endianness==EndianFlag.Little 
-		    ? DataConverter.LittleEndian : DataConverter.BigEndian;
-	    
-	    var it = new WvDBusIter(conv, "yyyyuua{yv}",
-				    data, 0, data.Length).GetEnumerator();
+	    var it = new WvDBusIter((EndianFlag)data[0], "yyyyuua{yv}", data)
+		.GetEnumerator();
 
 	    Header h;
 	    h.Endianness   = (EndianFlag)(byte)it.pop();
@@ -121,15 +116,8 @@ namespace Wv
 	// migrate elsewhere eventually.
 	public WvDBusIter iter()
 	{
-	    DataConverter conv = Header.Endianness==EndianFlag.Little 
-		    ? DataConverter.LittleEndian : DataConverter.BigEndian;
-	    
 	    byte[] data = Body;
-	    
-	    wv.print("Decoding message:\n{0}\n", wv.hexdump(data));
-	    
-	    return new WvDBusIter(conv, Header.Signature,
-				  data, 0, data.Length);
+	    return new WvDBusIter(Header.Endianness, Header.Signature, data);
 	}
     }
 }

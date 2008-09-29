@@ -22,6 +22,21 @@ namespace Wv
 			    byte[] data, int start, int end)
 	    : base(conv, sig, data, start, end)
 	{
+	    wv.print("Decoding message:\n{0}\nSignature={1}\n",
+		     wv.hexdump(data, start, end), sig);
+	    Reset();
+	}
+	
+	internal WvDBusIter(DataConverter conv, string sig, byte[] data)
+	    : this(conv, sig, data, 0, data.Length)
+	{
+	}
+	
+	internal WvDBusIter(EndianFlag e, string sig, byte[] data)
+	    : this(e==EndianFlag.Little 
+		   ? DataConverter.LittleEndian : DataConverter.BigEndian,
+		   sig, data)
+	{
 	    Reset();
 	}
 	

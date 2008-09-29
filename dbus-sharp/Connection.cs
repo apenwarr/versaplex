@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Reflection;
+using Wv.Extensions;
 
 namespace Wv
 {
@@ -177,43 +178,38 @@ namespace Wv
 	    s.Seek(-read, SeekOrigin.Current);
 
 	    if (read != 16)
-		throw new Exception("Header read length mismatch: " + read + " of expected " + "16");
+		throw new Exception("Header read length mismatch: "
+				    + read + " of expected " + "16");
 
-	    EndianFlag endianness = (EndianFlag)buf[0];
-	    MessageReader reader = new MessageReader(endianness, buf);
+	    // the real header signature is: yyyyuua{yv}
+	    // However, we only care about the first 16 bytes, and we know
+	    // that the a{yv} starts with an unsigned int that's the number
+	    // of bytes in the array, which is what we *really* want to know.
+	    // So we lie about the signature here.
+	    var it = new WvDBusIter((EndianFlag)buf[0], "yyyyuuu", buf)
+		.GetEnumerator();
 
-	    //discard the endian byte as we've already read it
-	    reader.ReadByte();
+	    it.pop();
+	    it.pop();
+	    it.pop();
 
-	    //discard message type and flags, which we don't care about here
-	    reader.ReadByte();
-	    reader.ReadByte();
-
-	    byte version = reader.ReadByte();
+	    byte version = it.pop();
 
 	    if (version < Protocol.MinVersion || version > Protocol.MaxVersion)
 		throw new NotSupportedException
 		    ("Protocol version '"
 		     + version.ToString() + "' is not supported");
 
-	    if (Protocol.Verbose)
-		if (version != Protocol.Version)
-		    Console.Error.WriteLine
-		         ("Warning: Protocol version '"
-			  + version.ToString() 
-			  + "' is not explicitly supported but may be "
-			  + "compatible");
+	    uint blen = it.pop(); // body length
+	    it.pop(); // serial
+	    uint hlen = it.pop(); // remaining header length
 
-	    uint bodyLength = reader.ReadUInt32();
-	    reader.ReadUInt32(); // serial
-	    uint headerLength = reader.ReadUInt32();
-
-	    if (bodyLength > Int32.MaxValue || headerLength > Int32.MaxValue)
+	    if (blen > Int32.MaxValue || hlen > Int32.MaxValue)
 		throw new NotImplementedException
 		    ("Long messages are not yet supported");
 
-	    bodySize = (int)bodyLength;
-	    headerSize = Protocol.Padded((int)headerLength, 8) + 16;
+	    bodySize = (int)blen;
+	    headerSize = Protocol.Padded((int)hlen, 8) + 16;
 	}
 
 	internal Message BuildMessage(Stream s,
@@ -453,11 +449,8 @@ namespace Wv
 		Error error = new Error(msg);
 		string errMsg = String.Empty;
 		if (msg.Signature.Value.StartsWith("s")) {
-		    MessageReader reader = new MessageReader(msg);
-		    errMsg = reader.ReadString();
+		    errMsg = msg.iter().pop();
 		}
-		//throw new Exception ("Remote Error: Signature='" + msg.Signature.Value + "' " + error.ErrorName + ": " + errMsg);
-		//if (Protocol.Verbose)
 		Console.Error.WriteLine("Remote Error: Signature='" + msg.Signature.Value + "' " + error.ErrorName + ": " + errMsg);
 		break;
 	    case MessageType.Invalid:
