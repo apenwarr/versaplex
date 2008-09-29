@@ -244,7 +244,7 @@ public class VersaplexTester: IDisposable
 	{
 	    object[][] tdata;
 	    bool[][] tnullity;
-	    Message tmp = bus.GetNext();
+	    Message tmp = bus.ReadMessage();
 	    if (tmp.Header.MessageType == MessageType.Signal)
 	    {
 		RecordsetWorker(tmp, out colinfo, out tdata, out tnullity);

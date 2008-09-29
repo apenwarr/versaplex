@@ -401,12 +401,6 @@ namespace Wv
 			DispatchSignals ();
 		}
 
-		//Oh lord hacky
-		public Message GetNext()
-		{
-			return ReadMessage();
-		}
-
 		internal void HandleMessage (Message msg)
 		{
 			//TODO: support disconnection situations properly and move this check elsewhere
