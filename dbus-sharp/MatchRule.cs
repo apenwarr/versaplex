@@ -8,8 +8,6 @@ using System.Collections.Generic;
 
 namespace Wv
 {
-	//delegate void MessageHandler (Message msg);
-
 	class MatchRule
 	{
 		public MessageType? MessageType;
@@ -77,12 +75,31 @@ namespace Wv
 			return ToString ().GetHashCode ();
 		}
 
+		public static string MessageTypeToString(Wv.MessageType mtype)
+		{
+			switch (mtype)
+			{
+				case Wv.MessageType.MethodCall:
+					return "method_call";
+				case Wv.MessageType.MethodReturn:
+					return "method_return";
+				case Wv.MessageType.Error:
+					return "error";
+				case Wv.MessageType.Signal:
+					return "signal";
+				case Wv.MessageType.Invalid:
+					return "invalid";
+				default:
+					throw new Exception("Bad MessageType: " + mtype);
+			}
+		}
+	    
 		public override string ToString ()
 		{
 			StringBuilder sb = new StringBuilder ();
 
 			if (MessageType != null)
-				Append (sb, "type", MessageFilter.MessageTypeToString ((MessageType)MessageType));
+				Append (sb, "type", MessageTypeToString ((MessageType)MessageType));
 
 			if (Interface != null)
 				Append (sb, "interface", Interface);
@@ -146,83 +163,6 @@ namespace Wv
 			//FIXME: do args
 
 			return true;
-		}
-
-		//this could be made more efficient
-		public static MatchRule Parse (string text)
-		{
-			MatchRule r = new MatchRule ();
-
-			foreach (string propStr in text.Split (',')) {
-				string[] parts = propStr.Split ('=');
-
-				if (parts.Length < 2)
-					throw new Exception ("No equals sign found");
-				if (parts.Length > 2)
-					throw new Exception ("Too many equals signs found");
-
-				string key = parts[0].Trim ();
-				string value = parts[1].Trim ();
-
-				if (!value.StartsWith ("'") || !value.EndsWith ("'"))
-					throw new Exception ("Too many equals signs found");
-
-				value = value.Substring (1, value.Length - 2);
-
-				if (key.StartsWith ("arg")) {
-					int argnum = Int32.Parse (key.Remove (0, "arg".Length));
-
-					if (argnum < 0 || argnum > 63)
-						throw new Exception ("arg match must be between 0 and 63 inclusive");
-
-					if (r.Args.ContainsKey (argnum))
-						return null;
-
-					r.Args[argnum] = value;
-
-					continue;
-				}
-
-				//TODO: more consistent error handling
-				switch (key) {
-					case "type":
-						if (r.MessageType != null)
-							return null;
-						r.MessageType = MessageFilter.StringToMessageType (value);
-						break;
-					case "interface":
-						if (r.Interface != null)
-							return null;
-						r.Interface = value;
-						break;
-					case "member":
-						if (r.Member != null)
-							return null;
-						r.Member = value;
-						break;
-					case "path":
-						if (r.Path != null)
-							return null;
-						r.Path = new ObjectPath (value);
-						break;
-					case "sender":
-						if (r.Sender != null)
-							return null;
-						r.Sender = value;
-						break;
-					case "destination":
-						if (r.Destination != null)
-							return null;
-						r.Destination = value;
-						break;
-					default:
-						if (Protocol.Verbose)
-							Console.Error.WriteLine ("Warning: Unrecognized match rule key: " + key);
-						break;
-				}
-			}
-
-			return r;
 		}
 	}
 }
