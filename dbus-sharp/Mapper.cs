@@ -5,6 +5,8 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Linq;
+using Wv.Extensions;
 
 namespace Wv
 {
@@ -248,12 +250,11 @@ namespace Wv
 			object[] vals = new object[parms.Length];
 
 			if (msg.Body != null) {
-				MessageReader reader = new MessageReader (msg);
+			        var it = msg.iter().GetEnumerator();
 				foreach (ParameterInfo parm in parms) {
 					if (parm.IsOut)
 						continue;
-
-					vals[parm.Position] = reader.ReadValue(parm.ParameterType);
+					vals[parm.Position] = it.pop();
 				}
 			}
 
@@ -269,17 +270,8 @@ namespace Wv
 				if (actual != expected)
 					Console.Error.WriteLine ("Warning: The signature of the message does not match that of the handler: " + "Expected '" + expected + "', got '" + actual + "'");
 			}
-
-			object[] vals = new object[types.Length];
-
-			if (msg.Body != null) {
-				MessageReader reader = new MessageReader (msg);
-
-				for (int i = 0 ; i != types.Length ; i++)
-					vals[i] = reader.ReadValue (types[i]);
-			}
-
-			return vals;
+		    
+		        return (from i in msg.iter() select i.inner).ToArray();
 		}
 
 		public static Message ConstructReply (MethodCall method_call, params object[] vals)
