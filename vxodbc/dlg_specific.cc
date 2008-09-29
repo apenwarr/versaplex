@@ -255,12 +255,16 @@ void getDSNinfo(ConnInfo * ci, char overwrite)
         SQLGetPrivateProfileString(DSN, INI_DBUS, "dbus:session", 
                 ci->dbus_moniker, sizeof(ci->dbus_moniker), ODBC_INI);
 
-    if (log_level[0] == '\0' || overwrite)
-	SQLGetPrivateProfileString(DSN, "LogLevel", "4", log_level,
-		sizeof(log_level), ODBC_INI);
-    if (log_moniker[0] == '\0' || overwrite)
-	SQLGetPrivateProfileString(DSN, "LogMoniker", "", log_moniker,
-		sizeof(log_moniker), ODBC_INI);
+    char llbuf[2] = {0, 0};
+    if (!log_level || overwrite)
+	SQLGetPrivateProfileString(DSN, "LogLevel", "4", llbuf,
+		sizeof(llbuf), ODBC_INI);
+    log_level = atoi(llbuf);
+    if (!wvlog_isset() || overwrite) {
+	struct pstring log_moniker = wvlog_get_moniker();
+	SQLGetPrivateProfileString(DSN, "LogMoniker", "", log_moniker.string,
+		log_moniker.length, ODBC_INI);
+    }
     wvlog_open();
 
     /* Allow override of odbcinst.ini parameters here */

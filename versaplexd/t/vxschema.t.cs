@@ -40,7 +40,7 @@ class VxSchemaTests
             "\t[f1] [int] NOT NULL,\n" +
             "\t[f2] [money] NOT NULL,\n" + 
             "\t[f3] [varchar] (80) NOT NULL,\n" + 
-            "\t[f4] [varchar] (max) DEFAULT 'Default Value' NULL,\n" + 
+            "\t[f4] [varchar] (max) CONSTRAINT testtable_f4_default DEFAULT 'Default Value' NULL,\n" + 
             "\t[f5] [decimal] (3,2) NULL,\n" +
             "\t[f6] [bigint] NOT NULL IDENTITY (4,5));\n\n" + 
             "ALTER TABLE [testtable] ADD CONSTRAINT [PK_testtable] " + 
@@ -83,18 +83,10 @@ class VxSchemaTests
         log.print("Expected PK1: " + expected_pksql1 + "\n");
         log.print("Actual PK1: " + table.ToSql() + "\n");
         WVPASSEQ(table.ToSql(), expected_pksql1);
-        table.text = pk2;
-        WVPASSEQ(table.text, pk2)
         try {
-            WVEXCEPT(table.ToSql());
-        } catch (Wv.Test.WvAssertionFailure e) {
-            throw e;
-        } catch (System.Exception e) {
-            WVPASS(e is VxBadSchemaException);
-            WVPASSEQ(e.Message, 
-                "Multiple primary key statements are not permitted in " + 
-                "table definitions.\n" + 
-                "Conflicting statement: primary-key: column=f2\n");
+            WVEXCEPT(table.text = pk2);
+        } catch (VxBadSchemaException e) {
+            WVPASSEQ(e.Message, "Duplicate table entry 'primary-key' found.");
             log.print(e.ToString() + "\n");
         }
     }

@@ -302,6 +302,31 @@ internal class VxDbSchema : ISchemaBackend
         }
     }
 
+    // Roll back the given transaction, but eat SQL error 3903, where the
+    // rollback fails because it's already been rolled back.
+    // Returns true if the transaction was actually rolled back.
+    // Returns false (or throws some other exception) if the rollback failed.
+    private bool DbiExecRollback(string trans_name)
+    {
+        try 
+        { 
+            dbi.execute("ROLLBACK TRANSACTION " + trans_name); 
+            return true;
+        } 
+        catch (SqlException e)
+        { 
+            var v = new VxSqlException(e.Message, e);
+            log.print("Caught rollback exception: {0} ({1})\n", 
+                v.Message, v.GetFirstSqlErrno());
+            // Eat any "The Rollback Transaction request has no
+            // corresponding Begin Transaction." errors - some errors 
+            // will automatically roll us back, some won't.
+            if (v.GetFirstSqlErrno() != 3903)
+                throw v;
+        }
+        return false;
+    }
+
     // Translate SqlExceptions from dbi.select into VxSqlExceptions.
     private IEnumerable<WvSqlRow> DbiSelect(string query, 
         params object[] bound_vars)
@@ -437,53 +462,93 @@ internal class VxDbSchema : ISchemaBackend
     }
 
     private VxSchemaErrors ApplyChangedColumn(VxSchemaTable table, 
-        VxSchemaTableElement elem, VxPutOpts opts)
+        VxSchemaTableElement oldelem, VxSchemaTableElement newelem, 
+        string expected_errmsg, VxPutOpts opts)
     {
         VxSchemaErrors errs = new VxSchemaErrors();
-        log.print("Altering {0}\n", elem.ToString());
+        log.print("Altering {0}\n", newelem.ToString());
 
         bool destructive = (opts & VxPutOpts.Destructive) != 0;
-        string query = wv.fmt("ALTER TABLE [{0}] ALTER COLUMN {1}", 
-            table.name, table.ColumnToSql(elem));
-        
-        log.print("Executing {0}\n", query);
-        try
+        string colname = newelem.GetParam("name");
+
+        // Remove any old default constraint; even if it doesn't change, it 
+        // can get in the way of modifying the column.  We'll add it again
+        // later if needed.
+        if (oldelem.HasDefault())
         {
+            string defquery = wv.fmt("ALTER TABLE [{0}] DROP CONSTRAINT {1}\n", 
+                table.name, table.GetDefaultDefaultName(colname));
+
+            log.print("Executing " + defquery);
+
+            dbi.execute(defquery);
+        }
+
+        bool did_default_constraint = false;
+
+        // Don't try to alter the table if we know it won't work.
+        if (expected_errmsg.e())
+        {
+            string query = wv.fmt("ALTER TABLE [{0}] ALTER COLUMN {1}",
+                table.name, table.ColumnToSql(newelem, false));
+
+            log.print("Executing {0}\n", query);
+            
             dbi.execute(query);
         }
-        catch (SqlException e)
+        else
         {
-            log.print("Caught exception: {0}\n", e.Message);
             // Some table attributes can't be changed by ALTER TABLE, 
-            // such as changing default or identity values, or data 
-            // type changes that would truncate data.  If the client 
-            // has set the Destructive flag though, we can try to 
-            // drop and re-add the column.
+            // such as changing identity values, or data type changes that
+            // would truncate data.  If the client has set the Destructive
+            // flag though, we can try to drop and re-add the column.
             if (destructive)
             {
-                log.print("Alter column failed, dropping and adding\n");
+                log.print("Alter column would fail, dropping and adding\n");
                 string delquery = wv.fmt("ALTER TABLE [{0}] " + 
                     "DROP COLUMN [{1}]\n",
-                    table.name, elem.GetParam("name"));
+                    table.name, colname);
+                // We need to include the default value here (the second
+                // parameter to ColumnToSql), otherwise adding a column to a
+                // table with data in it might not work.
                 string addquery = wv.fmt("ALTER TABLE [{0}] ADD {1}\n", 
-                    table.name, table.ColumnToSql(elem));
+                    table.name, table.ColumnToSql(newelem, true));
 
                 log.print("Executing {0}\n", delquery);
                 dbi.execute(delquery);
                 log.print("Executing {0}\n", addquery);
                 dbi.execute(addquery);
+                did_default_constraint = true;
             }
             else
             {
                 log.print("Can't alter table and destructive flag " + 
                     "not set.  Giving up.\n");
+                string key = table.key;
                 string errmsg = wv.fmt("Refusing to drop and re-add " +
                         "column [{0}] when the destructive option " +
-                        "is not set.  Error when altering was: '{1}'", 
-                        elem.GetParam("name"), e.Message);
-                errs.Add(table.key, new VxSchemaError(table.key, errmsg, -1));
+                        "is not set.  Error when altering was: '{1}'",
+                        colname, expected_errmsg);
+                errs.Add(key, new VxSchemaError(key, errmsg, -1));
             }
         }
+
+        // No errors so far, let's try to add the new default values if we
+        // didn't do it already.
+        if (errs.Count == 0 && newelem.HasDefault() && !did_default_constraint)
+        {
+            string defquery = wv.fmt("ALTER TABLE [{0}] ADD CONSTRAINT {1} " + 
+                "DEFAULT {2} FOR {3}\n", 
+                table.name, table.GetDefaultDefaultName(colname), 
+                newelem.GetParam("default"), colname);
+
+            log.print("Executing {0}\n", defquery);
+
+            dbi.execute(defquery);
+        }
+
+        if (errs.Count != 0)
+            log.print("Altering column had errors: " + errs.ToString());
 
         return errs;
     }
@@ -496,19 +561,7 @@ internal class VxDbSchema : ISchemaBackend
         string tabname = newtable.name;
         string key = newtable.key;
 
-        var errs = new VxSchemaErrors();
-
-        // Compute diff of the current and new tables
-        List<KeyValuePair<VxSchemaTableElement,VxDiffType>> diff = null;
-        try
-        {
-            diff = VxSchemaTable.GetDiff(curtable, newtable);
-        }
-        catch (VxBadSchemaException e)
-        {
-            errs.Add(key, new VxSchemaError(key, e.Message, -1));
-            goto done;
-        }
+        var diff = VxSchemaTable.GetDiff(curtable, newtable);
 
         var coladd = new List<VxSchemaTableElement>();
         var coldel = new List<VxSchemaTableElement>();
@@ -519,7 +572,22 @@ internal class VxDbSchema : ISchemaBackend
         {
             VxSchemaTableElement elem = kvp.Key;
             VxDiffType difftype = kvp.Value;
-            if (elem.elemtype == "column")
+            if (elem.elemtype == "primary-key" || elem.elemtype == "index")
+            {
+                if (difftype == VxDiffType.Add)
+                    otheradd.Add(elem);
+                else if (difftype == VxDiffType.Remove)
+                    otherdel.Add(elem);
+                else if (difftype == VxDiffType.Change)
+                {
+                    // We don't want to bother trying to change indexes or
+                    // primary keys; it's easier to just delete and re-add
+                    // them.
+                    otherdel.Add(curtable[elem.GetElemKey()]);
+                    otheradd.Add(elem);
+                }
+            }
+            else
             {
                 if (difftype == VxDiffType.Add)
                     coladd.Add(elem);
@@ -528,19 +596,9 @@ internal class VxDbSchema : ISchemaBackend
                 else if (difftype == VxDiffType.Change)
                     colchanged.Add(elem);
             }
-            else
-            {
-                if (difftype == VxDiffType.Add)
-                    otheradd.Add(elem);
-                else if (difftype == VxDiffType.Remove)
-                    otherdel.Add(elem);
-                else if (difftype == VxDiffType.Change)
-                {
-                    otherdel.Add(elem);
-                    otheradd.Add(elem);
-                }
-            }
         }
+
+        var errs = new VxSchemaErrors();
 
         // Might as well check this sooner rather than later.
         if (!destructive && coldel.Count > 0)
@@ -567,6 +625,7 @@ internal class VxDbSchema : ISchemaBackend
 
         var deleted_indexes = new List<VxSchemaTableElement>();
 
+        bool transaction_started = false;
         bool transaction_resolved = false;
         try
         {
@@ -582,11 +641,8 @@ internal class VxDbSchema : ISchemaBackend
                 string idxname = elem.GetParam("name");
 
                 // Use the default primary key name if none was specified.
-                if (elem.elemtype == "primary-key" && 
-                    String.IsNullOrEmpty(idxname))
-                {
-                    idxname = "PK_" + tabname;
-                }
+                if (elem.elemtype == "primary-key" && idxname.e())
+                    idxname = curtable.GetDefaultPKName();
 
                 var err = DropSchemaElement("Index/" + tabname + "/" + idxname);
                 if (err != null)
@@ -598,6 +654,46 @@ internal class VxDbSchema : ISchemaBackend
                 deleted_indexes.Add(elem);
             }
 
+            // If an ALTER TABLE query fails inside a transaction, the 
+            // transaction is automatically rolled back, even if you start
+            // an inner transaction first.  This makes error handling
+            // annoying.  So before we start the real transaction, try to make
+            // the column changes in a test transaction that we'll always roll
+            // back to see if they'd fail.
+            var ErrMsgWhenAltering = new Dictionary<string, string>();
+            foreach (var elem in colchanged)
+            {
+                string errmsg = "";
+                log.print("Doing a trial run of modifying {0}\n", 
+                    elem.GetElemKey());
+                dbi.execute("BEGIN TRANSACTION coltest");
+                try
+                {
+                    // Try to change the column the easy way, without dropping
+                    // or adding anything and without any expected errors.
+                    var change_errs = ApplyChangedColumn(newtable, 
+                        curtable[elem.GetElemKey()], elem, "", VxPutOpts.None);
+                    if (change_errs.Count > 0)
+                        errmsg = errs[newtable.key][0].msg;
+                }
+                catch (SqlException e)
+                {
+                    VxSqlException v = new VxSqlException(e.Message, e);
+                    // OK, the easy way doesn't work.  Remember the error for
+                    // when we do it for real.
+                    log.print("Caught exception in trial run: {0} ({1})\n", 
+                        v.Message, v.GetFirstSqlErrno());
+                    errmsg = v.Message;
+                }
+
+                log.print("Rolling back, errmsg='{0}'\n", errmsg);
+
+                DbiExecRollback("coltest");
+                ErrMsgWhenAltering.Add(elem.GetElemKey(), errmsg);
+            }
+            log.print("About to begin real transaction\n");
+
+            transaction_started = true;
             dbi.execute("BEGIN TRANSACTION TableUpdate");
 
             // Add new columns before deleting old ones; MSSQL won't let a
@@ -614,15 +710,29 @@ internal class VxDbSchema : ISchemaBackend
             foreach (var elem in coldel)
             {
                 log.print("Dropping {0}\n", elem.ToString());
+
+                string colname = elem.GetParam("name");
+                if (elem.HasDefault())
+                {
+                    string defquery = wv.fmt("ALTER TABLE [{0}] " + 
+                        "DROP CONSTRAINT {1}\n", 
+                        tabname, curtable.GetDefaultDefaultName(colname));
+
+                    dbi.execute(defquery);
+                }
+
                 string query = wv.fmt("ALTER TABLE [{0}] DROP COLUMN [{1}]\n",
-                    tabname, elem.GetParam("name"));
+                    tabname, colname);
 
                 dbi.execute(query);
             }
 
             foreach (var elem in colchanged)
             {
-                var change_errs = ApplyChangedColumn(newtable, elem, opts);
+                string expected_errmsg = ErrMsgWhenAltering[elem.GetElemKey()];
+                log.print("Expected error message: {0}\n", expected_errmsg);
+                var change_errs = ApplyChangedColumn(newtable, 
+                    curtable[elem.GetElemKey()], elem, expected_errmsg, opts);
 
                 if (change_errs != null && change_errs.Count > 0)
                 {
@@ -643,6 +753,8 @@ internal class VxDbSchema : ISchemaBackend
                 }
             }
 
+            log.print("All changes made, committing transaction.\n");
+
             dbi.execute("COMMIT TRANSACTION TableUpdate");
             transaction_resolved = true;
         }
@@ -650,19 +762,16 @@ internal class VxDbSchema : ISchemaBackend
         {
             VxSqlException v = new VxSqlException(e.Message, e);
             var err = new VxSchemaError(key, v.Message, v.GetFirstSqlErrno());
+            log.print("Caught exception: {0}\n", err.ToString());
             errs.Add(key, err);
         }
         finally
         {
-            if (!transaction_resolved)
+            if (transaction_started && !transaction_resolved)
             {
-                // If this fails, there's nothing much we can do, and the
-                // client can't possibly care.  Just eat the error.  It's
-                // likely due to the database rolling back the transaction for
-                // us automatically if we gave it a command it didn't like.
-                try {
-                    dbi.execute("ROLLBACK TRANSACTION TableUpdate");
-                } catch { }
+                log.print("Transaction failed, rolling back.\n");
+                if (transaction_started)
+                    DbiExecRollback("TableUpdate");
 
                 foreach (var elem in deleted_indexes)
                 {

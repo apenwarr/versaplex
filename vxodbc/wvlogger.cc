@@ -11,8 +11,8 @@
 static WvLog *wvlog = NULL;
 static WvLogRcv *rcv = NULL;
 
-char log_level[2];
-char log_moniker[255];
+int log_level = 0;
+WvString log_moniker;
 
 WV_LINK_TO(WvTCPConn);
 WV_LINK_TO(WvSSLStream);
@@ -21,34 +21,46 @@ WV_LINK_TO(WvGzipStream);
 WV_LINK_TO(WvUnixConn);
 #endif
 
+struct pstring wvlog_get_moniker()
+{
+    const int safe_size = 1024;
+    log_moniker.setsize(safe_size);
+    struct pstring ret = { log_moniker.edit(), safe_size };
+    return ret;
+}
+
+int wvlog_isset()
+{
+    return !log_moniker.isnull() && *(log_moniker.cstr());
+}
+
 void wvlog_open()
 {
 #ifdef _MSC_VER
     setup_console_crash();
 #endif
-    WvLog::LogLevel priii = WvLog::Info;
-    if (log_level != '\0')
+    WvLog::LogLevel pri = WvLog::Info;
+    if (log_level)
     {
-	int prii = atoi(log_level);
-	if (prii >= (int)WvLog::NUM_LOGLEVELS)
-	    priii = WvLog::Debug5;
-	else if (prii >= (int)WvLog::Info)
-	    priii = (WvLog::LogLevel)prii;
+	if (log_level >= (int)WvLog::NUM_LOGLEVELS)
+	    pri = WvLog::Debug5;
+	else if (log_level >= (int)WvLog::Info)
+	    pri = (WvLog::LogLevel)log_level;
     }
 
     if (rcv)
 	delete rcv;
 
-    if (log_moniker[0] != '\0')
+    if (wvlog_isset())
     {
 	IWvStream *s = wvcreate<IWvStream>(log_moniker);
 	assert(s);
 	WvIStreamList::globallist.append(s, false, "VxODBC logger");
-	rcv = new WvLogStream(s, priii);
+	rcv = new WvLogStream(s, pri);
     }
     else
     {
-	rcv = new WvLogConsole(dup(2), priii);
+	rcv = new WvLogConsole(dup(2), pri);
     }
 	
     if (!wvlog)

@@ -141,6 +141,10 @@ class PutSchemaTests : SchemamaticTester
         CheckTable(schema, "TestTable", testschema4);
 
         // Check that duplicate index names give errors.
+        // Note: VxSchemaTable now checks for this, which makes it hard to
+        // actually test that the server rejects these.  It's pretty safe to
+        // assume that the server would have just as much trouble creating one
+        // as we would though, and that the exception would make its way back.
         WVPASS(5);
         string testschema5 = "column: name=f1,type=int,null=0\n" + 
                 "column: name=f2,type=money,null=0\n" + 
@@ -149,7 +153,16 @@ class PutSchemaTests : SchemamaticTester
                 "index: column=f2,column=f3,name=Idx1,unique=1,clustered=2\n" +
                 "primary-key: column=f1,column=f2,clustered=1\n";
         string errmsg = "Duplicate table entry 'index: Idx1' found.";
-        TestTableUpdateError("TestTable", testschema5, errmsg, testschema4);
+        schema = new VxSchema();
+        try 
+        {
+            WVEXCEPT(schema.Add("Table", "TestTable", testschema5, false));
+        } 
+        catch (VxBadSchemaException e) 
+        {
+            WVPASSEQ(e.Message, errmsg);
+            log.print(e.ToString() + "\n");
+        }
 
         // Try renaming an index.
         // Note that indexes are returned alphabetically, and the default name
@@ -212,6 +225,10 @@ class PutSchemaTests : SchemamaticTester
         TestTableUpdate("TestTable", testschema3);
 
         // Try to add two primary keys
+        // Note: VxSchemaTable now checks for this, which makes it hard to
+        // actually test that the server rejects these.  It's pretty safe to
+        // assume that the server would have just as much trouble creating one
+        // as we would though, and that the exception would make its way back.
         WVPASS(4);
         string testschema4 = "column: name=f1,type=int,null=0\n" + 
                 "column: name=f2,type=money,null=0\n" + 
@@ -220,8 +237,16 @@ class PutSchemaTests : SchemamaticTester
                 "primary-key: column=f1,clustered=1\n" + 
                 "primary-key: column=f2,clustered=1\n";
         string errmsg = "Duplicate table entry 'primary-key' found.";
-
-        TestTableUpdateError("TestTable", testschema4, errmsg, testschema3);
+        schema = new VxSchema();
+        try 
+        {
+            WVEXCEPT(schema.Add("Table", "TestTable", testschema4, false));
+        } 
+        catch (VxBadSchemaException e) 
+        {
+            WVPASSEQ(e.Message, errmsg);
+            log.print(e.ToString() + "\n");
+        }
 
         try { VxExec("drop table TestTable"); } catch { }
     }
@@ -262,20 +287,6 @@ class PutSchemaTests : SchemamaticTester
             "when the destructive option is not set.  Error when altering " + 
             "was: 'Incorrect syntax near the keyword 'IDENTITY'.'";
         TestTableUpdateError("TestTable", schema3, errmsg, schema2);
-
-        // Check that adding a default attribute doesn't work without
-        // specifying the destructive option either.
-        WVPASS(4);
-        string schema4 = "column: name=f1,type=int,null=0\n" + 
-                "column: name=f2,type=money,null=0\n" + 
-                "column: name=f3,type=varchar,null=1,length=80\n" +
-                "column: name=f4,type=tinyint,null=0,default=5\n" + 
-                "index: column=f2,column=f3 DESC,name=Idx1,unique=1,clustered=2\n" +
-                "primary-key: column=f1,column=f2,clustered=1\n";
-        errmsg = "Refusing to drop and re-add column [f4] " + 
-            "when the destructive option is not set.  Error when altering " + 
-            "was: 'Incorrect syntax near the keyword 'DEFAULT'.'";
-        TestTableUpdateError("TestTable", schema4, errmsg, schema2);
 
         // Just try lightly changing a column, change the nullity on f4
         WVPASS(5);
@@ -502,6 +513,49 @@ class PutSchemaTests : SchemamaticTester
                 "column: name=bb,type=int,null=0\n" +
                 "column: name=dd,type=int,null=0\n";
         TestTableUpdate(tabname, schema4, VxPutOpts.Destructive);
+
+        try { VxExec("drop table " + tabname); } catch { }
+    }
+
+    [Test, Category("Schemamatic"), Category("PutSchema")]
+    public void TestDefaultConstraints()
+    {
+        string tabname = "TestTable";
+        try { VxExec("drop table " + tabname); } catch { }
+
+        // Check that we can add columns with default values
+        WVPASS(1);
+        string schema1 = "column: name=f1,type=int,null=1,default=1\n";
+        TestTableUpdate(tabname, schema1);
+
+        WVASSERT(VxExec("INSERT INTO [TestTable] VALUES (2)"));
+
+        // Check that we can drop default values
+        WVPASS(2);
+        string schema2 = "column: name=f1,type=int,null=0\n";
+        TestTableUpdate(tabname, schema2);
+
+        // Check that we can add new default values
+        WVPASS(3);
+        string schema3 = "column: name=f1,type=int,null=0,default=3\n";
+        TestTableUpdate(tabname, schema3);
+
+        WVASSERT(VxExec("INSERT INTO [TestTable] VALUES (DEFAULT)"));
+        object count;
+        WVASSERT(Scalar("SELECT COUNT(*) FROM [TestTable] WHERE [f1] = 3", 
+            out count));
+        WVPASSEQ((int)count, 1);
+
+        // Check that we can drop columns with default values
+        WVPASS(4);
+        string schema4 = "column: name=f2,type=int,null=0,default=4\n";
+        TestTableUpdate(tabname, schema4, VxPutOpts.Destructive);
+
+        // When we added the new column, it gave its default value to both
+        // existing rows.
+        WVASSERT(Scalar("SELECT COUNT(*) FROM [TestTable] WHERE [f2] = 4", 
+            out count));
+        WVPASSEQ((int)count, 2);
 
         try { VxExec("drop table " + tabname); } catch { }
     }
