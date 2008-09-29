@@ -137,23 +137,23 @@ namespace Wv
 			object retVal = null;
 
 			//handle the reply message
-			switch (retMsg.Header.MessageType) {
-				case MessageType.MethodReturn:
+			switch (retMsg.Header.MessageType) 
+		        {
+			case MessageType.MethodReturn:
 				object[] retVals = MessageHelper.GetDynamicValues (retMsg, outTypes);
 				if (retVals.Length != 0)
 					retVal = retVals[retVals.Length - 1];
 				break;
-				case MessageType.Error:
+			case MessageType.Error:
 				//TODO: typed exceptions
 				Error error = new Error (retMsg);
 				string errMsg = String.Empty;
 				if (retMsg.Signature.Value.StartsWith ("s")) {
-					MessageReader reader = new MessageReader (retMsg);
-					errMsg = reader.ReadString ();
+				        errMsg = retMsg.iter().pop();
 				}
 				exception = new Exception (error.ErrorName + ": " + errMsg);
 				break;
-				default:
+			default:
 				throw new Exception ("Got unexpected message of type " + retMsg.Header.MessageType + " while waiting for a MethodReturn or Error");
 			}
 
@@ -214,15 +214,6 @@ namespace Wv
 				}
 			}
 
-			//TODO: complete out parameter support
-			/*
-			Type[] outParmTypes = Mapper.GetTypes (ArgDirection.Out, mi.GetParameters ());
-			Signature outParmSig = Signature.GetSig (outParmTypes);
-
-			if (outParmSig != Signature.Empty)
-				throw new Exception ("Out parameters not yet supported: out_signature='" + outParmSig.Value + "'");
-			*/
-
 			Type[] outTypes = new Type[1];
 			outTypes[0] = mi.ReturnType;
 
@@ -246,22 +237,21 @@ namespace Wv
 
 			//handle the reply message
 			switch (retMsg.Header.MessageType) {
-				case MessageType.MethodReturn:
+			case MessageType.MethodReturn:
 				object[] retVals = MessageHelper.GetDynamicValues (retMsg, outTypes);
 				if (retVals.Length != 0)
 					retVal = retVals[retVals.Length - 1];
 				break;
-				case MessageType.Error:
+			case MessageType.Error:
 				//TODO: typed exceptions
 				Error error = new Error (retMsg);
 				string errMsg = String.Empty;
 				if (retMsg.Signature.Value.StartsWith ("s")) {
-					MessageReader reader = new MessageReader (retMsg);
-					errMsg = reader.ReadString ();
+				        errMsg = retMsg.iter().pop();
 				}
 				exception = new Exception (error.ErrorName + ": " + errMsg);
 				break;
-				default:
+			default:
 				throw new Exception ("Got unexpected message of type " + retMsg.Header.MessageType + " while waiting for a MethodReturn or Error");
 			}
 
