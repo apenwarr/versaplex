@@ -16,11 +16,16 @@ public static class SchemamaticCli
     static int ShowHelp()
     {
         Console.Error.WriteLine(
-@"Usage: sm [--dry-run] <push|pull|dpush|dpull> <moniker> <dir>
+@"Usage: sm [--dry-run] [--force] [--verbose] <command> <moniker> <dir>
   Schemamatic: copy database schemas between a database server and the
   current directory.
 
+  Valid commands: push, pull, dpush, dpull
+
   --dry-run: lists the files that would be changed but doesn't modify them.
+  --force/-f: performs potentially destructive database update operations.
+  --verbose/-v: Increase the verbosity of the log output.  Can be specified 
+        multiple times.
 ");
 	return 99;
     }
@@ -37,8 +42,8 @@ public static class SchemamaticCli
         foreach (var p in errs)
             foreach (var err in p.Value)
             {
-                Console.WriteLine("Error applying {0}: {1} ({2})", 
-                    err.key, err.msg, err.errnum);
+                Console.WriteLine("{0} applying {1}: {2} ({3})", 
+                    err.level, err.key, err.msg, err.errnum);
                 code = 1;
             }
 	
@@ -56,8 +61,8 @@ public static class SchemamaticCli
         foreach (var p in errs)
             foreach (var err in p.Value)
             {
-                Console.WriteLine("Error applying {0}: {1} ({2})", 
-                    err.key, err.msg, err.errnum);
+                Console.WriteLine("{0} applying {1}: {2} ({3})", 
+                    err.level, err.key, err.msg, err.errnum);
                 code = 1;
             }
 	
