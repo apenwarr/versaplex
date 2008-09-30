@@ -57,7 +57,7 @@ internal class VxDbusSchema : ISchemaBackend
         Message call = CreateMethodCall("PutSchema", 
             String.Format("{0}i", VxSchema.GetDbusSignature()));
 
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+        MessageWriter writer = new MessageWriter();
 
         schema.WriteSchema(writer);
         writer.Write(typeof(int), (int)opts);
@@ -95,7 +95,7 @@ internal class VxDbusSchema : ISchemaBackend
     {
         Message call = CreateMethodCall("GetSchema", "as");
 
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+        MessageWriter writer = new MessageWriter();
 
         if (keys == null)
             keys = new string[0];
@@ -172,7 +172,7 @@ internal class VxDbusSchema : ISchemaBackend
     {
         Message call = CreateMethodCall("DropSchema", "as");
 
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+        MessageWriter writer = new MessageWriter();
 
         writer.Write(typeof(string[]), keys);
         call.Body = writer.ToArray();
@@ -206,7 +206,7 @@ internal class VxDbusSchema : ISchemaBackend
     {
         Message call = CreateMethodCall("GetSchemaData", "ss");
 
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+        MessageWriter writer = new MessageWriter();
 
         if (where == null)
             where = "";
@@ -241,7 +241,7 @@ internal class VxDbusSchema : ISchemaBackend
     {
         Message call = CreateMethodCall("PutSchemaData", "ss");
 
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+        MessageWriter writer = new MessageWriter();
 
         writer.Write(tablename);
         writer.Write(text);

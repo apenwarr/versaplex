@@ -19,8 +19,7 @@ public static class VxDbus {
 
         if (msg != null) {
             error.signature = "s";
-            MessageWriter writer =
-                new MessageWriter(Connection.NativeEndianness);
+            MessageWriter writer = new MessageWriter();
             writer.Write(msg);
             error.Body = writer.ToArray();
         }

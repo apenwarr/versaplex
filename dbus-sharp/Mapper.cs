@@ -223,7 +223,7 @@ namespace Wv
 			Error error = new Error ("org.freedesktop.DBus.Error.UnknownMethod", method_call.msg.serial);
 			error.msg.signature = DType.String.ToString();
 
-			MessageWriter writer = new MessageWriter (Connection.NativeEndianness);
+			MessageWriter writer = new MessageWriter ();
 			writer.Write (errMsg);
 			error.msg.Body = writer.ToArray ();
 
@@ -282,7 +282,7 @@ namespace Wv
 			Signature inSig = Signature.GetSig (vals);
 
 			if (vals != null && vals.Length != 0) {
-				MessageWriter writer = new MessageWriter (Connection.NativeEndianness);
+				MessageWriter writer = new MessageWriter ();
 
 				foreach (object arg in vals)
 					writer.Write (arg.GetType (), arg);
@@ -309,7 +309,7 @@ namespace Wv
 			outSig += Signature.GetSig (Mapper.GetTypes (ArgDirection.Out, mi.GetParameters ()));
 
 			if (outSig != Signature.Empty) {
-				MessageWriter writer = new MessageWriter (Connection.NativeEndianness);
+				MessageWriter writer = new MessageWriter ();
 
 				//first write the return value, if any
 				if (retType != null && retType != typeof (void))

@@ -52,8 +52,7 @@ namespace Wv
 	{
 	    Message call 
 		= VxDbusUtils.CreateMethodCall(bus, "ExecRecordset", "s");
-	    MessageWriter writer 
-		= new MessageWriter(Connection.NativeEndianness);
+	    MessageWriter writer = new MessageWriter();
 
 	    writer.Write(typeof(string), sql);
 	    call.Body = writer.ToArray();

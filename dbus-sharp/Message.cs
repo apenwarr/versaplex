@@ -116,7 +116,7 @@ namespace Wv
 	// Header format is: yyyyuua{yv}
 	public byte[] GetHeaderData()
 	{
-	    MessageWriter w = new MessageWriter(endian);
+	    MessageWriter w = new MessageWriter();
 	    
 	    w.Write((byte)endian);
 	    w.Write((byte)type);

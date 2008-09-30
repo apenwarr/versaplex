@@ -8,23 +8,24 @@ using System.Collections.Generic;
 using System.Text;
 using System.IO;
 using System.Reflection;
+using Mono;
 
 namespace Wv
 {
     public class MessageWriter
     {
+	DataConverter conv;
 	EndianFlag endianness;
 	internal MemoryStream stream;
 
-	public Connection connection;
-
-	// a default constructor is a bad idea for now as we want to make
-	// sure the header and content-type match
-        public MessageWriter() : this (Connection.NativeEndianness) {}
-
-	public MessageWriter(EndianFlag endianness)
+	public MessageWriter()
 	{
-	    this.endianness = endianness;
+	    endianness = Connection.NativeEndianness;
+	    if (endianness == EndianFlag.Little)
+		conv = DataConverter.LittleEndian;
+	    else
+	        conv = DataConverter.BigEndian;
+	    
 	    stream = new MemoryStream ();
 	}
 
@@ -352,7 +353,7 @@ namespace Wv
 				  IEnumerable<T> list,
 				  Action<MessageWriter,T> doelement)
 	{
-	    var tmp = new MessageWriter(endianness);
+	    var tmp = new MessageWriter();
 	    
 	    // after the arraylength, we'll be aligned to size 4, but that
 	    // might not be enough, so maybe we need to fix it up.

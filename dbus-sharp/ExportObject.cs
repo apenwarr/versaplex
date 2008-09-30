@@ -71,8 +71,7 @@ namespace Wv
 				Error error = new Error (Mapper.GetInterfaceName (ie.GetType ()), method_call.msg.serial);
 				error.msg.signature = DType.String.ToString();
 
-				MessageWriter writer = new MessageWriter (Connection.NativeEndianness);
-				writer.connection = conn;
+				MessageWriter writer = new MessageWriter ();
 				writer.Write(ie.Message);
 				error.msg.Body = writer.ToArray ();
 

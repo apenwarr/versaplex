@@ -252,8 +252,7 @@ internal static class VxDb {
 					  rownulls.ToArray());
 		}
 	    } // using
-	    MessageWriter replywriter =
-	    	new MessageWriter(Connection.NativeEndianness);
+	    MessageWriter replywriter = new MessageWriter();
 	    replywriter.Write(typeof(string), "ChunkRecordset sent you all your data!");
 	    reply = VxDbus.CreateReply(call, "s", replywriter);
         } catch (DbException e) {
@@ -600,8 +599,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 				 Message call, out Message reply)
     {
 	// FIXME: Check permissions here
-        MessageWriter writer =
-                new MessageWriter(Connection.NativeEndianness);
+        MessageWriter writer = new MessageWriter();
 	writer.Write(typeof(string), "Quit");
         reply = VxDbus.CreateReply(call, "s", writer);
 	VersaMain.want_to_die = true;
@@ -640,8 +638,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         object result;
         VxDb.ExecScalar(clientid, (string)query, out result);
 
-        MessageWriter writer =
-                new MessageWriter(Connection.NativeEndianness);
+        MessageWriter writer = new MessageWriter();
         writer.WriteV(result);
 
         reply = VxDbus.CreateReply(call, "v", writer);
@@ -863,7 +860,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         }
 
         // FIXME: Add vx.db.toomuchdata error
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+        MessageWriter writer = new MessageWriter();
 
         using (var dbi = VxSqlPool.create(clientid))
         {
@@ -899,7 +896,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 	var it = call.iter();
         string[] names = it.pop().Cast<string>().ToArray();
 
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+        MessageWriter writer = new MessageWriter();
 
         using (var dbi = VxSqlPool.create(clientid))
         {
@@ -941,7 +938,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             errs = backend.DropSchema(keys);
         }
 
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+        MessageWriter writer = new MessageWriter();
         VxSchemaErrors.WriteErrors(writer, errs);
 
         reply = VxDbus.CreateReply(call, VxSchemaErrors.GetDbusSignature(), 
@@ -983,7 +980,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             errs = backend.Put(schema, null, (VxPutOpts)opts);
         }
 
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+        MessageWriter writer = new MessageWriter();
         VxSchemaErrors.WriteErrors(writer, errs);
 
         reply = VxDbus.CreateReply(call, VxSchemaErrors.GetDbusSignature(), 
@@ -1016,7 +1013,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         string tablename = it.pop();
 	string where = it.pop();
 
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+        MessageWriter writer = new MessageWriter();
 
         using (var dbi = VxSqlPool.create(clientid))
         {
@@ -1062,7 +1059,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 						object[][] data,
 						byte[][] nulldata)
     {
-	MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+	MessageWriter writer = new MessageWriter();
 
 	WriteColInfo(writer, colinfo);
 	if (colinfo.Length <= 0)

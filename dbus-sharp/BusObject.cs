@@ -186,8 +186,7 @@ namespace Wv
 				callMsg = method_call.msg;
 
 				if (inArgs != null && inArgs.Length != 0) {
-					MessageWriter writer = new MessageWriter (Connection.NativeEndianness);
-					writer.connection = conn;
+					MessageWriter writer = new MessageWriter ();
 
 					for (int i = 0 ; i != inTypes.Length ; i++)
 						writer.Write (inTypes[i], inArgs[i]);
