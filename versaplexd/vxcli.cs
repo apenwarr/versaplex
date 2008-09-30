@@ -32,11 +32,6 @@ namespace Wv
 	    public byte nullable;
 	}
 	
-	struct Stupid
-	{
-	    public string s;
-	}
-	
 	public static void wvmoniker_register()
 	{
 	    WvMoniker<WvDbi>.register("vx",
@@ -87,9 +82,9 @@ namespace Wv
 		    
 		    // decode the raw column info
 		    var l = new List<WvColInfo>();
-		    foreach (var c in it.pop())
+		    foreach (IEnumerable<WvAutoCast> c in it.pop())
 		    {
-			WvAutoCast[] cols = c.Cast<WvAutoCast>().ToArray();
+			WvAutoCast[] cols = c.ToArray();
 			int size = cols[0];
 			string name = cols[1];
 			// string type = cols[2];
