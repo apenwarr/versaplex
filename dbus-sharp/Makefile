@@ -19,7 +19,6 @@ wvdbus-sharp.dll: \
 	DBus.cs \
 	DProxy.cs \
 	ExportObject.cs \
-	Introspection.cs \
 	Mapper.cs \
 	MatchRule.cs \
 	Message.cs \

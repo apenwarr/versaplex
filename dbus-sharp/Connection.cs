@@ -471,45 +471,15 @@ namespace Wv
 	//not particularly efficient and needs to be generalized
 	internal void HandleMethodCall(MethodCall method_call)
 	{
-	    //TODO: Ping and Introspect need to be abstracted and moved somewhere more appropriate once message filter infrastructure is complete
+	    // TODO: Ping and Introspect need to be abstracted and moved
+	    // somewhere more appropriate once message filter
+	    // infrastructure is complete
 
-	    //FIXME: these special cases are slightly broken for the case where the member but not the interface is specified in the message
+	    // FIXME: these special cases are slightly broken for the case
+	    // where the member but not the interface is specified in the
+	    // message
 	    if (method_call.Interface == "org.freedesktop.DBus.Peer" && method_call.Member == "Ping") {
 		Message reply = MessageHelper.ConstructReply(method_call);
-		Send(reply);
-		return;
-	    }
-
-	    if (method_call.Interface == "org.freedesktop.DBus.Introspectable" && method_call.Member == "Introspect") {
-		Introspector intro = new Introspector();
-		intro.root_path = method_call.Path;
-		intro.WriteStart();
-
-		//FIXME: do this properly
-		//this is messy and inefficient
-		List<string> linkNodes = new List<string>();
-		int depth = method_call.Path.Decomposed.Length;
-		foreach (ObjectPath pth in RegisteredObjects.Keys) {
-		    if (pth.Value == (method_call.Path.Value)) {
-			ExportObject exo = (ExportObject)RegisteredObjects[pth];
-			intro.WriteType(exo.obj.GetType());
-		    }
-		    else {
-			for (ObjectPath cur = pth ; cur != null ; cur = cur.Parent) {
-			    if (cur.Value == method_call.Path.Value) {
-				string linkNode = pth.Decomposed[depth];
-				if (!linkNodes.Contains(linkNode)) {
-				    intro.WriteNode(linkNode);
-				    linkNodes.Add(linkNode);
-				}
-			    }
-			}
-		    }
-		}
-
-		intro.WriteEnd();
-
-		Message reply = MessageHelper.ConstructReply(method_call, intro.xml);
 		Send(reply);
 		return;
 	    }

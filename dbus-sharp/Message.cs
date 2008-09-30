@@ -55,12 +55,6 @@ namespace Wv
 	    }
 	}
 	
-	struct SillyType
-	{
-	    public FieldCode Code;
-	    public object Value;
-	}
-
 	public void SetHeaderData(byte[] data)
 	{
 	    var it = new WvDBusIter((EndianFlag)data[0], "yyyyuua{yv}", data)

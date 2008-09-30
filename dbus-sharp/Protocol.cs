@@ -97,14 +97,6 @@ namespace Wv
 	    return Value;
 	}
 
-	//this may or may not prove useful
-	internal string[] Decomposed
-	{
-	    get {
-		return Value.Split (new char[] {'/'}, StringSplitOptions.RemoveEmptyEntries);
-	    }
-	}
-
 	internal ObjectPath Parent
 	{
 	    get {
