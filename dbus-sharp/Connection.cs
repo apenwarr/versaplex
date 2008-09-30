@@ -6,7 +6,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Threading;
 using System.Reflection;
 using Wv.Extensions;
 
@@ -108,40 +107,36 @@ namespace Wv
 	    }
 	}
 
-	//Interlocked.Increment() handles the overflow condition for uint correctly, so it's ok to store the value as an int but cast it to uint
-	int serial = 0;
+	uint serial = 0;
 	uint GenerateSerial()
 	{
-	    //return ++serial;
-	    return (uint)Interlocked.Increment(ref serial);
+	    return ++serial;
 	}
 
 	public Message SendWithReplyAndBlock(Message msg)
 	{
-	    PendingCall pending = SendWithReply(msg);
-	    return pending.Reply;
+	    Message reply = null;
+	    
+	    SendWithReply(msg, (r) => { reply = r; });
+	    
+	    while (reply == null)
+		HandleMessage(ReadMessage());
+	    
+	    return reply;
 	}
 
-	internal PendingCall SendWithReply(Message msg)
+	internal void SendWithReply(Message msg, Action<Message> replyaction)
 	{
 	    msg.ReplyExpected = true;
 	    msg.Header.Serial = GenerateSerial();
-
-	    //TODO: throttle the maximum number of concurrent PendingCalls
-	    PendingCall pending = new PendingCall(this);
-	    pendingCalls[msg.Header.Serial] = pending;
-
+	    rserial_to_action[msg.Header.Serial] = replyaction;
 	    WriteMessage(msg);
-
-	    return pending;
 	}
 
 	public uint Send(Message msg)
 	{
 	    msg.Header.Serial = GenerateSerial();
-
 	    WriteMessage(msg);
-
 	    return msg.Header.Serial;
 	}
 
@@ -388,47 +383,27 @@ namespace Wv
 	    return 16 - left;
 	}
 
-	internal Thread mainThread = Thread.CurrentThread;
-
-	//temporary hack
-	public void Iterate()
-	{
-	    mainThread = Thread.CurrentThread;
-
-	    //Message msg = Inbound.Dequeue();
-	    Message msg = ReadMessage();
-	    HandleMessage(msg);
-	    DispatchSignals();
-	}
-
 	internal void HandleMessage(Message msg)
 	{
-	    //TODO: support disconnection situations properly and move this check elsewhere
 	    if (msg == null)
-		throw new ArgumentNullException("msg", "Cannot handle a null message; maybe the bus was disconnected");
+		return;
 
+	    object _rserial
+		= msg.Header.Fields.tryget(FieldCode.ReplySerial);
+	    if (_rserial != null)
 	    {
-		object field_value;
-		if (msg.Header.Fields.TryGetValue(FieldCode.ReplySerial, out field_value)) {
-		    uint reply_serial = (uint)field_value;
-		    PendingCall pending;
-
-		    if (pendingCalls.TryGetValue(reply_serial, out pending)) {
-			if (pendingCalls.Remove(reply_serial))
-			    pending.Reply = msg;
-
-			return;
-		    }
-
-		    //we discard reply messages with no corresponding PendingCall
-		    if (Protocol.Verbose)
-			Console.Error.WriteLine("Unexpected reply message received: MessageType='" + msg.Header.MessageType + "', ReplySerial=" + reply_serial);
-
+		uint rserial = (uint)_rserial;
+		Action<Message> raction 
+		    = rserial_to_action.tryget(rserial);
+		if (raction != null)
+		{
+		    raction(msg);
 		    return;
 		}
 	    }
 
-	    switch (msg.Header.MessageType) {
+	    switch (msg.Header.MessageType)
+	    {
 	    case MessageType.MethodCall:
 		MethodCall method_call = new MethodCall(msg);
 		HandleMethodCall(method_call);
@@ -452,7 +427,8 @@ namespace Wv
 	    }
 	}
 
-	Dictionary<uint,PendingCall> pendingCalls = new Dictionary<uint,PendingCall>();
+	Dictionary<uint,Action<Message>> rserial_to_action
+	    = new Dictionary<uint,Action<Message>>();
 
 	//this might need reworking with MulticastDelegate
 	internal void HandleSignal(Message msg)

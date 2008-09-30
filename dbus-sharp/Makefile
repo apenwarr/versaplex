@@ -25,7 +25,6 @@ wvdbus-sharp.dll: \
 	Message.cs \
 	MessageWriter.cs \
 	msgiter.cs \
-	PendingCall.cs \
 	Protocol.cs \
 	Server.cs \
 	Signature.cs \

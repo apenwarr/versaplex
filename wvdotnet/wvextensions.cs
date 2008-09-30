@@ -173,5 +173,14 @@ namespace Wv.Extensions
 	    else
 		return new WvAutoCast(o);
 	}
+	
+	public static V tryget<K,V>(this IDictionary<K,V> dict, K key)
+	{
+	    V v;
+	    if (dict.TryGetValue(key, out v))
+		return v;
+	    else
+		return default(V);
+	}
     }
 }
