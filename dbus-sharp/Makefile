@@ -23,7 +23,6 @@ wvdbus-sharp.dll: \
 	Mapper.cs \
 	MatchRule.cs \
 	Message.cs \
-	MessageReader.cs \
 	MessageWriter.cs \
 	msgiter.cs \
 	PendingCall.cs \

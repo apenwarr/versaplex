@@ -251,11 +251,9 @@ namespace Wv
 	    byte[] header;
 	    byte[] body = null;
 
-	    int read;
-
 	    //16 bytes is the size of the fixed part of the header
 	    byte[] hbuf = new byte[16];
-	    read = ns.Read(hbuf, 0, 16);
+	    int read = ns.Read(hbuf, 0, 16);
 
 	    if (read == 0)
 		return null;
@@ -263,39 +261,36 @@ namespace Wv
 	    if (read != 16)
 		throw new Exception("Header read length mismatch: " + read + " of expected " + "16");
 
-	    EndianFlag endianness = (EndianFlag)hbuf[0];
-	    MessageReader reader = new MessageReader(endianness, hbuf);
-
-	    //discard the endian byte as we've already read it
-	    reader.ReadByte();
-
-	    //discard message type and flags, which we don't care about here
-	    reader.ReadByte();
-	    reader.ReadByte();
-
-	    byte version = reader.ReadByte();
+	    var it = new WvDBusIter((EndianFlag)hbuf[0], "yyyyuuu", hbuf)
+		.GetEnumerator();
+	    
+	    it.pop();
+	    it.pop();
+	    it.pop();
+	    
+	    byte version = it.pop();
 
 	    if (version < Protocol.MinVersion || version > Protocol.MaxVersion)
-		throw new NotSupportedException("Protocol version '" + version.ToString() + "' is not supported");
+		throw new NotSupportedException
+		    ("Protocol version '" + version.ToString() 
+		     + "' is not supported");
 
-	    if (Protocol.Verbose)
-		if (version != Protocol.Version)
-		    Console.Error.WriteLine("Warning: Protocol version '" + version.ToString() + "' is not explicitly supported but may be compatible");
-
-	    uint bodyLength = reader.ReadUInt32();
-	    //discard serial
-	    reader.ReadUInt32();
-	    uint headerLength = reader.ReadUInt32();
+	    uint bodyLength = it.pop();
+	    it.pop(); // serial
+	    uint headerLength = it.pop();
 
 	    int bodyLen = (int)bodyLength;
 	    int toRead = (int)headerLength;
 
-	    //we fixup to include the padding following the header
+	    // fixup to include the padding following the header
 	    toRead = Protocol.Padded(toRead, 8);
 
 	    long msgLength = toRead + bodyLen;
 	    if (msgLength > Protocol.MaxMessageLength)
-		throw new Exception("Message length " + msgLength + " exceeds maximum allowed " + Protocol.MaxMessageLength + " bytes");
+		throw new Exception
+		    ("Message length " + msgLength 
+		     + " exceeds maximum allowed " 
+		     + Protocol.MaxMessageLength + " bytes");
 
 	    header = new byte[16 + toRead];
 	    Array.Copy(hbuf, header, 16);

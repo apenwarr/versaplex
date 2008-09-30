@@ -116,8 +116,7 @@ namespace Wv
 	// migrate elsewhere eventually.
 	public WvDBusIter iter()
 	{
-	    byte[] data = Body;
-	    return new WvDBusIter(Header.Endianness, Header.Signature, data);
+	    return new WvDBusIter(Header.Endianness, Header.Signature, Body);
 	}
     }
 }

@@ -47,38 +47,11 @@ class DbusTest
 	
 	wv.print("message:\n{0}\n", wv.hexdump(msgdata));
 	
-	// read
-	{
-	    Message m = new Message();
-	    m.Body = msgdata;
-	    MessageReader r = new MessageReader(m);
-	    m.Header = (Header)r.ReadStruct(typeof(Header));
-	    r.ReadPad(8); // header is always a multiple of 8
-	    WVPASSEQ(r.ReadByte(), 42);
-	    WVPASSEQ(r.ReadInt32(), 42);
-	    WVPASSEQ(r.ReadString(), "hello world");
-
-	    Int64[] a = r.ReadArray<Int64>();
-	    WVPASSEQ(a.Length, 3);
-	    WVPASSEQ(a[2], 0x44);
-	    
-	    object s = r.ReadVariant();
-	    WVPASSEQ((string)s, "VSTRING");
-
-	    Stupid[] a2 = r.ReadArray<Stupid>();
-	    WVPASSEQ(a2.Length, 3);
-	    WVPASSEQ(a2[2].s, "aaaaa");
-	}
-	
 	// new-style read
 	{
 	    Message m = new Message();
 	    m.Body = msgdata;
-	    {
-		MessageReader r = new MessageReader(m);
-		m.Header = (Header)r.ReadStruct(typeof(Header));
-		r.ReadPad(8); // header is always a multiple of 8
-	    }
+	    m.SetHeaderData(msgdata);
 	    m.Body = content;
 	    
 	    var i = m.iter();
@@ -150,8 +123,7 @@ class DbusTest
 	    WVPASSEQ(rserial, serial);
 	    got_reply = true;
 	    
-	    MessageReader r = new MessageReader(reply);
-	    int rv = r.ReadInt32();
+	    int rv = reply.iter().pop();
 	    WVPASSEQ(rv, 1);
 	    
 	    break;
