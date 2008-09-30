@@ -65,7 +65,7 @@ namespace Wv
 	    
 	    log.print("Sending!\n");
 	    
-	    Message reply = call.Connection.SendWithReplyAndBlock(call);
+	    Message reply = bus.SendWithReplyAndBlock(call);
 	    
 	    log.print("Answer came back!\n");
 

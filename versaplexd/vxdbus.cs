@@ -154,7 +154,7 @@ public class VxMethodCallRouter {
         interfaces.Remove(iface);
     }
 
-    public bool RouteMessage(Message call, out Message reply)
+    public bool RouteMessage(Connection conn, Message call, out Message reply)
     {
         if (call.Header.MessageType != MessageType.MethodCall)
             throw new ArgumentException("Not a method call message");
@@ -175,7 +175,7 @@ public class VxMethodCallRouter {
 
         log.print("Passing to interface router\n");
 
-        return ir.RouteMessage(call, out reply);
+        return ir.RouteMessage(conn, call, out reply);
     }
 }
 
@@ -189,12 +189,13 @@ public abstract class VxInterfaceRouter {
 
     // Return value is the response
     protected delegate
-        void MethodCallProcessor(Message call, out Message reply);
+        void MethodCallProcessor(Connection conn, Message call,
+				 out Message reply);
 
     protected IDictionary<string,MethodCallProcessor> methods
         = new Dictionary<string,MethodCallProcessor>();
 
-    public bool RouteMessage(Message call, out Message reply)
+    public bool RouteMessage(Connection conn, Message call, out Message reply)
     {
         if (call.Header.MessageType != MessageType.MethodCall)
             throw new ArgumentException("Not a method call message");
@@ -216,16 +217,16 @@ public abstract class VxInterfaceRouter {
             return true;
         }
 
-        ExecuteCall(processor, call, out reply);
+        ExecuteCall(processor, conn, call, out reply);
 
         return true;
     }
 
     protected virtual void ExecuteCall(MethodCallProcessor processor,
-            Message call, out Message reply)
+		       Connection conn, Message call, out Message reply)
     {
         try {
-            processor(call, out reply);
+            processor(conn, call, out reply);
         } catch (Exception e) {
             reply = VxDbus.CreateError(
                     "vx.db.exception",

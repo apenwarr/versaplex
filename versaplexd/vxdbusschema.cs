@@ -63,7 +63,7 @@ internal class VxDbusSchema : ISchemaBackend
         writer.Write(typeof(int), (int)opts);
         call.Body = writer.ToArray();
 
-        Message reply = call.Connection.SendWithReplyAndBlock(call);
+        Message reply = bus.SendWithReplyAndBlock(call);
 
         switch (reply.Header.MessageType) {
         case MessageType.MethodReturn:
@@ -107,7 +107,7 @@ internal class VxDbusSchema : ISchemaBackend
         writer.Write(typeof(string[]), (Array)keys);
         call.Body = writer.ToArray();
 
-        Message reply = call.Connection.SendWithReplyAndBlock(call);
+        Message reply = bus.SendWithReplyAndBlock(call);
 
         switch (reply.Header.MessageType) {
         case MessageType.MethodReturn:
@@ -143,7 +143,7 @@ internal class VxDbusSchema : ISchemaBackend
     {
         Message call = CreateMethodCall("GetSchemaChecksums", "");
 
-        Message reply = call.Connection.SendWithReplyAndBlock(call);
+        Message reply = bus.SendWithReplyAndBlock(call);
 
         switch (reply.Header.MessageType) {
         case MessageType.MethodReturn:
@@ -185,7 +185,7 @@ internal class VxDbusSchema : ISchemaBackend
         writer.Write(typeof(string[]), keys);
         call.Body = writer.ToArray();
 
-        Message reply = call.Connection.SendWithReplyAndBlock(call);
+        Message reply = bus.SendWithReplyAndBlock(call);
 
         switch (reply.Header.MessageType) {
         case MessageType.MethodReturn:
@@ -228,7 +228,7 @@ internal class VxDbusSchema : ISchemaBackend
         writer.Write(typeof(string), where);
         call.Body = writer.ToArray();
 
-        Message reply = call.Connection.SendWithReplyAndBlock(call);
+        Message reply = bus.SendWithReplyAndBlock(call);
 
         switch (reply.Header.MessageType) {
         case MessageType.MethodReturn:
@@ -262,7 +262,7 @@ internal class VxDbusSchema : ISchemaBackend
         writer.Write(text);
         call.Body = writer.ToArray();
 
-        Message reply = call.Connection.SendWithReplyAndBlock(call);
+        Message reply = bus.SendWithReplyAndBlock(call);
 
         switch (reply.Header.MessageType) {
         case MessageType.MethodReturn:

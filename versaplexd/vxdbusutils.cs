@@ -43,7 +43,6 @@ class VxDbusUtils
             ObjectPath path, string iface, string member, string signature)
     {
         Message msg = new Message();
-        msg.Connection = bus;
         msg.Header.MessageType = MessageType.MethodCall;
         msg.Header.Flags = HeaderFlag.None;
         msg.Header.Fields[FieldCode.Path] = path;

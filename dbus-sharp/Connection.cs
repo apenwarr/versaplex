@@ -219,7 +219,6 @@ namespace Wv
 		throw new Exception("Buffer is not header + body sizes");
 
 	    Message msg = new Message();
-	    msg.Connection = this;
 
 	    int len;
 
@@ -319,7 +318,6 @@ namespace Wv
 	    }
 
 	    Message msg = new Message();
-	    msg.Connection = this;
 	    msg.Body = body;
 	    msg.SetHeaderData(header);
 

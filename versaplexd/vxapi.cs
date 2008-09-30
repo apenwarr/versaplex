@@ -28,7 +28,8 @@ internal static class VxDb {
     }
 
 
-    internal static void SendChunkRecordSignal(Message call, object sender,
+    internal static void SendChunkRecordSignal(Connection conn,
+					       Message call, object sender,
 					    VxColumnInfo[] colinfo,
 					    object[][] data, byte[][] nulls)
     {
@@ -43,11 +44,12 @@ internal static class VxDb {
 	// For debugging
 	VxDbus.MessageDump(" S>> ", signal);
 
-	call.Connection.Send(signal);
+	conn.Send(signal);
     }
 
 
-    internal static void ExecChunkRecordset(Message call, out Message reply)
+    internal static void ExecChunkRecordset(Connection conn, 
+					    Message call, out Message reply)
     {
 	string connid = VxDbInterfaceRouter.GetClientId(call);
 	
@@ -106,7 +108,7 @@ internal static class VxDb {
 	    //FIXME:  Are the above the only ways to modify a DB, aka the only
 	    //        cases where we have to call the old ExecRecordSet?
 	    //FIXME:  This is an ugly way to handle these cases, but it works!
-	    VxDbInterfaceRouter.CallExecRecordset(call, out reply);
+	    VxDbInterfaceRouter.CallExecRecordset(conn, call, out reply);
 	    return;
 	}
 
@@ -232,7 +234,7 @@ internal static class VxDb {
 				  "(1 MB reached; {0} rows)\n",
 				  rows.Count);
 			
-			SendChunkRecordSignal(call, sender, colinfo,
+			SendChunkRecordSignal(conn, call, sender, colinfo,
 					      rows.ToArray(),
 					      rownulls.ToArray());
 			
@@ -247,7 +249,7 @@ internal static class VxDb {
 		    log.print(WvLog.L.Debug4, "(Remaining data; {0} rows)\n",
 			      rows.Count);
 		    
-		    SendChunkRecordSignal(call, sender, colinfo,
+		    SendChunkRecordSignal(conn, call, sender, colinfo,
 					  rows.ToArray(),
 					  rownulls.ToArray());
 		}
@@ -479,10 +481,11 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
     }
 
     protected override void ExecuteCall(MethodCallProcessor processor,
-            Message call, out Message reply)
+					Connection conn,
+					Message call, out Message reply)
     {
         try {
-            processor(call, out reply);
+            processor(conn, call, out reply);
         } catch (VxRequestException e) {
             reply = VxDbus.CreateError(e.DBusErrorType, e.Message, call);
             log.print("SQL result: {0}\n", e.Short());
@@ -566,7 +569,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
                         methodname, call.Signature), call);
     }
 
-    private static void CallTest(Message call, out Message reply)
+    private static void CallTest(Connection conn,
+				 Message call, out Message reply)
     {
         if (call.Signature.ToString() != "") {
             reply = CreateUnknownMethodReply(call, "Test");
@@ -597,7 +601,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         VxDbus.MessageDump(" >> ", reply);
     }
 
-    private static void CallQuit(Message call, out Message reply)
+    private static void CallQuit(Connection conn,
+				 Message call, out Message reply)
     {
 	// FIXME: Check permissions here
         MessageWriter writer =
@@ -610,7 +615,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         VxDbus.MessageDump(" >> ", reply);
     }
 
-    private static void CallExecScalar(Message call, out Message reply)
+    private static void CallExecScalar(Connection conn,
+				       Message call, out Message reply)
     {
         if (call.Signature.ToString() != "s") {
             reply = CreateUnknownMethodReply(call, "ExecScalar");
@@ -666,7 +672,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 	    }, 8);
     }
 
-    public static void CallExecRecordset(Message call, out Message reply)
+    public static void CallExecRecordset(Connection conn,
+					 Message call, out Message reply)
     {
         if (call.Signature.ToString() != "s") {
             reply = CreateUnknownMethodReply(call, "ExecRecordset");
@@ -707,7 +714,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         VxDbus.MessageDump(" >> ", reply);
     }
 
-    private static void CallExecChunkRecordset(Message call, out Message reply)
+    private static void CallExecChunkRecordset(Connection conn,
+					       Message call, out Message reply)
     {
 	// XXX: Stuff in this comment block shamelessly stolen from
 	// "CallExecRecordset".
@@ -724,7 +732,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         }
 	/// XXX
 
-        VxDb.ExecChunkRecordset(call, out reply);
+        VxDb.ExecChunkRecordset(conn, call, out reply);
 	
         // For debugging
         VxDbus.MessageDump(" >> ", reply);
@@ -842,7 +850,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         }
     }
 
-    private static void CallGetSchemaChecksums(Message call, out Message reply)
+    private static void CallGetSchemaChecksums(Connection conn,
+					       Message call, out Message reply)
     {
         if (call.Signature.ToString() != "") {
             reply = CreateUnknownMethodReply(call, "GetSchemaChecksums");
@@ -875,7 +884,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         VxDbus.MessageDump(" >> ", reply);
     }
 
-    private static void CallGetSchema(Message call, out Message reply)
+    private static void CallGetSchema(Connection conn,
+				      Message call, out Message reply)
     {
         if (call.Signature.ToString() != "as") {
             reply = CreateUnknownMethodReply(call, "GetSchema");
@@ -909,7 +919,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         VxDbus.MessageDump(" >> ", reply);
     }
 
-    private static void CallDropSchema(Message call, out Message reply)
+    private static void CallDropSchema(Connection conn,
+				       Message call, out Message reply)
     {
         if (call.Signature.ToString() != "as") {
             reply = CreateUnknownMethodReply(call, "DropSchema");
@@ -948,7 +959,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         }
     }
 
-    private static void CallPutSchema(Message call, out Message reply)
+    private static void CallPutSchema(Connection conn,
+				      Message call, out Message reply)
     {
         if (call.Signature.ToString() != String.Format("{0}i", 
                 VxSchema.GetDbusSignature())) {
@@ -990,7 +1002,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         }
     }
 
-    private static void CallGetSchemaData(Message call, out Message reply)
+    private static void CallGetSchemaData(Connection conn,
+					  Message call, out Message reply)
     {
         if (call.Signature.ToString() != "ss") {
             reply = CreateUnknownMethodReply(call, "GetSchemaData");
@@ -1022,7 +1035,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         reply = VxDbus.CreateReply(call, "s", writer);
     }
 
-    private static void CallPutSchemaData(Message call, out Message reply)
+    private static void CallPutSchemaData(Connection conn,
+					  Message call, out Message reply)
     {
         if (call.Signature.ToString() != "ss") {
             reply = CreateUnknownMethodReply(call, "PutSchemaData");

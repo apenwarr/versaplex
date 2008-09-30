@@ -53,7 +53,7 @@ public static class VersaMain
         VxEventLoop.Shutdown();
     }
 
-    private static void MessageReady(Message msg)
+    private static void MessageReady(Connection conn, Message msg)
     {
         // FIXME: This should really queue things to be run from the thread
         // pool and then the response would be sent back through the action
@@ -66,7 +66,7 @@ public static class VersaMain
 	{
 	case MessageType.MethodCall:
 	    Message reply;
-	    if (msgrouter.RouteMessage(msg, out reply))
+	    if (msgrouter.RouteMessage(conn, msg, out reply))
 	    {
 		if (reply == null) {
 		    // FIXME: Do something if this happens, maybe?
@@ -74,7 +74,7 @@ public static class VersaMain
 		} else {
 		    // XXX: Should this be done further down rather than
 		    // passing the reply out here?
-		    msg.Connection.Send(reply);
+		    conn.Send(reply);
 		}
 		return;
 	    }
@@ -214,7 +214,7 @@ public static class VersaMain
         vxbs.BufferAmount = 16;
 
         oldhandler = conn.OnMessage;
-        conn.OnMessage = MessageReady;
+        conn.OnMessage = delegate(Message m) { MessageReady(conn, m); };
 
         VxEventLoop.Run();
 

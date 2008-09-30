@@ -13,7 +13,6 @@ namespace Wv
     public class Message
     {
 	public Header Header;
-	public Connection Connection;
 	public byte[] Body;
 
 	public Message()
