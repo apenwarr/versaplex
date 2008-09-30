@@ -87,7 +87,7 @@ class DbusTest
 	m.Header.MessageType = MessageType.MethodCall;
 	m.ReplyExpected = true;
 	m.Header.Fields[FieldCode.Destination] = "org.freedesktop.DBus";
-	m.Header.Fields[FieldCode.Path] = new ObjectPath("/org/freedesktop/DBus");
+	m.Header.Fields[FieldCode.Path] = "/org/freedesktop/DBus";
 	m.Header.Fields[FieldCode.Interface] = "org.freedesktop.DBus";
 	m.Header.Fields[FieldCode.Member] = "RequestName";
 	MessageWriter w = new MessageWriter();

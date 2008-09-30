@@ -494,9 +494,10 @@ namespace Wv
 	    }
 	}
 
-	Dictionary<ObjectPath,BusObject> RegisteredObjects = new Dictionary<ObjectPath,BusObject>();
+	Dictionary<string,BusObject> RegisteredObjects 
+	    = new Dictionary<string,BusObject>();
 
-	public object GetObject(Type type, string bus_name, ObjectPath path)
+	public object GetObject(Type type, string bus_name, string path)
 	{
 	    // if the requested type is an interface, we can implement it
 	    // efficiently otherwise we fall back to using a transparent
@@ -514,12 +515,12 @@ namespace Wv
 	    }
 	}
 
-	public T GetObject<T>(string bus_name, ObjectPath path)
+	public T GetObject<T>(string bus_name, string path)
 	{
 	    return (T)GetObject(typeof(T), bus_name, path);
 	}
 
-	public void Register(ObjectPath path, object obj)
+	public void Register(string path, object obj)
 	{
 	    ExportObject eo = new ExportObject(this, path, obj);
 	    eo.Registered = true;
@@ -527,7 +528,7 @@ namespace Wv
 	    RegisteredObjects[path] = eo;
 	}
 
-	public object Unregister(ObjectPath path)
+	public object Unregister(string path)
 	{
 	    BusObject bo;
 

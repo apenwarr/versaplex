@@ -27,11 +27,11 @@ namespace Wv
 		object GetDefaultReturn (MethodBase mi, object[] inArgs)
 		{
 			if (mi == mi_GetHashCode)
-				return busObject.Path.Value.GetHashCode ();
+			        return busObject.Path.GetHashCode ();
 			if (mi == mi_Equals)
-				return busObject.Path.Value == ((BusObject)((MarshalByRefObject)inArgs[0]).GetLifetimeService ()).Path.Value;
+				return busObject.Path == ((BusObject)((MarshalByRefObject)inArgs[0]).GetLifetimeService ()).Path;
 			if (mi == mi_ToString)
-				return busObject.Path.Value;
+				return busObject.Path;
 			if (mi == mi_GetLifetimeService)
 				return busObject;
 

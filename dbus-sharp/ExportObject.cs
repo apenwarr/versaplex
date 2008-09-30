@@ -15,7 +15,7 @@ namespace Wv
 	{
 		public readonly object obj;
 
-		public ExportObject (Connection conn, ObjectPath object_path, object obj) : base (conn, null, object_path)
+		public ExportObject (Connection conn, string object_path, object obj) : base (conn, null, object_path)
 		{
 			this.obj = obj;
 		}

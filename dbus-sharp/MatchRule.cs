@@ -13,7 +13,7 @@ namespace Wv
 		public MessageType? MessageType;
 		public string Interface;
 		public string Member;
-		public ObjectPath Path;
+		public string Path;
 		public string Sender;
 		public string Destination;
 		public readonly SortedDictionary<int,string> Args = new SortedDictionary<int,string> ();
@@ -53,9 +53,7 @@ namespace Wv
 			if (r.Member != Member)
 				return false;
 
-			//TODO: see why path comparison doesn't work
-			if (r.Path.Value != Path.Value)
-			//if (r.Path != Path)
+			if (r.Path != Path)
 				return false;
 
 			if (r.Sender != Sender)
@@ -108,8 +106,7 @@ namespace Wv
 				Append (sb, "member", Member);
 
 			if (Path != null)
-				//Append (sb, "path", Path.ToString ());
-				Append (sb, "path", Path.Value);
+				Append (sb, "path", Path);
 
 			if (Sender != null)
 				Append (sb, "sender", Sender);
@@ -146,8 +143,7 @@ namespace Wv
 
 			if (Path != null)
 				if (msg.Header.Fields.TryGetValue (FieldCode.Path, out value))
-					//if ((ObjectPath)value != Path)
-					if (((ObjectPath)value).Value != Path.Value)
+					if ((string)value != Path)
 						return false;
 
 			if (Sender != null)

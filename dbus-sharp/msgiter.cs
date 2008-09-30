@@ -33,11 +33,20 @@ namespace Wv
 	}
 	
 	internal WvDBusIter(EndianFlag e, string sig, byte[] data)
-	    : this(e==EndianFlag.Little 
-		   ? DataConverter.LittleEndian : DataConverter.BigEndian,
+	    : this(parse_endian_byte((byte)e),
 		   sig, data)
 	{
-	    Reset();
+	}
+	
+	static DataConverter parse_endian_byte(byte e)
+	{
+	    if (e == (byte)EndianFlag.Little)
+		return DataConverter.LittleEndian;
+	    else if (e == (byte)EndianFlag.Big)
+		return DataConverter.BigEndian;
+	    else
+		throw new ArgumentException("value '{0:x}' must be 'l' or 'B'",
+					    "e");
 	}
 	
 	// IEnumerable

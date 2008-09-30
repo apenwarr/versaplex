@@ -98,7 +98,13 @@ namespace Wv
 	
 	    writer.WriteArray(8, h.Fields, (w2, i) => {
 		w2.Write((byte)i.Key);
-		w2.WriteVariant(i.Value.GetType(), i.Value);
+		if (i.Key == FieldCode.Path)
+		{
+		    w2.Write(new Signature("o"));
+		    w2.Write((string)i.Value);
+		}
+		else
+		    w2.WriteVariant(i.Value.GetType(), i.Value);
 	    });
 	    
 	    writer.WritePad(8); // the header is *always* a multiple of 8

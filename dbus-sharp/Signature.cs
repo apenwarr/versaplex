@@ -272,9 +272,6 @@ namespace Wv
 	    if (type == typeof (string))
 		return DType.String;
 
-	    if (type == typeof (ObjectPath))
-		return DType.ObjectPath;
-
 	    if (type == typeof (Signature))
 		return DType.Signature;
 
@@ -326,14 +323,12 @@ namespace Wv
 		return typeof (long);
 	    case DType.UInt64:
 		return typeof (ulong);
-	    case DType.Single: ////not supported by libdbus at time of writing
+	    case DType.Single:
 		return typeof (float);
 	    case DType.Double:
 		return typeof (double);
 	    case DType.String:
 		return typeof (string);
-	    case DType.ObjectPath:
-		return typeof (ObjectPath);
 	    case DType.Signature:
 		return typeof (Signature);
 	    case DType.Array:
@@ -389,9 +384,6 @@ namespace Wv
 	    //this is inelegant, but works for now
 	    if (type == typeof (Signature))
 		return new Signature (DType.Signature);
-
-	    if (type == typeof (ObjectPath))
-		return new Signature (DType.ObjectPath);
 
 	    if (type == typeof (void))
 		return Signature.Empty;

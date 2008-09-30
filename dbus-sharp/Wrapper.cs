@@ -17,7 +17,7 @@ namespace Wv
 	{
 		public Message message = new Message ();
 
-		public MethodCall (ObjectPath path, string @interface, string member, string destination, Signature signature)
+		public MethodCall (string path, string @interface, string member, string destination, Signature signature)
 		{
 			message.Header.MessageType = MessageType.MethodCall;
 			message.ReplyExpected = true;
@@ -50,7 +50,7 @@ namespace Wv
 			Signature = message.Signature;
 		}
 
-		public ObjectPath Path;
+		public string Path;
 		public string Interface;
 		public string Member;
 		public string Destination;
@@ -109,7 +109,7 @@ namespace Wv
 	{
 		public Message message = new Message ();
 
-		public Signal (ObjectPath path, string @interface, string member)
+		public Signal (string path, string @interface, string member)
 		{
 			message.Header.MessageType = MessageType.Signal;
 			message.Header.Flags = HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
@@ -128,7 +128,7 @@ namespace Wv
 				Sender = (string)message.Header.Fields[FieldCode.Sender];
 		}
 
-		public ObjectPath Path;
+		public string Path;
 		public string Interface;
 		public string Member;
 		public string Sender;

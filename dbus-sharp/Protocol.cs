@@ -22,8 +22,8 @@ namespace Wv
 	    get { return Fields[FieldCode.Signature].ToString(); }
 	}
 	
-	public ObjectPath ObjectPath {
-	    get { return new ObjectPath((string)Fields[FieldCode.Path]); }
+	public string ObjectPath {
+	    get { return (string)Fields[FieldCode.Path]; }
 	}
     }
 
@@ -61,55 +61,6 @@ namespace Wv
 	None = 0,
 	    NoReplyExpected = 0x1,
 	    NoAutoStart = 0x2,
-    }
-
-    public sealed class ObjectPath
-    {
-	public static readonly ObjectPath Root = new ObjectPath ("/");
-
-	internal readonly string Value;
-
-	public ObjectPath (string value)
-	{
-	    if (value == null)
-		throw new ArgumentNullException ("value");
-
-	    this.Value = value;
-	}
-
-	public override bool Equals (object o)
-	{
-	    ObjectPath b = o as ObjectPath;
-
-	    if (b == null)
-		return false;
-
-	    return Value.Equals (b.Value);
-	}
-
-	public override int GetHashCode ()
-	{
-	    return Value.GetHashCode ();
-	}
-
-	public override string ToString ()
-	{
-	    return Value;
-	}
-
-	internal ObjectPath Parent
-	{
-	    get {
-		if (Value == Root.Value)
-		    return null;
-
-		string par = Value.Substring (0, Value.LastIndexOf ('/'));
-		if (par == String.Empty)
-		    par = "/";
-
-		return new ObjectPath (par);
-	    }
-	}
     }
 
     static class Protocol

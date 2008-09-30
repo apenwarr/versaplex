@@ -91,7 +91,7 @@ namespace Wv
 		IBus bus;
 
 		static readonly string DBusName = "org.freedesktop.DBus";
-		static readonly ObjectPath DBusPath = new ObjectPath ("/org/freedesktop/DBus");
+		static readonly string DBusPath = "/org/freedesktop/DBus";
 
 		public Bus (string address) : base (address)
 		{

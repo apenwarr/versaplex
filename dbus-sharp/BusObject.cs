@@ -13,14 +13,14 @@ namespace Wv
 	{
 		protected Connection conn;
 		string bus_name;
-		ObjectPath object_path;
+		string object_path;
 
 		//protected BusObject ()
 		public BusObject ()
 		{
 		}
 
-		public BusObject (Connection conn, string bus_name, ObjectPath object_path)
+		public BusObject (Connection conn, string bus_name, string object_path)
 		{
 			this.conn = conn;
 			this.bus_name = bus_name;
@@ -41,7 +41,7 @@ namespace Wv
 			}
 		}
 
-		public ObjectPath Path
+		public string Path
 		{
 			get {
 				return object_path;
@@ -258,7 +258,7 @@ namespace Wv
 			return;
 		}
 
-		public static object GetObject (Connection conn, string bus_name, ObjectPath object_path, Type declType)
+		public static object GetObject (Connection conn, string bus_name, string object_path, Type declType)
 		{
 			Type proxyType = TypeImplementer.GetImplementation (declType);
 

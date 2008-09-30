@@ -6,11 +6,10 @@ class VxDbusUtils
 {
     static string DbusConnName = "vx.versaplexd";
     static string DbusInterface = "vx.db";
-    static readonly ObjectPath DbusObjPath;
+    static readonly string DbusObjPath = "/db";
 
     static VxDbusUtils()
     {
-        DbusObjPath = new ObjectPath("/db");
     }
 
     // Fishes an error name and error message out of a DBus message and
@@ -40,7 +39,7 @@ class VxDbusUtils
     }
 
     public static Message CreateMethodCall(Bus bus, string destination, 
-            ObjectPath path, string iface, string member, string signature)
+            string path, string iface, string member, string signature)
     {
         Message msg = new Message();
         msg.Header.MessageType = MessageType.MethodCall;

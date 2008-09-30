@@ -147,11 +147,6 @@ namespace Wv
 	    WriteNull ();
 	}
 
-	public void Write(ObjectPath val)
-	{
-	    Write (val.Value);
-	}
-
 	public void Write(Signature val)
 	{
 	    byte[] ascii_data = val.GetBuffer ();
@@ -195,9 +190,6 @@ namespace Wv
 
 	    if (type.IsArray) {
 		xWriteArray(val, type.GetElementType());
-	    }
-	    else if (type == typeof(ObjectPath)) {
-		Write((ObjectPath)val);
 	    }
 	    else if (type == typeof(Signature)) {
 		Write((Signature)val);
@@ -267,7 +259,7 @@ namespace Wv
 		Write((string)val);
 		break;
 	    case DType.ObjectPath:
-		Write((ObjectPath)val);
+		Write((string)val);
 		break;
 	    case DType.Signature:
 		Write((Signature)val);
@@ -282,7 +274,7 @@ namespace Wv
 
 	public void WriteObject(Type type, object val)
 	{
-	    ObjectPath path;
+	    string path;
 
 	    BusObject bobj = val as BusObject;
 

@@ -67,7 +67,7 @@ public static class VxDbus {
 	    HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
 	// The ObjectPath is required by signals, and is the "source of the
 	// signal."  OK then; seems useless to me.
-	signal.Header.Fields[FieldCode.Path] = new ObjectPath("/db");
+	signal.Header.Fields[FieldCode.Path] = "/db";
 	signal.Header.Fields[FieldCode.Interface] = "vx.db";
 	signal.Header.Fields[FieldCode.Member] = signalname;
 
