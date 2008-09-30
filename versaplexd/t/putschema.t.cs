@@ -34,11 +34,17 @@ class PutSchemaTests : SchemamaticTester
 
     public void TestTableUpdate(string tabname, string tabschema)
     {
-        TestTableUpdate(tabname, tabschema, VxPutOpts.None);
+        TestTableUpdate(tabname, tabschema, VxPutOpts.None, null);
     }
 
     public void TestTableUpdate(string tabname, string tabschema, 
         VxPutOpts opts)
+    {
+        TestTableUpdate(tabname, tabschema, opts, null);
+    }
+
+    public void TestTableUpdate(string tabname, string tabschema, 
+        VxPutOpts opts, string expected_warning)
     {
         VxSchema schema = new VxSchema();
         schema.Add("Table", tabname, tabschema, false);
@@ -46,7 +52,30 @@ class PutSchemaTests : SchemamaticTester
         VxSchemaErrors errs = dbus.Put(schema, null, opts);
 
         log.print("Received errors: {0}\n", errs.ToString());
-        WVPASSEQ(errs.Count, 0);
+        int errcount = 0;
+        int warncount = 0;
+        foreach (var errlist in errs)
+            foreach (var err in errlist.Value)
+            {
+                log.print("Got error, err.level={0}\n", err.level);
+                if (err.level == WvLog.L.Error)
+                    errcount++;
+                else if (err.level == WvLog.L.Warning)
+                    warncount++;
+            }
+        WVPASSEQ(errcount, 0);
+        WVPASSEQ(warncount, expected_warning.ne() ? 1 : 0);
+        WVPASSEQ(errs.Count, errcount + warncount);
+
+        if (expected_warning.ne())
+        {
+            string key = "Table/" + tabname;
+            WVPASSEQ(errs[key][0].key, key);
+            WVPASSEQ(errs[key][0].msg, expected_warning);
+            WVPASSEQ(errs[key][0].errnum, -1);
+            WVPASSEQ((int)errs[key][0].level, (int)WvLog.L.Warning);
+            WVPASSEQ(errs[key].Count, 1);
+        }
 
         schema = dbus.Get("Table/" + tabname);
         WVPASSEQ(schema.Count, 1);
@@ -56,17 +85,26 @@ class PutSchemaTests : SchemamaticTester
     public void TestTableUpdateError(string tabname, string tabschema, 
         string errmsg, string oldval)
     {
-        TestTableUpdateError(tabname, tabschema, errmsg, oldval, VxPutOpts.None);
+        TestTableUpdateError(tabname, tabschema, errmsg, oldval, -1, 
+            VxPutOpts.None, WvLog.L.Error);
     }
 
     public void TestTableUpdateError(string tabname, string tabschema, 
         string errmsg, string oldval, VxPutOpts opts)
     {
-        TestTableUpdateError(tabname, tabschema, errmsg, oldval, -1, opts);
+        TestTableUpdateError(tabname, tabschema, errmsg, oldval, -1, opts, 
+            WvLog.L.Error);
     }
 
     public void TestTableUpdateError(string tabname, string tabschema, 
         string errmsg, string oldval, int errno, VxPutOpts opts)
+    {
+        TestTableUpdateError(tabname, tabschema, errmsg, oldval, errno, opts, 
+            WvLog.L.Error);
+    }
+
+    public void TestTableUpdateError(string tabname, string tabschema, 
+        string errmsg, string oldval, int errno, VxPutOpts opts, WvLog.L level)
     {
         string key = "Table/" + tabname;
         VxSchema schema = new VxSchema();
@@ -79,7 +117,7 @@ class PutSchemaTests : SchemamaticTester
         WVPASSEQ(errs[key][0].key, key);
         WVPASSEQ(errs[key][0].msg, errmsg);
         WVPASSEQ(errs[key][0].errnum, errno);
-        WVPASSEQ((int)errs[key][0].level, (int)WvLog.L.Error);
+        WVPASSEQ((int)errs[key][0].level, (int)level);
         WVPASSEQ(errs[key].Count, 1);
 
         // Ensure that we didn't break what was already there.
@@ -390,8 +428,10 @@ class PutSchemaTests : SchemamaticTester
 
         // Insert a number big enough to overflow a tinyint, and a string long
         // enough to overflow a varchar(10).
-        WVASSERT(VxExec("INSERT INTO [TestTable] VALUES (" + 1024*1024*1024 + 
-            ",1234.56,'I am a varchar(80).  See? 12345678901234567890')"));
+        string test_varchar = 
+            "I am a varchar(80).  See? 12345678901234567890";
+        WVASSERT(VxExec(wv.fmt("INSERT INTO [TestTable] VALUES (" + 
+            1024*1024*1024 + ",1234.56,'{0}')", test_varchar)));
 
         // First check that you can't change a column out from under a 
         // primary key constraint, with or without the Destructive option.
@@ -436,13 +476,92 @@ class PutSchemaTests : SchemamaticTester
             "'String or binary data would be truncated.'";
         TestTableUpdateError("TestTable", schema5, errmsg, schema1);
 
+        WVPASSEQ(Scalar("select count(*) from TestTable"), 1);
+        WVPASSEQ((int)Scalar("select f1 from TestTable"), 1024*1024*1024);
+        WVPASSEQ(Scalar("select f2 from TestTable"), 1234.56);
+        WVPASSEQ(Scalar("select f3 from TestTable"), test_varchar);
+
         // Oops, that pesky destructive flag wasn't set.  Set it now, and 
         // change both columns at once.
         WVPASS(6);
         string schema6 = "column: name=f2,type=money,null=0\n" + 
-                "column: name=f1,type=tinyint,null=0,default=0\n" +
-                "column: name=f3,type=varchar,null=1,length=10,default='a'\n";
+                "column: name=f1,type=tinyint,null=0,default=123\n" +
+                "column: name=f3,type=varchar,null=1,length=10\n";
         TestTableUpdate("TestTable", schema6, VxPutOpts.Destructive);
+
+        WVPASSEQ(Scalar("select count(*) from TestTable"), 1);
+        WVPASSEQ((int)Scalar("select f1 from TestTable"), 123);
+        WVPASSEQ(Scalar("select f2 from TestTable"), 1234.56);
+        WVPASS(Scalar("select f3 from TestTable").IsNull);
+
+        // Try to drop the nullity on a column that contains a null value.
+        // Should succeed, and not destroy data, but give a warning.
+        WVPASS(7);
+        string schema7 = "column: name=f2,type=money,null=0\n" + 
+                "column: name=f1,type=tinyint,null=0,default=0\n" +
+                "column: name=f3,type=varchar,null=0,length=10\n";
+        string schema7_returned = "column: name=f2,type=money,null=0\n" + 
+                "column: name=f1,type=tinyint,null=0,default=0\n" +
+                "column: name=f3,type=varchar,null=1,length=10\n";
+        errmsg = "Column 'f3' was requested to be non-null but has " + 
+            "1 null elements.";
+        TestTableUpdateError("TestTable", schema7, errmsg, schema7_returned, 
+            -1, VxPutOpts.Destructive, WvLog.L.Warning);
+
+        WVPASSEQ(Scalar("select count(*) from TestTable"), 1);
+        WVPASSEQ((int)Scalar("select f1 from TestTable"), 123);
+        WVPASSEQ(Scalar("select f2 from TestTable"), 1234.56);
+        WVPASS(Scalar("select f3 from TestTable").IsNull);
+
+        // Try to add a new column that doesn't allow null.  Should give a
+        // warning, but otherwise work.  Also try dropping the nullity on f3
+        // again, but this time specifying a default value so it should work
+        // fine.
+        // Note: the added column shows up before the changed column.
+        WVPASS(8);
+        string schema8 = "column: name=f2,type=money,null=0\n" + 
+                "column: name=f1,type=tinyint,null=0,default=0\n" +
+                "column: name=f3,type=varchar,null=0,length=10,default='a'\n" +
+                "column: name=f4,type=int,null=0\n";
+        string schema8_returned = "column: name=f2,type=money,null=0\n" + 
+                "column: name=f1,type=tinyint,null=0,default=0\n" +
+                "column: name=f4,type=int,null=1\n" + 
+                "column: name=f3,type=varchar,null=0,length=10,default='a'\n";
+        errmsg = "Column 'f4' was requested to be non-null but has " + 
+            "1 null elements.";
+        TestTableUpdateError("TestTable", schema8, errmsg, 
+            schema8_returned, -1, VxPutOpts.Destructive, WvLog.L.Warning);
+
+        WVPASSEQ(Scalar("select count(*) from TestTable"), 1);
+        WVPASSEQ((int)Scalar("select f1 from TestTable"), 123);
+        WVPASSEQ(Scalar("select f2 from TestTable"), 1234.56);
+        WVPASSEQ(Scalar("select f3 from TestTable"), "a");
+        WVPASS(Scalar("select f4 from TestTable").IsNull);
+
+        // Try to add a new column that doesn't explicitly mention
+        // nullability.  We'll still get whining about f4.
+        WVPASS(9);
+        string schema9 = "column: name=f2,type=money,null=0\n" + 
+                "column: name=f1,type=tinyint,null=0,default=0\n" +
+                "column: name=f3,type=varchar,null=0,length=10,default='a'\n" +
+                "column: name=f4,type=int,null=0\n" + 
+                "column: name=f5,type=int\n";
+        string schema9_returned = "column: name=f2,type=money,null=0\n" + 
+                "column: name=f1,type=tinyint,null=0,default=0\n" +
+                "column: name=f3,type=varchar,null=0,length=10,default='a'\n" +
+                "column: name=f5,type=int,null=1\n" + 
+                "column: name=f4,type=int,null=1\n";
+        errmsg = "Column 'f4' was requested to be non-null but has " + 
+            "1 null elements.";
+        TestTableUpdateError("TestTable", schema9, errmsg, schema9_returned, 
+            -1, VxPutOpts.Destructive, WvLog.L.Warning);
+
+        WVPASSEQ(Scalar("select count(*) from TestTable"), 1);
+        WVPASSEQ((int)Scalar("select f1 from TestTable"), 123);
+        WVPASSEQ(Scalar("select f2 from TestTable"), 1234.56);
+        WVPASSEQ(Scalar("select f3 from TestTable"), "a");
+        WVPASS(Scalar("select f4 from TestTable").IsNull);
+        WVPASS(Scalar("select f5 from TestTable").IsNull);
 
         try { VxExec("drop table TestTable"); } catch { }
     }

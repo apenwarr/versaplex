@@ -282,8 +282,8 @@ internal class VxDbSchema : ISchemaBackend
             DbiExec(query);
         } catch (VxSqlException e) {
             log.print("Got error dropping {0}: {1} ({2})\n", key, 
-                e.Message, e.GetFirstSqlErrno());
-            return new VxSchemaError(key, e.Message, e.GetFirstSqlErrno());
+                e.Message, e.Number);
+            return new VxSchemaError(key, e);
         }
 
         return null;
@@ -315,14 +315,13 @@ internal class VxDbSchema : ISchemaBackend
         } 
         catch (SqlException e)
         { 
-            var v = new VxSqlException(e.Message, e);
             log.print("Caught rollback exception: {0} ({1})\n", 
-                v.Message, v.GetFirstSqlErrno());
+                e.Message, e.Number);
             // Eat any "The Rollback Transaction request has no
             // corresponding Begin Transaction." errors - some errors 
             // will automatically roll us back, some won't.
-            if (v.GetFirstSqlErrno() != 3903)
-                throw v;
+            if (e.Number != 3903)
+                throw;
         }
         return false;
     }
@@ -454,16 +453,51 @@ internal class VxDbSchema : ISchemaBackend
         }
         catch (SqlException e)
         {
-            VxSqlException v = new VxSqlException(e.Message, e);
-            return new VxSchemaError(key, v.Message, v.GetFirstSqlErrno());
+            return new VxSchemaError(key, e);
         }
 
         return null;
     }
 
+    private void AddNullableColumn(VxSchemaTable table, 
+        VxSchemaTableElement elem)
+    {
+        // Create a new element that allows nulls
+        var nullable = new VxSchemaTableElement(elem.elemtype);
+        foreach (var kvp in elem.parameters)
+            if (kvp.Key == "null")
+                nullable.AddParam("null", "1");
+            else
+                nullable.AddParam(kvp.Key, kvp.Value);
+
+        string nullquery = wv.fmt("ALTER TABLE [{0}] ADD {1}\n", 
+                table.name, table.ColumnToSql(nullable, true));
+
+        log.print("Executing {0}\n", nullquery);
+        dbi.execute(nullquery);
+    }
+
+    private void DropTableColumn(VxSchemaTable table, VxSchemaTableElement col)
+    {
+        string colname = col.GetParam("name");
+        if (col.HasDefault())
+        {
+            string defquery = wv.fmt("ALTER TABLE [{0}] " + 
+                "DROP CONSTRAINT {1}\n", 
+                table.name, table.GetDefaultDefaultName(colname));
+
+            dbi.execute(defquery);
+        }
+
+        string query = wv.fmt("ALTER TABLE [{0}] DROP COLUMN [{1}]\n",
+            table.name, colname);
+
+        dbi.execute(query);
+    }
+
     private VxSchemaErrors ApplyChangedColumn(VxSchemaTable table, 
         VxSchemaTableElement oldelem, VxSchemaTableElement newelem, 
-        string expected_errmsg, VxPutOpts opts)
+        VxSchemaError expected_err, VxPutOpts opts)
     {
         VxSchemaErrors errs = new VxSchemaErrors();
         log.print("Altering {0}\n", newelem.ToString());
@@ -487,7 +521,7 @@ internal class VxDbSchema : ISchemaBackend
         bool did_default_constraint = false;
 
         // Don't try to alter the table if we know it won't work.
-        if (expected_errmsg.e())
+        if (expected_err == null)
         {
             string query = wv.fmt("ALTER TABLE [{0}] ALTER COLUMN {1}",
                 table.name, table.ColumnToSql(newelem, false));
@@ -504,7 +538,9 @@ internal class VxDbSchema : ISchemaBackend
             // flag though, we can try to drop and re-add the column.
             if (destructive)
             {
-                log.print("Alter column would fail, dropping and adding\n");
+                log.print("Alter column would fail, dropping and adding.\n");
+                log.print("Expected error message: {0} ({1})\n", 
+                    expected_err.msg, expected_err.errnum);
                 string delquery = wv.fmt("ALTER TABLE [{0}] " + 
                     "DROP COLUMN [{1}]\n",
                     table.name, colname);
@@ -517,7 +553,19 @@ internal class VxDbSchema : ISchemaBackend
                 log.print("Executing {0}\n", delquery);
                 dbi.execute(delquery);
                 log.print("Executing {0}\n", addquery);
-                dbi.execute(addquery);
+                if (expected_err.errnum != 4901)
+                {
+                    dbi.execute(addquery);
+                }
+                else
+                {
+                    // Error 4901: adding a column on a non-empty table failed
+                    // due to neither having a default nor being nullable.
+                    // So try making the table nullable.
+                    log.print("Would have caught exception trying to add " + 
+                        "non-null column; making column nullable.\n");
+                    AddNullableColumn(table, newelem);
+                }
                 did_default_constraint = true;
             }
             else
@@ -528,13 +576,14 @@ internal class VxDbSchema : ISchemaBackend
                 string errmsg = wv.fmt("Refusing to drop and re-add " +
                         "column [{0}] when the destructive option " +
                         "is not set.  Error when altering was: '{1}'",
-                        colname, expected_errmsg);
+                        colname, expected_err.msg);
                 errs.Add(key, new VxSchemaError(key, errmsg, -1));
             }
         }
 
         // No errors so far, let's try to add the new default values if we
         // didn't do it already.
+        // FIXME: Check for actual errors, don't care about warnings.
         if (errs.Count == 0 && newelem.HasDefault() && !did_default_constraint)
         {
             string defquery = wv.fmt("ALTER TABLE [{0}] ADD CONSTRAINT {1} " + 
@@ -624,6 +673,7 @@ internal class VxDbSchema : ISchemaBackend
         // turn them into VxSchemaErrors.
 
         var deleted_indexes = new List<VxSchemaTableElement>();
+        var added_columns = new List<VxSchemaTableElement>(); 
 
         bool transaction_started = false;
         bool transaction_resolved = false;
@@ -660,10 +710,10 @@ internal class VxDbSchema : ISchemaBackend
             // annoying.  So before we start the real transaction, try to make
             // the column changes in a test transaction that we'll always roll
             // back to see if they'd fail.
-            var ErrMsgWhenAltering = new Dictionary<string, string>();
+            var ErrWhenAltering = new Dictionary<string, VxSchemaError>();
             foreach (var elem in colchanged)
             {
-                string errmsg = "";
+                VxSchemaError err = null;
                 log.print("Doing a trial run of modifying {0}\n", 
                     elem.GetElemKey());
                 dbi.execute("BEGIN TRANSACTION coltest");
@@ -672,67 +722,97 @@ internal class VxDbSchema : ISchemaBackend
                     // Try to change the column the easy way, without dropping
                     // or adding anything and without any expected errors.
                     var change_errs = ApplyChangedColumn(newtable, 
-                        curtable[elem.GetElemKey()], elem, "", VxPutOpts.None);
+                        curtable[elem.GetElemKey()], elem, null, VxPutOpts.None);
                     if (change_errs.Count > 0)
-                        errmsg = errs[newtable.key][0].msg;
+                        err = change_errs[newtable.key][0];
                 }
                 catch (SqlException e)
                 {
-                    VxSqlException v = new VxSqlException(e.Message, e);
                     // OK, the easy way doesn't work.  Remember the error for
                     // when we do it for real.
                     log.print("Caught exception in trial run: {0} ({1})\n", 
-                        v.Message, v.GetFirstSqlErrno());
-                    errmsg = v.Message;
+                        e.Message, e.Number);
+                    err = new VxSchemaError(key, e);
                 }
 
-                log.print("Rolling back, errmsg='{0}'\n", errmsg);
+                log.print("Rolling back, err='{0}'\n", 
+                    err == null ? "" : err.ToString());
 
                 DbiExecRollback("coltest");
-                ErrMsgWhenAltering.Add(elem.GetElemKey(), errmsg);
+
+                // Sometimes we'll want to run with destructive, but that
+                // might also have an error we want to deal with.  
+                if (err != null && destructive)
+                {
+                    log.print("Doing a trial run of destructively modifying {0}\n", 
+                        elem.GetElemKey());
+                    dbi.execute("BEGIN TRANSACTION coltest");
+
+                    try 
+                    {
+                        var change_errs = ApplyChangedColumn(newtable, 
+                            curtable[elem.GetElemKey()], elem, err, opts);
+                        if (change_errs.Count > 0)
+                            err = change_errs[newtable.key][0];
+                    }
+                    catch (SqlException e)
+                    {
+                        log.print("Caught exception in trial run: {0} ({1})\n", 
+                            e.Message, e.Number);
+                        err = new VxSchemaError(key, e);
+                    }
+
+                    DbiExecRollback("coltest");
+                }
+
+                ErrWhenAltering.Add(elem.GetElemKey(), err);
             }
             log.print("About to begin real transaction\n");
 
-            transaction_started = true;
-            dbi.execute("BEGIN TRANSACTION TableUpdate");
-
             // Add new columns before deleting old ones; MSSQL won't let a
             // table have no data columns in it, even temporarily.
+            // Do this outside the transaction since failures here will
+            // automatically cause a rollback, even if we handle them.
             foreach (var elem in coladd)
             {
                 log.print("Adding {0}\n", elem.ToString());
                 string query = wv.fmt("ALTER TABLE [{0}] ADD {1}\n", 
                     tabname, newtable.ColumnToSql(elem));
 
-                dbi.execute(query);
+                try
+                {
+                    dbi.execute(query);
+                }
+                catch (SqlException e)
+                {
+                    // FIXME: Return a more useful error message if
+                    // destructive isn't set?
+                    if (destructive && e.Number == 4901)
+                    {
+                        log.print("Couldn't add a new non-nullable column " +
+                            "without a default.  Making column nullable.\n");
+                        AddNullableColumn(newtable, elem);
+                    }
+                    else
+                        throw;
+                }
+                added_columns.Add(elem);
             }
+
+            transaction_started = true;
+            dbi.execute("BEGIN TRANSACTION TableUpdate");
 
             foreach (var elem in coldel)
             {
                 log.print("Dropping {0}\n", elem.ToString());
-
-                string colname = elem.GetParam("name");
-                if (elem.HasDefault())
-                {
-                    string defquery = wv.fmt("ALTER TABLE [{0}] " + 
-                        "DROP CONSTRAINT {1}\n", 
-                        tabname, curtable.GetDefaultDefaultName(colname));
-
-                    dbi.execute(defquery);
-                }
-
-                string query = wv.fmt("ALTER TABLE [{0}] DROP COLUMN [{1}]\n",
-                    tabname, colname);
-
-                dbi.execute(query);
+                DropTableColumn(newtable, elem);
             }
 
             foreach (var elem in colchanged)
             {
-                string expected_errmsg = ErrMsgWhenAltering[elem.GetElemKey()];
-                log.print("Expected error message: {0}\n", expected_errmsg);
+                var expected_err = ErrWhenAltering[elem.GetElemKey()];
                 var change_errs = ApplyChangedColumn(newtable, 
-                    curtable[elem.GetElemKey()], elem, expected_errmsg, opts);
+                    curtable[elem.GetElemKey()], elem, expected_err, opts);
 
                 if (change_errs != null && change_errs.Count > 0)
                 {
@@ -760,8 +840,7 @@ internal class VxDbSchema : ISchemaBackend
         }
         catch (SqlException e)
         {
-            VxSqlException v = new VxSqlException(e.Message, e);
-            var err = new VxSchemaError(key, v.Message, v.GetFirstSqlErrno());
+            var err = new VxSchemaError(key, e);
             log.print("Caught exception: {0}\n", err.ToString());
             errs.Add(key, err);
         }
@@ -773,12 +852,44 @@ internal class VxDbSchema : ISchemaBackend
                 if (transaction_started)
                     DbiExecRollback("TableUpdate");
 
+                foreach (var elem in added_columns)
+                {
+                    log.print("Restoring {0}\n", elem.ToString());
+                    DropTableColumn(newtable, elem);
+                }
+
                 foreach (var elem in deleted_indexes)
                 {
                     log.print("Restoring index {0}\n", elem.ToString());
                     var err = PutSchemaTableIndex(key, curtable, elem);
                     if (err != null)
                         errs.Add(key, err);
+                }
+            }
+        }
+
+        // Check for null entries in columns that are supposed to be non-null
+        foreach (var elem in newtable)
+        {
+            string nullity = elem.GetParam("null");
+            if (elem.elemtype == "column" && nullity.ne() && nullity != "1")
+            {
+                string colname = elem.GetParam("name");
+                string query = wv.fmt("SELECT count(*) FROM [{0}] " + 
+                    "WHERE [{1}] IS NULL\n",
+                    tabname, colname);
+
+                int num_nulls = dbi.select_one(query);
+                if (num_nulls > 0)
+                {
+                    string errmsg = wv.fmt("Column '{0}' was requested " + 
+                            "to be non-null but has {1} null elements.", 
+                            colname, num_nulls);
+                    log.print(errmsg + "\n");
+                    var err = new VxSchemaError(
+                        key, errmsg, -1, WvLog.L.Warning);
+
+                    errs.Add(key, err);
                 }
             }
         }
@@ -808,7 +919,7 @@ internal class VxDbSchema : ISchemaBackend
                     // SQL Error 15151 means "can't drop XML Schema collection 
                     // because it doesn't exist or you don't have permission."
                     if (!e.ContainsSqlError(3701) && !e.ContainsSqlError(15151))
-                        throw e;
+                        throw;
                 }
             }
 
@@ -817,9 +928,9 @@ internal class VxDbSchema : ISchemaBackend
         } 
         catch (VxSqlException e) 
         {
-            log.print("Got error from {0}: {1} ({2})\n", elem.key, 
-                e.Message, e.GetFirstSqlErrno());
-            return new VxSchemaError(elem.key, e.Message, e.GetFirstSqlErrno());
+            log.print("Got error from {0}: {1} ({2})\n", 
+                elem.key, e.Message, e.Number);
+            return new VxSchemaError(elem.key, e);
         }
 
         return null;

@@ -98,6 +98,12 @@ public class VersaplexTester: IDisposable
 	return true;
     }
 
+    internal WvAutoCast Scalar(string query)
+    {
+	Console.WriteLine(" + Scalar SQL Query: {0}", query);
+        return dbi.select_one(query);
+    }
+
     internal WvSqlRows Reader(string query)
     {
 	Console.WriteLine(" + Reader SQL Query: {0}", query);

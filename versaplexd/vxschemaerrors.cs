@@ -1,6 +1,7 @@
 using System;
 using System.Text;
 using System.Collections.Generic;
+using System.Data.SqlClient;
 using Wv;
 using Wv.Extensions;
 
@@ -54,6 +55,22 @@ internal class VxSchemaError
             level = (WvLog.L)intlevel;
         else
             level = WvLog.L.Critical;
+    }
+
+    public VxSchemaError(string newkey, VxSqlException e)
+    {
+        key = newkey;
+        msg = e.Message;
+        errnum = e.Number;
+        level = WvLog.L.Error;
+    }
+
+    public VxSchemaError(string newkey, SqlException e)
+    {
+        key = newkey;
+        msg = e.Message;
+        errnum = e.Number;
+        level = WvLog.L.Error;
     }
 
     public void WriteError(MessageWriter writer)
