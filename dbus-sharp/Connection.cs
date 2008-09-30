@@ -160,8 +160,6 @@ namespace Wv
 	    }
 	}
 
-	Queue<Message> Inbound = new Queue<Message>();
-
 	// Given the first 16 bytes of the header, returns the full
 	// header and body lengths (including the 16 bytes of the
 	// header already read) Positions the stream after
@@ -323,17 +321,6 @@ namespace Wv
 	    return msg;
 	}
 
-	//temporary hack
-	internal void DispatchSignals()
-	{
-	    lock (Inbound) {
-		while (Inbound.Count != 0) {
-		    Message msg = Inbound.Dequeue();
-		    HandleSignal(msg);
-		}
-	    }
-	}
-
 	// hacky
 	public delegate void MessageHandler(Message msg);
 	public MessageHandler OnMessage;
@@ -357,8 +344,6 @@ namespace Wv
 		    Message msg = BuildMessage(msgbuf, headerSize,
 					       bodySize);
 		    OnMessage(msg);
-		    DispatchSignals();
-
 		    left -= headerSize + bodySize;
 		}
 		else {
@@ -409,10 +394,6 @@ namespace Wv
 		MethodCall method_call = new MethodCall(msg);
 		HandleMethodCall(method_call);
 		break;
-	    case MessageType.Signal:
-		lock (Inbound)
-		    Inbound.Enqueue(msg);
-		break;
 	    case MessageType.Error:
 		//TODO: better exception handling
 		Error error = new Error(msg);
@@ -422,6 +403,9 @@ namespace Wv
 		}
 		Console.Error.WriteLine("Remote Error: Signature='" + msg.Signature.Value + "' " + error.ErrorName + ": " + errMsg);
 		break;
+	    case MessageType.Signal:
+		// nothing to do with these by default
+		break;
 	    case MessageType.Invalid:
 	    default:
 		throw new Exception("Invalid message received: MessageType='" + msg.type + "'");
@@ -430,34 +414,6 @@ namespace Wv
 
 	Dictionary<uint,Action<Message>> rserial_to_action
 	    = new Dictionary<uint,Action<Message>>();
-
-	//this might need reworking with MulticastDelegate
-	internal void HandleSignal(Message msg)
-	{
-	    Signal signal = new Signal(msg);
-
-	    //TODO: this is a hack, not necessary when MatchRule is complete
-	    MatchRule rule = new MatchRule();
-	    rule.MessageType = MessageType.Signal;
-	    rule.Interface = signal.Interface;
-	    rule.Member = signal.Member;
-	    rule.Path = signal.Path;
-
-	    Delegate dlg;
-	    if (Handlers.TryGetValue(rule, out dlg)) {
-		//dlg.DynamicInvoke(GetDynamicValues(msg));
-
-		MethodInfo mi = dlg.Method;
-		//signals have no return value
-		dlg.DynamicInvoke(MessageHelper.GetDynamicValues(msg, mi.GetParameters()));
-
-	    }
-	    else {
-		//TODO: how should we handle this condition? sending an Error may not be appropriate in this case
-		if (Protocol.Verbose)
-		    Console.Error.WriteLine("Warning: No signal handler for " + signal.Member);
-	    }
-	}
 
 	internal Dictionary<MatchRule,Delegate> Handlers = new Dictionary<MatchRule,Delegate>();
 
