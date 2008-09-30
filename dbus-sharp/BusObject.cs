@@ -78,12 +78,10 @@ namespace Wv
 
 			//TODO: don't ignore retVal, exception etc.
 
-			Signature outSig = String.IsNullOrEmpty (inSigStr) ? Signature.Empty : new Signature (inSigStr);
-
 			Signal signal = new Signal (object_path, iface, member);
-			signal.message.Signature = outSig;
+			signal.msg.signature = inSigStr;
 
-			Message signalMsg = signal.message;
+			Message signalMsg = signal.msg;
 			signalMsg.Body = writer.ToArray ();
 
 			conn.Send (signalMsg);
@@ -95,23 +93,10 @@ namespace Wv
 
 			//TODO: don't ignore retVal, exception etc.
 
-			Signature inSig = String.IsNullOrEmpty (inSigStr) ? Signature.Empty : new Signature (inSigStr);
+			MethodCall method_call = new MethodCall (object_path, iface, member, bus_name, inSigStr);
 
-			MethodCall method_call = new MethodCall (object_path, iface, member, bus_name, inSig);
-
-			Message callMsg = method_call.message;
+			Message callMsg = method_call.msg;
 			callMsg.Body = writer.ToArray ();
-
-			//Invoke Code::
-
-			//TODO: complete out parameter support
-			/*
-			Type[] outParmTypes = Mapper.GetTypes (ArgDirection.Out, mi.GetParameters ());
-			Signature outParmSig = Signature.GetSig (outParmTypes);
-
-			if (outParmSig != Signature.Empty)
-				throw new Exception ("Out parameters not yet supported: out_signature='" + outParmSig.Value + "'");
-			*/
 
 			Type[] outTypes = new Type[1];
 			outTypes[0] = retType;
@@ -121,11 +106,8 @@ namespace Wv
 			//TODO: don't hard code this
 			bool needsReply = true;
 
-			//if (mi.ReturnType == typeof (void))
-			//	needsReply = false;
-
 			callMsg.ReplyExpected = needsReply;
-			callMsg.Signature = inSig;
+			callMsg.signature = inSigStr;
 
 			if (!needsReply) {
 				conn.Send (callMsg);
@@ -137,7 +119,7 @@ namespace Wv
 			object retVal = null;
 
 			//handle the reply message
-			switch (retMsg.Header.MessageType) 
+			switch (retMsg.type) 
 		        {
 			case MessageType.MethodReturn:
 				object[] retVals = MessageHelper.GetDynamicValues (retMsg, outTypes);
@@ -154,7 +136,7 @@ namespace Wv
 				exception = new Exception (error.ErrorName + ": " + errMsg);
 				break;
 			default:
-				throw new Exception ("Got unexpected message of type " + retMsg.Header.MessageType + " while waiting for a MethodReturn or Error");
+				throw new Exception ("Got unexpected message of type " + retMsg.type + " while waiting for a MethodReturn or Error");
 			}
 
 			return retVal;
@@ -199,9 +181,9 @@ namespace Wv
 					methodName = methodName.Replace ("set_", "Set");
 				}
 
-				method_call = new MethodCall (object_path, iface, methodName, bus_name, inSig);
+				method_call = new MethodCall (object_path, iface, methodName, bus_name, inSig.ToString());
 
-				callMsg = method_call.message;
+				callMsg = method_call.msg;
 
 				if (inArgs != null && inArgs.Length != 0) {
 					MessageWriter writer = new MessageWriter (Connection.NativeEndianness);
@@ -222,11 +204,8 @@ namespace Wv
 			//TODO: don't hard code this
 			bool needsReply = true;
 
-			//if (mi.ReturnType == typeof (void))
-			//	needsReply = false;
-
 			callMsg.ReplyExpected = needsReply;
-			callMsg.Signature = inSig;
+			callMsg.signature = inSig.ToString();
 
 			if (!needsReply) {
 				conn.Send (callMsg);
@@ -236,7 +215,7 @@ namespace Wv
 			Message retMsg = conn.SendWithReplyAndBlock (callMsg);
 
 			//handle the reply message
-			switch (retMsg.Header.MessageType) {
+			switch (retMsg.type) {
 			case MessageType.MethodReturn:
 				object[] retVals = MessageHelper.GetDynamicValues (retMsg, outTypes);
 				if (retVals.Length != 0)
@@ -252,7 +231,7 @@ namespace Wv
 				exception = new Exception (error.ErrorName + ": " + errMsg);
 				break;
 			default:
-				throw new Exception ("Got unexpected message of type " + retMsg.Header.MessageType + " while waiting for a MethodReturn or Error");
+				throw new Exception ("Got unexpected message of type " + retMsg.type + " while waiting for a MethodReturn or Error");
 			}
 
 			return;

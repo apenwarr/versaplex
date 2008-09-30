@@ -24,7 +24,9 @@ class DbusTest
 	// write
 	{
 	    Message m = new Message();
-	    m.Signature = new Signature("yisaxva(s)");
+	    m.rserial = 0xf00f;
+	    m.signature = "yisaxva(s)";
+	    m.sender = "booga";
 	    MessageWriter w = new MessageWriter();
 	    w.Write((byte)42);
 	    w.Write(42);
@@ -45,6 +47,7 @@ class DbusTest
 	    msgdata = buf.getall();
 	}
 	
+	WVPASS("wrote");
 	wv.print("message:\n{0}\n", wv.hexdump(msgdata));
 	
 	// new-style read
@@ -83,13 +86,13 @@ class DbusTest
 	WVPASS("got bus");
 	
 	Message m = new Message();
-	m.Signature = new Signature("su");
-	m.Header.MessageType = MessageType.MethodCall;
+	m.signature = "su";
+	m.type = MessageType.MethodCall;
 	m.ReplyExpected = true;
-	m.Header.Fields[FieldCode.Destination] = "org.freedesktop.DBus";
-	m.Header.Fields[FieldCode.Path] = "/org/freedesktop/DBus";
-	m.Header.Fields[FieldCode.Interface] = "org.freedesktop.DBus";
-	m.Header.Fields[FieldCode.Member] = "RequestName";
+	m.dest = "org.freedesktop.DBus";
+	m.path = "/org/freedesktop/DBus";
+	m.ifc = "org.freedesktop.DBus";
+	m.method = "RequestName";
 	MessageWriter w = new MessageWriter();
 	w.Write("all.t.cs");
 	w.Write(0);
@@ -108,17 +111,16 @@ class DbusTest
 		continue;
 	    }
 	    
-	    wv.print("<< #{0}\n", reply.Header.Serial);
+	    wv.print("<< #{0}\n", reply.serial);
 	    wv.print("{0}\n", wv.hexdump(reply.Body));
 	    
-	    if (!reply.Header.Fields.ContainsKey(FieldCode.ReplySerial)
-		|| (uint)reply.Header.Fields[FieldCode.ReplySerial] != serial)
+	    if (!reply.rserial.HasValue || reply.rserial.Value != serial)
 	    {
 		WVPASS("skipping unwanted serial");
 		continue;
 	    }
 	    
-	    uint rserial = (uint)reply.Header.Fields[FieldCode.ReplySerial];
+	    uint rserial = reply.rserial.Value;
 	    wv.print("ReplySerial is: {0} (want {1})\n", rserial, serial);
 	    WVPASSEQ(rserial, serial);
 	    got_reply = true;

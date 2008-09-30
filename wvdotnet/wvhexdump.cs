@@ -24,6 +24,9 @@ namespace Wv
 	public static string _hexdump(byte[] data,
 				      int startoffset, int maxlen)
 	{
+	    if (data == null)
+		return "(nil)";
+	    
             var sb = new StringBuilder();
 	    
 	    // This is overly complicated so that the body and header of
@@ -107,6 +110,8 @@ namespace Wv
 	    
 	public static object hexdump(byte[] data)
 	{
+	    if (data == null)
+		return "(nil)";
 	    return hexdump(data, 0, data.Length);
 	}
     }

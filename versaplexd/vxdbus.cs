@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Wv;
+using Wv.Extensions;
 
 public static class VxDbus {
     static WvLog log = new WvLog("VxDbus", WvLog.L.Debug1);
@@ -10,18 +11,14 @@ public static class VxDbus {
     public static Message CreateError(string type, string msg, Message cause)
     {
         Message error = new Message();
-        error.Header.MessageType = MessageType.Error;
-        error.Header.Flags =
-            HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
-        error.Header.Fields[FieldCode.ErrorName] = type;
-        error.Header.Fields[FieldCode.ReplySerial] = cause.Header.Serial;
-
-        object sender;
-        if (cause.Header.Fields.TryGetValue(FieldCode.Sender, out sender))
-            error.Header.Fields[FieldCode.Destination] = sender;
+        error.type = MessageType.Error;
+        error.flags = HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
+        error.err = type;
+        error.rserial = cause.serial;
+	error.dest = cause.sender;
 
         if (msg != null) {
-            error.Signature = new Signature("s");
+            error.signature = "s";
             MessageWriter writer =
                 new MessageWriter(Connection.NativeEndianness);
             writer.Write(msg);
@@ -40,79 +37,56 @@ public static class VxDbus {
             MessageWriter body)
     {
         Message reply = new Message();
-        reply.Header.MessageType = MessageType.MethodReturn;
-        reply.Header.Flags =
-            HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
-        reply.Header.Fields[FieldCode.ReplySerial] = call.Header.Serial;
+        reply.type = MessageType.MethodReturn;
+        reply.flags = HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
+        reply.rserial = call.serial;
         
-        object sender;
-        if (call.Header.Fields.TryGetValue(FieldCode.Sender, out sender))
-            reply.Header.Fields[FieldCode.Destination] = sender;
-
-        if (signature != null && signature != "") {
-            reply.Signature = new Signature(signature);
-            reply.Body = body.ToArray();
-        }
+	reply.dest = call.sender;
+	reply.signature = signature;
+	if (signature.ne())
+	    reply.Body = body.ToArray();
 
         return reply;
     }
 
-    public static Message CreateSignal(object destination, string signalname,
+    public static Message CreateSignal(string destination, string signalname,
 					string signature, MessageWriter body)
     {
 	// Idea shamelessly stolen from CreateReply method above
 	Message signal = new Message();
-	signal.Header.MessageType = MessageType.Signal;
-	signal.Header.Flags =
-	    HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
+	signal.type = MessageType.Signal;
+	signal.flags = HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
 	// The ObjectPath is required by signals, and is the "source of the
 	// signal."  OK then; seems useless to me.
-	signal.Header.Fields[FieldCode.Path] = "/db";
-	signal.Header.Fields[FieldCode.Interface] = "vx.db";
-	signal.Header.Fields[FieldCode.Member] = signalname;
-
-	if (destination != null)
-	    signal.Header.Fields[FieldCode.Destination] = destination;
-
-	if (signature != null && signature != "")
-	{
-	    signal.Signature = new Signature(signature);
+	signal.path = "/db";
+	signal.ifc = "vx.db";
+	signal.method = signalname;
+	signal.dest = destination;
+	signal.signature = signature;
+	if (signature.ne())
 	    signal.Body = body.ToArray();
-	}
-
 	return signal;
     }
 
     public static void MessageDump(string prefix, Message msg)
     {
-        Header hdr = msg.Header;
-	
-	if (hdr.Fields.ContainsKey(FieldCode.ReplySerial))
+	if (msg.rserial.HasValue)
 	    log.print("MD {0} REPLY#{1}\n",
-			prefix,
-			hdr.Fields[FieldCode.ReplySerial]);
-	else if (hdr.MessageType != MessageType.Signal)
+			prefix, msg.rserial.Value);
+	else if (msg.type != MessageType.Signal)
 	    log.print("MD {0} #{1} {2}.{3}\n",
 			prefix,
-			hdr.Serial,
-			hdr.Fields[FieldCode.Interface],
-			hdr.Fields[FieldCode.Member]);
+			msg.serial, msg.ifc, msg.method);
 	else
-	    log.print("MD {0} {1}\n", prefix, hdr.Fields[FieldCode.Interface]);
+	    log.print("MD {0} {1}\n", prefix, msg.ifc);
 
         smalldump.print("Message dump:\n");
-        smalldump.print(" endianness={0} ", hdr.Endianness);
-        smalldump.print(" t={0} ", hdr.MessageType);
-        smalldump.print(" ver={0} ", hdr.MajorVersion);
-        smalldump.print(" blen={0} ", hdr.Length);
-        smalldump.print(" ser={0}\n", hdr.Serial);
-        smalldump.print(" flags={0}\n", hdr.Flags);
+        smalldump.print(" endianness={0} ", msg.endian);
+        smalldump.print(" t={0} ", msg.type);
+        smalldump.print(" blen={0} ", msg.Body==null ? 0 : msg.Body.Length);
+        smalldump.print(" ser={0}\n", msg.serial);
+        smalldump.print(" flags={0}\n", msg.flags);
 	
-        smalldump.print(" Fields\n");
-        foreach (KeyValuePair<FieldCode,object> kvp in hdr.Fields) {
-            smalldump.print("  - {0}: {1}\n", kvp.Key, kvp.Value);
-        }
-
         int hdrlen = 0;
 	byte[] header = msg.GetHeaderData();
         if (header != null) {
@@ -156,21 +130,20 @@ public class VxMethodCallRouter {
 
     public bool RouteMessage(Connection conn, Message call, out Message reply)
     {
-        if (call.Header.MessageType != MessageType.MethodCall)
+        if (call.type != MessageType.MethodCall)
             throw new ArgumentException("Not a method call message");
 
         reply = null;
 
         // FIXME: Dbus spec says that interface should be optional so it
         // should search all of the interfaces for a matching method...
-        object iface;
-        if (!call.Header.Fields.TryGetValue(FieldCode.Interface, out iface))
+        if (call.ifc.e())
             return false; // No interface; ignore it
 
-        log.print("Router interface {0}\n", iface);
+        log.print("Router interface {0}\n", call.ifc);
 
         VxInterfaceRouter ir;
-        if (!interfaces.TryGetValue((string)iface, out ir))
+        if (!interfaces.TryGetValue(call.ifc, out ir))
             return false; // Interface not found
 
         log.print("Passing to interface router\n");
@@ -197,17 +170,14 @@ public abstract class VxInterfaceRouter {
 
     public bool RouteMessage(Connection conn, Message call, out Message reply)
     {
-        if (call.Header.MessageType != MessageType.MethodCall)
+        if (call.type != MessageType.MethodCall)
             throw new ArgumentException("Not a method call message");
 
         reply = null;
-
-        object method;
-        if (!call.Header.Fields.TryGetValue(FieldCode.Member, out method))
-            return false; // No method 
+	string method = call.method;
 
         MethodCallProcessor processor;
-        if (!methods.TryGetValue((string)method, out processor)) {
+        if (!methods.TryGetValue(method, out processor)) {
             reply = VxDbus.CreateError(
                     "org.freedesktop.DBus.Error.UnknownMethod",
                     String.Format(

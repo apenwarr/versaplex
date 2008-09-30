@@ -64,12 +64,12 @@ namespace Wv
 	    
 	    log.print("Answer came back!\n");
 
-	    switch (reply.Header.MessageType) 
+	    switch (reply.type) 
 	    {
 	    case MessageType.MethodReturn:
 	    case MessageType.Error:
 		{
-		    string sig = reply.Header.Signature;
+		    string sig = reply.signature;
 		    var it = reply.iter();
 		    
 		    // Some unexpected error

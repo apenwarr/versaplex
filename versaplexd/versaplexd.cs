@@ -62,7 +62,7 @@ public static class VersaMain
 
         VxDbus.MessageDump("<<  ", msg);
 
-        switch (msg.Header.MessageType) 
+        switch (msg.type)
 	{
 	case MessageType.MethodCall:
 	    Message reply;
@@ -81,13 +81,10 @@ public static class VersaMain
 	    break;
 	    
 	default:
-	    Header h = msg.Header;
 	    log.print(WvLog.L.Warning,
-		      "Unexpected DBus message received: #{0} {1}\n",
-			h.Serial,
-		        (from k in h.Fields.Keys
-			 select wv.fmt("{0}={1}", k, h.Fields[k])
-			 ).Join(" "));
+		      "Unexpected DBus message received: #{0} {1}->{2} {3}:{4}.{5}\n",
+		        msg.serial, msg.sender, msg.dest,
+		      msg.path, msg.ifc, msg.method);
 	    break;
         }
 

@@ -195,7 +195,7 @@ namespace Wv
 		Write((Signature)val);
 	    }
 	    else if (type == typeof(object)) {
-		Write(val);
+		WriteV(val);
 	    }
 	    else if (type == typeof(string)) {
 		Write((string)val);
@@ -265,7 +265,7 @@ namespace Wv
 		Write((Signature)val);
 		break;
 	    case DType.Variant:
-		Write((object)val);
+		WriteV((object)val);
 		break;
 	    default:
 		throw new Exception ("Unhandled D-Bus type: " + dtype);
@@ -291,7 +291,7 @@ namespace Wv
 	}
 
 	//variant
-	public void Write(object val)
+	public void WriteV(object val)
 	{
 	    //TODO: maybe support sending null variants
 
@@ -374,7 +374,7 @@ namespace Wv
 	    Write((uint)(a.Length - first));
 	    stream.Write(a, startpad, a.Length - startpad);
 	}
-	
+/*	
 	// not used!
 	public void WriteDict<K,V>(IDictionary<K,V> dict)
 	{
@@ -383,7 +383,7 @@ namespace Wv
 		w2.Write(i.Value);
 	    });
 	}
-
+*/
 	public void WriteFromDict(Type keyType, Type valType, IDictionary val)
 	{
 	    long origPos = stream.Position;

@@ -12,46 +12,45 @@ namespace Wv
 {
     public class Message
     {
-	public Header Header;
+	public EndianFlag endian { get; private set; }
+	public MessageType type = MessageType.MethodCall;
+	public HeaderFlag flags = HeaderFlag.NoReplyExpected;
+	public uint serial { get; internal set; }
+	public uint? rserial = null;
+	public string path = null;
+	public string ifc = null;
+	public string method = null;
+	public string err = null;
+	public string sender = null;
+	public string dest = null;
+	public string signature = null;
+	
 	public byte[] Body;
 
 	public Message()
 	{
-	    Header.Endianness = Connection.NativeEndianness;
-	    Header.MessageType = MessageType.MethodCall;
-	    Header.Flags = HeaderFlag.NoReplyExpected;
-	    Header.MajorVersion = Protocol.Version;
-	    Header.Fields = new Dictionary<FieldCode,object>();
+	    endian = Connection.NativeEndianness;
 	}
 
 	public Signature Signature
 	{
 	    get {
-		object o;
-		if (Header.Fields.TryGetValue(FieldCode.Signature, out o))
-		    return new Signature((string)o);
-		else
-		    return Signature.Empty;
-	    }
-	    set {
-		if (value == Signature.Empty)
-		    Header.Fields.Remove(FieldCode.Signature);
-		else
-		    Header.Fields[FieldCode.Signature] = value;
+		return signature.e() 
+		    ? Signature.Empty : new Signature(signature);
 	    }
 	}
 
 	public bool ReplyExpected
 	{
 	    get {
-		return (Header.Flags & HeaderFlag.NoReplyExpected)
+		return (flags & HeaderFlag.NoReplyExpected)
 		          == HeaderFlag.None;
 	    }
 	    set {
 		if (value)
-		    Header.Flags &= ~HeaderFlag.NoReplyExpected;
+		    flags &= ~HeaderFlag.NoReplyExpected;
 		else
-		    Header.Flags |= HeaderFlag.NoReplyExpected;
+		    flags |= HeaderFlag.NoReplyExpected;
 	    }
 	}
 	
@@ -60,62 +59,140 @@ namespace Wv
 	    var it = new WvDBusIter((EndianFlag)data[0], "yyyyuua{yv}", data)
 		.GetEnumerator();
 
-	    Header h;
-	    h.Endianness   = (EndianFlag)(byte)it.pop();
-	    h.MessageType  = (MessageType)(byte)it.pop();
-	    h.Flags        = (HeaderFlag)(byte)it.pop();
-	    h.MajorVersion = it.pop();
-	    h.Length       = it.pop();
-	    h.Serial       = it.pop();
-	    h.Fields = new Dictionary<FieldCode,object>();
+	    endian   = (EndianFlag)(byte)it.pop();
+	    type     = (MessageType)(byte)it.pop();
+	    flags    = (HeaderFlag)(byte)it.pop();
+	    it.pop(); // version
+	    it.pop(); // length
+	    serial = it.pop();
 	    foreach (var _f in it.pop())
 	    {
 		var f = _f.GetEnumerator();
 	        FieldCode c = (FieldCode)(byte)f.pop();
-		object o = f.pop().inner;
+		var v = f.pop();
 		wv.print("code:{0} type:{1} val:'{2}'\n",
-			 c, o.GetType(), o);
-		h.Fields[c] = o;
+			 c, v.inner.GetType(), v);
+		switch (c)
+		{
+		case FieldCode.Sender:
+		    sender = v;
+		    break;
+		case FieldCode.Destination:
+		    dest = v;
+		    break;
+		case FieldCode.ReplySerial:
+		    rserial = v;
+		    break;
+		case FieldCode.Signature:
+		    signature = v;
+		    break;
+		case FieldCode.Path:
+		    path = v;
+		    break;
+		case FieldCode.Interface:
+		    ifc = v;
+		    break;
+		case FieldCode.Member:
+		    method = v;
+		    break;
+		case FieldCode.ErrorName:
+		    err = v;
+		    break;
+		default:
+		    break; // unknown field code, ignore
+		}
 	    }
-	    Header = h;
 	}
-
+	
+	void ww<T>(MessageWriter w, FieldCode c, string sig, T val)
+	{
+	    wv.print("Writing: type={0}/{3}, code={1}, val='{2}'\n",
+		     val.GetType(), c, val, typeof(T));
+	    w.Write((byte)c);
+	    w.Write(new Signature(sig));
+	    w.Write(typeof(T), val);
+	}
+	
 	// Header format is: yyyyuua{yv}
 	public byte[] GetHeaderData()
 	{
-	    if (Body != null)
-		Header.Length = (uint)Body.Length;
-
-	    MessageWriter writer = new MessageWriter(Header.Endianness);
+	    MessageWriter w = new MessageWriter(endian);
 	    
-	    Header h = Header;
-	    writer.Write((byte)h.Endianness);
-	    writer.Write((byte)h.MessageType);
-	    writer.Write((byte)h.Flags);
-	    writer.Write((byte)h.MajorVersion);
-	    writer.Write((uint)h.Length);
-	    writer.Write((uint)h.Serial);
-	
-	    writer.WriteArray(8, h.Fields, (w2, i) => {
-		w2.Write((byte)i.Key);
-		if (i.Key == FieldCode.Path)
+	    w.Write((byte)endian);
+	    w.Write((byte)type);
+	    w.Write((byte)flags);
+	    w.Write((byte)Protocol.Version);
+	    w.Write(Body != null ? (uint)Body.Length : 0);
+	    w.Write((uint)serial);
+	    
+	    // This two-step process is a little convoluted because of the
+	    // way the WriteArray function needs to work.  That, in turn,
+	    // is convoluted because the alignment of an array is complicated:
+	    // there's different padding for zero-element arrays than for
+	    // nonzero-element arrays, and WriteArray does that for us, 
+	    // which means it needs to know in advance how many elements
+	    // are in our array.
+	    
+	    var l = new List<FieldCode>();
+	    if (sender.ne())
+		l.Add(FieldCode.Sender);
+	    if (dest.ne())
+		l.Add(FieldCode.Destination);
+	    if (rserial.HasValue)
+		l.Add(FieldCode.ReplySerial);
+	    if (signature.ne())
+		l.Add(FieldCode.Signature);
+	    if (path.ne())
+		l.Add(FieldCode.Path);
+	    if (ifc.ne())
+		l.Add(FieldCode.Interface);
+	    if (method.ne())
+		l.Add(FieldCode.Member);
+	    if (err.ne())
+		l.Add(FieldCode.ErrorName);
+
+	    w.WriteArray(8, l, (w2, i) => {
+		switch (i)
 		{
-		    w2.Write(new Signature("o"));
-		    w2.Write((string)i.Value);
+		case FieldCode.Sender:
+		    ww(w2, i, "s", sender);
+		    break;
+		case FieldCode.Destination:
+		    ww(w2, i, "s", dest);
+		    break;
+		case FieldCode.ReplySerial:
+		    wv.assert(rserial.Value != 0);
+		    ww(w2, i, "u", rserial.Value);
+		    break;
+		case FieldCode.Signature:
+		    ww(w2, i, "g", Signature);
+		    break;
+		case FieldCode.Path:
+		    ww(w2, i, "o", path);
+		    break;
+		case FieldCode.Interface:
+		    ww(w2, i, "s", ifc);
+		    break;
+		case FieldCode.Member:
+		    ww(w2, i, "s", method);
+		    break;
+		case FieldCode.ErrorName:
+		    ww(w2, i, "s", err);
+		    break;
+		default:
+		    break; // unknown field code, ignore
 		}
-		else
-		    w2.WriteVariant(i.Value.GetType(), i.Value);
 	    });
 	    
-	    writer.WritePad(8); // the header is *always* a multiple of 8
-	    return writer.ToArray();
+	    w.WritePad(8); // the header is *always* a multiple of 8
+	    return w.ToArray();
 	}
 	
 	// FIXME: this whole Message class is junk, so this will presumably
 	// migrate elsewhere eventually.
 	public WvDBusIter iter()
 	{
-	    return new WvDBusIter(Header.Endianness, Header.Signature, Body);
+	    return new WvDBusIter(endian, signature, Body);
 	}
     }
 }

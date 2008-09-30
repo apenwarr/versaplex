@@ -57,49 +57,37 @@ namespace Wv
 			}
 
 			object retObj = null;
-			object[] parmValues = MessageHelper.GetDynamicValues (method_call.message, mi.GetParameters ());
+			object[] parmValues = MessageHelper.GetDynamicValues (method_call.msg, mi.GetParameters ());
 
 			try {
 				retObj = mi.Invoke (obj, parmValues);
 			} catch (TargetInvocationException e) {
-				if (!method_call.message.ReplyExpected)
+				if (!method_call.msg.ReplyExpected)
 					return;
 
 				Exception ie = e.InnerException;
 				//TODO: complete exception sending support
 
-				Error error = new Error (Mapper.GetInterfaceName (ie.GetType ()), method_call.message.Header.Serial);
-				error.message.Signature = new Signature (DType.String);
+				Error error = new Error (Mapper.GetInterfaceName (ie.GetType ()), method_call.msg.serial);
+				error.msg.signature = DType.String.ToString();
 
 				MessageWriter writer = new MessageWriter (Connection.NativeEndianness);
 				writer.connection = conn;
-				writer.Write (ie.Message);
-				error.message.Body = writer.ToArray ();
+				writer.Write(ie.Message);
+				error.msg.Body = writer.ToArray ();
 
 				//TODO: we should be more strict here, but this fallback was added as a quick fix for p2p
 				if (method_call.Sender != null)
-					error.message.Header.Fields[FieldCode.Destination] = method_call.Sender;
+					error.msg.dest = method_call.Sender;
 
-				conn.Send (error.message);
+				conn.Send (error.msg);
 				return;
 			}
 
-			if (method_call.message.ReplyExpected) {
+			if (method_call.msg.ReplyExpected) {
 				Message reply = MessageHelper.ConstructDynamicReply (method_call, mi, retObj, parmValues);
 				conn.Send (reply);
 			}
 		}
-
-		/*
-		public void Ping ()
-		{
-		}
-
-		public string GetMachineId ()
-		{
-			//TODO: implement this
-			return String.Empty;
-		}
-		*/
 	}
 }

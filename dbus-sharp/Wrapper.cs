@@ -1,136 +1,124 @@
 // Copyright 2006 Alp Toker <alp@atoker.com>
 // This software is made available under the MIT License
 // See COPYING for details
-
+//
 using System;
 using System.Collections.Generic;
 using System.IO;
 
 namespace Wv
 {
-	//TODO: complete and use these wrapper classes
-	//not sure exactly what I'm thinking but there seems to be sense here
+    //TODO: complete and use these wrapper classes
+    //not sure exactly what I'm thinking but there seems to be sense here
 
-	//FIXME: signature sending/receiving is currently ambiguous in this code
-	//FIXME: in fact, these classes are totally broken and end up doing no-op, do not use without understanding the problem
-	class MethodCall
+    // FIXME: signature sending/receiving is currently ambiguous in this code
+    // 
+    // FIXME: in fact, these classes are totally broken and end up doing
+    // no-op, do not use without understanding the problem
+    class MethodCall
+    {
+	public Message msg = new Message ();
+
+	public MethodCall (string path, string @interface, string member, string destination, string signature)
 	{
-		public Message message = new Message ();
-
-		public MethodCall (string path, string @interface, string member, string destination, Signature signature)
-		{
-			message.Header.MessageType = MessageType.MethodCall;
-			message.ReplyExpected = true;
-			message.Header.Fields[FieldCode.Path] = path;
-			if (@interface != null)
-				message.Header.Fields[FieldCode.Interface] = @interface;
-			message.Header.Fields[FieldCode.Member] = member;
-			message.Header.Fields[FieldCode.Destination] = destination;
-			//TODO: consider setting Sender here for p2p situations
-			//this will allow us to remove the p2p hacks in MethodCall and Message
-			//message.Header.Fields[FieldCode.Signature] = signature;
-			//use the wrapper in Message because it checks for emptiness
-			message.Signature = signature;
-		}
-
-		public MethodCall (Message message)
-		{
-			this.message = message;
-			Path = message.Header.ObjectPath;
-			if (message.Header.Fields.ContainsKey (FieldCode.Interface))
-				Interface = (string)message.Header.Fields[FieldCode.Interface];
-			Member = (string)message.Header.Fields[FieldCode.Member];
-			Destination = (string)message.Header.Fields[FieldCode.Destination];
-			//TODO: filled by the bus so reliable, but not the case for p2p
-			//so we make it optional here, but this needs some more thought
-			if (message.Header.Fields.ContainsKey (FieldCode.Sender))
-				Sender = (string)message.Header.Fields[FieldCode.Sender];
-			//Signature = (Signature)message.Header.Fields[FieldCode.Signature];
-			//use the wrapper in Message because it checks for emptiness
-			Signature = message.Signature;
-		}
-
-		public string Path;
-		public string Interface;
-		public string Member;
-		public string Destination;
-		public string Sender;
-		public Signature Signature;
+	    msg.type = MessageType.MethodCall;
+	    msg.ReplyExpected = true;
+	    msg.path = path;
+	    if (@interface != null)
+		msg.ifc = @interface;
+	    msg.method = member;
+	    msg.dest = destination;
+	    msg.signature = signature;
 	}
 
-	class MethodReturn
+	public MethodCall (Message msg)
 	{
-		public Message message = new Message ();
-
-		public MethodReturn (uint reply_serial)
-		{
-			message.Header.MessageType = MessageType.MethodReturn;
-			message.Header.Flags = HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
-			message.Header.Fields[FieldCode.ReplySerial] = reply_serial;
-			//signature optional?
-			//message.Header.Fields[FieldCode.Signature] = signature;
-		}
-
-		public MethodReturn (Message message)
-		{
-			this.message = message;
-			ReplySerial = (uint)message.Header.Fields[FieldCode.ReplySerial];
-		}
-
-		public uint ReplySerial;
+	    this.msg = msg;
+	    Path = msg.path;
+	    Interface = msg.ifc;
+	    Member = msg.method;
+	    Destination = msg.dest;
+	    Sender = msg.sender;
+	    Signature = msg.Signature;
 	}
 
-	class Error
+	public string Path;
+	public string Interface;
+	public string Member;
+	public string Destination;
+	public string Sender;
+	public Signature Signature;
+    }
+
+    class MethodReturn
+    {
+	public Message msg = new Message ();
+
+	public MethodReturn (uint reply_serial)
 	{
-		public Message message = new Message ();
-
-		public Error (string error_name, uint reply_serial)
-		{
-			message.Header.MessageType = MessageType.Error;
-			message.Header.Flags = HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
-			message.Header.Fields[FieldCode.ErrorName] = error_name;
-			message.Header.Fields[FieldCode.ReplySerial] = reply_serial;
-		}
-
-		public Error (Message message)
-		{
-			this.message = message;
-			ErrorName = (string)message.Header.Fields[FieldCode.ErrorName];
-			ReplySerial = (uint)message.Header.Fields[FieldCode.ReplySerial];
-			//Signature = (Signature)message.Header.Fields[FieldCode.Signature];
-		}
-
-		public string ErrorName;
-		public uint ReplySerial;
-		//public Signature Signature;
+	    msg.type = MessageType.MethodReturn;
+	    msg.flags = HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
+	    msg.rserial = reply_serial;
 	}
 
-	class Signal
+	public MethodReturn (Message msg)
 	{
-		public Message message = new Message ();
-
-		public Signal (string path, string @interface, string member)
-		{
-			message.Header.MessageType = MessageType.Signal;
-			message.Header.Flags = HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
-			message.Header.Fields[FieldCode.Path] = path;
-			message.Header.Fields[FieldCode.Interface] = @interface;
-			message.Header.Fields[FieldCode.Member] = member;
-		}
-
-		public Signal (Message message)
-		{
-			this.message = message;
-			Path = message.Header.ObjectPath;
-			Interface = (string)message.Header.Fields[FieldCode.Interface];
-			Member = (string)message.Header.Fields[FieldCode.Member];
-			if (message.Header.Fields.ContainsKey (FieldCode.Sender))
-				Sender = (string)message.Header.Fields[FieldCode.Sender];
-		}
-
-		public string Path;
-		public string Interface;
-		public string Member;
-		public string Sender;
+	    this.msg = msg;
+	    ReplySerial = msg.rserial.Value;
 	}
+
+	public uint ReplySerial;
+    }
+
+    class Error
+    {
+	public Message msg = new Message ();
+
+	public Error (string error_name, uint reply_serial)
+	{
+	    msg.type = MessageType.Error;
+	    msg.flags = HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
+	    msg.err = error_name;
+	    msg.rserial = reply_serial;
+	}
+
+	public Error (Message msg)
+	{
+	    this.msg = msg;
+	    ErrorName = msg.err;
+	    ReplySerial = msg.rserial.Value;
+	}
+
+	public string ErrorName;
+	public uint ReplySerial;
+	//public Signature Signature;
+    }
+
+    class Signal
+    {
+	public Message msg = new Message ();
+
+	public Signal (string path, string @interface, string member)
+	{
+	    msg.type = MessageType.Signal;
+	    msg.flags = HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
+	    msg.path = path;
+	    msg.ifc = @interface;
+	    msg.method = member;
+	}
+
+	public Signal (Message msg)
+	{
+	    this.msg = msg;
+	    Path = msg.path;
+	    Interface = msg.ifc;
+	    Member = msg.method;
+	    Sender = msg.sender;
+	}
+
+	public string Path;
+	public string Interface;
+	public string Member;
+	public string Sender;
+    }
 }

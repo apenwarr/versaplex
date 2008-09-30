@@ -128,16 +128,16 @@ namespace Wv
 	internal void SendWithReply(Message msg, Action<Message> replyaction)
 	{
 	    msg.ReplyExpected = true;
-	    msg.Header.Serial = GenerateSerial();
-	    rserial_to_action[msg.Header.Serial] = replyaction;
+	    msg.serial = GenerateSerial();
+	    rserial_to_action[msg.serial] = replyaction;
 	    WriteMessage(msg);
 	}
 
 	public uint Send(Message msg)
 	{
-	    msg.Header.Serial = GenerateSerial();
+	    msg.serial = GenerateSerial();
 	    WriteMessage(msg);
-	    return msg.Header.Serial;
+	    return msg.serial;
 	}
 
 	object writeLock = new object();
@@ -148,6 +148,10 @@ namespace Wv
 	    long msgLength = HeaderData.Length + (msg.Body != null ? msg.Body.Length : 0);
 	    if (msgLength > Protocol.MaxMessageLength)
 		throw new Exception("Message length " + msgLength + " exceeds maximum allowed " + Protocol.MaxMessageLength + " bytes");
+	    
+	    wv.print("Sending! Header:\n{0}\nBody:\n{1}\n",
+		     wv.hexdump(HeaderData), 
+		     wv.hexdump(msg.Body));
 
 	    lock (writeLock) {
 		ns.Write(HeaderData, 0, HeaderData.Length);
@@ -388,13 +392,10 @@ namespace Wv
 	    if (msg == null)
 		return;
 
-	    object _rserial
-		= msg.Header.Fields.tryget(FieldCode.ReplySerial);
-	    if (_rserial != null)
+	    if (msg.rserial.HasValue)
 	    {
-		uint rserial = (uint)_rserial;
 		Action<Message> raction 
-		    = rserial_to_action.tryget(rserial);
+		    = rserial_to_action.tryget(msg.rserial.Value);
 		if (raction != null)
 		{
 		    raction(msg);
@@ -402,7 +403,7 @@ namespace Wv
 		}
 	    }
 
-	    switch (msg.Header.MessageType)
+	    switch (msg.type)
 	    {
 	    case MessageType.MethodCall:
 		MethodCall method_call = new MethodCall(msg);
@@ -423,7 +424,7 @@ namespace Wv
 		break;
 	    case MessageType.Invalid:
 	    default:
-		throw new Exception("Invalid message received: MessageType='" + msg.Header.MessageType + "'");
+		throw new Exception("Invalid message received: MessageType='" + msg.type + "'");
 	    }
 	}
 

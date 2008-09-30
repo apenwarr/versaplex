@@ -65,25 +65,21 @@ internal class VxDbusSchema : ISchemaBackend
 
         Message reply = bus.SendWithReplyAndBlock(call);
 
-        switch (reply.Header.MessageType) {
+        switch (reply.type)
+	{
         case MessageType.MethodReturn:
         case MessageType.Error:
         {
-            object replysig;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out replysig))
+	    if (reply.signature.e())
                 throw new Exception("D-Bus reply had no signature.");
 
-            if (replysig == null)
-                throw new Exception("D-Bus reply had null signature");
-
             // Some unexpected error
-            if (replysig.ToString() == "s")
+            if (reply.signature == "s")
                 throw VxDbusUtils.GetDbusException(reply);
 
-            if (replysig.ToString() != VxSchemaErrors.GetDbusSignature())
+            if (reply.signature != VxSchemaErrors.GetDbusSignature())
                 throw new Exception("D-Bus reply had invalid signature: " +
-                    replysig);
+                    reply.signature);
 
             VxSchemaErrors errors = new VxSchemaErrors(reply.iter().pop());
             return errors;
@@ -109,17 +105,15 @@ internal class VxDbusSchema : ISchemaBackend
 
         Message reply = bus.SendWithReplyAndBlock(call);
 
-        switch (reply.Header.MessageType) {
+        switch (reply.type) {
         case MessageType.MethodReturn:
         {
-            object replysig;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out replysig))
+            if (reply.signature.e())
                 throw new Exception("D-Bus reply had no signature");
 
-            if (replysig == null || replysig.ToString() != "a(sssy)")
+            if (reply.signature != "a(sssy)")
                 throw new Exception("D-Bus reply had invalid signature: " +
-                    replysig);
+				    reply.signature);
 
             VxSchema schema = new VxSchema(reply.iter().pop());
             return schema;
@@ -145,17 +139,15 @@ internal class VxDbusSchema : ISchemaBackend
 
         Message reply = bus.SendWithReplyAndBlock(call);
 
-        switch (reply.Header.MessageType) {
+        switch (reply.type) {
         case MessageType.MethodReturn:
         {
-            object replysig;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out replysig))
+            if (reply.signature.e())
                 throw new Exception("D-Bus reply had no signature");
 
-            if (replysig == null || replysig.ToString() != "a(sat)")
+            if (reply.signature != "a(sat)")
                 throw new Exception("D-Bus reply had invalid signature: " +
-                    replysig);
+				    reply.signature);
 
             VxSchemaChecksums sums = new VxSchemaChecksums(reply);
             return sums;
@@ -187,24 +179,19 @@ internal class VxDbusSchema : ISchemaBackend
 
         Message reply = bus.SendWithReplyAndBlock(call);
 
-        switch (reply.Header.MessageType) {
+        switch (reply.type) {
         case MessageType.MethodReturn:
         case MessageType.Error:
         {
-            object replysig;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out replysig))
+            if (reply.signature.e())
                 throw new Exception("D-Bus reply had no signature.");
 
-            if (replysig == null)
-                throw new Exception("D-Bus reply had null signature");
-
-            if (replysig.ToString() == "s")
+            if (reply.signature == "s")
                 throw VxDbusUtils.GetDbusException(reply);
 
-            if (replysig.ToString() != VxSchemaErrors.GetDbusSignature())
+            if (reply.signature != VxSchemaErrors.GetDbusSignature())
                 throw new Exception("D-Bus reply had invalid signature: " +
-                    replysig);
+                    reply.signature);
 
             VxSchemaErrors errors = new VxSchemaErrors(reply.iter().pop());
             return errors;
@@ -230,17 +217,15 @@ internal class VxDbusSchema : ISchemaBackend
 
         Message reply = bus.SendWithReplyAndBlock(call);
 
-        switch (reply.Header.MessageType) {
+        switch (reply.type) {
         case MessageType.MethodReturn:
         {
-            object replysig;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out replysig))
+            if (reply.signature.e())
                 throw new Exception("D-Bus reply had no signature");
 
-            if (replysig == null || replysig.ToString() != "s")
+            if (reply.signature != "s")
                 throw new Exception("D-Bus reply had invalid signature: " +
-                    replysig);
+                    reply.signature);
 
             return reply.iter().pop();
         }
@@ -264,14 +249,12 @@ internal class VxDbusSchema : ISchemaBackend
 
         Message reply = bus.SendWithReplyAndBlock(call);
 
-        switch (reply.Header.MessageType) {
+        switch (reply.type) {
         case MessageType.MethodReturn:
         {
-            object replysig;
-            if (reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out replysig))
+            if (reply.signature.ne())
                 throw new Exception("D-Bus reply had unexpected signature" + 
-                    replysig);
+                    reply.signature);
 
             return;
         }

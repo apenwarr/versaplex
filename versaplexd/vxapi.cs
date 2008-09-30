@@ -29,13 +29,13 @@ internal static class VxDb {
 
 
     internal static void SendChunkRecordSignal(Connection conn,
-					       Message call, object sender,
+					       Message call, string sender,
 					    VxColumnInfo[] colinfo,
 					    object[][] data, byte[][] nulls)
     {
 	MessageWriter writer =
 	    VxDbInterfaceRouter.PrepareRecordsetWriter(colinfo, data, nulls);
-	writer.Write(typeof(uint), call.Header.Serial);
+	writer.Write(typeof(uint), call.serial);
 
 	Message signal = VxDbus.CreateSignal(sender, "ChunkRecordsetSig",
 				   	"a(issnny)vaayu",
@@ -114,9 +114,7 @@ internal static class VxDb {
 
         log.print(WvLog.L.Debug3, "ExecChunkRecordset {0}\n", query);
 
-	object sender;
-        if (!call.Header.Fields.TryGetValue(FieldCode.Sender, out sender))
-	    sender = null;
+	string sender = call.sender;
 
         try
 	{
@@ -501,10 +499,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 
     public static string GetClientId(Message call)
     {
-        object sender_obj;
-        if (!call.Header.Fields.TryGetValue(FieldCode.Sender, out sender_obj))
-            return null;
-        string sender = (string)sender_obj;
+        string sender = call.sender;
 
         // For now, the client ID is just the username of the Unix UID that
         // DBus has associated with the connection.
@@ -647,7 +642,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 
         MessageWriter writer =
                 new MessageWriter(Connection.NativeEndianness);
-        writer.Write(result);
+        writer.WriteV(result);
 
         reply = VxDbus.CreateReply(call, "v", writer);
 	
@@ -953,9 +948,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             writer);
         if (errs != null && errs.Count > 0)
         {
-            reply.Header.MessageType = MessageType.Error;
-            reply.Header.Fields[FieldCode.ErrorName] = 
-                "org.freedesktop.DBus.Error.Failed";
+            reply.type = MessageType.Error;
+            reply.err = "org.freedesktop.DBus.Error.Failed";
         }
     }
 
@@ -996,9 +990,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             writer);
         if (errs != null && errs.Count > 0)
         {
-            reply.Header.MessageType = MessageType.Error;
-            reply.Header.Fields[FieldCode.ErrorName] = 
-                "org.freedesktop.DBus.Error.Failed";
+            reply.type = MessageType.Error;
+            reply.err = "org.freedesktop.DBus.Error.Failed";
         }
     }
 

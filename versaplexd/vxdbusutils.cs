@@ -1,5 +1,6 @@
 using System;
 using Wv;
+using Wv.Extensions;
 
 // Utility methods for dealing with DBus
 class VxDbusUtils
@@ -16,17 +17,14 @@ class VxDbusUtils
     // returns them in an exception.
     public static Exception GetDbusException(Message reply)
     {
-        object errname;
-        if (!reply.Header.Fields.TryGetValue(FieldCode.ErrorName, out errname))
+        if (reply.err.e())
             return new Exception("Could not find error name in DBus message.");
 
-        object errsig;
-        if (!reply.Header.Fields.TryGetValue(FieldCode.Signature, out errsig) || 
-                errsig.ToString() != "s")
-            return new DbusError(errname.ToString());
+	if (!reply.signature.ne() || reply.signature != "s")
+            return new DbusError(reply.err);
 
         string errmsg = reply.iter().pop();
-        return new DbusError(errname.ToString() + ": " + errmsg.ToString());
+        return new DbusError(wv.fmt("{0}: {1}", reply.err, errmsg));
     }
 
     // Create a method call using the default connection, object path, and
@@ -42,20 +40,13 @@ class VxDbusUtils
             string path, string iface, string member, string signature)
     {
         Message msg = new Message();
-        msg.Header.MessageType = MessageType.MethodCall;
-        msg.Header.Flags = HeaderFlag.None;
-        msg.Header.Fields[FieldCode.Path] = path;
-        msg.Header.Fields[FieldCode.Member] = member;
-
-        if (destination != null && destination != "")
-            msg.Header.Fields[FieldCode.Destination] = destination;
-        
-        if (iface != null && iface != "")
-            msg.Header.Fields[FieldCode.Interface] = iface;
-
-        if (signature != null && signature != "")
-            msg.Header.Fields[FieldCode.Signature] = new Signature(signature);
-
+        msg.type = MessageType.MethodCall;
+        msg.flags = HeaderFlag.None;
+        msg.path = path;
+        msg.method = member;
+	msg.dest = destination;
+        msg.ifc = iface;
+	msg.signature = signature;
         return msg;
     }
 

@@ -117,24 +117,20 @@ public class VersaplexTester: IDisposable
 
         Message reply = bus.SendWithReplyAndBlock(call);
 
-        switch (reply.Header.MessageType) {
+        switch (reply.type) {
         case MessageType.MethodReturn:
             return true;
         case MessageType.Error:
         {
-            object errname;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.ErrorName,
-                        out errname))
+            if (reply.err.e())
                 throw new Exception("D-Bus error received but no error name "
                         +"given");
 
-            object errsig;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out errsig) || errsig.ToString() != "s")
-                throw new DbusError(errname.ToString());
+            if (reply.signature != "s")
+                throw new DbusError(reply.err);
 
 	    string errmsg = reply.iter().pop();
-            throw new DbusError(errname.ToString() + ": " + errmsg.ToString());
+            throw new DbusError(reply.err + ": " + errmsg);
         }
         default:
             throw new Exception("D-Bus response was not a method return or "
@@ -155,15 +151,13 @@ public class VersaplexTester: IDisposable
 
         Message reply = bus.SendWithReplyAndBlock(call);
 
-        switch (reply.Header.MessageType) {
+        switch (reply.type) {
         case MessageType.MethodReturn:
         {
-            object replysig;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out replysig))
+            if (reply.signature.e())
                 throw new Exception("D-Bus reply had no signature");
 
-            if (replysig == null || replysig.ToString() != "v")
+            if (reply.signature != "v")
                 throw new Exception("D-Bus reply had invalid signature");
 
 	    result = reply.iter().pop().inner;
@@ -171,19 +165,15 @@ public class VersaplexTester: IDisposable
         }
         case MessageType.Error:
         {
-            object errname;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.ErrorName,
-                        out errname))
+            if (reply.err.e())
                 throw new Exception("D-Bus error received but no error name "
                         +"given");
 
-            object errsig;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out errsig) || errsig.ToString() != "s")
-                throw new DbusError(errname.ToString());
+            if (reply.signature != "s")
+                throw new DbusError(reply.err);
 
             string errmsg = reply.iter().pop();
-            throw new DbusError(errname.ToString() + ": " + errmsg);
+            throw new DbusError(reply.err + ": " + errmsg);
         }
         default:
             throw new Exception("D-Bus response was not a method return or "
@@ -228,7 +218,6 @@ public class VersaplexTester: IDisposable
 	Console.WriteLine(" + VxChunkRecordset SQL Query: {0}", query);
 
 	Message call = VxDbusUtils.CreateMethodCall(bus, "ExecChunkRecordset", "s");
-	//call.Header.Flags = HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
 
 	MessageWriter mw = new MessageWriter(Connection.NativeEndianness);
 	mw.Write(typeof(string), query);
@@ -245,34 +234,28 @@ public class VersaplexTester: IDisposable
 	    object[][] tdata;
 	    bool[][] tnullity;
 	    Message tmp = bus.ReadMessage();
-	    if (tmp.Header.MessageType == MessageType.Signal)
+	    if (tmp.type == MessageType.Signal)
 	    {
 		RecordsetWorker(tmp, out colinfo, out tdata, out tnullity);
 		rowlist.AddRange(tdata);
 		rownulllist.AddRange(tnullity);
 	    }
-	    else if (tmp.Header.MessageType == MessageType.Error)
+	    else if (tmp.type == MessageType.Error)
 	    {
-		object errname;
-		if (!tmp.Header.Fields.TryGetValue(FieldCode.ErrorName,
-                        out errname))
+		if (tmp.err.e())
 		    throw new Exception("D-Bus error received but no error "
 			+ "name given");
 
-		object errsig;
-		if (!tmp.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out errsig) || errsig.ToString() != "s")
-		    throw new DbusError(errname.ToString());
+		if (tmp.signature != "s")
+		    throw new DbusError(tmp.err);
 
 		string errmsg = tmp.iter().pop();
-		throw new DbusError(errname.ToString() + ": " + errmsg);
+		throw new DbusError(tmp.err + ": " + errmsg);
 	    }
 	    else
 	    {
 	    	//Method return
-		object retsig;
-		if (!tmp.Header.Fields.TryGetValue(FieldCode.Signature,
-		    out retsig) || retsig.ToString() != "s")
+		if (tmp.signature != "s")
 		    throw new DbusError("Garbled response for ExecChunkRecordSet");
 		//otherwise, we presume it's our method return response
 		data = rowlist.ToArray();
@@ -287,12 +270,10 @@ public class VersaplexTester: IDisposable
     internal bool RecordsetWorker(Message reply, out VxColumnInfo[] _colinfo,
 				    out object[][] data, out bool[][] nullity)
     {
-        object replysig;
-        if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                    out replysig))
-            throw new Exception("D-Bus reply had no signature");
+        if (reply.signature.e())
+	    throw new Exception("D-Bus reply had no signature");
 
-        if (replysig == null || !replysig.ToString().StartsWith("a(issnny)vaay"))
+        if (!reply.signature.StartsWith("a(issnny)vaay"))
             throw new Exception("D-Bus reply had invalid signature");
 
 	var it = reply.iter();
@@ -368,26 +349,22 @@ public class VersaplexTester: IDisposable
 
         Message reply = bus.SendWithReplyAndBlock(call);
 
-        switch (reply.Header.MessageType) {
+        switch (reply.type) {
         case MessageType.MethodReturn:
         {
 	    return RecordsetWorker(reply, out colinfo, out data, out nullity);
         }
         case MessageType.Error:
         {
-            object errname;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.ErrorName,
-                        out errname))
+            if (reply.err.e())
                 throw new Exception("D-Bus error received but no error name "
                         +"given");
 
-            object errsig;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out errsig) || errsig.ToString() != "s")
-                throw new DbusError(errname.ToString());
+            if (reply.signature != "s")
+                throw new DbusError(reply.err);
 
 	    string errmsg = reply.iter().pop();
-            throw new DbusError(errname.ToString() + ": " + errmsg.ToString());
+            throw new DbusError(reply.err + ": " + errmsg);
         }
         default:
             throw new Exception("D-Bus response was not a method return or "

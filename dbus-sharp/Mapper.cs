@@ -215,23 +215,23 @@ namespace Wv
 	{
 		public static Message CreateUnknownMethodError (MethodCall method_call)
 		{
-			if (!method_call.message.ReplyExpected)
+			if (!method_call.msg.ReplyExpected)
 				return null;
 
 			string errMsg = String.Format ("Method \"{0}\" with signature \"{1}\" on interface \"{2}\" doesn't exist", method_call.Member, method_call.Signature.Value, method_call.Interface);
 
-			Error error = new Error ("org.freedesktop.DBus.Error.UnknownMethod", method_call.message.Header.Serial);
-			error.message.Signature = new Signature (DType.String);
+			Error error = new Error ("org.freedesktop.DBus.Error.UnknownMethod", method_call.msg.serial);
+			error.msg.signature = DType.String.ToString();
 
 			MessageWriter writer = new MessageWriter (Connection.NativeEndianness);
 			writer.Write (errMsg);
-			error.message.Body = writer.ToArray ();
+			error.msg.Body = writer.ToArray ();
 
 			//TODO: we should be more strict here, but this fallback was added as a quick fix for p2p
 			if (method_call.Sender != null)
-				error.message.Header.Fields[FieldCode.Destination] = method_call.Sender;
+				error.msg.dest = method_call.Sender;
 
-			return error.message;
+			return error.msg;
 		}
 
 		public static void WriteDynamicValues (MessageWriter mw, ParameterInfo[] parms, object[] vals)
@@ -276,8 +276,8 @@ namespace Wv
 
 		public static Message ConstructReply (MethodCall method_call, params object[] vals)
 		{
-			MethodReturn method_return = new MethodReturn (method_call.message.Header.Serial);
-			Message replyMsg = method_return.message;
+			MethodReturn method_return = new MethodReturn (method_call.msg.serial);
+			Message replyMsg = method_return.msg;
 
 			Signature inSig = Signature.GetSig (vals);
 
@@ -292,12 +292,9 @@ namespace Wv
 
 			//TODO: we should be more strict here, but this fallback was added as a quick fix for p2p
 			if (method_call.Sender != null)
-				replyMsg.Header.Fields[FieldCode.Destination] = method_call.Sender;
+				replyMsg.dest = method_call.Sender;
 
-			replyMsg.Signature = inSig;
-
-			//replyMsg.WriteHeader ();
-
+		        replyMsg.signature = inSig.ToString();
 			return replyMsg;
 		}
 
@@ -305,8 +302,8 @@ namespace Wv
 		{
 			Type retType = mi.ReturnType;
 
-			MethodReturn method_return = new MethodReturn (method_call.message.Header.Serial);
-			Message replyMsg = method_return.message;
+			MethodReturn method_return = new MethodReturn (method_call.msg.serial);
+			Message replyMsg = method_return.msg;
 
 			Signature outSig = Signature.GetSig (retType);
 			outSig += Signature.GetSig (Mapper.GetTypes (ArgDirection.Out, mi.GetParameters ()));
@@ -326,9 +323,9 @@ namespace Wv
 
 			//TODO: we should be more strict here, but this fallback was added as a quick fix for p2p
 			if (method_call.Sender != null)
-				replyMsg.Header.Fields[FieldCode.Destination] = method_call.Sender;
+				replyMsg.dest = method_call.Sender;
 
-			replyMsg.Signature = outSig;
+		        replyMsg.signature = outSig.ToString();
 
 			return replyMsg;
 		}

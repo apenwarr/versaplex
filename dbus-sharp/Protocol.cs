@@ -8,59 +8,40 @@ using Wv.Extensions;
 
 namespace Wv
 {
-    public struct Header
-    {
-	public EndianFlag Endianness;
-	public MessageType MessageType;
-	public HeaderFlag Flags;
-	public byte MajorVersion;
-	public uint Length;
-	public uint Serial;
-	public IDictionary<FieldCode,object> Fields;
-	
-	public string Signature {
-	    get { return Fields[FieldCode.Signature].ToString(); }
-	}
-	
-	public string ObjectPath {
-	    get { return (string)Fields[FieldCode.Path]; }
-	}
-    }
-
     public enum MessageType : byte
     {
-	Invalid,
-	    MethodCall,
-	    MethodReturn,
-	    Error,
-	    Signal,
+	Invalid      = 0,
+	MethodCall   = 1,
+	MethodReturn = 2,
+	Error        = 3,
+	Signal       = 4,
     }
 
     public enum FieldCode : byte
     {
-	Invalid,
-	    Path,
-	    Interface,
-	    Member,
-	    ErrorName,
-	    ReplySerial,
-	    Destination,
-	    Sender,
-	    Signature,
+	Invalid     = 0,
+	Path        = 1,
+	Interface   = 2,
+	Member      = 3,
+	ErrorName   = 4,
+	ReplySerial = 5,
+	Destination = 6,
+	Sender      = 7,
+	Signature   = 8,
     }
 
     public enum EndianFlag : byte
     {
 	Little = (byte)'l',
-	    Big = (byte)'B',
+	   Big = (byte)'B',
     }
 
     [Flags]
     public enum HeaderFlag : byte
     {
-	None = 0,
-	    NoReplyExpected = 0x1,
-	    NoAutoStart = 0x2,
+	None            = 0x00,
+	NoReplyExpected = 0x01,
+	NoAutoStart     = 0x02,
     }
 
     static class Protocol
