@@ -23,7 +23,7 @@ namespace Wv
      * When converting to bool, we assume any non-zero int is true, just
      * like C/C++ would do. 
      */
-    public struct WvAutoCast : IEnumerable<WvAutoCast>, IEnumerable<object>
+    public struct WvAutoCast : IEnumerable<WvAutoCast>
     {
 	object v;
 	public static readonly WvAutoCast _null = new WvAutoCast(null);
@@ -49,6 +49,8 @@ namespace Wv
 		return "(nil)"; // shouldn't return null since this != null
             else if (v is Boolean)
                 return intify().ToString();
+	    else if (v is IEnumerable<WvAutoCast>)
+		return "[" + this.Join(",") + "]";
 	    else
 		return v.ToString();
 	}
@@ -248,20 +250,10 @@ namespace Wv
 		yield return i;
 	}
 	
-	// FIXME: How do we know which of these enumerators gets chosen
-	// by default?
-	public IEnumerator<WvAutoCast> 
-	    GetEnumerator()
+	public IEnumerator<WvAutoCast> GetEnumerator()
 	{
 	    foreach (object i in _iter())
 		yield return new WvAutoCast(i);
-	}
-	
-	IEnumerator<object>
-	    SCG.IEnumerable<object>.GetEnumerator()
-	{
-	    foreach (var i in _iter())
-		yield return i;
 	}
     }
     
