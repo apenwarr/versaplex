@@ -120,6 +120,7 @@ namespace Wv.Transports
 	class UnixNativeTransport : Transport
 	{
 		UnixSocket socket;
+	        Stream stream;
 
 		internal UnixNativeTransport(AddressEntry entry)
 		{
@@ -154,7 +155,7 @@ namespace Wv.Transports
 				socket = OpenUnix (path);
 
 			//socket.Blocking = true;
-			Stream = new UnixStream ((int)socket.Handle);
+			stream = new UnixStream ((int)socket.Handle);
 		}
 
 		//send peer credentials null byte
@@ -197,12 +198,12 @@ namespace Wv.Transports
 					Console.Error.WriteLine ("Warning: WriteBsdCred() failed; falling back to ordinary WriteCred()");
 				//null credentials byte
 				byte buf = 0;
-				Stream.WriteByte (buf);
+				stream.WriteByte (buf);
 			}
 #else
 			//null credentials byte
 			byte buf = 0;
-			Stream.WriteByte (buf);
+			tream.WriteByte (buf);
 #endif
 		}
 
@@ -246,6 +247,16 @@ namespace Wv.Transports
 			client.Connect (sa);
 
 			return client;
+		}
+	    
+	        public override int read(WvBytes b)
+	        {
+		    return stream.Read(b.bytes, b.start, b.len);
+		}
+	    
+	        public override void write(WvBytes b)
+	        {
+		    stream.Write(b.bytes, b.start, b.len);
 		}
 	}
 

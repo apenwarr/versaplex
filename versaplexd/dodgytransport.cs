@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using Mono.Unix;
@@ -6,6 +7,8 @@ using Wv;
 
 class DodgyTransport : Wv.Transports.Transport
 {
+    public Stream stream;
+    
     // This has to be a separate function so we can delay JITting it until
     // we're sure it's mono.
     string MonoAuthString()
@@ -25,7 +28,7 @@ class DodgyTransport : Wv.Transports.Transport
 
     public override void WriteCred()
     {
-        Stream.WriteByte(0);
+        stream.WriteByte(0);
     }
 
     public DodgyTransport(AddressEntry entry)
@@ -60,7 +63,7 @@ class DodgyTransport : Wv.Transports.Transport
 					      entry.Method));
 	
         socket.Blocking = true;
-        Stream = new NetworkStream(socket);
+        stream = new NetworkStream(socket);
     }
 
     protected VxNotifySocket OpenAbstractUnix(string path)
@@ -95,5 +98,15 @@ class DodgyTransport : Wv.Transports.Transport
     protected VxNotifySocket socket;
     public VxNotifySocket Socket {
         get { return socket; }
+    }
+	    
+    public override int read(WvBytes b)
+    {
+	return stream.Read(b.bytes, b.start, b.len);
+    }
+    
+    public override void write(WvBytes b)
+    {
+	stream.Write(b.bytes, b.start, b.len);
     }
 }

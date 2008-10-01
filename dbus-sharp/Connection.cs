@@ -46,18 +46,7 @@ namespace Wv
 
     public class Connection
     {
-	//TODO: reconsider this field
-	public Stream ns = null;
-
-	Transport transport;
-	public Transport Transport {
-	    get {
-		return transport;
-	    }
-	    set {
-		transport = value;
-	    }
-	}
+	public Transport transport;
 
 	// FIXME: There should be a better way to hack in a socket
 	// created elsewhere
@@ -71,9 +60,6 @@ namespace Wv
 	    OnMessage = HandleMessage;
 	    this.transport = transport;
 	    transport.Connection = this;
-
-	    //TODO: clean this bit up
-	    ns = transport.Stream;
 	    
 	    Authenticate();
 	    Register();
@@ -118,9 +104,6 @@ namespace Wv
 	    AddressEntry entry = entries[0];
 
 	    transport = Transport.Create(entry);
-
-	    //TODO: clean this bit up
-	    ns = transport.Stream;
 	}
 
 	internal void Authenticate()
@@ -186,9 +169,9 @@ namespace Wv
 		     wv.hexdump(HeaderData), 
 		     wv.hexdump(msg.Body));
 
-	    ns.Write(HeaderData, 0, HeaderData.Length);
+	    transport.write(HeaderData);
 	    if (msg.Body != null && msg.Body.Length != 0)
-		ns.Write(msg.Body, 0, msg.Body.Length);
+		transport.write(msg.Body);
 	}
 	
 	WvBuf inbuf = new WvBuf();
@@ -199,7 +182,9 @@ namespace Wv
 	    if (needed <= 0) return;
 	    
 	    WvBytes b = inbuf.alloc(needed);
-	    int got = ns.Read(b.bytes, b.start, b.len);
+	    int got = transport.read(b);
+	    if (got == 0)
+		throw new IOException("Read zero bytes");
 	    inbuf.unalloc(needed-got);
 	}
 	
@@ -216,12 +201,12 @@ namespace Wv
 	// FIXME: a blocking Read isn't particularly useful
 	public Message ReadMessage()
 	{
-	    while (inbuf.used < 16 && ns.CanRead)
+	    while (inbuf.used < 16)
 		readbytes(16);
 	    if (inbuf.used < 16)
 		return null;
 	    int needed = Message.bytes_needed(inbuf.peek(16));
-	    while (inbuf.used < needed && ns.CanRead)
+	    while (inbuf.used < needed)
 		readbytes(needed);
 	    if (inbuf.used < needed)
 		return null;

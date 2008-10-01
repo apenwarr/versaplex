@@ -11,7 +11,8 @@ namespace Wv.Transports
 {
 	class SocketTransport : Transport
 	{
-		protected Socket socket;
+	        Socket socket;
+	        Stream stream;
 
 	        internal SocketTransport(AddressEntry entry)
 		{
@@ -34,7 +35,7 @@ namespace Wv.Transports
 		{
 			//TODO: use Socket directly
 			TcpClient client = new TcpClient (host, port);
-			Stream = client.GetStream ();
+			stream = client.GetStream ();
 		}
 
 		void Open (Socket socket)
@@ -42,17 +43,27 @@ namespace Wv.Transports
 			this.socket = socket;
 
 			socket.Blocking = true;
-			Stream = new NetworkStream (socket);
+			stream = new NetworkStream (socket);
 		}
 
 	        public override void WriteCred ()
 		{
-			Stream.WriteByte (0);
+			stream.WriteByte (0);
 		}
 
 		public override string AuthString ()
 		{
 			return String.Empty;
+		}
+	    
+	        public override int read(WvBytes b)
+	        {
+		    return stream.Read(b.bytes, b.start, b.len);
+		}
+	    
+	        public override void write(WvBytes b)
+	        {
+		    stream.Write(b.bytes, b.start, b.len);
 		}
 	}
 }

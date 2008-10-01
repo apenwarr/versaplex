@@ -200,8 +200,7 @@ public static class VersaMain
         }
 
         VxBufferStream vxbs = new VxBufferStream(trans.Socket);
-        conn.Transport.Stream = vxbs;
-        conn.ns = conn.Transport.Stream;
+        trans.stream = vxbs;
         vxbs.Cookie = conn;
         vxbs.DataReady += DataReady;
         vxbs.NoMoreData += NoMoreData;

@@ -3,7 +3,7 @@
 // See COPYING for details
 //
 using System;
-using System.IO;
+using Wv;
 
 namespace Wv.Transports
 {
@@ -26,10 +26,8 @@ namespace Wv.Transports
 
 	public Connection Connection;
 
-	//TODO: design this properly
-
-	//this is just a temporary solution
-	public Stream Stream;
+	public abstract void write(WvBytes b);
+	public abstract int read(WvBytes b);
 	public abstract string AuthString();
 	public abstract void WriteCred();
     }
