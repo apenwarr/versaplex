@@ -189,5 +189,10 @@ namespace Wv.Extensions
 	{
 	    return b.sub(start, len);
 	}
+	
+	public static void put(this WvBytes dest, int offset, WvBytes src)
+	{
+	    dest.put(offset, src);
+	}
     }
 }
