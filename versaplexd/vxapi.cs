@@ -660,7 +660,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 			out coltype, out result);
 
         MessageWriter writer = new MessageWriter();
-	writer.Write(new Signature(VxColumnTypeToSignature(coltype)));
+	writer.WriteSig(VxColumnTypeToSignature(coltype));
 	WriteV(writer, coltype, result);
 
         reply = VxDbus.CreateReply(call, "v", writer);
@@ -779,14 +779,14 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 	}
     }
 
-    static Signature VxColumnInfoToArraySignature(VxColumnInfo[] vxci)
+    static string VxColumnInfoToArraySignature(VxColumnInfo[] vxci)
     {
         StringBuilder sig = new StringBuilder("a(");
         foreach (VxColumnInfo ci in vxci)
 	    sig.Append(VxColumnTypeToSignature(ci.VxColumnType));
         sig.Append(")");
 
-        return new Signature(sig.ToString());
+        return sig.ToString();
     }
 
     private static void CallGetSchemaChecksums(Connection conn,
@@ -1059,10 +1059,10 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 	{
 	    // Some clients can't parse a() (empty struct) properly, so
 	    // we'll have an empty array of (i) instead.
-	    writer.Write(new Signature("a(i)"));
+	    writer.WriteSig("a(i)");
 	}
 	else
-	    writer.Write(VxColumnInfoToArraySignature(colinfo));
+	    writer.WriteSig(VxColumnInfoToArraySignature(colinfo));
 
 	// a(whatever)
 	writer.WriteArray(8, data, (w2, r) => {

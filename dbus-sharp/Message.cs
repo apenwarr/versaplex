@@ -109,7 +109,7 @@ namespace Wv
 	    wv.print("Writing: type={0}/{3}, code={1}, val='{2}'\n",
 		     val.GetType(), c, val, typeof(string));
 	    w.Write((byte)c);
-	    w.Write(new Signature(sig));
+	    w.WriteSig(sig);
 	    w.Write(val);
 	}
 	
@@ -118,17 +118,17 @@ namespace Wv
 	    wv.print("Writing: type={0}/{3}, code={1}, val='{2}'\n",
 		     val.GetType(), c, val, typeof(uint));
 	    w.Write((byte)c);
-	    w.Write(new Signature(sig));
+	    w.WriteSig(sig);
 	    w.Write(val);
 	}
 	
-	void wwsig(MessageWriter w, FieldCode c, string sig, Signature val)
+	void wwsig(MessageWriter w, FieldCode c, string sig, string val)
 	{
 	    wv.print("Writing: type={0}/{3}, code={1}, val='{2}'\n",
 		     val.GetType(), c, val, typeof(Signature));
 	    w.Write((byte)c);
-	    w.Write(new Signature(sig));
-	    w.Write(val);
+	    w.WriteSig(sig);
+	    w.WriteSig(val);
 	}
 	
 	// Header format is: yyyyuua{yv}
@@ -183,7 +183,7 @@ namespace Wv
 		    wwu(w2, i, "u", rserial.Value);
 		    break;
 		case FieldCode.Signature:
-		    wwsig(w2, i, "g", Signature);
+		    wwsig(w2, i, "g", signature);
 		    break;
 		case FieldCode.Path:
 		    wws(w2, i, "o", path);

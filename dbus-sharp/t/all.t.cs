@@ -41,7 +41,7 @@ class DbusTest
 	    });
 	    
 	    // variant
-	    w.Write(new Signature("s"));
+	    w.WriteSig("s");
 	    w.Write("VSTRING");
 	    
 	    w.WriteArray(8, new string[] { "a", "aaa", "aaaaa" }, (w2, i) => {

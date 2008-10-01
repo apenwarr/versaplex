@@ -97,9 +97,9 @@ namespace Wv
 	    WriteNull();
 	}
 
-	public void Write(Signature val)
+	public void WriteSig(string val)
 	{
-	    byte[] b = val.GetBuffer();
+	    byte[] b = val.ToUTF8();
 
 	    if (b.Length > Protocol.MaxSignatureLength)
 		throw new Exception
