@@ -54,7 +54,7 @@ namespace Wv
 	    }
 	}
 	
-	public void SetHeaderData(byte[] data)
+	public void SetHeaderData(WvBytes data)
 	{
 	    var it = new WvDBusIter((EndianFlag)data[0], "yyyyuua{yv}", data)
 		.GetEnumerator();

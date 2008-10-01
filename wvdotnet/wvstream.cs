@@ -11,8 +11,8 @@ namespace Wv
 	EndPoint localaddr { get; }
 	EndPoint remoteaddr { get; }
 	
-	int read(byte[] buf, int offset, int len);
-	int write(byte[] buf, int offset, int len);
+	int read(WvBytes b);
+	int write(WvBytes b);
 	bool flush(int msec_timeout);
 	
 	event Action onreadable;
@@ -148,40 +148,23 @@ namespace Wv
 	    get { return null; }
 	}
 
-	public virtual int read(byte[] buf, int offset, int len)
+	public virtual int read(WvBytes b)
 	{
 	    return 0;
 	}
 	
-	public int read(byte[] buf)
-	{
-	    return read(buf, 0, buf.Length);
-	}
-
 	// for convenience.  Note: always returns non-null, but the returned
 	// array size might be zero.
-	public byte[] read(int len)
+	public WvBytes read(int len)
 	{
-	    byte[] bytes = new byte[len];
-	    int got = read(bytes, 0, len);
-	    if (got < len)
-	    {
-		byte[] ret = new byte[got];
-		Array.Copy(bytes, 0, ret, 0, got);
-		return ret;
-	    }
-	    else
-		return bytes;
+	    WvBytes bytes = new byte[len];
+	    int got = read(bytes);
+	    return bytes.sub(0, got);
 	}
 
-	public virtual int write(byte[] buf, int offset, int len)
+	public virtual int write(WvBytes b)
 	{
-	    return len; // lie: we "wrote" all the bytes to nowhere
-	}
-
-	public int write(byte[] buf)
-	{
-	    return write(buf, 0, buf.Length);
+	    return b.len; // lie: we "wrote" all the bytes to nowhere
 	}
 
 	bool canread = true, canwrite = true;
@@ -283,18 +266,18 @@ namespace Wv
 	    get { return hasinner ? inner.localaddr : base.localaddr; }
 	}
 	
-	public override int read(byte[] buf, int offset, int len)
+	public override int read(WvBytes b)
 	{
 	    if (hasinner)
-		return inner.read(buf, offset, len);
+		return inner.read(b);
 	    else
 		return 0; // 0 bytes read
 	}
 	
-	public override int write(byte[] buf, int offset, int len)
+	public override int write(WvBytes b)
 	{
 	    if (hasinner)
-		return inner.write(buf, offset, len);
+		return inner.write(b);
 	    else
 		return 0; // 0 bytes written
 	}
@@ -349,26 +332,26 @@ namespace Wv
 	{
 	}
 	
-	public override int read(byte[] buf, int offset, int len)
+	public override int read(WvBytes b)
 	{
 	    if (inbuf.used > 0)
 	    {
-		int max = inbuf.used > len ? len : inbuf.used;
-		Array.Copy(inbuf.get(max), 0, buf, offset, max);
+		int max = inbuf.used > b.len ? b.len : inbuf.used;
+		b.put(0, inbuf.get(max));
 		post_readable();
 		return max;
 	    }
 	    else
-		return base.read(buf, offset, len);
+		return base.read(b);
 	}
 	
 	public string getline(char splitchar)
 	{
 	    while (isok && inbuf.strchr(splitchar) <= 0)
 	    {
-		byte[] b = inner.read(4096);
+		var b = inner.read(4096);
 		// Console.WriteLine("got {0} bytes", b.Length);
-		if (b.Length == 0)
+		if (b.len == 0)
 		    return null;
 		inbuf.put(b);
 	    }

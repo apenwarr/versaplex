@@ -31,7 +31,7 @@ namespace Wv
 	}
 	
 	object readlock = new object();
-	byte[] inbuf = new byte[4096];
+	WvBytes inbuf = new byte[4096];
 	int in_ofs = 0, in_left = 0;
 	bool got_eof = false;
 	
@@ -49,7 +49,7 @@ namespace Wv
 	    in_ofs = 0;
 	    in_left = 0;
 	    try {
-		inner.BeginRead(inbuf, 0, inbuf.Length,
+		inner.BeginRead(inbuf.bytes, inbuf.start, inbuf.len,
 				delegate(IAsyncResult ar) {
 				    lock (readlock)
 				    {
@@ -67,18 +67,16 @@ namespace Wv
 	    }*/
 	}
 	
-	public override int read(byte[] buf, int offset, int len)
+	public override int read(WvBytes b)
 	{
-	    //Console.WriteLine("read() request");
 	    lock (readlock)
 	    {
 		if (in_left > 0)
 		{
-		    int max = in_left <= len ? in_left : len;
-		    Array.Copy(inbuf, in_ofs, buf, offset, max);
+		    int max = in_left <= b.len ? in_left : b.len;
+		    b.put(0, inbuf.sub(in_ofs, max));
 		    in_ofs += max;
 		    in_left -= max;
-		    //Console.WriteLine("left: {0}", in_left);
 		    if (in_left > 0)
 			post_readable();
 		    else
@@ -93,11 +91,11 @@ namespace Wv
 	    }
 	}
 	
-	public override int write(byte[] buf, int offset, int len)
+	public override int write(WvBytes b)
 	{
 	    if (!isok) return 0;
 	    try {
-		inner.BeginWrite(buf, offset, len,
+		inner.BeginWrite(b.bytes, b.start, b.len,
 				 delegate(IAsyncResult ar) {
 				     inner.EndWrite(ar);
 				     post_writable();
@@ -108,7 +106,7 @@ namespace Wv
 		return 0;
 	    }
 	    
-	    return len;
+	    return b.len;
 	}
 	
 	public override bool flush(int msec_timeout)
