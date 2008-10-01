@@ -27,7 +27,6 @@ wvdbus-sharp.dll: \
 	UnixMonoTransport.cs \
 	UnixNativeTransport.cs \
 	UnixTransport.cs \
-	Wrapper.cs \
 	$(WVDOTNET)/wv.dll
 
 tests: all t/tests

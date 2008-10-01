@@ -392,12 +392,13 @@ namespace Wv
 	    {
 	    case MessageType.Error:
 		//TODO: better exception handling
-		Error error = new Error(msg);
 		string errMsg = String.Empty;
-		if (msg.Signature.Value.StartsWith("s")) {
+		if (msg.signature.StartsWith("s")) {
 		    errMsg = msg.iter().pop();
 		}
-		Console.Error.WriteLine("Remote Error: Signature='" + msg.Signature.Value + "' " + error.ErrorName + ": " + errMsg);
+		Console.Error.WriteLine
+		    ("Remote Error: Signature='" + msg.signature
+		     + "' " + msg.err + ": " + errMsg);
 		break;
 	    case MessageType.Signal:
 	    case MessageType.MethodCall:
