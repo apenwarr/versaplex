@@ -55,12 +55,12 @@ namespace Wv.Extensions
 	    return Encoding.UTF8.GetBytes(o.ToString());
 	}
 
-	public static string FromUTF8(this byte[] bytes)
+	public static string FromUTF8(this WvBytes b)
 	{
-	    return Encoding.UTF8.GetString(bytes);
+	    return Encoding.UTF8.GetString(b.bytes, b.start, b.len);
 	}
 	
-	public static string ToHex(this byte[] bytes)
+	public static string ToHex(this WvBytes bytes)
 	{
 	    StringBuilder sb = new StringBuilder();
 	    foreach (byte b in bytes)
@@ -181,6 +181,13 @@ namespace Wv.Extensions
 		return v;
 	    else
 		return default(V);
+	}
+	
+	// This works if b is a byte[], too, because of the implicit
+	// cast.
+	public static WvBytes sub(this WvBytes b, int start, int len)
+	{
+	    return b.sub(start, len);
 	}
     }
 }

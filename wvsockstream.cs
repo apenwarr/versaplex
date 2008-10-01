@@ -44,14 +44,14 @@ namespace Wv
 	    }
 	}
 
-	public override int read(byte[] buf, int offset, int len)
+	public override int read(WvBytes b)
 	{
 	    if (!isok)
 		return 0;
 
 	    try
 	    {
-		int ret = sock.Receive(buf, offset, len, 0);
+		int ret = sock.Receive(b.bytes, b.start, b.len, 0);
 		if (ret <= 0) // EOF
 		{
 		    nowrite();
@@ -69,12 +69,12 @@ namespace Wv
 	    }
 	}
 
-	public override int write(byte[] buf, int offset, int len)
+	public override int write(WvBytes b)
 	{
 	    if (!isok)
 		return 0;
 
-	    int ret = sock.Send(buf, offset, len, 0);
+	    int ret = sock.Send(b.bytes, b.start, b.len, 0);
 	    if (ret < 0) // Error
 	    {
 		err = new Exception("Write error"); // FIXME
