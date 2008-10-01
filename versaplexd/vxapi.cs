@@ -579,13 +579,13 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
                     "org.freedesktop.DBus.Error.UnknownMethod",
                     String.Format(
                         "No overload of {0} has signature '{1}'",
-                        methodname, call.Signature), call);
+                        methodname, call.signature), call);
     }
 
     private static void CallTest(Connection conn,
 				 Message call, out Message reply)
     {
-        if (call.Signature.ToString() != "") {
+        if (call.signature.ne()) {
             reply = CreateUnknownMethodReply(call, "Test");
             return;
         }
@@ -630,7 +630,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
     private static void CallExecScalar(Connection conn,
 				       Message call, out Message reply)
     {
-        if (call.Signature.ToString() != "s") {
+        if (call.signature != "s") {
             reply = CreateUnknownMethodReply(call, "ExecScalar");
             return;
         }
@@ -685,7 +685,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
     public static void CallExecRecordset(Connection conn,
 					 Message call, out Message reply)
     {
-        if (call.Signature.ToString() != "s") {
+        if (call.signature != "s") {
             reply = CreateUnknownMethodReply(call, "ExecRecordset");
             return;
         }
@@ -729,7 +729,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
     {
 	// XXX: Stuff in this comment block shamelessly stolen from
 	// "CallExecRecordset".
-        if (call.Signature.ToString() != "s") {
+        if (call.signature != "s") {
             reply = CreateUnknownMethodReply(call, "ExecChunkRecordset");
             return;
         }
@@ -792,7 +792,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
     private static void CallGetSchemaChecksums(Connection conn,
 					       Message call, out Message reply)
     {
-        if (call.Signature.ToString() != "") {
+        if (call.signature.ne()) {
             reply = CreateUnknownMethodReply(call, "GetSchemaChecksums");
             return;
         }
@@ -826,7 +826,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
     private static void CallGetSchema(Connection conn,
 				      Message call, out Message reply)
     {
-        if (call.Signature.ToString() != "as") {
+        if (call.signature != "as") {
             reply = CreateUnknownMethodReply(call, "GetSchema");
             return;
         }
@@ -861,7 +861,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
     private static void CallDropSchema(Connection conn,
 				       Message call, out Message reply)
     {
-        if (call.Signature.ToString() != "as") {
+        if (call.signature != "as") {
             reply = CreateUnknownMethodReply(call, "DropSchema");
             return;
         }
@@ -900,7 +900,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
     private static void CallPutSchema(Connection conn,
 				      Message call, out Message reply)
     {
-        if (call.Signature.ToString() != String.Format("{0}i", 
+        if (call.signature != String.Format("{0}i", 
                 VxSchema.GetDbusSignature())) {
             reply = CreateUnknownMethodReply(call, "PutSchema");
             return;
@@ -942,7 +942,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
     private static void CallGetSchemaData(Connection conn,
 					  Message call, out Message reply)
     {
-        if (call.Signature.ToString() != "ss") {
+        if (call.signature != "ss") {
             reply = CreateUnknownMethodReply(call, "GetSchemaData");
             return;
         }
@@ -975,7 +975,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
     private static void CallPutSchemaData(Connection conn,
 					  Message call, out Message reply)
     {
-        if (call.Signature.ToString() != "ss") {
+        if (call.signature != "ss") {
             reply = CreateUnknownMethodReply(call, "PutSchemaData");
             return;
         }

@@ -20,7 +20,6 @@ wvdbus-sharp.dll: \
 	MessageWriter.cs \
 	msgiter.cs \
 	Protocol.cs \
-	Signature.cs \
 	SocketTransport.cs \
 	Transport.cs \
 	UnixMonoTransport.cs \

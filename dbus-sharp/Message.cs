@@ -32,14 +32,6 @@ namespace Wv
 	    endian = Connection.NativeEndianness;
 	}
 
-	public Signature Signature
-	{
-	    get {
-		return signature.e() 
-		    ? Signature.Empty : new Signature(signature);
-	    }
-	}
-
 	public bool ReplyExpected
 	{
 	    get {
@@ -124,8 +116,8 @@ namespace Wv
 	
 	void wwsig(MessageWriter w, FieldCode c, string sig, string val)
 	{
-	    wv.print("Writing: type={0}/{3}, code={1}, val='{2}'\n",
-		     val.GetType(), c, val, typeof(Signature));
+	    wv.print("Writing: type={0}/sig, code={1}, val='{2}'\n",
+		     val.GetType(), c, val);
 	    w.Write((byte)c);
 	    w.WriteSig(sig);
 	    w.WriteSig(val);

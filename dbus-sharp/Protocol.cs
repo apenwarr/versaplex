@@ -44,6 +44,36 @@ namespace Wv
 	NoAutoStart     = 0x02,
     }
 
+    public enum DType : byte
+    {
+	Invalid        = (byte)'\0',
+
+	Byte           = (byte)'y',
+	Boolean        = (byte)'b',
+	Int16          = (byte)'n',
+	UInt16         = (byte)'q',
+	Int32          = (byte)'i',
+	UInt32         = (byte)'u',
+	Int64          = (byte)'x',
+	UInt64         = (byte)'t',
+	Single         = (byte)'f',
+	Double         = (byte)'d',
+	String         = (byte)'s',
+	ObjectPath     = (byte)'o',
+	Signature      = (byte)'g',
+
+	Array          = (byte)'a',
+	Variant        = (byte)'v',
+
+	Struct         = (byte)'r',
+	StructBegin    = (byte)'(',
+	StructEnd      = (byte)')',
+
+	DictEntry      = (byte)'e',
+	DictEntryBegin = (byte)'{',
+	DictEntryEnd   = (byte)'}',
+    }
+    
     static class Protocol
     {
 	//protocol versions that we support
