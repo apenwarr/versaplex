@@ -190,15 +190,27 @@ namespace Wv
 		    return i-first+1;
 	    return 0;
 	}
+	
+	public void zap()
+	{
+	    first = next = 0;
+	}
     }
 
     public class WvBuf
     {
 	List<WvMiniBuf> list = new List<WvMiniBuf>();
+	int startsize = 10;
 
-	public WvBuf()
+	public WvBuf(int startsize)
 	{
+	    this.startsize = startsize;
 	    zap();
+	}
+	
+	public WvBuf()
+	    : this(10)
+	{
 	}
 
 	public int used {
@@ -212,7 +224,7 @@ namespace Wv
 	public void zap()
 	{
 	    list.Clear();
-	    list.Add(new WvMiniBuf(10));
+	    list.Add(new WvMiniBuf(startsize));
 	}
 
 	void addbuf(int len)
@@ -243,6 +255,12 @@ namespace Wv
 	public void put(string fmt, params object[] args)
 	{
 	    put(String.Format(fmt, args));
+	}
+	
+	public void eat(WvBuf buf)
+	{
+	    list.AddRange(buf.list);
+	    buf.zap();
 	}
 
 	int min(int a, int b)

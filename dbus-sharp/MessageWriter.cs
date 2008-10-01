@@ -16,7 +16,7 @@ namespace Wv
     {
 	DataConverter conv;
 	EndianFlag endianness;
-	internal MemoryStream stream;
+	MemoryStream stream;
 
 	public MessageWriter()
 	{
@@ -34,6 +34,12 @@ namespace Wv
 	    //TODO: mark the writer locked or something here
 	    return stream.ToArray();
 	}
+	
+	void p(int align, byte[] b)
+	{
+	    WritePad(align);
+	    stream.Write(b, 0, b.Length);
+	}
 
 	public void Write(byte val)
 	{
@@ -42,146 +48,70 @@ namespace Wv
 
 	public void Write(bool val)
 	{
-	    Write ((uint) (val ? 1 : 0));
+	    Write((uint)(val ? 1 : 0));
 	}
 
-	unsafe protected void MarshalUShort(byte *data)
+	public void Write(short val)
 	{
-	    WritePad(2);
-	    byte[] dst = new byte[2];
-
-	    if (endianness == Connection.NativeEndianness) {
-		dst[0] = data[0];
-		dst[1] = data[1];
-	    }
-	    else {
-		dst[0] = data[1];
-		dst[1] = data[0];
-	    }
-
-	    stream.Write(dst, 0, 2);
+	    p(2, conv.GetBytes(val));
 	}
 
-	unsafe public void Write(short val)
+	public void Write(ushort val)
 	{
-	    MarshalUShort((byte*)&val);
+	    p(2, conv.GetBytes(val));
 	}
 
-	unsafe public void Write(ushort val)
+	public void Write(int val)
 	{
-	    MarshalUShort((byte*)&val);
+	    p(4, conv.GetBytes(val));
 	}
 
-	unsafe protected void MarshalUInt(byte *data)
+	public void Write(uint val)
 	{
-	    WritePad(4);
-	    byte[] dst = new byte[4];
-
-	    if (endianness == Connection.NativeEndianness) {
-		dst[0] = data[0];
-		dst[1] = data[1];
-		dst[2] = data[2];
-		dst[3] = data[3];
-	    }
-	    else {
-		dst[0] = data[3];
-		dst[1] = data[2];
-		dst[2] = data[1];
-		dst[3] = data[0];
-	    }
-
-	    stream.Write(dst, 0, 4);
+	    p(4, conv.GetBytes(val));
 	}
 
-	unsafe public void Write(int val)
+	public void Write(long val)
 	{
-	    MarshalUInt((byte*)&val);
+	    p(8, conv.GetBytes(val));
 	}
 
-	unsafe public void Write(uint val)
+	public void Write(ulong val)
 	{
-	    MarshalUInt((byte*)&val);
+	    p(8, conv.GetBytes(val));
 	}
 
-	unsafe protected void MarshalULong(byte *data)
+	public void Write(float val)
 	{
-	    WritePad (8);
-	    byte[] dst = new byte[8];
-
-	    if (endianness == Connection.NativeEndianness) {
-		for (int i = 0; i < 8; ++i)
-		    dst[i] = data[i];
-	    }
-	    else {
-		for (int i = 0; i < 8; ++i)
-		    dst[i] = data[7 - i];
-	    }
-
-	    stream.Write(dst, 0, 8);
+	    p(4, conv.GetBytes(val));
 	}
 
-	unsafe public void Write(long val)
+	public void Write(double val)
 	{
-	    MarshalULong((byte*)&val);
-	}
-
-	unsafe public void Write (ulong val)
-	{
-	    MarshalULong((byte*)&val);
-	}
-
-	unsafe public void Write (float val)
-	{
-	    MarshalUInt((byte*)&val);
-	}
-
-	unsafe public void Write (double val)
-	{
-	    MarshalULong((byte*)&val);
+	    p(8, conv.GetBytes(val));
 	}
 
 	public void Write(string val)
 	{
-	    byte[] utf8_data = Encoding.UTF8.GetBytes (val);
-	    Write ((uint)utf8_data.Length);
-	    stream.Write (utf8_data, 0, utf8_data.Length);
-	    WriteNull ();
+	    byte[] utf8_data = Encoding.UTF8.GetBytes(val);
+	    Write((uint)utf8_data.Length);
+	    stream.Write(utf8_data, 0, utf8_data.Length);
+	    WriteNull();
 	}
 
 	public void Write(Signature val)
 	{
-	    byte[] ascii_data = val.GetBuffer ();
+	    byte[] ascii_data = val.GetBuffer();
 
 	    if (ascii_data.Length > Protocol.MaxSignatureLength)
-		throw new Exception ("Signature length " + ascii_data.Length + " exceeds maximum allowed " + Protocol.MaxSignatureLength + " bytes");
+		throw new Exception
+		    ("Signature length "
+		     + ascii_data.Length + " exceeds maximum allowed "
+		     + Protocol.MaxSignatureLength + " bytes");
 
-	    Write ((byte)ascii_data.Length);
-	    stream.Write (ascii_data, 0, ascii_data.Length);
-	    WriteNull ();
-	}
-
-	public void WriteComplex(object val, Type type)
-	{
-	    if (type == typeof(void))
-		return;
-
-	    if (type.IsArray) {
-		xWriteArray(val, type.GetElementType());
-	    }
-	    else if (type.IsGenericType && (type.GetGenericTypeDefinition () == typeof (IDictionary<,>) || type.GetGenericTypeDefinition () == typeof (Dictionary<,>))) {
-		Type[] genArgs = type.GetGenericArguments ();
-		System.Collections.IDictionary idict = (System.Collections.IDictionary)val;
-		WriteFromDict (genArgs[0], genArgs[1], idict);
-	    }
-	    else if (Mapper.IsPublic (type)) {
-		WriteObject (type, val);
-	    }
-	    else if (!type.IsPrimitive && !type.IsEnum) {
-		WriteValueType (val, type);
-	    }
-	    else {
-		throw new Exception ("Can't write");
-	    }
+	    Write((byte)ascii_data.Length);
+	    stream.Write(ascii_data, 0, ascii_data.Length);
+	    WriteNull();
 	}
 
 	public void Write(Type type, object val)
@@ -209,9 +139,6 @@ namespace Wv
 		Type[] genArgs = type.GetGenericArguments();
 		IDictionary idict = (IDictionary)val;
 		WriteFromDict(genArgs[0], genArgs[1], idict);
-	    }
-	    else if (Mapper.IsPublic(type)) {
-		WriteObject(type, val);
 	    }
 	    else if (!type.IsPrimitive && !type.IsEnum) {
 		WriteValueType(val, type);
@@ -269,38 +196,17 @@ namespace Wv
 		WriteV((object)val);
 		break;
 	    default:
-		throw new Exception ("Unhandled D-Bus type: " + dtype);
+		throw new Exception("Unhandled D-Bus type: " + dtype);
 	    }
-	}
-
-	public void WriteObject(Type type, object val)
-	{
-	    string path;
-
-	    BusObject bobj = val as BusObject;
-
-	    if (bobj == null && val is MarshalByRefObject) {
-		bobj = ((MarshalByRefObject)val).GetLifetimeService () as BusObject;
-	    }
-
-	    if (bobj == null)
-		throw new Exception ("No object reference to write");
-
-	    path = bobj.Path;
-
-	    Write (path);
 	}
 
 	//variant
 	public void WriteV(object val)
 	{
-	    //TODO: maybe support sending null variants
-
 	    if (val == null)
-		throw new NotSupportedException ("Cannot send null variant");
+		throw new NotSupportedException("Cannot send null variant");
 
 	    Type type = val.GetType();
-
 	    WriteVariant(type, val);
 	}
 
@@ -319,32 +225,37 @@ namespace Wv
 	    //TODO: more fast paths for primitive arrays
 	    if (elemType == typeof (byte)) {
 		if (val.Length > Protocol.MaxArrayLength)
-		    throw new Exception ("Array length " + val.Length + " exceeds maximum allowed " + Protocol.MaxArrayLength + " bytes");
+		    throw new Exception
+		        ("Array length " + val.Length 
+			 + " exceeds maximum allowed " 
+			 + Protocol.MaxArrayLength + " bytes");
 
-		Write ((uint)val.Length);
-		stream.Write ((byte[])val, 0, val.Length);
+		Write((uint)val.Length);
+		stream.Write((byte[])val, 0, val.Length);
 		return;
 	    }
 
 	    long origPos = stream.Position;
-	    Write ((uint)0);
+	    Write((uint)0);
 
 	    //advance to the alignment of the element
-	    WritePad(Protocol.GetAlignment (Signature.TypeToDType (elemType)));
+	    WritePad(Protocol.GetAlignment(Signature.TypeToDType (elemType)));
 
 	    long startPos = stream.Position;
 
 	    foreach (object elem in val)
-		Write (elemType, elem);
+		Write(elemType, elem);
 
 	    long endPos = stream.Position;
 	    uint ln = (uint)(endPos - startPos);
 	    stream.Position = origPos;
 
 	    if (ln > Protocol.MaxArrayLength)
-		throw new Exception ("Array length " + ln + " exceeds maximum allowed " + Protocol.MaxArrayLength + " bytes");
+		throw new Exception
+		    ("Array length " + ln + " exceeds maximum allowed "
+		     + Protocol.MaxArrayLength + " bytes");
 
-	    Write (ln);
+	    Write(ln);
 	    stream.Position = endPos;
 	}
 	
