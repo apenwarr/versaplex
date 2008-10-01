@@ -27,8 +27,8 @@ public class FooTest
 	    log.print("Hello");
 	    log.print(" world!\n");
 	    
-	    WvStream s1 = new WvTcp("localhost");
-	    WvStream s2 = new WvTcp("localhost");
+	    WvStream s1 = new WvTcp("localhost", 80);
+	    WvStream s2 = new WvTcp("localhost", 80);
 	    s1.onreadable += contprint(log, s1, "\nA\n").ToAction();
 	    s2.onreadable += contprint(log, s2, "\nB\n").ToAction();
 	    s1.print("GET / HTTP/1.0\r\n\r\n");
