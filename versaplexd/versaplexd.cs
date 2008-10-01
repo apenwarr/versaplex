@@ -182,10 +182,7 @@ public static class VersaMain
 	
         log.print("Connecting to '{0}'\n", bus);
         AddressEntry aent = AddressEntry.Parse(bus);
-
-        DodgyTransport trans = new DodgyTransport();
-        trans.Open(aent);
-
+	var trans = new DodgyTransport(aent);
         conn = new Connection(trans);
 
         string myNameReq = "vx.versaplexd";

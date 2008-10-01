@@ -41,8 +41,7 @@ internal class VxDbusSchema : ISchemaBackend
     private void Connect(string bus_moniker)
     {
         AddressEntry aent = AddressEntry.Parse(bus_moniker);
-        DodgyTransport trans = new DodgyTransport();
-        trans.Open(aent);
+        DodgyTransport trans = new DodgyTransport(aent);
         bus = new Connection(trans);
     }
 

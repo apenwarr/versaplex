@@ -13,7 +13,7 @@ namespace Wv.Transports
 	{
 		protected Socket socket;
 
-		public override void Open (AddressEntry entry)
+	        internal SocketTransport(AddressEntry entry)
 		{
 			string host, portStr;
 			int port;
@@ -30,24 +30,22 @@ namespace Wv.Transports
 			Open (host, port);
 		}
 
-		public void Open (string host, int port)
+	        void Open (string host, int port)
 		{
 			//TODO: use Socket directly
 			TcpClient client = new TcpClient (host, port);
 			Stream = client.GetStream ();
 		}
 
-		public void Open (Socket socket)
+		void Open (Socket socket)
 		{
 			this.socket = socket;
 
 			socket.Blocking = true;
-			SocketHandle = (long)socket.Handle;
-			//Stream = new UnixStream ((int)socket.Handle);
 			Stream = new NetworkStream (socket);
 		}
 
-		public override void WriteCred ()
+	        public override void WriteCred ()
 		{
 			Stream.WriteByte (0);
 		}

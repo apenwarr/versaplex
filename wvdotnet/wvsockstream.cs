@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using System.Net.Sockets;
+using Mono.Unix;
 using Wv;
 
 namespace Wv
@@ -88,14 +89,14 @@ namespace Wv
 	    add { base.onreadable += value;
 		  ev.onreadable(sock, do_readable); }
 	    remove { base.onreadable -= value;
-		     if (can_onreadable) ev.onreadable(sock, null); }
+		     if (!can_onreadable) ev.onreadable(sock, null); }
 	}
 
 	public override event Action onwritable {
 	    add { base.onwritable += value;
 		  ev.onwritable(sock, do_writable); }
 	    remove { base.onwritable -= value;
-		     if (can_onwritable) ev.onwritable(sock, null); }
+		     if (!can_onwritable) ev.onwritable(sock, null); }
 	}
 
 	void tryshutdown(SocketShutdown sd)
@@ -141,12 +142,13 @@ namespace Wv
 
     public class WvTcp : WvSockStream
     {
-        public WvTcp(string remote) : base(null)
+        public WvTcp(string remote, ushort port) : base(null)
 	{
+	    // FIXME: do DNS lookups asynchronously?
 	    try
 	    {
 		IPHostEntry ipe = Dns.GetHostEntry(remote);
-		IPEndPoint ipep = new IPEndPoint(ipe.AddressList[0], 80);
+		IPEndPoint ipep = new IPEndPoint(ipe.AddressList[0], port);
 		Socket sock = new Socket(AddressFamily.InterNetwork,
 					 SocketType.Stream,
 					 ProtocolType.Tcp);
@@ -159,5 +161,22 @@ namespace Wv
 	    }
 	}
     }
-
+    
+    public class WvUnix : WvSockStream
+    {	
+        public WvUnix(string path) : base(null)
+	{
+	    EndPoint ep;
+	    
+	    if (path.StartsWith("@"))
+		ep = new AbstractUnixEndPoint(path);
+	    else
+		ep = new UnixEndPoint(path);
+	    
+	    Socket sock = new Socket(AddressFamily.Unix,
+				     SocketType.Stream, 0);
+	    sock.Connect(ep);
+	    this.sock = sock;
+	}
+    }
 }

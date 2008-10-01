@@ -28,7 +28,7 @@ class DodgyTransport : Wv.Transports.Transport
         Stream.WriteByte(0);
     }
 
-    public override void Open(AddressEntry entry)
+    public DodgyTransport(AddressEntry entry)
     {
 	if (entry.Method == "unix")
 	{
@@ -60,7 +60,6 @@ class DodgyTransport : Wv.Transports.Transport
 					      entry.Method));
 	
         socket.Blocking = true;
-        SocketHandle = (long)socket.Handle;
         Stream = new NetworkStream(socket);
     }
 

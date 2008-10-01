@@ -117,11 +117,33 @@ namespace Wv.Transports
 		public int Length;
 	}
 
-	class UnixNativeTransport : UnixTransport
+	class UnixNativeTransport : Transport
 	{
-		protected UnixSocket socket;
+		UnixSocket socket;
 
-		public override void Open (string path, bool @abstract)
+		internal UnixNativeTransport(AddressEntry entry)
+		{
+			string path;
+			bool abstr;
+
+			if (entry.Properties.TryGetValue ("path", out path))
+				abstr = false;
+			else if (entry.Properties.TryGetValue ("abstract", out path))
+				abstr = true;
+			else
+				throw new Exception ("No path specified for UNIX transport");
+
+			Open (path, abstr);
+		}
+
+		public override string AuthString ()
+		{
+			long uid = UnixUserInfo.GetRealUserId ();
+
+			return uid.ToString ();
+		}
+
+	        void Open (string path, bool @abstract)
 		{
 			if (String.IsNullOrEmpty (path))
 				throw new ArgumentException ("path");
@@ -132,7 +154,6 @@ namespace Wv.Transports
 				socket = OpenUnix (path);
 
 			//socket.Blocking = true;
-			SocketHandle = (long)socket.Handle;
 			Stream = new UnixStream ((int)socket.Handle);
 		}
 
@@ -185,7 +206,7 @@ namespace Wv.Transports
 #endif
 		}
 
-		protected UnixSocket OpenAbstractUnix (string path)
+		UnixSocket OpenAbstractUnix (string path)
 		{
 			byte[] p = Encoding.Default.GetBytes (path);
 
@@ -206,7 +227,7 @@ namespace Wv.Transports
 			return client;
 		}
 
-		public UnixSocket OpenUnix (string path)
+		UnixSocket OpenUnix (string path)
 		{
 			byte[] p = Encoding.Default.GetBytes (path);
 

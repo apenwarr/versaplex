@@ -43,8 +43,7 @@ namespace Wv
 	    if (Address.Session == null)
 		throw new Exception ("DBUS_SESSION_BUS_ADDRESS not set");
 	    AddressEntry aent = AddressEntry.Parse(Address.Session);
-	    DodgyTransport trans = new DodgyTransport();
-	    trans.Open(aent);
+	    DodgyTransport trans = new DodgyTransport(aent);
 	    bus = new Connection(trans);
 	}
 	
