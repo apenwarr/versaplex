@@ -4,14 +4,46 @@
 //
 using System;
 using System.Collections.Generic;
-using org.freedesktop.DBus;
 
 namespace Wv
 {
     using Transports;
 
+    [Flags]
+    public enum NameFlag : uint
+    {
+        None = 0,
+        AllowReplacement = 0x1,
+        ReplaceExisting = 0x2,
+        DoNotQueue = 0x4,
+    }
+
+    public enum RequestNameReply : uint
+    {
+        PrimaryOwner = 1,
+        InQueue,
+        Exists,
+        AlreadyOwner,
+    }
+
+    public enum ReleaseNameReply : uint
+    {
+        Released = 1,
+        NonExistent,
+        NotOwner,
+    }
+
+
     public sealed class Bus : Connection
     {
+        public enum StartReply : uint
+        {
+            //The service was successfully started.
+            Success = 1,
+            //A connection already owns the given name.
+            AlreadyRunning,
+        }
+
 	static Bus systemBus = null;
 	public static Bus System
 	{
@@ -88,14 +120,11 @@ namespace Wv
 	    return bus;
 	}
 
-	IBus bus;
-
 	static readonly string DBusName = "org.freedesktop.DBus";
 	static readonly string DBusPath = "/org/freedesktop/DBus";
 
         public Bus(string address) : base(address)
 	{
-	    bus = GetObject<IBus>(DBusName, DBusPath);
 	    Register();
 	}
 
@@ -103,36 +132,76 @@ namespace Wv
 	{
 	    Authenticate();
 
-	    bus = GetObject<IBus>(DBusName, DBusPath);
 	    Register();
 	}
+
+        private WvAutoCast CallDBusMethod(string method)
+        {
+            return CallDBusMethod(method, "", new byte[0]);
+        }
+
+        private WvAutoCast CallDBusMethod(string method, string param)
+        {
+            MessageWriter w = new MessageWriter();
+            w.Write(param);
+
+            return CallDBusMethod(method, "s", w.ToArray());
+        }
+
+        private WvAutoCast CallDBusMethod(string method, string p1, uint p2)
+        {
+            MessageWriter w = new MessageWriter();
+            w.Write(p1);
+            w.Write(p2);
+
+            return CallDBusMethod(method, "su", w.ToArray());
+        }
+
+        private WvAutoCast CallDBusMethod(string method, string sig, 
+            byte[] body)
+        {
+            Message m = new Message();
+            m.signature = sig;
+            m.type = MessageType.MethodCall;
+            m.ReplyExpected = true;
+            m.dest = DBusName;
+            m.path = DBusPath;
+            m.ifc = DBusName;
+            m.method = method;
+            m.Body = body;
+
+            Message reply = SendWithReplyAndBlock(m);
+
+            var i = reply.iter();
+            return i.pop();
+        }
 
 	void Register()
 	{
 	    if (unique_name != null)
 		throw new Exception("Bus already has a unique name");
 
-	    unique_name = bus.Hello();
+            unique_name = CallDBusMethod("Hello");
 	}
 
 	public string GetUnixUserName(string name)
 	{
-	    return bus.GetConnectionUnixUserName(name);
+	    return CallDBusMethod("GetConnectionUnixUserName", name);
 	}
 
 	public ulong GetUnixUser(string name)
 	{
-	    return bus.GetConnectionUnixUser(name);
+            return CallDBusMethod("GetUnixUser", name);
 	}
 
 	public string GetCert(string name)
 	{
-	    return bus.GetConnectionCert(name);
+            return CallDBusMethod("GetCert", name);
 	}
 
 	public string GetCertFingerprint(string name)
 	{
-	    return bus.GetConnectionCertFingerprint(name);
+            return CallDBusMethod("GetCertFingerprint", name);
 	}
 
 	public RequestNameReply RequestName(string name)
@@ -142,17 +211,18 @@ namespace Wv
 
 	public RequestNameReply RequestName(string name, NameFlag flags)
 	{
-	    return bus.RequestName(name, flags);
+            WvAutoCast reply = CallDBusMethod("RequestName", name, (uint)flags);
+            return (RequestNameReply)(uint)reply;
 	}
 
 	public ReleaseNameReply ReleaseName(string name)
 	{
-	    return bus.ReleaseName(name);
+            return (ReleaseNameReply)(uint)CallDBusMethod("ReleaseName", name);
 	}
 
 	public bool NameHasOwner(string name)
 	{
-	    return bus.NameHasOwner(name);
+            return CallDBusMethod("NameHasOwner", name);
 	}
 
 	public StartReply StartServiceByName(string name)
@@ -162,17 +232,18 @@ namespace Wv
 
 	public StartReply StartServiceByName(string name, uint flags)
 	{
-	    return bus.StartServiceByName(name, flags);
+            var retval = CallDBusMethod("StartServiceByName", name, flags);
+            return (StartReply)(uint)retval;
 	}
 
 	internal protected override void AddMatch(string rule)
 	{
-	    bus.AddMatch(rule);
+            CallDBusMethod("AddMatch", rule);
 	}
 
 	internal protected override void RemoveMatch(string rule)
 	{
-	    bus.RemoveMatch(rule);
+            CallDBusMethod("RemoveMatch", rule);
 	}
 
 	string unique_name = null;

@@ -6,8 +6,6 @@ using System;
 using System.Reflection;
 using System.Reflection.Emit;
 
-using org.freedesktop.DBus;
-
 namespace Wv
 {
 	//TODO: perhaps ExportObject should not derive from BusObject
