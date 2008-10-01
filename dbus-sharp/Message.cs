@@ -25,11 +25,23 @@ namespace Wv
 	public string dest = null;
 	public string signature = null;
 	
+	public WvBytes bytes;
 	public byte[] Body;
 
 	public Message()
 	{
 	    endian = Connection.NativeEndianness;
+	}
+	
+	public Message(WvBytes b)
+	{
+	    int hlen, blen;
+	    _bytes_needed(b, out hlen, out blen);
+	    
+	    wv.assert(b.len == hlen+blen);
+	    
+	    SetHeaderData(b);
+	    Body = b.sub(hlen, blen).ToArray();
 	}
 
 	public bool ReplyExpected
@@ -46,6 +58,51 @@ namespace Wv
 	    }
 	}
 	
+	// Tries to guess how many bytes you'll need into inbuf before you can
+	// read an entire message.  The buffer needs to have at least 16
+	// bytes before you can start.
+	static void _bytes_needed(WvBytes b, out int hlen, out int blen)
+	{
+	    wv.assert(b.len >= 16);
+
+	    // the real header signature is: yyyyuua{yv}
+	    // However, we only care about the first 16 bytes, and we know
+	    // that the a{yv} starts with an unsigned int that's the number
+	    // of bytes in the array, which is what we *really* want to know.
+	    // So we lie about the signature here.
+	    var it = new WvDBusIter((EndianFlag)b[0], "yyyyuuu", b)
+		.GetEnumerator();
+
+	    it.pop();
+	    it.pop();
+	    it.pop();
+
+	    byte version = it.pop();
+
+	    if (version < Protocol.MinVersion || version > Protocol.MaxVersion)
+		throw new NotSupportedException
+		    ("Protocol version '"
+		     + version.ToString() + "' is not supported");
+
+	    uint _blen = it.pop(); // body length
+	    it.pop(); // serial
+	    uint _hlen = it.pop(); // remaining header length
+
+	    if (_blen > Int32.MaxValue || _hlen > Int32.MaxValue)
+		throw new NotImplementedException
+		    ("Long messages are not yet supported");
+
+	    hlen = 16 + Protocol.Padded((int)_hlen, 8);
+	    blen = (int)_blen;
+	}
+	
+	public static int bytes_needed(WvBytes b)
+	{
+	    int hlen, blen;
+	    _bytes_needed(b, out hlen, out blen);
+	    return hlen + blen;
+	}
+
 	public void SetHeaderData(WvBytes data)
 	{
 	    var it = new WvDBusIter((EndianFlag)data[0], "yyyyuua{yv}", data)

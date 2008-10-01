@@ -159,218 +159,66 @@ namespace Wv
 		    ns.Write(msg.Body, 0, msg.Body.Length);
 	    }
 	}
-
-	// Given the first 16 bytes of the header, returns the full
-	// header and body lengths (including the 16 bytes of the
-	// header already read) Positions the stream after
-	// execution at the point where it began
-	internal static void GetMessageSize(Stream s, out int headerSize,
-					    out int bodySize)
+	
+	WvBuf inbuf = new WvBuf();
+	
+	void readbytes(int max)
 	{
-	    int read;
-
-	    byte[] buf = new byte[16];
-	    read = s.Read(buf, 0, 16);
-
-	    s.Seek(-read, SeekOrigin.Current);
-
-	    if (read != 16)
-		throw new Exception("Header read length mismatch: "
-				    + read + " of expected " + "16");
-
-	    // the real header signature is: yyyyuua{yv}
-	    // However, we only care about the first 16 bytes, and we know
-	    // that the a{yv} starts with an unsigned int that's the number
-	    // of bytes in the array, which is what we *really* want to know.
-	    // So we lie about the signature here.
-	    var it = new WvDBusIter((EndianFlag)buf[0], "yyyyuuu", buf)
-		.GetEnumerator();
-
-	    it.pop();
-	    it.pop();
-	    it.pop();
-
-	    byte version = it.pop();
-
-	    if (version < Protocol.MinVersion || version > Protocol.MaxVersion)
-		throw new NotSupportedException
-		    ("Protocol version '"
-		     + version.ToString() + "' is not supported");
-
-	    uint blen = it.pop(); // body length
-	    it.pop(); // serial
-	    uint hlen = it.pop(); // remaining header length
-
-	    if (blen > Int32.MaxValue || hlen > Int32.MaxValue)
-		throw new NotImplementedException
-		    ("Long messages are not yet supported");
-
-	    bodySize = (int)blen;
-	    headerSize = Protocol.Padded((int)hlen, 8) + 16;
+	    int needed = max - inbuf.used;
+	    if (needed <= 0) return;
+	    
+	    WvBytes b = inbuf.alloc(needed);
+	    int got = ns.Read(b.bytes, b.start, b.len);
+	    inbuf.unalloc(needed-got);
 	}
-
-	internal Message BuildMessage(Stream s,
-				       int headerSize, int bodySize)
+	
+	Message _ReadMessage()
 	{
-	    if (s.Length-s.Position < headerSize + bodySize)
-		throw new Exception("Buffer is not header + body sizes");
-
-	    Message msg = new Message();
-
-	    int len;
-
-	    byte[] header = new byte[headerSize];
-	    len = s.Read(header, 0, headerSize);
-
-	    if (len != headerSize)
-		throw new Exception("Read length mismatch: "
-				    + len + " of expected " + headerSize);
-
-	    msg.SetHeaderData(header);
-
-	    if (bodySize != 0) {
-		byte[] body = new byte[bodySize];
-		len = s.Read(body, 0, bodySize);
-
-		if (len != bodySize)
-		    throw new Exception("Read length mismatch: "
-					+ len + " of expected " + bodySize);
-
-		msg.Body = body;
-	    }
-
-	    return msg;
+	    if (inbuf.used < 16)
+		return null;
+	    int needed = Message.bytes_needed(inbuf.peek(16));
+	    if (inbuf.used < needed)
+		return null;
+	    return new Message(inbuf.get(needed));
 	}
-
+	
+	// FIXME: a blocking Read isn't particularly useful
 	public Message ReadMessage()
 	{
-	    byte[] header;
-	    byte[] body = null;
-
-	    //16 bytes is the size of the fixed part of the header
-	    byte[] hbuf = new byte[16];
-	    int read = ns.Read(hbuf, 0, 16);
-
-	    if (read == 0)
+	    while (inbuf.used < 16 && ns.CanRead)
+		readbytes(16);
+	    if (inbuf.used < 16)
 		return null;
-
-	    if (read != 16)
-		throw new Exception("Header read length mismatch: " + read + " of expected " + "16");
-
-	    var it = new WvDBusIter((EndianFlag)hbuf[0], "yyyyuuu", hbuf)
-		.GetEnumerator();
+	    int needed = Message.bytes_needed(inbuf.peek(16));
+	    while (inbuf.used < needed && ns.CanRead)
+		readbytes(needed);
+	    if (inbuf.used < needed)
+		return null;
+	    return _ReadMessage();
+	}
+	
+	void handlemessages()
+	{
+	    Message m;
+	    while ((m = _ReadMessage()) != null)
+		OnMessage(m);
+	}
+	
+	// used only for versaplexd - FIXME remove it eventually
+	public int DoBytes(WvBytes b)
+	{
+	    inbuf.put(b);
+	    handlemessages();
 	    
-	    it.pop();
-	    it.pop();
-	    it.pop();
-	    
-	    byte version = it.pop();
-
-	    if (version < Protocol.MinVersion || version > Protocol.MaxVersion)
-		throw new NotSupportedException
-		    ("Protocol version '" + version.ToString() 
-		     + "' is not supported");
-
-	    uint bodyLength = it.pop();
-	    it.pop(); // serial
-	    uint headerLength = it.pop();
-
-	    int bodyLen = (int)bodyLength;
-	    int toRead = (int)headerLength;
-
-	    // fixup to include the padding following the header
-	    toRead = Protocol.Padded(toRead, 8);
-
-	    long msgLength = toRead + bodyLen;
-	    if (msgLength > Protocol.MaxMessageLength)
-		throw new Exception
-		    ("Message length " + msgLength 
-		     + " exceeds maximum allowed " 
-		     + Protocol.MaxMessageLength + " bytes");
-
-	    header = new byte[16 + toRead];
-	    Array.Copy(hbuf, header, 16);
-
-	    read = ns.Read(header, 16, toRead);
-
-	    if (read != toRead)
-		throw new Exception("Message header length mismatch: " + read + " of expected " + toRead);
-
-	    //read the body
-	    if (bodyLen != 0) {
-		body = new byte[bodyLen];
-
-		int numRead = 0;
-		int lastRead = -1;
-		while (numRead < bodyLen && lastRead != 0)
-		{
-		    lastRead = ns.Read(body, numRead, bodyLen - numRead);
-		    numRead += lastRead;
-		}
-
-		if (numRead != bodyLen)
-		    throw new Exception(String.Format(
-						       "Message body size mismatch: numRead={0}, bodyLen={1}",
-						       numRead, bodyLen));
-	    }
-
-	    Message msg = new Message();
-	    msg.Body = body;
-	    msg.SetHeaderData(header);
-
-	    return msg;
+	    if (inbuf.used < 16)
+		return 16;
+	    int needed = Message.bytes_needed(inbuf.peek(16));
+	    return needed - inbuf.used;
 	}
 
 	// hacky
 	public delegate void MessageHandler(Message msg);
 	public MessageHandler OnMessage;
-
-	MemoryStream msgbuf = new MemoryStream();
-	public long ReceiveBuffer(byte[] buf, int offset, int count)
-	{
-	    msgbuf.Seek(0, SeekOrigin.End);
-	    msgbuf.Write(buf, offset, count);
-
-	    msgbuf.Seek(0, SeekOrigin.Begin);
-
-	    long left = msgbuf.Length;
-	    long want = 0;
-
-	    while (left >= 16) {
-		int headerSize, bodySize;
-		GetMessageSize(msgbuf, out headerSize, out bodySize);
-
-		if (left >= headerSize + bodySize) {
-		    Message msg = BuildMessage(msgbuf, headerSize,
-					       bodySize);
-		    OnMessage(msg);
-		    left -= headerSize + bodySize;
-		}
-		else {
-		    want = headerSize + bodySize - left;
-		    break;
-		}
-	    }
-
-	    if (left > 0 && msgbuf.Length != left) {
-		byte[] tmp = new byte[left];
-
-		msgbuf.Read(tmp, 0, tmp.Length);
-
-		msgbuf.SetLength(tmp.Length);
-
-		msgbuf.Seek(0, SeekOrigin.Begin);
-		msgbuf.Write(tmp, 0, tmp.Length);
-	    }
-	    else if (left == 0) {
-		msgbuf.SetLength(0);
-	    }
-
-	    if (want > 0)
-		return want;
-
-	    return 16 - left;
-	}
 
 	internal void HandleMessage(Message msg)
 	{

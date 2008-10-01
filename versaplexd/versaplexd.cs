@@ -36,7 +36,8 @@ public static class VersaMain
         // XXX: Ew.
         byte[] buf = new byte[vxbs.BufferPending];
         vxbs.Read(buf, 0, buf.Length);
-        vxbs.BufferAmount = conn.ReceiveBuffer(buf, 0, buf.Length);
+        vxbs.BufferAmount = conn.DoBytes(buf);
+	wv.printerr("Now need: {0}\n", vxbs.BufferAmount);
     }
 
     private static void NoMoreData(object sender, object cookie)

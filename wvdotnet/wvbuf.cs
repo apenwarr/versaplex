@@ -92,14 +92,7 @@ namespace Wv
 	    int s = this.start + start;
 	    wv.assert(s+len <= bytes.Length);
 	    
-	    if (start == 0 && len == bytes.Length)
-		return bytes;
-	    else
-	    {
-		byte[] b = new byte[len];
-		Array.Copy(bytes, start, b, 0, len);
-		return b;
-	    }
+	    return new WvBytes(bytes, s, len);
 	}
 	
 	public byte this[int i] {
@@ -151,11 +144,24 @@ namespace Wv
 
 	public int avail { get { return (int)bytes.Length-next; } }
 	
+	public WvBytes alloc(int size)
+	{
+	    wv.assert(size <= avail);
+	    var ret = bytes.sub(next, size);
+	    next += size;
+	    return ret;
+	}
+	
+	public void unalloc(int size)
+	{
+	    wv.assert(size <= used);
+	    next -= size;
+	}
+	
 	public void put(WvBytes b)
 	{
 	    wv.assert(b.len <= avail);
-	    Array.Copy(b.bytes, b.start, this.bytes, next, b.len);
-	    next += b.len;
+	    alloc(b.len).put(0, b);
 	}
 
 	public WvBytes peek(int len)
@@ -224,17 +230,28 @@ namespace Wv
 
 	void addbuf(int len)
 	{
-	    int s = last.size;
+	    int s = last.size * 2;
 	    while (s < len*2)
 		s *= 2;
 	    list.Add(new WvMiniBuf(s));
 	}
+	
+	public WvBytes alloc(int size)
+	{
+	    if (last.avail < size)
+		addbuf(size);
+	    return last.alloc(size);
+	}
+	
+	public void unalloc(int size)
+	{
+	    wv.assert(last.used >= size);
+	    last.unalloc(size);
+	}
 
 	public void put(WvBytes b)
 	{
-	    if (last.avail < b.len)
-		addbuf(b.len);
-	    last.put(b);
+	    alloc(b.len).put(0, b);
 	}
 	
 	public void put(char c)
