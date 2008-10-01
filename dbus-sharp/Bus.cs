@@ -4,14 +4,46 @@
 //
 using System;
 using System.Collections.Generic;
-using org.freedesktop.DBus;
 
 namespace Wv
 {
     using Transports;
 
+    [Flags]
+    public enum NameFlag : uint
+    {
+        None = 0,
+        AllowReplacement = 0x1,
+        ReplaceExisting = 0x2,
+        DoNotQueue = 0x4,
+    }
+
+    public enum RequestNameReply : uint
+    {
+        PrimaryOwner = 1,
+        InQueue,
+        Exists,
+        AlreadyOwner,
+    }
+
+    public enum ReleaseNameReply : uint
+    {
+        Released = 1,
+        NonExistent,
+        NotOwner,
+    }
+
+
     public sealed class Bus : Connection
     {
+        public enum StartReply : uint
+        {
+            //The service was successfully started.
+            Success = 1,
+            //A connection already owns the given name.
+            AlreadyRunning,
+        }
+
 	static Bus systemBus = null;
 	public static Bus System
 	{
