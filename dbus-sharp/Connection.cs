@@ -390,10 +390,6 @@ namespace Wv
 
 	    switch (msg.type)
 	    {
-	    case MessageType.MethodCall:
-		MethodCall method_call = new MethodCall(msg);
-		HandleMethodCall(method_call);
-		break;
 	    case MessageType.Error:
 		//TODO: better exception handling
 		Error error = new Error(msg);
@@ -404,6 +400,7 @@ namespace Wv
 		Console.Error.WriteLine("Remote Error: Signature='" + msg.Signature.Value + "' " + error.ErrorName + ": " + errMsg);
 		break;
 	    case MessageType.Signal:
+	    case MessageType.MethodCall:
 		// nothing to do with these by default
 		break;
 	    case MessageType.Invalid:
@@ -416,89 +413,6 @@ namespace Wv
 	    = new Dictionary<uint,Action<Message>>();
 
 	internal Dictionary<MatchRule,Delegate> Handlers = new Dictionary<MatchRule,Delegate>();
-
-	//very messy
-	internal void MaybeSendUnknownMethodError(MethodCall method_call)
-	{
-	    Message msg = MessageHelper.CreateUnknownMethodError(method_call);
-	    if (msg != null)
-		Send(msg);
-	}
-
-	//not particularly efficient and needs to be generalized
-	internal void HandleMethodCall(MethodCall method_call)
-	{
-	    // TODO: Ping and Introspect need to be abstracted and moved
-	    // somewhere more appropriate once message filter
-	    // infrastructure is complete
-
-	    // FIXME: these special cases are slightly broken for the case
-	    // where the member but not the interface is specified in the
-	    // message
-	    if (method_call.Interface == "org.freedesktop.DBus.Peer" && method_call.Member == "Ping") {
-		Message reply = MessageHelper.ConstructReply(method_call);
-		Send(reply);
-		return;
-	    }
-
-	    BusObject bo;
-	    if (RegisteredObjects.TryGetValue(method_call.Path, out bo)) {
-		ExportObject eo = (ExportObject)bo;
-		eo.HandleMethodCall(method_call);
-	    }
-	    else {
-		MaybeSendUnknownMethodError(method_call);
-	    }
-	}
-
-	Dictionary<string,BusObject> RegisteredObjects 
-	    = new Dictionary<string,BusObject>();
-
-	public object GetObject(Type type, string bus_name, string path)
-	{
-	    // if the requested type is an interface, we can implement it
-	    // efficiently otherwise we fall back to using a transparent
-	    // proxy
-	    if (type.IsInterface) {
-		return BusObject.GetObject(this, bus_name, path, type);
-	    }
-	    else {
-		if (Protocol.Verbose)
-		    Console.Error.WriteLine("Warning: Note that MarshalByRefObject use is not recommended; for best performance, define interfaces");
-
-		BusObject busObject = new BusObject(this, bus_name, path);
-		DProxy prox = new DProxy(busObject, type);
-		return prox.GetTransparentProxy();
-	    }
-	}
-
-	public T GetObject<T>(string bus_name, string path)
-	{
-	    return (T)GetObject(typeof(T), bus_name, path);
-	}
-
-	public void Register(string path, object obj)
-	{
-	    ExportObject eo = new ExportObject(this, path, obj);
-	    eo.Registered = true;
-
-	    RegisteredObjects[path] = eo;
-	}
-
-	public object Unregister(string path)
-	{
-	    BusObject bo;
-
-	    if (!RegisteredObjects.TryGetValue(path, out bo))
-		throw new Exception("Cannot unregister " + path + " as it isn't registered");
-
-	    RegisteredObjects.Remove(path);
-
-	    ExportObject eo = (ExportObject)bo;
-	    eo.Registered = false;
-
-	    return eo.obj;
-	}
 
 	//these look out of place, but are useful
 	internal protected virtual void AddMatch(string rule)

@@ -13,12 +13,8 @@ wvdbus-sharp.dll: \
 	Address.cs \
 	Authentication.cs \
 	Bus.cs \
-	BusObject.cs \
 	Connection.cs \
 	DataConverter.cs \
-	DProxy.cs \
-	ExportObject.cs \
-	Mapper.cs \
 	MatchRule.cs \
 	Message.cs \
 	MessageWriter.cs \
@@ -28,7 +24,6 @@ wvdbus-sharp.dll: \
 	Signature.cs \
 	SocketTransport.cs \
 	Transport.cs \
-	TypeImplementer.cs \
 	UnixMonoTransport.cs \
 	UnixNativeTransport.cs \
 	UnixTransport.cs \

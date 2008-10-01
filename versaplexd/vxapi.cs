@@ -12,14 +12,33 @@ internal static class VxDb {
     static WvLog log = new WvLog("VxDb", WvLog.L.Debug2);
 
     internal static void ExecScalar(string connid, string query, 
-        out object result)
+			    out VxColumnType coltype, out object result)
     {
         log.print(WvLog.L.Debug3, "ExecScalar {0}\n", query);
 
 	try
 	{
 	    using (var dbi = VxSqlPool.create(connid))
-		result = dbi.select_one(query).inner;
+	    using (var qr = dbi.select(query))
+	    {
+		var ci = ProcessSchema(qr.columns);
+		if (ci.Length == 0)
+		{
+		    coltype = VxColumnType.String;
+		    result = "";
+		    return;
+		}
+		
+		coltype = ci[0].VxColumnType;
+		var en = qr.GetEnumerator();
+		if (en.MoveNext())
+		    result = en.Current[0].inner;
+		else
+		{
+		    coltype = VxColumnType.String;
+		    result = "";
+		}
+	    }
         }
 	catch (DbException e)
 	{
@@ -636,10 +655,13 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         string query = it.pop();
 
         object result;
-        VxDb.ExecScalar(clientid, (string)query, out result);
+	VxColumnType coltype;
+        VxDb.ExecScalar(clientid, (string)query,
+			out coltype, out result);
 
         MessageWriter writer = new MessageWriter();
-        writer.WriteV(result);
+	writer.Write(new Signature(VxColumnTypeToSignature(coltype)));
+	WriteV(writer, coltype, result);
 
         reply = VxDbus.CreateReply(call, "v", writer);
 	
@@ -725,101 +747,46 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         // For debugging
         VxDbus.MessageDump(" >> ", reply);
     }
+    
+    static string VxColumnTypeToSignature(VxColumnType t)
+    {
+	switch (t)
+	{
+	case VxColumnType.Int64:
+	    return "x";
+	case VxColumnType.Int32:
+	    return "i";
+	case VxColumnType.Int16:
+	    return "n";
+	case VxColumnType.UInt8:
+	    return "y";
+	case VxColumnType.Bool:
+	    return "b";
+	case VxColumnType.Double:
+	    return "d";
+	case VxColumnType.Uuid:
+	    return "s";
+	case VxColumnType.Binary:
+	    return "ay";
+	case VxColumnType.String:
+	    return "s";
+	case VxColumnType.DateTime:
+	    return "(xi)";
+	case VxColumnType.Decimal:
+	    return "s";
+	default:
+	    throw new ArgumentException("Unknown VxColumnType");
+	}
+    }
 
-    private static Signature VxColumnInfoToArraySignature(VxColumnInfo[] vxci)
+    static Signature VxColumnInfoToArraySignature(VxColumnInfo[] vxci)
     {
         StringBuilder sig = new StringBuilder("a(");
-
-        foreach (VxColumnInfo ci in vxci) {
-            switch (ci.VxColumnType) {
-            case VxColumnType.Int64:
-                sig.Append("x");
-                break;
-            case VxColumnType.Int32:
-                sig.Append("i");
-                break;
-            case VxColumnType.Int16:
-                sig.Append("n");
-                break;
-            case VxColumnType.UInt8:
-                sig.Append("y");
-                break;
-            case VxColumnType.Bool:
-                sig.Append("b");
-                break;
-            case VxColumnType.Double:
-                sig.Append("d");
-                break;
-            case VxColumnType.Uuid:
-                sig.Append("s");
-                break;
-            case VxColumnType.Binary:
-                sig.Append("ay");
-                break;
-            case VxColumnType.String:
-                sig.Append("s");
-                break;
-            case VxColumnType.DateTime:
-                sig.Append("(xi)");
-                break;
-            case VxColumnType.Decimal:
-                sig.Append("s");
-                break;
-            default:
-                throw new ArgumentException("Unknown VxColumnType");
-            }
-        }
-
+        foreach (VxColumnInfo ci in vxci)
+	    sig.Append(VxColumnTypeToSignature(ci.VxColumnType));
         sig.Append(")");
 
         return new Signature(sig.ToString());
-    }
-
-    private static Type[] VxColumnInfoToType(VxColumnInfo[] vxci)
-    {
-        Type[] ret = new Type[vxci.Length];
-
-        for (int i=0; i < vxci.Length; i++) {
-            switch (vxci[i].VxColumnType) {
-            case VxColumnType.Int64:
-                ret[i] = typeof(Int64);
-                break;
-            case VxColumnType.Int32:
-                ret[i] = typeof(Int32);
-                break;
-            case VxColumnType.Int16:
-                ret[i] = typeof(Int16);
-                break;
-            case VxColumnType.UInt8:
-                ret[i] = typeof(Byte);
-                break;
-            case VxColumnType.Bool:
-                ret[i] = typeof(Boolean);
-                break;
-            case VxColumnType.Double:
-                ret[i] = typeof(Double);
-                break;
-            case VxColumnType.Uuid:
-                ret[i] = typeof(string);
-                break;
-            case VxColumnType.Binary:
-                ret[i] = typeof(byte[]);
-                break;
-            case VxColumnType.String:
-                ret[i] = typeof(string);
-                break;
-            case VxColumnType.DateTime:
-                ret[i] = typeof(VxDbusDateTime);
-                break;
-            case VxColumnType.Decimal:
-                ret[i] = typeof(string);
-                break;
-            default:
-                throw new ArgumentException("Unknown VxColumnType");
-            }
-        }
-
-        return ret;
     }
 
     private static void CallGetSchemaChecksums(Connection conn,
@@ -1034,6 +1001,48 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 
         reply = VxDbus.CreateReply(call);
     }
+    
+    static void WriteV(MessageWriter w, VxColumnType t, object v)
+    {
+	switch (t)
+	{
+	case VxColumnType.Int64:
+	    w.Write((Int64)v);
+	    break;
+	case VxColumnType.Int32:
+	    w.Write((Int32)v);
+	    break;
+	case VxColumnType.Int16:
+	    w.Write((Int16)v);
+	    break;
+	case VxColumnType.UInt8:
+	    w.Write((byte)v);
+	    break;
+	case VxColumnType.Bool:
+	    w.Write((bool)v);
+	    break;
+	case VxColumnType.Double:
+	    w.Write((double)v);
+	    break;
+	case VxColumnType.Binary:
+	    w.Write((byte[])v);
+	    break;
+	case VxColumnType.String:
+	case VxColumnType.Decimal:
+	case VxColumnType.Uuid:
+	    w.Write((string)v);
+	    break;
+	case VxColumnType.DateTime:
+	    {
+		var dt = (VxDbusDateTime)v;
+		w.Write(dt.seconds);
+		w.Write(dt.microseconds);
+		break;
+	    }
+	default:
+	    throw new ArgumentException("Unknown VxColumnType");
+	}
+    }
 
     // a(issnny)vaay
     public static MessageWriter PrepareRecordsetWriter(VxColumnInfo[] colinfo,
@@ -1058,46 +1067,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 	// a(whatever)
 	writer.WriteArray(8, data, (w2, r) => {
 	    for (int i = 0; i < colinfo.Length; i++)
-	    {
-		switch (colinfo[i].VxColumnType)
-		{
-		case VxColumnType.Int64:
-		    w2.Write((Int64)r[i]);
-		    break;
-		case VxColumnType.Int32:
-		    w2.Write((Int32)r[i]);
-		    break;
-		case VxColumnType.Int16:
-		    w2.Write((Int16)r[i]);
-		    break;
-		case VxColumnType.UInt8:
-		    w2.Write((byte)r[i]);
-		    break;
-		case VxColumnType.Bool:
-		    w2.Write((bool)r[i]);
-		    break;
-		case VxColumnType.Double:
-		    w2.Write((double)r[i]);
-		    break;
-		case VxColumnType.Binary:
-		    w2.Write((byte[])r[i]);
-		    break;
-		case VxColumnType.String:
-		case VxColumnType.Decimal:
-		case VxColumnType.Uuid:
-		    w2.Write((string)r[i]);
-		    break;
-		case VxColumnType.DateTime:
-		    {
-			var dt = (VxDbusDateTime)r[i];
-			w2.Write(dt.seconds);
-			w2.Write(dt.microseconds);
-			break;
-		    }
-		default:
-		    throw new ArgumentException("Unknown VxColumnType");
-		}
-	    }
+		WriteV(w2, colinfo[i].VxColumnType, r[i]);
 	});
 	
 	// aay

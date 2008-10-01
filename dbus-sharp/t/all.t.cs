@@ -39,7 +39,11 @@ class DbusTest
 	    w.WriteArray(8, new Int64[] { 0x42, 0x43, 0x44 }, (w2, i) => {
 		w2.Write(i);
 	    });
-	    w.WriteVariant(typeof(string), "VSTRING");
+	    
+	    // variant
+	    w.Write(new Signature("s"));
+	    w.Write("VSTRING");
+	    
 	    w.WriteArray(8, new string[] { "a", "aaa", "aaaaa" }, (w2, i) => {
 		w2.Write(i);
 	    });

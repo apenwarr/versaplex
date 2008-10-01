@@ -112,111 +112,6 @@ namespace Wv
 	    WriteNull();
 	}
 
-	public void xWrite(Type type, object val)
-	{
-	    if (type == typeof(void))
-		return;
-
-	    if (type.IsArray) {
-		wv.assert(false);
-		// xWriteArray(val, type.GetElementType());
-	    }
-	    else if (type == typeof(Signature)) {
-		Write((Signature)val);
-	    }
-	    else if (type == typeof(object)) {
-		WriteV(val);
-	    }
-	    else if (type == typeof(string)) {
-		Write((string)val);
-	    }
-	    else if (type.IsGenericType 
-		     && (type.GetGenericTypeDefinition() 
-			   == typeof(IDictionary<,>) 
-			 || type.GetGenericTypeDefinition() 
-			   == typeof(Dictionary<,>))) {
-		Type[] genArgs = type.GetGenericArguments();
-		IDictionary idict = (IDictionary)val;
-		wv.assert(false);
-		//WriteFromDict(genArgs[0], genArgs[1], idict);
-	    }
-	    else if (!type.IsPrimitive && !type.IsEnum) {
-		WriteValueType(val, type);
-	    }
-	    else {
-		xWrite(Signature.TypeToDType(type), val);
-	    }
-	}
-
-	//helper method, should not be used as it boxes needlessly
-	public void xWrite(DType dtype, object val)
-	{
-	    switch (dtype)
-	    {
-	    case DType.Byte:
-		Write((byte)val);
-		break;
-	    case DType.Boolean:
-		Write((bool)val);
-		break;
-	    case DType.Int16:
-		Write((short)val);
-		break;
-	    case DType.UInt16:
-		Write((ushort)val);
-		break;
-	    case DType.Int32:
-		Write((int)val);
-		break;
-	    case DType.UInt32:
-		Write((uint)val);
-		break;
-	    case DType.Int64:
-		Write((long)val);
-		break;
-	    case DType.UInt64:
-		Write((ulong)val);
-		break;
-	    case DType.Single:
-		Write((float)val);
-		break;
-	    case DType.Double:
-		Write((double)val);
-		break;
-	    case DType.String:
-		Write((string)val);
-		break;
-	    case DType.ObjectPath:
-		Write((string)val);
-		break;
-	    case DType.Signature:
-		Write((Signature)val);
-		break;
-	    case DType.Variant:
-		WriteV((object)val);
-		break;
-	    default:
-		throw new Exception("Unhandled D-Bus type: " + dtype);
-	    }
-	}
-
-	//variant
-	public void WriteV(object val)
-	{
-	    if (val == null)
-		throw new NotSupportedException("Cannot send null variant");
-
-	    Type type = val.GetType();
-	    WriteVariant(type, val);
-	}
-
-	public void WriteVariant(Type type, object val)
-	{
-	    Signature sig = Signature.GetSig(type);
-	    Write(sig);
-	    xWrite(type, val);
-	}
-	
 	static byte[] zeroes = new byte[8] { 0,0,0,0,0,0,0,0 };
 	public void WriteArray<T>(int align,
 				  IEnumerable<T> list,
@@ -246,12 +141,6 @@ namespace Wv
 	    
 	    // ...but we have to copy all the bytes *including* padding
 	    buf.put(a.sub(startpad, a.Length - startpad));
-	}
-	
-	public void WriteValueType(object val, Type type)
-	{
-	    MethodInfo mi = TypeImplementer.GetWriteMethod (type);
-	    mi.Invoke (null, new object[] {this, val});
 	}
 	
 	public void Write(WvBytes b)
