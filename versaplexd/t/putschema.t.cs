@@ -86,26 +86,26 @@ class PutSchemaTests : SchemamaticTester
     public void TestTableUpdateError(string tabname, string tabschema, 
         string errmsg, string oldval)
     {
-        TestTableUpdateError(tabname, tabschema, errmsg, oldval, -1, 
-            VxPutOpts.None, WvLog.L.Error);
+        TestTableUpdateError(tabname, tabschema, errmsg, oldval, 
+            VxPutOpts.None, -1, WvLog.L.Error);
     }
 
     public void TestTableUpdateError(string tabname, string tabschema, 
         string errmsg, string oldval, VxPutOpts opts)
     {
-        TestTableUpdateError(tabname, tabschema, errmsg, oldval, -1, opts, 
+        TestTableUpdateError(tabname, tabschema, errmsg, oldval, opts, -1, 
             WvLog.L.Error);
     }
 
     public void TestTableUpdateError(string tabname, string tabschema, 
-        string errmsg, string oldval, int errno, VxPutOpts opts)
+        string errmsg, string oldval, VxPutOpts opts, int errno)
     {
-        TestTableUpdateError(tabname, tabschema, errmsg, oldval, errno, opts, 
+        TestTableUpdateError(tabname, tabschema, errmsg, oldval, opts, errno,
             WvLog.L.Error);
     }
 
     public void TestTableUpdateError(string tabname, string tabschema, 
-        string errmsg, string oldval, int errno, VxPutOpts opts, WvLog.L level)
+        string errmsg, string oldval, VxPutOpts opts, int errno, WvLog.L level)
     {
         string key = "Table/" + tabname;
         VxSchema schema = new VxSchema();
@@ -399,8 +399,8 @@ class PutSchemaTests : SchemamaticTester
         WVPASS(12);
         string schema12 = "primary-key: column=f1renamed,clustered=1\n";
         errmsg = "The object 'PK_TestTable' is dependent on column 'f1renamed'.";
-        TestTableUpdateError("TestTable", schema12, errmsg, schema11, 5074,
-            VxPutOpts.Destructive);
+        TestTableUpdateError("TestTable", schema12, errmsg, schema11,
+            VxPutOpts.Destructive, 5074);
 
         // Try to get rid of all the columns, and rename the remaining index.
         WVPASS(13);
@@ -408,8 +408,8 @@ class PutSchemaTests : SchemamaticTester
         errmsg = "ALTER TABLE DROP COLUMN failed because 'f1renamed' is " + 
             "the only data column in table 'TestTable'. A table must have " + 
             "at least one data column.";
-        TestTableUpdateError("TestTable", schema13, errmsg, schema11, 4923,
-            VxPutOpts.Destructive);
+        TestTableUpdateError("TestTable", schema13, errmsg, schema11,
+            VxPutOpts.Destructive, 4923);
 
         try { VxExec("drop table TestTable"); } catch { }
     }
@@ -455,7 +455,7 @@ class PutSchemaTests : SchemamaticTester
                 "primary-key: column=f1,column=f2,clustered=1\n";
         errmsg = "The object 'PK_TestTable' is dependent on column 'f1'.";
         TestTableUpdateError("TestTable", schema3, errmsg, schema1, 
-            5074, VxPutOpts.Destructive);
+            VxPutOpts.Destructive, 5074);
 
         // Now try truncating columns with no indexes in the way.
         WVPASS(4);
@@ -507,7 +507,7 @@ class PutSchemaTests : SchemamaticTester
         errmsg = "Column 'f3' was requested to be non-null but has " + 
             "1 null elements.";
         TestTableUpdateError("TestTable", schema7, errmsg, schema7_returned, 
-            -1, VxPutOpts.Destructive, WvLog.L.Warning);
+            VxPutOpts.Destructive, -1, WvLog.L.Warning);
 
         WVPASSEQ(Scalar("select count(*) from TestTable"), 1);
         WVPASSEQ((int)Scalar("select f1 from TestTable"), 123);
@@ -531,7 +531,7 @@ class PutSchemaTests : SchemamaticTester
         errmsg = "Column 'f4' was requested to be non-null but has " + 
             "1 null elements.";
         TestTableUpdateError("TestTable", schema8, errmsg, 
-            schema8_returned, -1, VxPutOpts.Destructive, WvLog.L.Warning);
+            schema8_returned, VxPutOpts.Destructive, -1, WvLog.L.Warning);
 
         WVPASSEQ(Scalar("select count(*) from TestTable"), 1);
         WVPASSEQ((int)Scalar("select f1 from TestTable"), 123);
@@ -555,7 +555,7 @@ class PutSchemaTests : SchemamaticTester
         errmsg = "Column 'f4' was requested to be non-null but has " + 
             "1 null elements.";
         TestTableUpdateError("TestTable", schema9, errmsg, schema9_returned, 
-            -1, VxPutOpts.Destructive, WvLog.L.Warning);
+            VxPutOpts.Destructive, -1, WvLog.L.Warning);
 
         WVPASSEQ(Scalar("select count(*) from TestTable"), 1);
         WVPASSEQ((int)Scalar("select f1 from TestTable"), 123);
@@ -678,6 +678,37 @@ class PutSchemaTests : SchemamaticTester
         WVPASSEQ((int)count, 2);
 
         try { VxExec("drop table " + tabname); } catch { }
+    }
+
+    [Test, Category("Schemamatic"), Category("PutSchema")]
+    public void TestAddingNonNullColumns()
+    {
+        try { VxExec("drop table TestTable"); } catch { }
+
+        string tabname = "TestTable";
+
+        WVPASS(1);
+        string schema1 = "column: name=f1,type=int,null=0\n";
+        TestTableUpdate(tabname, schema1);
+
+        WVASSERT(VxExec(wv.fmt("INSERT INTO [{0}] VALUES (123)", tabname)));
+
+        // Check that nullability gets added without the Destructive option.
+        WVPASS(2);
+        string schema2 = "column: name=f1,type=int,null=0\n" + 
+                "column: name=f2,type=int,null=0\n";
+        string schema2_returned = "column: name=f1,type=int,null=0\n" + 
+                "column: name=f2,type=int,null=1\n";
+        string errmsg = "Column 'f2' was requested " + 
+            "to be non-null but has 1 null elements.";
+        TestTableUpdateError(tabname, schema2, errmsg, schema2_returned, 
+            VxPutOpts.None, -1, WvLog.L.Warning);
+
+        WVPASSEQ(Scalar("select count(*) from TestTable"), 1);
+        WVPASSEQ((int)Scalar("select f1 from TestTable"), 123);
+        WVPASS(Scalar("select f2 from TestTable").IsNull);
+
+        try { VxExec("drop table TestTable"); } catch { }
     }
 
     public static void Main()

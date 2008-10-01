@@ -788,7 +788,7 @@ internal class VxDbSchema : ISchemaBackend
                 {
                     // Error 4901: adding a column on a non-empty table failed
                     // due to neither having a default nor being nullable.
-                    if (destructive && e.Number == 4901)
+                    if (e.Number == 4901)
                     {
                         log.print("Couldn't add a new non-nullable column " +
                             "without a default.  Making column nullable.\n");
@@ -856,7 +856,15 @@ internal class VxDbSchema : ISchemaBackend
                 foreach (var elem in added_columns)
                 {
                     log.print("Restoring {0}\n", elem.ToString());
-                    DropTableColumn(newtable, elem);
+                    try
+                    {
+                        DropTableColumn(newtable, elem);
+                    }
+                    catch (SqlException e)
+                    { 
+                        log.print("Caught error clearing column: {0}\n",
+                            e.Message);
+                    }
                 }
 
                 foreach (var elem in deleted_indexes)
@@ -870,27 +878,42 @@ internal class VxDbSchema : ISchemaBackend
         }
 
         // Check for null entries in columns that are supposed to be non-null
-        foreach (var elem in newtable)
+        if (errs.Count == 0)
         {
-            string nullity = elem.GetParam("null");
-            if (elem.elemtype == "column" && nullity.ne() && nullity != "1")
+            foreach (var elem in newtable)
             {
-                string colname = elem.GetParam("name");
-                string query = wv.fmt("SELECT count(*) FROM [{0}] " + 
-                    "WHERE [{1}] IS NULL",
-                    tabname, colname);
-
-                int num_nulls = dbi.select_one(query);
-                if (num_nulls > 0)
+                string nullity = elem.GetParam("null");
+                if (elem.elemtype == "column" && nullity.ne() && nullity != "1")
                 {
-                    string errmsg = wv.fmt("Column '{0}' was requested " + 
-                            "to be non-null but has {1} null elements.", 
-                            colname, num_nulls);
-                    log.print(errmsg + "\n");
-                    var err = new VxSchemaError(
-                        key, errmsg, -1, WvLog.L.Warning);
+                    string colname = elem.GetParam("name");
+                    string query = wv.fmt("SELECT count(*) FROM [{0}] " + 
+                        "WHERE [{1}] IS NULL",
+                        tabname, colname);
 
-                    errs.Add(key, err);
+                    int num_nulls = -1;
+                    try
+                    {
+                        num_nulls = dbi.select_one(query);
+                    }
+                    catch (SqlException e)
+                    {
+                        string errmsg = wv.fmt(
+                            "Couldn't figure out if '{0}' has nulls: {1}",
+                            colname, e.Message);
+                        log.print(errmsg + "\n");
+                        errs.Add(key, new VxSchemaError(
+                            key, errmsg, -1, WvLog.L.Warning));
+                    }
+
+                    if (num_nulls > 0)
+                    {
+                        string errmsg = wv.fmt("Column '{0}' was requested " + 
+                                "to be non-null but has {1} null elements.", 
+                                colname, num_nulls);
+                        log.print(errmsg + "\n");
+                        errs.Add(key, new VxSchemaError(
+                            key, errmsg, -1, WvLog.L.Warning));
+                    }
                 }
             }
         }
