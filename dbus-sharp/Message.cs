@@ -104,13 +104,31 @@ namespace Wv
 	    }
 	}
 	
-	void ww<T>(MessageWriter w, FieldCode c, string sig, T val)
+	void wws(MessageWriter w, FieldCode c, string sig, string val)
 	{
 	    wv.print("Writing: type={0}/{3}, code={1}, val='{2}'\n",
-		     val.GetType(), c, val, typeof(T));
+		     val.GetType(), c, val, typeof(string));
 	    w.Write((byte)c);
 	    w.Write(new Signature(sig));
-	    w.Write(typeof(T), val);
+	    w.Write(val);
+	}
+	
+	void wwu(MessageWriter w, FieldCode c, string sig, uint val)
+	{
+	    wv.print("Writing: type={0}/{3}, code={1}, val='{2}'\n",
+		     val.GetType(), c, val, typeof(uint));
+	    w.Write((byte)c);
+	    w.Write(new Signature(sig));
+	    w.Write(val);
+	}
+	
+	void wwsig(MessageWriter w, FieldCode c, string sig, Signature val)
+	{
+	    wv.print("Writing: type={0}/{3}, code={1}, val='{2}'\n",
+		     val.GetType(), c, val, typeof(Signature));
+	    w.Write((byte)c);
+	    w.Write(new Signature(sig));
+	    w.Write(val);
 	}
 	
 	// Header format is: yyyyuua{yv}
@@ -155,29 +173,29 @@ namespace Wv
 		switch (i)
 		{
 		case FieldCode.Sender:
-		    ww(w2, i, "s", sender);
+		    wws(w2, i, "s", sender);
 		    break;
 		case FieldCode.Destination:
-		    ww(w2, i, "s", dest);
+		    wws(w2, i, "s", dest);
 		    break;
 		case FieldCode.ReplySerial:
 		    wv.assert(rserial.Value != 0);
-		    ww(w2, i, "u", rserial.Value);
+		    wwu(w2, i, "u", rserial.Value);
 		    break;
 		case FieldCode.Signature:
-		    ww(w2, i, "g", Signature);
+		    wwsig(w2, i, "g", Signature);
 		    break;
 		case FieldCode.Path:
-		    ww(w2, i, "o", path);
+		    wws(w2, i, "o", path);
 		    break;
 		case FieldCode.Interface:
-		    ww(w2, i, "s", ifc);
+		    wws(w2, i, "s", ifc);
 		    break;
 		case FieldCode.Member:
-		    ww(w2, i, "s", method);
+		    wws(w2, i, "s", method);
 		    break;
 		case FieldCode.ErrorName:
-		    ww(w2, i, "s", err);
+		    wws(w2, i, "s", err);
 		    break;
 		default:
 		    break; // unknown field code, ignore

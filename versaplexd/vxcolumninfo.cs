@@ -71,18 +71,6 @@ public struct VxColumnInfo {
         Precision = precision;
         Scale = scale;
     }
-    
-    public void Write(MessageWriter w)
-    {
-	// (issnny)
-	w.WritePad(8); //offset for structs, right?
-	w.Write(typeof(Int32),  size);
-	w.Write(typeof(string), colname);
-	w.Write(typeof(string), coltype.ToString());
-	w.Write(typeof(Int16),  precision);
-	w.Write(typeof(Int16),  scale);
-	w.Write(typeof(Byte),   nullable);
-    }
 }
 
 public enum VxColumnType {

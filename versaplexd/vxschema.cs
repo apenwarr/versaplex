@@ -74,11 +74,11 @@ internal class VxSchemaElement : IComparable
 
     public void Write(MessageWriter writer)
     {
-        writer.Write(typeof(string), type);
-        writer.Write(typeof(string), name);
-        writer.Write(typeof(string), text);
+        writer.Write(type);
+        writer.Write(name);
+        writer.Write(text);
         byte encb = (byte)(encrypted ? 1 : 0);
-        writer.Write(typeof(byte), encb);
+        writer.Write(encb);
     }
 
     public string GetKey()

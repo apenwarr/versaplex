@@ -189,7 +189,7 @@ namespace Wv
 					MessageWriter writer = new MessageWriter ();
 
 					for (int i = 0 ; i != inTypes.Length ; i++)
-						writer.Write (inTypes[i], inArgs[i]);
+						writer.xWrite (inTypes[i], inArgs[i]);
 
 					callMsg.Body = writer.ToArray ();
 				}

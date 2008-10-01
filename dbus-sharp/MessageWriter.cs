@@ -112,7 +112,7 @@ namespace Wv
 	    WriteNull();
 	}
 
-	public void Write(Type type, object val)
+	public void xWrite(Type type, object val)
 	{
 	    if (type == typeof(void))
 		return;
@@ -144,12 +144,12 @@ namespace Wv
 		WriteValueType(val, type);
 	    }
 	    else {
-		Write(Signature.TypeToDType(type), val);
+		xWrite(Signature.TypeToDType(type), val);
 	    }
 	}
 
 	//helper method, should not be used as it boxes needlessly
-	public void Write (DType dtype, object val)
+	public void xWrite(DType dtype, object val)
 	{
 	    switch (dtype)
 	    {
@@ -214,7 +214,7 @@ namespace Wv
 	{
 	    Signature sig = Signature.GetSig(type);
 	    Write(sig);
-	    Write(type, val);
+	    xWrite(type, val);
 	}
 	
 	static byte[] zeroes = new byte[8] { 0,0,0,0,0,0,0,0 };

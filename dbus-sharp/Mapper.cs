@@ -241,7 +241,7 @@ namespace Wv
 					continue;
 
 				Type actualType = parm.ParameterType.GetElementType ();
-				mw.Write (actualType, vals[parm.Position]);
+				mw.xWrite (actualType, vals[parm.Position]);
 			}
 		}
 
@@ -285,7 +285,7 @@ namespace Wv
 				MessageWriter writer = new MessageWriter ();
 
 				foreach (object arg in vals)
-					writer.Write (arg.GetType (), arg);
+					writer.xWrite (arg.GetType (), arg);
 
 				replyMsg.Body = writer.ToArray ();
 			}
@@ -313,7 +313,7 @@ namespace Wv
 
 				//first write the return value, if any
 				if (retType != null && retType != typeof (void))
-					writer.Write (retType, retVal);
+					writer.xWrite (retType, retVal);
 
 				//then write the out args
 				WriteDynamicValues (writer, mi.GetParameters (), vals);

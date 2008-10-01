@@ -117,7 +117,7 @@ public class VersaplexTester: IDisposable
         Message call = VxDbusUtils.CreateMethodCall(bus, "ExecRecordset", "s");
 
         MessageWriter mw = new MessageWriter();
-        mw.Write(typeof(string), query);
+        mw.Write(query);
 
         call.Body = mw.ToArray();
 
@@ -151,7 +151,7 @@ public class VersaplexTester: IDisposable
         Message call = VxDbusUtils.CreateMethodCall(bus, "ExecScalar", "s");
 
         MessageWriter mw = new MessageWriter();
-        mw.Write(typeof(string), query);
+        mw.Write(query);
 
         call.Body = mw.ToArray();
 
@@ -226,7 +226,7 @@ public class VersaplexTester: IDisposable
 	Message call = VxDbusUtils.CreateMethodCall(bus, "ExecChunkRecordset", "s");
 
 	MessageWriter mw = new MessageWriter();
-	mw.Write(typeof(string), query);
+	mw.Write(query);
 
 	call.Body = mw.ToArray();
 
@@ -349,7 +349,7 @@ public class VersaplexTester: IDisposable
         Message call = VxDbusUtils.CreateMethodCall(bus, "ExecRecordset", "s");
 
         MessageWriter mw = new MessageWriter();
-        mw.Write(typeof(string), query);
+        mw.Write(query);
 
         call.Body = mw.ToArray();
 

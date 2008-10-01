@@ -35,7 +35,7 @@ internal static class VxDb {
     {
 	MessageWriter writer =
 	    VxDbInterfaceRouter.PrepareRecordsetWriter(colinfo, data, nulls);
-	writer.Write(typeof(uint), call.serial);
+	writer.Write(call.serial);
 
 	Message signal = VxDbus.CreateSignal(sender, "ChunkRecordsetSig",
 				   	"a(issnny)vaayu",
@@ -253,7 +253,7 @@ internal static class VxDb {
 		}
 	    } // using
 	    MessageWriter replywriter = new MessageWriter();
-	    replywriter.Write(typeof(string), "ChunkRecordset sent you all your data!");
+	    replywriter.Write("ChunkRecordset sent you all your data!");
 	    reply = VxDbus.CreateReply(call, "s", replywriter);
         } catch (DbException e) {
             throw new VxSqlException(e.Message, e);
@@ -600,7 +600,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
     {
 	// FIXME: Check permissions here
         MessageWriter writer = new MessageWriter();
-	writer.Write(typeof(string), "Quit");
+	writer.Write("Quit");
         reply = VxDbus.CreateReply(call, "s", writer);
 	VersaMain.want_to_die = true;
 	
@@ -820,22 +820,6 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         }
 
         return ret;
-    }
-
-    private static void WriteStructArray(MessageWriter writer,
-            Type[] types, object[][] data)
-    {
-        foreach (object[] row in data) {
-            writer.WritePad(8);
-
-            for (int i=0; i < row.Length; i++) {
-                if (!types[i].IsInstanceOfType(row[i]))
-                    throw new ArgumentException("Data does not match type for "
-                            +"column " + i);
-
-                writer.Write(types[i], row[i]);
-            }
-        }
     }
 
     private static void CallGetSchemaChecksums(Connection conn,
