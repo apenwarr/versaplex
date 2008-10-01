@@ -25,7 +25,7 @@ public class VersaplexTester: IDisposable
     private const string image_file = "thtbacs.tiff";
 
     public WvDbi dbi;
-    protected Bus bus;
+    protected Connection bus;
 
     public VersaplexTester()
     {
@@ -66,7 +66,7 @@ public class VersaplexTester: IDisposable
         AddressEntry aent = AddressEntry.Parse(Address.Session);
         DodgyTransport trans = new DodgyTransport();
         trans.Open(aent);
-        bus = new Bus(trans);
+        bus = new Connection(trans);
     }
 
     public void Dispose()

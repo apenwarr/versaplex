@@ -17,7 +17,7 @@ public static class VersaMain
     static ManualResetEvent thread_ready = new ManualResetEvent(false);
     public static bool want_to_die = false;
     
-    public static Bus conn;
+    public static Connection conn;
 
     private static void DataReady(object sender, object cookie)
     {
@@ -186,7 +186,7 @@ public static class VersaMain
         DodgyTransport trans = new DodgyTransport();
         trans.Open(aent);
 
-        conn = new Bus(trans);
+        conn = new Connection(trans);
 
         string myNameReq = "vx.versaplexd";
         RequestNameReply rnr = conn.RequestName(myNameReq,

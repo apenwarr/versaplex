@@ -10,7 +10,7 @@ using Wv.Extensions;
 [WvMoniker]
 internal class VxDbusSchema : ISchemaBackend
 {
-    Bus bus;
+    Connection bus;
 
     public static void wvmoniker_register()
     {
@@ -33,7 +33,7 @@ internal class VxDbusSchema : ISchemaBackend
     }
 
     // If you've already got a Bus you'd like to use.
-    public VxDbusSchema(Bus _bus)
+    public VxDbusSchema(Connection _bus)
     {
         bus = _bus;
     }
@@ -43,7 +43,7 @@ internal class VxDbusSchema : ISchemaBackend
         AddressEntry aent = AddressEntry.Parse(bus_moniker);
         DodgyTransport trans = new DodgyTransport();
         trans.Open(aent);
-        bus = new Bus(trans);
+        bus = new Connection(trans);
     }
 
     // 

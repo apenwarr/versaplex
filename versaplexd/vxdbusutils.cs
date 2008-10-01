@@ -29,14 +29,14 @@ class VxDbusUtils
 
     // Create a method call using the default connection, object path, and
     // interface
-    public static Message CreateMethodCall(Bus bus, 
+    public static Message CreateMethodCall(Connection bus, 
         string member, string signature)
     {
         return CreateMethodCall(bus, DbusConnName, DbusObjPath, 
             DbusInterface, member, signature);
     }
 
-    public static Message CreateMethodCall(Bus bus, string destination, 
+    public static Message CreateMethodCall(Connection bus, string destination, 
             string path, string iface, string member, string signature)
     {
         Message msg = new Message();

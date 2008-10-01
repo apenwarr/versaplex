@@ -12,7 +12,6 @@ wvdbus-sharp.dll: \
 	assemblyinfo.cs \
 	Address.cs \
 	Authentication.cs \
-	Bus.cs \
 	Connection.cs \
 	DataConverter.cs \
 	MatchRule.cs \

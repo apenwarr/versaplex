@@ -20,7 +20,7 @@ namespace Wv
     [WvMoniker]
     public class WvDbi_Versaplex : WvDbi
     {
-	Bus bus;
+	Connection bus;
 	
 	struct ColInfo
 	{
@@ -45,7 +45,7 @@ namespace Wv
 	    AddressEntry aent = AddressEntry.Parse(Address.Session);
 	    DodgyTransport trans = new DodgyTransport();
 	    trans.Open(aent);
-	    bus = new Bus(trans);
+	    bus = new Connection(trans);
 	}
 	
 	public override WvSqlRows select(string sql, params object[] args)
