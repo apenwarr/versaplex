@@ -2,12 +2,12 @@ using System;
 using Wv;
 
 public struct VxColumnInfo {
-    private int size;
-    private string colname;
-    private VxColumnType coltype;
-    private short precision;
-    private short scale;
-    private byte nullable;
+    internal int size;
+    internal string colname;
+    internal VxColumnType coltype;
+    internal short precision;
+    internal short scale;
+    internal byte nullable;
 
     public string ColumnName {
         get { return colname; }

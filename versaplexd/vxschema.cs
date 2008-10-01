@@ -579,21 +579,11 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
 	}
     }
 
-    private void _WriteSchema(MessageWriter writer)
-    {
-        foreach (KeyValuePair<string,VxSchemaElement> p in this)
-        {
-            writer.WritePad(8);
-            p.Value.Write(writer);
-        }
-    }
-
     public void WriteSchema(MessageWriter writer)
     {
-        writer.WriteDelegatePrependSize(delegate(MessageWriter w)
-            {
-                _WriteSchema(w);
-            }, 8);
+	writer.WriteArray(8, this, (w2, p) => {
+	    p.Value.Write(w2);
+	});
     }
 
     // Returns only the elements of the schema that are affected by the diff.

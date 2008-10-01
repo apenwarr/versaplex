@@ -647,21 +647,17 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         VxDbus.MessageDump(" >> ", reply);
     }
     
-    private static void _WriteColInfo(MessageWriter w,
-				      VxColumnInfo[] colinfo)
+    static void WriteColInfo(MessageWriter writer, VxColumnInfo[] colinfo)
     {
 	// a(issnny)
-	foreach (VxColumnInfo c in colinfo)
-	    c.Write(w);
-    }
-    
-    private static void WriteColInfo(MessageWriter writer, 
-				     VxColumnInfo[] colinfo)
-    {
-	writer.WriteDelegatePrependSize(delegate(MessageWriter w) 
-	    {
-		_WriteColInfo(w, colinfo);
-	    }, 8);
+	writer.WriteArray(8, colinfo, (w2, i) => {
+	    w2.Write(i.size);
+	    w2.Write(i.colname);
+	    w2.Write(i.coltype.ToString());
+	    w2.Write(i.precision);
+	    w2.Write(i.scale);
+	    w2.Write(i.nullable);
+	});
     }
 
     public static void CallExecRecordset(Connection conn,
@@ -1055,26 +1051,75 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         reply = VxDbus.CreateReply(call);
     }
 
+    // a(issnny)vaay
     public static MessageWriter PrepareRecordsetWriter(VxColumnInfo[] colinfo,
 						object[][] data,
 						byte[][] nulldata)
     {
 	MessageWriter writer = new MessageWriter();
-
+	
+	// a(issnny)
 	WriteColInfo(writer, colinfo);
+	
+	// v
 	if (colinfo.Length <= 0)
 	{
 	    // Some clients can't parse a() (empty struct) properly, so
 	    // we'll have an empty array of (i) instead.
-	    writer.Write(typeof(Signature), new Signature("a(i)"));
+	    writer.Write(new Signature("a(i)"));
 	}
 	else
-	    writer.Write(typeof(Signature), VxColumnInfoToArraySignature(colinfo));
-	writer.WriteDelegatePrependSize(delegate(MessageWriter w)
+	    writer.Write(VxColumnInfoToArraySignature(colinfo));
+
+	// a(whatever)
+	writer.WriteArray(8, data, (w2, r) => {
+	    for (int i = 0; i < colinfo.Length; i++)
+	    {
+		switch (colinfo[i].VxColumnType)
 		{
-		    WriteStructArray(w, VxColumnInfoToType(colinfo), data);
-		}, 8);
-	writer.Write(typeof(byte[][]), nulldata);
+		case VxColumnType.Int64:
+		    w2.Write((Int64)r[i]);
+		    break;
+		case VxColumnType.Int32:
+		    w2.Write((Int32)r[i]);
+		    break;
+		case VxColumnType.Int16:
+		    w2.Write((Int16)r[i]);
+		    break;
+		case VxColumnType.UInt8:
+		    w2.Write((byte)r[i]);
+		    break;
+		case VxColumnType.Bool:
+		    w2.Write((bool)r[i]);
+		    break;
+		case VxColumnType.Double:
+		    w2.Write((double)r[i]);
+		    break;
+		case VxColumnType.Binary:
+		    w2.Write((byte[])r[i]);
+		    break;
+		case VxColumnType.String:
+		case VxColumnType.Decimal:
+		case VxColumnType.Uuid:
+		    w2.Write((string)r[i]);
+		    break;
+		case VxColumnType.DateTime:
+		    {
+			var dt = (VxDbusDateTime)r[i];
+			w2.Write(dt.seconds);
+			w2.Write(dt.microseconds);
+			break;
+		    }
+		default:
+		    throw new ArgumentException("Unknown VxColumnType");
+		}
+	    }
+	});
+	
+	// aay
+	writer.WriteArray(4, nulldata, (w2, r) => {
+	    w2.Write(r);
+	});
 
 	return writer;
     }

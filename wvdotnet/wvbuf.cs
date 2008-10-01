@@ -158,11 +158,6 @@ namespace Wv
 	    next += b.len;
 	}
 
-	public void put(byte[] bytes, int offset, int len)
-	{
-	    put(bytes.sub(offset,len));
-	}
-
 	public WvBytes peek(int len)
 	{
 	    return bytes.sub(first, len);
@@ -252,6 +247,12 @@ namespace Wv
 	    put(s.ToUTF8());
 	}
 	
+	public void put(byte b)
+	{
+	    // FIXME: this could be much more optimal :)
+	    put(new byte[1] { b });
+	}
+	
 	public void put(string fmt, params object[] args)
 	{
 	    put(String.Format(fmt, args));
@@ -290,6 +291,11 @@ namespace Wv
 	    wv.assert(used >= len);
 	    coagulate(len);
 	    return list[0].peek(len);
+	}
+	
+	public WvBytes peekall()
+	{
+	    return peek(used);
 	}
 
 	public WvBytes get(int len)

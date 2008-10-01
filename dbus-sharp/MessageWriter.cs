@@ -9,14 +9,15 @@ using System.Text;
 using System.IO;
 using System.Reflection;
 using Mono;
+using Wv.Extensions;
 
 namespace Wv
 {
     public class MessageWriter
     {
-	DataConverter conv;
-	EndianFlag endianness;
-	MemoryStream stream;
+	readonly DataConverter conv;
+	readonly EndianFlag endianness;
+	WvBuf buf = new WvBuf(1024);
 
 	public MessageWriter()
 	{
@@ -25,25 +26,22 @@ namespace Wv
 		conv = DataConverter.LittleEndian;
 	    else
 	        conv = DataConverter.BigEndian;
-	    
-	    stream = new MemoryStream();
 	}
 
 	public byte[] ToArray()
 	{
-	    //TODO: mark the writer locked or something here
-	    return stream.ToArray();
+	    return (byte[])buf.peekall();
 	}
 	
-	void p(int align, byte[] b)
+	void p(int align, WvBytes b)
 	{
 	    WritePad(align);
-	    stream.Write(b, 0, b.Length);
+	    buf.put(b);
 	}
 
 	public void Write(byte val)
 	{
-	    stream.WriteByte(val);
+	    buf.put(val);
 	}
 
 	public void Write(bool val)
@@ -93,24 +91,24 @@ namespace Wv
 
 	public void Write(string val)
 	{
-	    byte[] utf8_data = Encoding.UTF8.GetBytes(val);
-	    Write((uint)utf8_data.Length);
-	    stream.Write(utf8_data, 0, utf8_data.Length);
+	    byte[] b = Encoding.UTF8.GetBytes(val);
+	    Write((uint)b.Length);
+	    buf.put(b);
 	    WriteNull();
 	}
 
 	public void Write(Signature val)
 	{
-	    byte[] ascii_data = val.GetBuffer();
+	    byte[] b = val.GetBuffer();
 
-	    if (ascii_data.Length > Protocol.MaxSignatureLength)
+	    if (b.Length > Protocol.MaxSignatureLength)
 		throw new Exception
 		    ("Signature length "
-		     + ascii_data.Length + " exceeds maximum allowed "
+		     + b.Length + " exceeds maximum allowed "
 		     + Protocol.MaxSignatureLength + " bytes");
 
-	    Write((byte)ascii_data.Length);
-	    stream.Write(ascii_data, 0, ascii_data.Length);
+	    Write((byte)b.Length);
+	    buf.put(b);
 	    WriteNull();
 	}
 
@@ -120,7 +118,8 @@ namespace Wv
 		return;
 
 	    if (type.IsArray) {
-		xWriteArray(val, type.GetElementType());
+		wv.assert(false);
+		// xWriteArray(val, type.GetElementType());
 	    }
 	    else if (type == typeof(Signature)) {
 		Write((Signature)val);
@@ -138,7 +137,8 @@ namespace Wv
 			   == typeof(Dictionary<,>))) {
 		Type[] genArgs = type.GetGenericArguments();
 		IDictionary idict = (IDictionary)val;
-		WriteFromDict(genArgs[0], genArgs[1], idict);
+		wv.assert(false);
+		//WriteFromDict(genArgs[0], genArgs[1], idict);
 	    }
 	    else if (!type.IsPrimitive && !type.IsEnum) {
 		WriteValueType(val, type);
@@ -216,146 +216,64 @@ namespace Wv
 	    Write(sig);
 	    Write(type, val);
 	}
-
-	//this requires a seekable stream for now
-	public void xWriteArray(object obj, Type elemType)
-	{
-	    Array val = (Array)obj;
-
-	    //TODO: more fast paths for primitive arrays
-	    if (elemType == typeof (byte)) {
-		if (val.Length > Protocol.MaxArrayLength)
-		    throw new Exception
-		        ("Array length " + val.Length 
-			 + " exceeds maximum allowed " 
-			 + Protocol.MaxArrayLength + " bytes");
-
-		Write((uint)val.Length);
-		stream.Write((byte[])val, 0, val.Length);
-		return;
-	    }
-
-	    long origPos = stream.Position;
-	    Write((uint)0);
-
-	    //advance to the alignment of the element
-	    WritePad(Protocol.GetAlignment(Signature.TypeToDType (elemType)));
-
-	    long startPos = stream.Position;
-
-	    foreach (object elem in val)
-		Write(elemType, elem);
-
-	    long endPos = stream.Position;
-	    uint ln = (uint)(endPos - startPos);
-	    stream.Position = origPos;
-
-	    if (ln > Protocol.MaxArrayLength)
-		throw new Exception
-		    ("Array length " + ln + " exceeds maximum allowed "
-		     + Protocol.MaxArrayLength + " bytes");
-
-	    Write(ln);
-	    stream.Position = endPos;
-	}
 	
 	static byte[] zeroes = new byte[8] { 0,0,0,0,0,0,0,0 };
 	public void WriteArray<T>(int align,
 				  IEnumerable<T> list,
 				  Action<MessageWriter,T> doelement)
 	{
-	    var tmp = new MessageWriter();
-	    
 	    // after the arraylength, we'll be aligned to size 4, but that
 	    // might not be enough, so maybe we need to fix it up.
 	    WritePad(4);
 	    
-	    int startpad = (int)(stream.Position+4) % 8;
-	    tmp.stream.Write(zeroes, 0, startpad);
-			     
-	    int first = -1;
+	    var tmp = new MessageWriter();
+	    
+	    int startpad = (int)(buf.used+4) % 8;
+	    tmp.buf.put(zeroes.sub(0, startpad));
+	    tmp.WritePad(align);
+	    int first = tmp.buf.used;
+	    
 	    foreach (T i in list)
 	    {
 		tmp.WritePad(align);
-		if (first < 0)
-		    first = (int)tmp.stream.Position;
 		doelement(tmp, i);
 	    }
 	    
 	    byte[] a = tmp.ToArray();
+	    
+	    // the length word excludes all padding...
 	    Write((uint)(a.Length - first));
-	    stream.Write(a, startpad, a.Length - startpad);
+	    
+	    // ...but we have to copy all the bytes *including* padding
+	    buf.put(a.sub(startpad, a.Length - startpad));
 	}
 	
-	public void WriteFromDict(Type keyType, Type valType, IDictionary val)
-	{
-	    long origPos = stream.Position;
-	    Write ((uint)0);
-
-	    //advance to the alignment of the element
-	    //WritePad (Protocol.GetAlignment (Signature.TypeToDType (type)));
-	    WritePad (8);
-
-	    long startPos = stream.Position;
-
-	    foreach (System.Collections.DictionaryEntry entry in val)
-	    {
-		WritePad (8);
-
-		Write (keyType, entry.Key);
-		Write (valType, entry.Value);
-	    }
-
-	    long endPos = stream.Position;
-	    uint ln = (uint)(endPos - startPos);
-	    stream.Position = origPos;
-
-	    if (ln > Protocol.MaxArrayLength)
-		throw new Exception ("Dict length " + ln + " exceeds maximum allowed " + Protocol.MaxArrayLength + " bytes");
-
-	    Write (ln);
-	    stream.Position = endPos;
-	}
-
 	public void WriteValueType(object val, Type type)
 	{
 	    MethodInfo mi = TypeImplementer.GetWriteMethod (type);
 	    mi.Invoke (null, new object[] {this, val});
 	}
+	
+	public void Write(WvBytes b)
+	{
+	    Write((int)b.len);
+	    buf.put(b);
+	}
+	
+	public void Write(byte[] b)
+	{
+	    Write((WvBytes)b);
+	}
 
 	public void WriteNull()
 	{
-	    stream.WriteByte(0);
+	    buf.put((byte)0);
 	}
 
 	public void WritePad(int alignment)
 	{
-	    int needed = Protocol.PadNeeded ((int)stream.Position, alignment);
-	    for (int i = 0 ; i != needed ; i++)
-		stream.WriteByte (0);
-	}
-
-	public delegate void WriterDelegate(MessageWriter w);
-	public void WriteDelegatePrependSize(WriterDelegate wd, int alignment)
-	{
-	    WritePad(4);
-
-	    long sizepos = stream.Position;
-
-	    Write((int)0);
-
-	    WritePad(alignment);
-
-	    long counter = stream.Position;
-
-	    wd(this);
-
-	    long endpos = stream.Position;
-
-	    stream.Position = sizepos;
-	    Write((int)(endpos-counter));
-
-	    stream.Position = endpos;
+	    int needed = Protocol.PadNeeded(buf.used, alignment);
+	    buf.put(zeroes.sub(0, needed));
 	}
     }
 }

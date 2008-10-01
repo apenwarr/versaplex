@@ -60,7 +60,7 @@ internal class VxDbusSchema : ISchemaBackend
         MessageWriter writer = new MessageWriter();
 
         schema.WriteSchema(writer);
-        writer.Write(typeof(int), (int)opts);
+        writer.Write((int)opts);
         call.Body = writer.ToArray();
 
         Message reply = bus.SendWithReplyAndBlock(call);
@@ -100,7 +100,9 @@ internal class VxDbusSchema : ISchemaBackend
         if (keys == null)
             keys = new string[0];
 
-        writer.Write(typeof(string[]), (Array)keys);
+        writer.WriteArray(4, keys, (w2, k) => {
+	    w2.Write(k);
+	});
         call.Body = writer.ToArray();
 
         Message reply = bus.SendWithReplyAndBlock(call);
@@ -174,7 +176,9 @@ internal class VxDbusSchema : ISchemaBackend
 
         MessageWriter writer = new MessageWriter();
 
-        writer.Write(typeof(string[]), keys);
+	writer.WriteArray(4, keys, (w2, k) => {
+	    w2.Write(k);
+	});
         call.Body = writer.ToArray();
 
         Message reply = bus.SendWithReplyAndBlock(call);
@@ -211,8 +215,8 @@ internal class VxDbusSchema : ISchemaBackend
         if (where == null)
             where = "";
 
-        writer.Write(typeof(string), tablename);
-        writer.Write(typeof(string), where);
+        writer.Write(tablename);
+        writer.Write(where);
         call.Body = writer.ToArray();
 
         Message reply = bus.SendWithReplyAndBlock(call);

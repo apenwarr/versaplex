@@ -1,9 +1,9 @@
 #include "wvtest.cs.h"
 
 using System;
-using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using Wv;
 using Wv.Extensions;
 using Wv.Test;
@@ -25,12 +25,17 @@ class DbusTest
 	{
 	    Message m = new Message();
 	    m.rserial = 0xf00f;
-	    m.signature = "yisaxva(s)";
+	    m.signature = "yisaxaxva(s)";
 	    m.sender = "booga";
 	    MessageWriter w = new MessageWriter();
 	    w.Write((byte)42);
 	    w.Write(42);
 	    w.Write("hello world");
+	      // empty array test
+	    w.WriteArray(8, new Int64[] { }, (w2, i) => {
+		w2.Write(i);
+	    });
+	      // nonempty array test
 	    w.WriteArray(8, new Int64[] { 0x42, 0x43, 0x44 }, (w2, i) => {
 		w2.Write(i);
 	    });
@@ -58,11 +63,15 @@ class DbusTest
 	    m.Body = (byte[])content;
 	    
 	    var i = m.iter();
-
 	    WVPASSEQ(i.pop(), 42);
 	    WVPASSEQ(i.pop(), 42);
 	    WVPASSEQ(i.pop(), "hello world");
 
+	    // empty list
+	    WVPASSEQ(i.pop().Count(), 0);
+	    
+	    
+	    // nonempty list
 	    var it = i.pop();
 	    var a = it.ToArray<WvAutoCast>();
 	    WVPASSEQ(a.Length, 3);

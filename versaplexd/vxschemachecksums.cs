@@ -82,11 +82,10 @@ internal class VxSchemaChecksum
     // Write the checksum values to DBus
     public void Write(MessageWriter writer)
     {
-        writer.Write(typeof(string), key);
-        writer.WriteDelegatePrependSize(delegate(MessageWriter w)
-            {
-                _WriteSums(w);
-            }, 8);
+        writer.Write(key);
+	writer.WriteArray(8, _checksums, (w2, sum) => {
+	    w2.Write(sum);
+	});
     }
 
     // Note: this is only safe to override because the class is immutable.
@@ -210,22 +209,12 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
 	}
     }
 
-    private void _WriteChecksums(MessageWriter writer)
-    {
-        foreach (KeyValuePair<string,VxSchemaChecksum> p in this)
-        {
-            writer.WritePad(8);
-            p.Value.Write(writer);
-        }
-    }
-
     // Write the list of checksums to DBus in a(sat) format.
     public void WriteChecksums(MessageWriter writer)
     {
-        writer.WriteDelegatePrependSize(delegate(MessageWriter w)
-            {
-                _WriteChecksums(w);
-            }, 8);
+	writer.WriteArray(8, this, (w2, p) => {
+	    p.Value.Write(w2);
+	});
     }
 
     public void AddSum(string key, ulong checksum)

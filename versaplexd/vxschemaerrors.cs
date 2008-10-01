@@ -139,15 +139,22 @@ internal class VxSchemaErrors : Dictionary<string, List<VxSchemaError>>
                 err.WriteError(writer);
             }
     }
+    
+    public static IEnumerable<VxSchemaError> get_all(VxSchemaErrors errs)
+    {
+	if (errs == null)
+	    yield break;
+	foreach (var kvp in errs)
+	    foreach (VxSchemaError err in kvp.Value)
+		yield return err;
+    }
 
     // Static so we can properly write an empty array for a null object.
     public static void WriteErrors(MessageWriter writer, VxSchemaErrors errs)
     {
-        writer.WriteDelegatePrependSize(delegate(MessageWriter w)
-            {
-                if (errs != null)
-                    errs._WriteErrors(w);
-            }, 8);
+	writer.WriteArray(8, get_all(errs), (w2, err) => {
+	    err.WriteError(w2);
+	});
     }
 
     public static string GetDbusSignature()
