@@ -10,9 +10,9 @@ namespace Wv.Extensions
 {
     public static class StreamHelper
     {
-	public static void Write(this Stream s, byte[] buffer)
+	public static void write(this Stream s, WvBytes buffer)
 	{
-	    s.Write(buffer, 0, buffer.Length);
+	    s.Write(buffer.bytes, buffer.start, buffer.len);
 	}
     }
     
