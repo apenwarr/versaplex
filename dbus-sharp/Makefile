@@ -21,7 +21,6 @@ wvdbus-sharp.dll: \
 	Protocol.cs \
 	SocketTransport.cs \
 	Transport.cs \
-	UnixMonoTransport.cs \
 	UnixNativeTransport.cs \
 	UnixTransport.cs \
 	$(WVDOTNET)/wv.dll

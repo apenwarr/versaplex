@@ -41,7 +41,7 @@ namespace Wv
     public enum StartReply : uint
     {
 	Success = 1,    // service was successfully started
-            AlreadyRunning, // connection already owns the given name
+        AlreadyRunning, // connection already owns the given name
     }
 
     public class Connection
@@ -61,7 +61,8 @@ namespace Wv
 
 	// FIXME: There should be a better way to hack in a socket
 	// created elsewhere
-	public Connection() {
+	public Connection()
+	{
 	    OnMessage = HandleMessage;
 	}
 
@@ -404,12 +405,12 @@ namespace Wv
             return (StartReply)(uint)retval;
 	}
 
-	void AddMatch(string rule)
+	public void AddMatch(string rule)
 	{
             CallDBusMethod("AddMatch", rule);
 	}
 
-	void RemoveMatch(string rule)
+	public void RemoveMatch(string rule)
 	{
             CallDBusMethod("RemoveMatch", rule);
 	}
