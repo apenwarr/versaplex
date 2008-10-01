@@ -140,7 +140,6 @@ namespace Wv
 	    return msg.serial;
 	}
 
-	object writeLock = new object();
 	internal void WriteMessage(Message msg)
 	{
 	    byte[] HeaderData = msg.GetHeaderData();
@@ -153,11 +152,9 @@ namespace Wv
 		     wv.hexdump(HeaderData), 
 		     wv.hexdump(msg.Body));
 
-	    lock (writeLock) {
-		ns.Write(HeaderData, 0, HeaderData.Length);
-		if (msg.Body != null && msg.Body.Length != 0)
-		    ns.Write(msg.Body, 0, msg.Body.Length);
-	    }
+	    ns.Write(HeaderData, 0, HeaderData.Length);
+	    if (msg.Body != null && msg.Body.Length != 0)
+		ns.Write(msg.Body, 0, msg.Body.Length);
 	}
 	
 	WvBuf inbuf = new WvBuf();
