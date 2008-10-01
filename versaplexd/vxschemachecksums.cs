@@ -73,12 +73,6 @@ internal class VxSchemaChecksum
         return l.Join(" ");
     }
 
-    private void _WriteSums(MessageWriter writer)
-    {
-        foreach (ulong sum in _checksums)
-            writer.Write(sum);
-    }
-
     // Write the checksum values to DBus
     public void Write(MessageWriter writer)
     {

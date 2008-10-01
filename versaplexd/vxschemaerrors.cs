@@ -130,16 +130,6 @@ internal class VxSchemaErrors : Dictionary<string, List<VxSchemaError>>
         }
     }
 
-    private void _WriteErrors(MessageWriter writer)
-    {
-        foreach (var kvp in this)
-            foreach (VxSchemaError err in kvp.Value)
-            {
-                writer.WritePad(8);
-                err.WriteError(writer);
-            }
-    }
-    
     public static IEnumerable<VxSchemaError> get_all(VxSchemaErrors errs)
     {
 	if (errs == null)
