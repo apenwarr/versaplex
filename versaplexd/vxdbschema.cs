@@ -470,10 +470,10 @@ internal class VxDbSchema : ISchemaBackend
             else
                 nullable.AddParam(kvp.Key, kvp.Value);
 
-        string nullquery = wv.fmt("ALTER TABLE [{0}] ADD {1}\n", 
+        string nullquery = wv.fmt("ALTER TABLE [{0}] ADD {1}", 
                 table.name, table.ColumnToSql(nullable, true));
 
-        log.print("Executing {0}\n", nullquery);
+        log.print("Executing {0}", nullquery);
         dbi.execute(nullquery);
     }
 
@@ -483,13 +483,13 @@ internal class VxDbSchema : ISchemaBackend
         if (col.HasDefault())
         {
             string defquery = wv.fmt("ALTER TABLE [{0}] " + 
-                "DROP CONSTRAINT {1}\n", 
+                "DROP CONSTRAINT {1}", 
                 table.name, table.GetDefaultDefaultName(colname));
 
             dbi.execute(defquery);
         }
 
-        string query = wv.fmt("ALTER TABLE [{0}] DROP COLUMN [{1}]\n",
+        string query = wv.fmt("ALTER TABLE [{0}] DROP COLUMN [{1}]",
             table.name, colname);
 
         dbi.execute(query);
@@ -510,10 +510,10 @@ internal class VxDbSchema : ISchemaBackend
         // later if needed.
         if (oldelem.HasDefault())
         {
-            string defquery = wv.fmt("ALTER TABLE [{0}] DROP CONSTRAINT {1}\n", 
+            string defquery = wv.fmt("ALTER TABLE [{0}] DROP CONSTRAINT {1}", 
                 table.name, table.GetDefaultDefaultName(colname));
 
-            log.print("Executing " + defquery);
+            log.print("Executing {0}\n", defquery);
 
             dbi.execute(defquery);
         }
@@ -542,12 +542,12 @@ internal class VxDbSchema : ISchemaBackend
                 log.print("Expected error message: {0} ({1})\n", 
                     expected_err.msg, expected_err.errnum);
                 string delquery = wv.fmt("ALTER TABLE [{0}] " + 
-                    "DROP COLUMN [{1}]\n",
+                    "DROP COLUMN [{1}]",
                     table.name, colname);
                 // We need to include the default value here (the second
                 // parameter to ColumnToSql), otherwise adding a column to a
                 // table with data in it might not work.
-                string addquery = wv.fmt("ALTER TABLE [{0}] ADD {1}\n", 
+                string addquery = wv.fmt("ALTER TABLE [{0}] ADD {1}", 
                     table.name, table.ColumnToSql(newelem, true));
 
                 log.print("Executing {0}\n", delquery);
@@ -561,7 +561,7 @@ internal class VxDbSchema : ISchemaBackend
                 {
                     // Error 4901: adding a column on a non-empty table failed
                     // due to neither having a default nor being nullable.
-                    // So try making the table nullable.
+                    // So try making the column nullable.
                     log.print("Would have caught exception trying to add " + 
                         "non-null column; making column nullable.\n");
                     AddNullableColumn(table, newelem);
@@ -587,7 +587,7 @@ internal class VxDbSchema : ISchemaBackend
         if (errs.Count == 0 && newelem.HasDefault() && !did_default_constraint)
         {
             string defquery = wv.fmt("ALTER TABLE [{0}] ADD CONSTRAINT {1} " + 
-                "DEFAULT {2} FOR {3}\n", 
+                "DEFAULT {2} FOR {3}", 
                 table.name, table.GetDefaultDefaultName(colname), 
                 newelem.GetParam("default"), colname);
 
@@ -773,6 +773,7 @@ internal class VxDbSchema : ISchemaBackend
             // table have no data columns in it, even temporarily.
             // Do this outside the transaction since failures here will
             // automatically cause a rollback, even if we handle them.
+            // It's easy enough for us to roll back by hand if needed.
             foreach (var elem in coladd)
             {
                 log.print("Adding {0}\n", elem.ToString());
@@ -785,8 +786,8 @@ internal class VxDbSchema : ISchemaBackend
                 }
                 catch (SqlException e)
                 {
-                    // FIXME: Return a more useful error message if
-                    // destructive isn't set?
+                    // Error 4901: adding a column on a non-empty table failed
+                    // due to neither having a default nor being nullable.
                     if (destructive && e.Number == 4901)
                     {
                         log.print("Couldn't add a new non-nullable column " +
@@ -876,7 +877,7 @@ internal class VxDbSchema : ISchemaBackend
             {
                 string colname = elem.GetParam("name");
                 string query = wv.fmt("SELECT count(*) FROM [{0}] " + 
-                    "WHERE [{1}] IS NULL\n",
+                    "WHERE [{1}] IS NULL",
                     tabname, colname);
 
                 int num_nulls = dbi.select_one(query);
