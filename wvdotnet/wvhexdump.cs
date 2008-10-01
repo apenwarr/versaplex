@@ -21,9 +21,12 @@ namespace Wv
 
     public partial class wv
     {
-	public static string _hexdump(byte[] data,
-				      int startoffset, int maxlen)
+	public static string _hexdump(WvBytes b)
 	{
+	    byte[] data = b.bytes;
+	    int startoffset = b.start;
+	    int maxlen = b.start + b.len;
+	    
 	    if (data == null)
 		return "(nil)";
 	    
@@ -101,18 +104,9 @@ namespace Wv
 	    return sb.ToString();
 	}
 	
-	public static object hexdump(byte[] data,
-				     int startoffset, int maxlen)
+	public static object hexdump(WvBytes b)
 	{
-	    return new WvDelayedString(
-			   () => _hexdump(data, startoffset, maxlen));
-	}
-	    
-	public static object hexdump(byte[] data)
-	{
-	    if (data == null)
-		return "(nil)";
-	    return hexdump(data, 0, data.Length);
+	    return new WvDelayedString(() => _hexdump(b));
 	}
     }
 }

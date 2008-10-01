@@ -26,7 +26,7 @@ namespace Wv
 	    else
 	        conv = DataConverter.BigEndian;
 	    
-	    stream = new MemoryStream ();
+	    stream = new MemoryStream();
 	}
 
 	public byte[] ToArray()
@@ -375,16 +375,7 @@ namespace Wv
 	    Write((uint)(a.Length - first));
 	    stream.Write(a, startpad, a.Length - startpad);
 	}
-/*	
-	// not used!
-	public void WriteDict<K,V>(IDictionary<K,V> dict)
-	{
-	    WriteArray(8, dict, (w2, i) => {
-		w2.Write(i.Key);
-		w2.Write(i.Value);
-	    });
-	}
-*/
+	
 	public void WriteFromDict(Type keyType, Type valType, IDictionary val)
 	{
 	    long origPos = stream.Position;

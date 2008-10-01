@@ -19,7 +19,7 @@ class DbusTest
     [Test]
     public void message_read_write()
     {
-	byte[] msgdata, content;
+	WvBytes msgdata, content;
 	
 	// write
 	{
@@ -53,9 +53,9 @@ class DbusTest
 	// new-style read
 	{
 	    Message m = new Message();
-	    m.Body = msgdata;
+	    m.Body = (byte[])msgdata;
 	    m.SetHeaderData(msgdata);
-	    m.Body = content;
+	    m.Body = (byte[])content;
 	    
 	    var i = m.iter();
 

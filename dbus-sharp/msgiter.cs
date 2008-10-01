@@ -18,23 +18,16 @@ namespace Wv
 	int sigpos;
 	WvAutoCast cur;
 	
-	internal WvDBusIter(DataConverter conv, string sig,
-			    byte[] data, int start, int end)
-	    : base(conv, sig, data, start, end)
+	internal WvDBusIter(DataConverter conv, string sig, WvBytes b)
+	    : base(conv, sig, b)
 	{
 	    wv.print("Decoding message:\n{0}\nSignature={1}\n",
-		     wv.hexdump(data, start, end), sig);
+		     wv.hexdump(b), sig);
 	    Reset();
 	}
 	
-	internal WvDBusIter(DataConverter conv, string sig, byte[] data)
-	    : this(conv, sig, data, 0, data.Length)
-	{
-	}
-	
-	internal WvDBusIter(EndianFlag e, string sig, byte[] data)
-	    : this(parse_endian_byte((byte)e),
-		   sig, data)
+	internal WvDBusIter(EndianFlag e, string sig, WvBytes b)
+	    : this(parse_endian_byte((byte)e), sig, b)
 	{
 	}
 	
@@ -52,11 +45,11 @@ namespace Wv
 	// IEnumerable
 	public IEnumerator<WvAutoCast> GetEnumerator()
 	{
-	    return new WvDBusIter(conv, sig, data, start, end);
+	    return new WvDBusIter(conv, sig, data.sub(start, end-start));
 	}
 	IEnumerator System.Collections.IEnumerable.GetEnumerator()
 	{
-	    return new WvDBusIter(conv, sig, data, start, end);
+	    return new WvDBusIter(conv, sig, data.sub(start, end-start));
 	}
 	
 	// IEnumerator
@@ -105,9 +98,8 @@ namespace Wv
     {
 	WvAutoCast cur;
 	
-	internal WvDBusIter_Array(DataConverter conv, string sig,
-				  byte[] data, int start, int end)
-	    : base(conv, sig, data, start, end)
+	internal WvDBusIter_Array(DataConverter conv, string sig, WvBytes b)
+	    : base(conv, sig, b)
 	{
 	    Reset();
 	}
@@ -115,11 +107,11 @@ namespace Wv
 	// IEnumerable
 	public IEnumerator<WvAutoCast> GetEnumerator()
 	{
-	    return new WvDBusIter_Array(conv, sig, data, start, end);
+	    return new WvDBusIter_Array(conv, sig, data.sub(start, end-start));
 	}
 	IEnumerator System.Collections.IEnumerable.GetEnumerator()
 	{
-	    return new WvDBusIter_Array(conv, sig, data, start, end);
+	    return new WvDBusIter_Array(conv, sig, data.sub(start, end-start));
 	}
 	
 	// IEnumerator
@@ -164,14 +156,13 @@ namespace Wv
 	protected byte[] data;
 	protected int start, end, pos;
 	
-	internal WvDBusIterBase(DataConverter conv, string sig,
-				byte[] data, int start, int end)
+	internal WvDBusIterBase(DataConverter conv, string sig, WvBytes b)
 	{
 	    this.conv = conv;
 	    this.sig = sig;
-	    this.data = data;
-	    this.start = start;
-	    this.end = end;
+	    this.data = b.bytes;
+	    this.start = b.start;
+	    this.end = b.start + b.len;
 	}
 	
 	protected void _Reset()
@@ -390,8 +381,7 @@ namespace Wv
 	    int len = ReadLength();
 	    wv.print("Array length is 0x{0:x} bytes\n", len);
 	    pad(Protocol.GetAlignment((DType)subsig[0]));
-	    var x = new WvDBusIter_Array(conv, subsig,
-					 data, pos, pos+len);
+	    var x = new WvDBusIter_Array(conv, subsig, data.sub(pos, len));
 	    _advance(len);
 	    return x;
 	}

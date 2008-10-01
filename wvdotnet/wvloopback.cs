@@ -11,21 +11,21 @@ namespace Wv
 	    post_writable();
 	}
 	
-	public override int read(byte[] buf, int offset, int len)
+	public override int read(WvBytes b)
 	{
-	    int max = len < mybuf.used ? len : mybuf.used;
-	    Array.Copy(mybuf.get(max), 0, buf, offset, max);
+	    int max = b.len < mybuf.used ? b.len : mybuf.used;
+	    b.put(0, mybuf.get(max));
 	    if (mybuf.used > 0)
 		post_readable();
 	    return max;
 	}
 	
-	public override int write(byte[] buf, int offset, int len)
+	public override int write(WvBytes b)
 	{
-	    mybuf.put(buf, offset, len);
+	    mybuf.put(b);
 	    post_readable();
 	    post_writable();
-	    return len;
+	    return b.len;
 	}
     }
 }

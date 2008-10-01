@@ -86,6 +86,7 @@ public static class VxDbus {
         smalldump.print(" ser={0}\n", msg.serial);
         smalldump.print(" flags={0}\n", msg.flags);
 	
+#if MSG_HEADERDATA_ISNT_REGENERATING_FROM_SCRATCH
         int hdrlen = 0;
 	byte[] header = msg.GetHeaderData();
         if (header != null) {
@@ -98,10 +99,12 @@ public static class VxDbus {
 
         if (msg.Body != null) {
             fulldump.print("Body data:\n");
-	    fulldump.print(wv.hexdump(msg.Body, hdrlen, msg.Body.Length));
+	    fulldump.print(wv.hexdump(msg.Body.sub(hdrlen,
+						   msg.Body.Length-hdrlen)));
 	} else {
             smalldump.print("No body data encoded\n");
         }
+#endif
     }
 }
 
