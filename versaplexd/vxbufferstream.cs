@@ -30,15 +30,8 @@ public class VxBufferStream : Stream
         set { throw new NotSupportedException(); }
     }
 
-    private object cookie = null;
-    public object Cookie {
-        get { return cookie; }
-        set { cookie = value; }
-    }
-
-    public delegate void DataReadyHandler(object sender, object cookie);
-    public event DataReadyHandler DataReady;
-    public event DataReadyHandler NoMoreData;
+    public Action DataReady;
+    public Action NoMoreData;
 
     protected VxNotifySocket sock;
 
@@ -75,7 +68,7 @@ public class VxBufferStream : Stream
                 if (rbuf.Size > 0) {
                     VxEventLoop.AddAction(new VxEvent(
                                 delegate() {
-                                    DataReady(this, cookie);
+                                    DataReady();
                                 }));
                 }
             } else {
@@ -107,8 +100,6 @@ public class VxBufferStream : Stream
                 sock.Close();
                 sock = null;
             }
-
-            cookie = null;
         }
 
         closed = true;
@@ -253,11 +244,11 @@ public class VxBufferStream : Stream
         }
 
         if (rbuf.Size >= rbuf_size) {
-            DataReady(this, cookie);
+            DataReady();
         }
 
         if (eof) {
-            NoMoreData(this, cookie);
+            NoMoreData();
         }
 
         // Don't use ReadWaiting to change this since the return value will

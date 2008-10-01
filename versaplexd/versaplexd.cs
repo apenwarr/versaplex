@@ -19,14 +19,10 @@ public static class VersaMain
     
     public static Connection conn;
 
-    private static void DataReady(object sender, object cookie)
+    private static void DataReady(VxBufferStream vxbs, Connection conn)
     {
         // FIXME: This may require special handling for padding between
         // messages: it hasn't been a problem so far, but should be addressed
-
-        VxBufferStream vxbs = (VxBufferStream)sender;
-
-        Connection conn = (Connection)cookie;
 
         if (vxbs.BufferPending == 0) {
             log.print("??? DataReady but nothing to read\n");
@@ -40,16 +36,13 @@ public static class VersaMain
 	wv.printerr("Now need: {0}\n", vxbs.BufferAmount);
     }
 
-    private static void NoMoreData(object sender, object cookie)
+    private static void NoMoreData(VxBufferStream vxbs)
     {
         log.print(
                 "***********************************************************\n"+
                 "************ D-bus connection closed by server ************\n"+
                 "***********************************************************\n");
-
-        VxBufferStream vxbs = (VxBufferStream)sender;
         vxbs.Close();
-
         VxEventLoop.Shutdown();
     }
 
@@ -201,9 +194,8 @@ public static class VersaMain
 
         VxBufferStream vxbs = new VxBufferStream(trans.Socket);
         trans.stream = vxbs;
-        vxbs.Cookie = conn;
-        vxbs.DataReady += DataReady;
-        vxbs.NoMoreData += NoMoreData;
+        vxbs.DataReady  = () => { DataReady(vxbs, conn); };
+        vxbs.NoMoreData = () => { NoMoreData(vxbs); };
         vxbs.BufferAmount = 16;
 
         oldhandler = conn.OnMessage;
