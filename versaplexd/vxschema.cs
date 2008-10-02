@@ -416,6 +416,9 @@ internal class VxSchemaTable : VxSchemaElement,
             }
         }
 
+        if (cols.Count == 0)
+            throw new VxBadSchemaException("No columns in schema.");
+
         string table = String.Format("CREATE TABLE [{0}] (\n\t{1});\n\n{2}{3}\n",
             name, cols.Join(",\n\t"), pkey, indexes.Join("\n"));
         return table;

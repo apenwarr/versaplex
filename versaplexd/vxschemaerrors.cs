@@ -57,7 +57,7 @@ internal class VxSchemaError
             level = WvLog.L.Critical;
     }
 
-    public VxSchemaError(string newkey, VxSqlException e)
+    public VxSchemaError(string newkey, SqlException e)
     {
         key = newkey;
         msg = e.Message;
@@ -65,11 +65,11 @@ internal class VxSchemaError
         level = WvLog.L.Error;
     }
 
-    public VxSchemaError(string newkey, SqlException e)
+    public VxSchemaError(string newkey, VxRequestException e)
     {
         key = newkey;
         msg = e.Message;
-        errnum = e.Number;
+        errnum = (e is VxSqlException) ? ((VxSqlException)e).Number : -1;
         level = WvLog.L.Error;
     }
 
