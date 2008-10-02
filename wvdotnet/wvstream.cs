@@ -161,6 +161,12 @@ namespace Wv
 	    int got = read(bytes);
 	    return bytes.sub(0, got);
 	}
+	
+	public void read(WvBuf b, int max)
+	{
+	    int got = read(b.alloc(max));
+	    b.unalloc(max-got);
+	}
 
 	public virtual int write(WvBytes b)
 	{
@@ -323,7 +329,7 @@ namespace Wv
 	
     }
     
-    // Adds an input buffer to a WvStream.
+    /// Adds an input buffer to a WvStream.
     public class WvInBufStream : WvStreamClone
     {
 	WvBuf inbuf = new WvBuf();
@@ -362,4 +368,50 @@ namespace Wv
 	}
     }
     
+    /// Adds an output buffer to a WvStream
+    public class WvOutBufStream : WvStreamClone
+    {
+	WvBuf outbuf = new WvBuf();
+	bool writereg = true;
+	
+        public WvOutBufStream(WvStream inner) : base(inner)
+	{
+	}
+	
+	public override int write(WvBytes b)
+	{
+	    outbuf.put(b);
+	    flush(0);
+	    
+	    // always succeed
+	    return b.len;
+	}
+	
+	void _flush()
+	{
+	    int wrote = base.write(outbuf.peekall());
+	    outbuf.get(wrote);
+	    
+	    if (outbuf.used > 0 && !writereg)
+	    {
+		inner.onwritable += _flush;
+		writereg = true;
+	    }
+	    else if (outbuf.used == 0 && writereg)
+	    {
+		inner.onwritable -= _flush;
+		writereg = false;
+	    }
+	    
+	    if (outbuf.used == 0)
+		post_writable();
+	}
+	
+	public override bool flush(int msec_timeout)
+	{
+	    _flush();
+	    // FIXME: do something with msec_timeout
+	    return outbuf.used == 0;
+	}
+    }
 }

@@ -14,24 +14,24 @@ t/all: all
 
 versaplexd.exe: versaplexd.cs \
     dodgytransport.cs ischemabackend.cs PriorityQueue.cs \
-    vxapi.cs vxbufferstream.cs \
+    vxapi.cs \
     vxcolumninfo.cs vxdbus.cs vxdbusdatetime.cs vxdbschema.cs \
-    vxevent.cs vxeventloop.cs vxexceptions.cs vxnotifysocket.cs \
+    vxexceptions.cs \
     vxschema.cs vxschemachecksums.cs vxschemadiff.cs vxschemaerrors.cs \
-    vxsocket.cs vxsqlpool.cs wvdbusserver.cs \
+    vxsqlpool.cs wvdbusserver.cs \
     ../dbus-sharp/wvdbus-sharp.dll \
     ../wvdotnet/wv.dll
 
 sm.exe: \
-    dodgytransport.cs ischemabackend.cs vxdbusutils.cs \
-    vxexceptions.cs vxnotifysocket.cs  vxsocket.cs \
+    ischemabackend.cs vxdbusutils.cs \
+    vxexceptions.cs \
     vxdiskschema.cs vxdbschema.cs vxdbusschema.cs vxschema.cs \
     vxschemachecksums.cs vxschemadiff.cs vxschemaerrors.cs \
     ../dbus-sharp/wvdbus-sharp.dll \
     ../wvdotnet/wv.dll
     
 vxcli.exe: vxcli.cs \
-    dodgytransport.cs vxsocket.cs vxnotifysocket.cs vxdbusutils.cs \
+    vxdbusutils.cs \
     vxexceptions.cs \
     ../dbus-sharp/wvdbus-sharp.dll \
     ../wvdotnet/wv.dll

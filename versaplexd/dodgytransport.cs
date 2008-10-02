@@ -4,10 +4,11 @@ using System.Net;
 using System.Net.Sockets;
 using Mono.Unix;
 using Wv;
+using Wv.Extensions;
 
 class DodgyTransport : Wv.Transports.Transport
 {
-    public Stream stream;
+    public WvStream stream;
     
     // This has to be a separate function so we can delay JITting it until
     // we're sure it's mono.
@@ -28,85 +29,50 @@ class DodgyTransport : Wv.Transports.Transport
 
     public override void WriteCred()
     {
-        stream.WriteByte(0);
+        stream.write(new byte[] { 0 });
     }
 
     public DodgyTransport(AddressEntry entry)
     {
+	WvStream s;
 	if (entry.Method == "unix")
 	{
-	    string path;
-	    bool abstr;
-
-	    if (entry.Properties.TryGetValue("path", out path))
-		abstr = false;
-	    else if (entry.Properties.TryGetValue("abstract", out path))
-		abstr = true;
+	    string path = entry.Properties.tryget("path");
+	    string abstr = entry.Properties.tryget("abstract");
+	    
+	    if (path.ne())
+		s = new WvUnix(path);
+	    else if (abstr.ne())
+		s = new WvUnix("@" + abstr);
 	    else
 		throw new Exception("No path specified for UNIX transport");
-
-	    if (abstr)
-		socket = OpenAbstractUnix(path);
-	    else
-		socket = OpenPathUnix(path);
 	}
 	else if (entry.Method == "tcp")
 	{
-	    string host = "127.0.0.1";
-	    string port = "5555";
-	    entry.Properties.TryGetValue("host", out host);
-	    entry.Properties.TryGetValue("port", out port);
-	    socket = OpenTcp(host, Int32.Parse(port));
+	    string host = entry.Properties.tryget("host", "127.0.0.1");
+	    string port = entry.Properties.tryget("port", "5555");
+	    s = new WvTcp(host, (ushort)port.atoi());
 	}
 	else
 	    throw new Exception(String.Format("Unknown connection method {0}",
 					      entry.Method));
-	
-        socket.Blocking = true;
-        stream = new NetworkStream(socket);
-    }
-
-    protected VxNotifySocket OpenAbstractUnix(string path)
-    {
-        AbstractUnixEndPoint ep = new AbstractUnixEndPoint(path);
-        VxNotifySocket client = new VxNotifySocket(AddressFamily.Unix,
-                SocketType.Stream, 0);
-        client.Connect(ep);
-        return client;
-    }
-
-    public VxNotifySocket OpenPathUnix(string path) 
-    {
-        UnixEndPoint ep = new UnixEndPoint(path);
-        VxNotifySocket client = new VxNotifySocket(AddressFamily.Unix,
-                SocketType.Stream, 0);
-        client.Connect(ep);
-        return client;
-    }
-    
-    public VxNotifySocket OpenTcp(string host, int port)
-    {
-	IPHostEntry hent = Dns.GetHostEntry(host);
-	IPAddress ip = hent.AddressList[0];
-        IPEndPoint ep = new IPEndPoint(ip, port);
-        VxNotifySocket client = new VxNotifySocket(AddressFamily.InterNetwork,
-						   SocketType.Stream, 0);
-        client.Connect(ep);
-        return client;
-    }
-
-    protected VxNotifySocket socket;
-    public VxNotifySocket Socket {
-        get { return socket; }
+	stream = new WvOutBufStream(s);
     }
 	    
     public override int read(WvBytes b)
     {
-	return stream.Read(b.bytes, b.start, b.len);
+	if (!stream.isok)
+	    wv.printerr("STREAM ERROR: {0}\n", stream.err);
+	wv.assert(stream.isok);
+	return stream.read(b);
     }
     
     public override void write(WvBytes b)
     {
-	stream.Write(b.bytes, b.start, b.len);
+	if (!stream.isok)
+	    wv.printerr("STREAM ERROR: {0}\n", stream.err);
+	wv.assert(stream.isok);
+	int written = stream.write(b);
+	wv.assert(written == b.len); 
     }
 }

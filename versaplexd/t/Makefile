@@ -37,7 +37,7 @@ export LD_LIBRARY_PATH=..:$(WVLIBDIR):$(WVSTREAMS)
 LIBS+=-L$(WVSTREAMS) -lwvdbus 
 endif
 
-VX_SOURCES = ../dodgytransport.cs ../vxnotifysocket.cs ../vxsocket.cs \
+VX_SOURCES = \
 	../vxcolumninfo.cs ../vxdbusdatetime.cs ../vxdbusutils.cs \
 	../vxexceptions.cs versaplextester.cs.E
 

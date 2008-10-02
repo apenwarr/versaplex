@@ -46,6 +46,7 @@ namespace Wv
 
     public class Connection
     {
+	WvLog log = new WvLog("Connection");
 	public Transport transport;
 
 	// FIXME: There should be a better way to hack in a socket
@@ -178,13 +179,13 @@ namespace Wv
 	
 	void readbytes(int max)
 	{
+	    log.print(WvLog.L.Debug5, "Reading: have {0} of needed {1}\n",
+		      inbuf.used, max);
 	    int needed = max - inbuf.used;
 	    if (needed <= 0) return;
 	    
 	    WvBytes b = inbuf.alloc(needed);
 	    int got = transport.read(b);
-	    if (got == 0)
-		throw new IOException("Read zero bytes");
 	    inbuf.unalloc(needed-got);
 	}
 	

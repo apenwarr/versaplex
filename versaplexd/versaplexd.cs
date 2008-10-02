@@ -19,31 +19,26 @@ public static class VersaMain
     
     public static Connection conn;
 
-    private static void DataReady(VxBufferStream vxbs, Connection conn)
+    private static void DataReady(DodgyTransport trans, Connection conn)
     {
         // FIXME: This may require special handling for padding between
         // messages: it hasn't been a problem so far, but should be addressed
 
-        if (vxbs.BufferPending == 0) {
-            log.print("??? DataReady but nothing to read\n");
-            return;
-        }
-
         // XXX: Ew.
-        byte[] buf = new byte[vxbs.BufferPending];
-        vxbs.Read(buf, 0, buf.Length);
-        vxbs.BufferAmount = conn.DoBytes(buf);
-	wv.printerr("Now need: {0}\n", vxbs.BufferAmount);
+	var b = new WvBuf();
+	trans.stream.read(b, 4096);
+	int need = conn.DoBytes(b.getall());
+	wv.printerr("Now need: {0}\n", need);
     }
 
-    private static void NoMoreData(VxBufferStream vxbs)
+    private static void NoMoreData(DodgyTransport trans)
     {
         log.print(
                 "***********************************************************\n"+
                 "************ D-bus connection closed by server ************\n"+
                 "***********************************************************\n");
-        vxbs.Close();
-        VxEventLoop.Shutdown();
+        want_to_die = true;
+	trans.stream.close();
     }
 
     private static void MessageReady(Connection conn, Message msg)
@@ -192,16 +187,17 @@ public static class VersaMain
                 return 2;
         }
 
-        VxBufferStream vxbs = new VxBufferStream(trans.Socket);
-        trans.stream = vxbs;
-        vxbs.DataReady  = () => { DataReady(vxbs, conn); };
-        vxbs.NoMoreData = () => { NoMoreData(vxbs); };
-        vxbs.BufferAmount = 16;
+	trans.stream.onreadable += () => { DataReady(trans, conn); };
+        trans.stream.onclose    += () => { NoMoreData(trans); };
 
         oldhandler = conn.OnMessage;
         conn.OnMessage = delegate(Message m) { MessageReady(conn, m); };
-
-        VxEventLoop.Run();
+	
+	while (!want_to_die)
+	{
+	    log.print(WvLog.L.Debug1, "Event loop.\n");
+	    WvStream.runonce(-1);
+	}
 
 	StopDBusServerThread();
         log.print("Done!\n");
