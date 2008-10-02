@@ -522,23 +522,25 @@ class PutSchemaTests : SchemamaticTester
         WVPASS(Scalar("select f3 from TestTable").IsNull);
 
         // Try to drop the nullity on a column that contains a null value.
-        // Doesn't work without the Destructive option
+        // Returns a warning and doesn't actually change the schema.
         WVPASS(7);
         string schema7 = "column: name=f2,type=money,null=0\n" + 
                 "column: name=f1,type=tinyint,null=0,default=0\n" +
                 "column: name=f3,type=varchar,null=0,length=10\n";
-        errmsg = "Refusing to drop and re-add column [f3] when the " + 
-            "destructive option is not set.  Error when altering was: " + 
-            "'Cannot insert the value NULL into column 'f3'";
-        TestTableUpdateError("TestTable", schema7, errmsg, schema6, 
-            VxPutOpts.None, -1, WvLog.L.Error);
+        string schema7_returned = "column: name=f2,type=money,null=0\n" + 
+                "column: name=f1,type=tinyint,null=0,default=0\n" +
+                "column: name=f3,type=varchar,null=1,length=10\n";
+        errmsg = "Column 'f3' was requested to be non-null but has " + 
+            "1 null elements.";
+        TestTableUpdateError("TestTable", schema7, errmsg, schema7_returned, 
+            VxPutOpts.None, -1, WvLog.L.Warning);
 
         WVPASSEQ(Scalar("select count(*) from TestTable"), 1);
         WVPASSEQ((int)Scalar("select f1 from TestTable"), 123);
         WVPASSEQ(Scalar("select f2 from TestTable"), 1234.56);
         WVPASS(Scalar("select f3 from TestTable").IsNull);
 
-        // The destructive options permits the update, but clobbers the data.
+        // The destructive options works and doesn't whine, but nukes the data.
         WVPASS(7.5);
         TestTableUpdate("TestTable", schema7, VxPutOpts.Destructive);
         WVPASSEQ(Scalar("select count(*) from TestTable"), 0);
@@ -576,9 +578,9 @@ class PutSchemaTests : SchemamaticTester
         WVPASS(Scalar("select f3 from TestTable").IsNull);
         WVPASS(Scalar("select f4 from TestTable").IsNull);
 
-        /*
         // Try to add a new column that doesn't explicitly mention
-        // nullability.  We'll still get whining about f4.
+        // nullability.  We'll still get whining about f4 if we try to drop
+        // the nullity again.
         WVPASS(9);
         string schema9 = "column: name=f2,type=money,null=0\n" + 
                 "column: name=f1,type=tinyint,null=0,default=0\n" +
@@ -588,8 +590,8 @@ class PutSchemaTests : SchemamaticTester
         string schema9_returned = "column: name=f2,type=money,null=0\n" + 
                 "column: name=f1,type=tinyint,null=0,default=0\n" +
                 "column: name=f3,type=varchar,null=1,length=10\n" +
-                "column: name=f5,type=int,null=1\n" + 
-                "column: name=f4,type=int,null=1\n";
+                "column: name=f4,type=int,null=1\n" +
+                "column: name=f5,type=int,null=1\n";
         errmsg = "Column 'f4' was requested to be non-null but has " + 
             "1 null elements.";
         TestTableUpdateError("TestTable", schema9, errmsg, schema9_returned, 
@@ -601,7 +603,6 @@ class PutSchemaTests : SchemamaticTester
         WVPASS(Scalar("select f3 from TestTable").IsNull);
         WVPASS(Scalar("select f4 from TestTable").IsNull);
         WVPASS(Scalar("select f5 from TestTable").IsNull);
-        */
 
         try { VxExec("drop table TestTable"); } catch { }
     }

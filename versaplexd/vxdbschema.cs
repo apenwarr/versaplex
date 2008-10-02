@@ -475,16 +475,23 @@ internal class VxDbSchema : ISchemaBackend
         return null;
     }
 
-    private void AddNullableColumn(VxSchemaTable table, 
-        VxSchemaTableElement elem)
+    // Create a new table element that allows nulls
+    private VxSchemaTableElement GetNullableColumn(VxSchemaTableElement elem)
     {
-        // Create a new element that allows nulls
         var nullable = new VxSchemaTableElement(elem.elemtype);
         foreach (var kvp in elem.parameters)
             if (kvp.Key == "null")
                 nullable.AddParam("null", "1");
             else
                 nullable.AddParam(kvp.Key, kvp.Value);
+
+        return nullable;
+    }
+
+    private void AddNullableColumn(VxSchemaTable table, 
+        VxSchemaTableElement elem)
+    {
+        var nullable = GetNullableColumn(elem);
 
         string nullquery = wv.fmt("ALTER TABLE [{0}] ADD {1}", 
                 table.name, table.ColumnToSql(nullable, true));
@@ -574,14 +581,32 @@ internal class VxDbSchema : ISchemaBackend
             }
             else
             {
-                log.print("Can't alter table and destructive flag " + 
-                    "not set.  Giving up.\n");
-                string key = table.key;
-                string errmsg = wv.fmt("Refusing to drop and re-add " +
-                        "column [{0}] when the destructive option " +
-                        "is not set.  Error when altering was: '{1}'",
-                        colname, expected_err.msg);
-                errs.Add(key, new VxSchemaError(key, errmsg, -1));
+                // Error 515: Can't modify a column because it contains nulls 
+                // and the column requires non-nulls.
+                if (expected_err.errnum == 515)
+                {
+                    log.print("Couldn't modify column due to null " + 
+                        "restriction.  Making column nullable.\n");
+                    var nullable = GetNullableColumn(newelem);
+
+                    string query = wv.fmt("ALTER TABLE [{0}] ALTER COLUMN {1}",
+                        table.name, table.ColumnToSql(nullable, false));
+
+                    log.print("Executing {0}\n", query);
+                    
+                    dbi.execute(query);
+                }
+                else
+                {
+                    log.print("Can't alter table and destructive flag " + 
+                        "not set.  Giving up.\n");
+                    string key = table.key;
+                    string errmsg = wv.fmt("Refusing to drop and re-add " +
+                            "column [{0}] when the destructive option " +
+                            "is not set.  Error when altering was: '{1}'",
+                            colname, expected_err.msg);
+                    errs.Add(key, new VxSchemaError(key, errmsg, -1));
+                }
             }
         }
 
