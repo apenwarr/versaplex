@@ -488,18 +488,6 @@ internal class VxDbSchema : ISchemaBackend
         return nullable;
     }
 
-    private void AddNullableColumn(VxSchemaTable table, 
-        VxSchemaTableElement elem)
-    {
-        var nullable = GetNullableColumn(elem);
-
-        string nullquery = wv.fmt("ALTER TABLE [{0}] ADD {1}", 
-                table.name, table.ColumnToSql(nullable, true));
-
-        log.print("Executing {0}", nullquery);
-        dbi.execute(nullquery);
-    }
-
     private void DropTableColumn(VxSchemaTable table, VxSchemaTableElement col)
     {
         string colname = col.GetParam("name");
@@ -781,8 +769,9 @@ internal class VxDbSchema : ISchemaBackend
             foreach (var elem in coladd)
             {
                 log.print("Adding {0}\n", elem.ToString());
-                string query = wv.fmt("ALTER TABLE [{0}] ADD {1}\n", 
-                    tabname, newtable.ColumnToSql(elem));
+                string add_format = "ALTER TABLE [{0}] ADD {1}\n"; 
+                string query = wv.fmt(add_format, 
+                    tabname, newtable.ColumnToSql(elem, true));
 
                 try
                 {
@@ -798,7 +787,13 @@ internal class VxDbSchema : ISchemaBackend
                     {
                         log.print("Couldn't add a new non-nullable column " +
                             "without a default.  Making column nullable.\n");
-                        AddNullableColumn(newtable, elem);
+                        var nullable = GetNullableColumn(elem);
+
+                        string nullquery = wv.fmt(add_format, 
+                            tabname, newtable.ColumnToSql(nullable, true));
+
+                        log.print("Executing {0}", nullquery);
+                        dbi.execute(nullquery);
                     }
                     else
                         throw;
