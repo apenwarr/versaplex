@@ -47,6 +47,8 @@ protected:
 
 void wvlog_open()
 {
+    if (rcv)
+	return;
 #ifdef _MSC_VER
     setup_console_crash();
 #endif
@@ -58,9 +60,6 @@ void wvlog_open()
 	else if (log_level >= (int)WvLog::Info)
 	    pri = (WvLog::LogLevel)log_level;
     }
-
-    if (rcv)
-	delete rcv;
 
     if (wvlog_isset())
     {
