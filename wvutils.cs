@@ -241,6 +241,64 @@ namespace Wv
 	    return b;
 	}
 
+	/**
+	 * A handy tool for making timeout loops.  Use it like this:
+	 * 
+	 * foreach (int remain in wv.until(t)) {
+	 *     do_stuff();
+	 *     if (exit_condition) break;
+	 * }
+	 * 
+	 * New iterations of the loop will continue until DateTime.Now==t,
+	 * or you exit the loop by hand.
+	 * 
+	 * If t==DateTime.MinValue, loop will continue forever.
+	 * 
+	 * 'remain' at each iteration will be the number of milliseconds
+	 * remaining, or -1 if t==DateTime.MinValue.
+	 * 
+	 * Even if the timeout is in the past, this is guaranteed to return
+	 * at least once.
+	 */
+	public static IEnumerable<int> until(DateTime t)
+	{
+	    bool forever = (t == DateTime.MinValue);
+	    DateTime n = DateTime.Now;
+	    bool once = false;
+	    
+	    while (!once || t==DateTime.MinValue || n < t)
+	    {
+		once = true;
+		if (forever)
+		    yield return -1;
+		else
+		{
+		    int s = (int)((n-t).TotalMilliseconds);
+		    if (s < 0)
+			s = 0;
+		    yield return s;
+		}
+		n = DateTime.Now;
+	    }
+	}
+	
+	/**
+	 * Like until(DateTime t), but works with a timeout in msec instead
+	 * of an exact time.
+	 * 
+	 * A negative timeout means "forever".
+	 */
+	public static IEnumerable<int> until(int msec_timeout)
+	{
+	    DateTime t;
+	    if (msec_timeout < 0)
+		t = DateTime.MinValue;
+	    else
+		t = DateTime.Now + TimeSpan.FromMilliseconds(msec_timeout);
+	    foreach (var i in until(t))
+		yield return i;
+	}
+	
         public static string add_breaks_to_newlines(string orig)
         {
             StringBuilder retval = new StringBuilder();

@@ -172,6 +172,36 @@ namespace Wv
 	{
 	    return b.len; // lie: we "wrote" all the bytes to nowhere
 	}
+	
+	/**
+	 * Wait up to msec_timeout milliseconds for the stream to become
+	 * readable or writable, respectively.
+	 * 
+	 * Our default implementation does nothing except either return
+	 * immediately (if data is definitely available) or wait for the
+	 * given timeout (if not), since some streams have no way of
+	 * waiting.
+	 * 
+	 * Returns true if the stream is readable or writable before the 
+	 * timeout, false otherwise.
+	 * 
+	 * Waiting synchronously is usually a bad idea in WvStreams
+	 * programs.  Use onreadable/onwritable/onclose instead whenever
+	 * you can.
+	 */
+	public virtual bool wait(int msec_timeout,
+				 bool readable, bool writable)
+	{
+	    if (readable && is_readable)
+		return true;
+	    if (writable && is_writable)
+		return true;
+	    if (!isok)
+		return false;
+	    foreach (int remain in wv.until(msec_timeout))
+		wv.sleep(msec_timeout);
+	    return false;
+	}
 
 	bool canread = true, canwrite = true;
 
@@ -286,6 +316,15 @@ namespace Wv
 		return inner.write(b);
 	    else
 		return 0; // 0 bytes written
+	}
+	
+	public override bool wait(int msec_timeout,
+				  bool readable, bool writable)
+	{
+	    if (hasinner)
+		return inner.wait(msec_timeout, readable, writable);
+	    else
+		return base.wait(msec_timeout, readable, writable);
 	}
 	
 	public override void noread()
