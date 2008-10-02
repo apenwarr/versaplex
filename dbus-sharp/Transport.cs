@@ -11,17 +11,7 @@ namespace Wv.Transports
     {
 	public static Transport Create(AddressEntry ae)
 	{
-	    switch (ae.Method)
-	    {
-	    case "tcp":
-		return new SocketTransport(ae);
-	    case "unix":
-		return new UnixNativeTransport(ae);
-	    default:
-		throw new NotSupportedException
-		    ("Transport method \"" + ae.Method 
-		     + "\" not supported");
-	    }
+	    return new DodgyTransport(ae);
 	}
 
 	public Connection Connection;

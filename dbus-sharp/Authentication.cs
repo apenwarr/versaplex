@@ -50,6 +50,7 @@ namespace Wv.Authentication
 	    while (true)
 	    {
 		var b = buf.alloc(1);
+		conn.transport.wait(-1);
 		int got = conn.transport.read(b);
 		if (got == 0 || b[0] == (byte)'\n')
 		{
@@ -121,55 +122,6 @@ namespace Wv.Authentication
 	protected SaslProcess(Connection conn)
 	{
 	    this.conn = conn;
-	}
-
-	protected static string GetLine (Stream s)
-	{
-	    const int MAX_BUFFER = 16384; // From real dbus client
-
-	    // FIXME: There must be a better way to do this that
-	    // doesn't run the risk of eating bytes after the
-	    // BEGIN\r\n
-	    //
-	    // XXX: This is just generally horrible and
-	    // inefficient. Sorry.
-	    //
-	    Encoding e = Encoding.ASCII;
-	    StringBuilder sb = new StringBuilder();
-
-	    while (sb.Length < MAX_BUFFER) {
-		int r = s.ReadByte();
-
-		// End of stream... no line to get
-		if (r < 0)
-		    return null;
-
-		byte[] b = new byte[1];
-		b[0] = (byte)r;
-
-		sb.Append(e.GetString(b));
-
-		// Look for \r\n
-		if (sb.Length >= 2) {
-		    // For some reason I can't use
-		    // sb.Chars[i] (mono problem?)
-		    string str = sb.ToString();
-
-		    if (str.EndsWith("\r\n"))
-			return str;
-		}
-	    }
-
-	    // Line shouldn't be this big
-	    return null;
-	}
-
-	protected static void PutLine (Stream s, string line)
-	{
-	    Encoding e = Encoding.ASCII;
-
-	    byte[] outbuf = e.GetBytes(line);
-	    s.Write(outbuf, 0, outbuf.Length);
 	}
 
 	//From Mono.Unix.Native.NativeConvert
