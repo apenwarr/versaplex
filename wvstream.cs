@@ -128,15 +128,16 @@ namespace Wv
 
 	public virtual void close()
 	{
+	    ev.delpending(pr_obj);
+	    ev.delpending(pw_obj);
+	    canread = false;
 	    flush(-1);
-	    canread = canwrite = false;
+	    canwrite = false;
 	    if (isopen)
 	    {
 		isopen = false;
 		if (_onclose != null) _onclose();
 	    }
-	    ev.delpending(pr_obj);
-	    ev.delpending(pw_obj);
 	    GC.SuppressFinalize(this);
 	}
 
@@ -177,10 +178,9 @@ namespace Wv
 	 * Wait up to msec_timeout milliseconds for the stream to become
 	 * readable or writable, respectively.
 	 * 
-	 * Our default implementation does nothing except either return
-	 * immediately (if data is definitely available) or wait for the
-	 * given timeout (if not), since some streams have no way of
-	 * waiting.
+	 * Our default implementation always returns immediately, consistent
+	 * with the Unix select() behaviour of returning immediately on
+	 * non-select()able file handles.
 	 * 
 	 * Returns true if the stream is readable or writable before the 
 	 * timeout, false otherwise.
@@ -196,13 +196,16 @@ namespace Wv
 		return true;
 	    if (writable && is_writable)
 		return true;
-	    if (!isok)
+	    if (!isok || (readable && !canread) || (writable && !canwrite))
 		return false;
-	    foreach (int remain in wv.until(msec_timeout))
-		wv.sleep(msec_timeout);
-	    return false;
+	    return true;
 	}
 
+	// Don't make these anything but private!  They're tempting, but
+	// they're not *really* what you want to know.  Use these instead:
+	//    isok -> whether or not your stream is useful at all
+	//    wait(0, true, false) -> whether your stream has bytes *right now*.
+	// If canread goes false, wait(-1, true, false) will return false.
 	bool canread = true, canwrite = true;
 
 	public virtual void noread()
@@ -390,20 +393,37 @@ namespace Wv
 		return base.read(b);
 	}
 	
-	public string getline(char splitchar)
+	public string _getline(char splitchar)
 	{
-	    while (isok && inbuf.strchr(splitchar) <= 0)
+	    if (inbuf.strchr(splitchar) > 0)
+	    {    
+		post_readable(); // not stalled yet!
+		return inbuf.get(inbuf.strchr(splitchar)).FromUTF8();
+	    }
+	    return null;
+	}
+	
+	public string getline(int msec_timeout, char splitchar)
+	{
+	    string l = _getline(splitchar);
+	    if (l != null) return l;
+	    
+	    foreach (var remain in wv.until(msec_timeout))
 	    {
-		var b = inner.read(4096);
-		// Console.WriteLine("got {0} bytes", b.Length);
-		if (b.len == 0)
-		    return null;
-		inbuf.put(b);
+		if (inner.wait(remain, true, false))
+		    inner.read(inbuf, 4096);
+		
+		l = _getline(splitchar);
+		if (l != null) return l;
+		
+		if (inbuf.used == 0 && !isok)
+		    break;
 	    }
 	    
-	    // if we get here, there's a splitchar in the buffer
-	    post_readable(); // not stalled yet!
-	    return inbuf.get(inbuf.strchr(splitchar)).FromUTF8();
+	    if (!isok && inbuf.used > 0)
+		return inbuf.getall().FromUTF8();
+	    
+	    return null;
 	}
     }
     
@@ -451,6 +471,22 @@ namespace Wv
 	    _flush();
 	    // FIXME: do something with msec_timeout
 	    return outbuf.used == 0;
+	}
+    }
+    
+    /**
+     * A combination of WvInBufStream and WvOutBufStream.
+     * 
+     * We put the OutBufStream on the inside and the InBufStream on the
+     * outside, because InBufStream actually adds API functions while 
+     * OutBufStream doesn't.  So getline() will work as expected on this
+     * kind of stream.
+     */
+    public class WvBufStream : WvInBufStream
+    {
+	public WvBufStream(WvStream inner)
+	    : base(new WvOutBufStream(inner))
+	{
 	}
     }
 }

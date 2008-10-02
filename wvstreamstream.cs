@@ -37,10 +37,10 @@ namespace Wv
 	
 	void start_reading()
 	{
-	    //Console.WriteLine("starting...");
+	    //wv.printerr("starting...\n");
 	    if (got_eof)
 	    {
-		//Console.WriteLine("eof close!");
+		//wv.printerr("eof close!\n");
 		noread();
 		nowrite();
 		return;
@@ -55,7 +55,7 @@ namespace Wv
 				    {
 					in_ofs = 0;
 					in_left = inner.EndRead(ar);
-					//Console.WriteLine("ending... {0}", in_left);
+					//wv.printerr("ending... {0}\n", in_left);
 					if (in_left == 0)
 					    got_eof = true;
 					post_readable();
