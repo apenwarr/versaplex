@@ -6,7 +6,7 @@ using Mono.Unix;
 using Wv;
 using Wv.Extensions;
 
-class DodgyTransport : Wv.Transports.Transport
+public class DodgyTransport : Wv.Transports.Transport
 {
     public WvStream stream;
     
