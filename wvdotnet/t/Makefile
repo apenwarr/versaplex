@@ -1,7 +1,7 @@
 WVDOTNET=..
 include ../monorules.mk
 
-all: test
+all: tests
 
 PKGS += /r:System.Data /r:System.Web
 CPPFLAGS += -I..
@@ -13,6 +13,8 @@ wv.t.exe: wv.t.cs.E wvutils.t.cs.E wvlog.t.cs.E wvdata.t.cs.E \
 	../wv.dll
 
 wvhttpserver.t.exe: wv.t.cs.E wvhttpserver.t.cs.E ../wv.dll
+
+tests: wvtest.t.exe wv.t.exe wvhttpserver.t.exe
 
 test: wvtest.t.pass wv.t.pass wvhttpserver.t.pass
 

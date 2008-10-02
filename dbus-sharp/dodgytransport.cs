@@ -10,7 +10,7 @@ namespace Wv
 {
     public class Transport
     {
-	public WvStream stream;
+	public WvBufStream stream;
 	
 	// This has to be a separate function so we can delay JITting it until
 	// we're sure it's mono.
@@ -58,7 +58,7 @@ namespace Wv
 	    else
 		throw new Exception(String.Format("Unknown connection method {0}",
 						  entry.Method));
-	    stream = new WvOutBufStream(s);
+	    stream = new WvBufStream(s);
 	}
 	
 	public void wait(int msec_timeout)

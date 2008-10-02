@@ -4,10 +4,6 @@
 // See COPYING for details
 //
 using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Text;
-using System.Globalization;
 using Wv;
 using Wv.Extensions;
 
@@ -39,57 +35,31 @@ namespace Wv.Authentication
 	bool ok = false;
 	public override bool OK { get { return ok; } }
 
-        public ExternalAuthClient (Connection conn) : base(conn)
+	WvBufStream s;
+	
+        public ExternalAuthClient(Connection conn) : base(conn)
 	{
+	    this.s = conn.transport.stream;
 	}
 	
-	string getline()
-	{
-	    var buf = new WvBuf();
-	    
-	    while (true)
-	    {
-		var b = buf.alloc(1);
-		conn.transport.wait(-1);
-		int got = conn.transport.read(b);
-		if (got == 0 || b[0] == (byte)'\n')
-		{
-		    var obuf = buf.getall();
-		    if (obuf[obuf.len-1] == '\r')
-			obuf = obuf.sub(0, obuf.len-1);
-		    return obuf.FromUTF8();
-		}
-	    }
-	}
-	
-	void writestr(string s)
-	{
-	    conn.transport.write(s.ToUTF8());
-	}
-	
-	void writestr(string fmt, params object[] args)
-	{
-	    writestr(wv.fmt(fmt, args));
-	}
-
 	public override void Run()
 	{
-	    string str = conn.transport.AuthString();
-	    byte[] bs = Encoding.ASCII.GetBytes(str);
+	    byte[] bs = conn.transport.AuthString().ToUTF8();
 	    string authStr = ToHex(bs);
 
-	    writestr("AUTH EXTERNAL {0}\r\n", authStr);
+	    s.print("AUTH EXTERNAL {0}\r\n", authStr);
 
-	    string ok_rep = getline();
-
+	    string ok_rep = s.getline(-1, '\n');
 	    string[] parts = ok_rep.Split(' ');
 
 	    if (parts.Length < 1 || parts[0] != "OK") {
 		done = true;
-		throw new Exception ("Authentication error: AUTH EXTERNAL was not OK: \"" + ok_rep + "\"");
+		throw new Exception
+		    (wv.fmt("Authentication error: AUTH EXTERNAL "
+			   + "was not OK: \"{0}\"", ok_rep));
 	    }
 
-	    writestr("BEGIN\r\n");
+	    s.print("BEGIN\r\n");
 	    done = true;
 	    ok = true;
 	}
@@ -142,18 +112,9 @@ namespace Wv.Authentication
 	    return (long) unixTime.TotalSeconds;
 	}
 
-	//From Mono.Security.Cryptography
-	//Modified to output lowercase hex
-	static public string ToHex (byte[] input)
+	static public string ToHex(byte[] input)
 	{
-	    if (input == null)
-		return null;
-
-	    StringBuilder sb = new StringBuilder (input.Length * 2);
-	    foreach (byte b in input) {
-		sb.Append (b.ToString ("x2", CultureInfo.InvariantCulture));
-	    }
-	    return sb.ToString ();
+	    return input.ToHex().ToLowerInvariant();
 	}
 
 	//From Mono.Security.Cryptography
@@ -169,7 +130,7 @@ namespace Wv.Authentication
 	}
 
 	//From Mono.Security.Cryptography
-	static public byte[] FromHex (string hex)
+	static public byte[] FromHex(string hex)
 	{
 	    if (hex == null)
 		return null;
