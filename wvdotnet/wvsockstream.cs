@@ -82,14 +82,30 @@ namespace Wv
 	    if (!isok)
 		return 0;
 
-	    int ret = sock.Send(b.bytes, b.start, b.len, 0);
-	    if (ret < 0) // Error
+	    try
 	    {
-		err = new Exception("Write error"); // FIXME
+		int ret = sock.Send(b.bytes, b.start, b.len, 0);
+		if (ret < 0) // Unexpected error
+		{
+		    err = new Exception(wv.fmt("Write error #{0}", ret));
+		    return 0;
+		}
+		else
+		    return ret;
+	    }
+	    catch (SocketException e)
+	    {
+		if (e.ErrorCode == 10004) // EINTR is normal when non-blocking
+		    return 0;
+		else if (e.ErrorCode == 10035) // EWOULDBLOCK too
+		    return 0;
+		else
+		{
+		    err = e;
+		    // err = new Exception(wv.fmt("Error code {0}\n", e.ErrorCode));
+		}
 		return 0;
 	    }
-	    else
-		return ret;
 	}
 	
 	public override event Action onreadable {
