@@ -20,7 +20,6 @@ wvdbus-sharp.dll: \
 	MessageWriter.cs \
 	msgiter.cs \
 	Protocol.cs \
-	Transport.cs \
 	$(WVDOTNET)/wv.dll
 
 tests: all t/tests

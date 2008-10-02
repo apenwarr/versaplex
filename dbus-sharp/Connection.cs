@@ -12,7 +12,6 @@ using Wv.Extensions;
 namespace Wv
 {
     using Authentication;
-    using Transports;
 
     [Flags]
     public enum NameFlag : uint
@@ -100,10 +99,8 @@ namespace Wv
 	    if (entries.Length == 0)
 		throw new Exception("No addresses were found");
 
-	    //TODO: try alternative addresses if needed
 	    AddressEntry entry = entries[0];
-
-	    transport = Transport.Create(entry);
+	    transport = new Transport(entry);
 	}
 
 	internal void Authenticate()

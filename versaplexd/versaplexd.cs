@@ -19,7 +19,7 @@ public static class VersaMain
     
     public static Connection conn;
 
-    private static void DataReady(DodgyTransport trans, Connection conn)
+    private static void DataReady(Transport trans, Connection conn)
     {
         // FIXME: This may require special handling for padding between
         // messages: it hasn't been a problem so far, but should be addressed
@@ -27,7 +27,7 @@ public static class VersaMain
 	conn.handlemessages(0);
     }
 
-    private static void NoMoreData(DodgyTransport trans)
+    private static void NoMoreData(Transport trans)
     {
         log.print(
                 "***********************************************************\n"+
@@ -166,7 +166,7 @@ public static class VersaMain
 	
         log.print("Connecting to '{0}'\n", bus);
         AddressEntry aent = AddressEntry.Parse(bus);
-	var trans = new DodgyTransport(aent);
+	var trans = new Transport(aent);
         conn = new Connection(trans);
 
         string myNameReq = "vx.versaplexd";
