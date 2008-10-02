@@ -70,7 +70,7 @@ namespace Wv
 	    // that the a{yv} starts with an unsigned int that's the number
 	    // of bytes in the array, which is what we *really* want to know.
 	    // So we lie about the signature here.
-	    var it = new WvDBusIter((EndianFlag)b[0], "yyyyuuu", b)
+	    var it = new WvDBusIter((EndianFlag)b[0], "yyyyuuu", b.sub(0,16))
 		.GetEnumerator();
 
 	    it.pop();
@@ -119,8 +119,6 @@ namespace Wv
 		var f = _f.GetEnumerator();
 	        FieldCode c = (FieldCode)(byte)f.pop();
 		var v = f.pop();
-		wv.print("code:{0} type:{1} val:'{2}'\n",
-			 c, v.inner.GetType(), v);
 		switch (c)
 		{
 		case FieldCode.Sender:
@@ -155,8 +153,6 @@ namespace Wv
 	
 	void wws(MessageWriter w, FieldCode c, string sig, string val)
 	{
-	    wv.print("Writing: type={0}/{3}, code={1}, val='{2}'\n",
-		     val.GetType(), c, val, typeof(string));
 	    w.Write((byte)c);
 	    w.WriteSig(sig);
 	    w.Write(val);
@@ -164,8 +160,6 @@ namespace Wv
 	
 	void wwu(MessageWriter w, FieldCode c, string sig, uint val)
 	{
-	    wv.print("Writing: type={0}/{3}, code={1}, val='{2}'\n",
-		     val.GetType(), c, val, typeof(uint));
 	    w.Write((byte)c);
 	    w.WriteSig(sig);
 	    w.Write(val);
@@ -173,8 +167,6 @@ namespace Wv
 	
 	void wwsig(MessageWriter w, FieldCode c, string sig, string val)
 	{
-	    wv.print("Writing: type={0}/sig, code={1}, val='{2}'\n",
-		     val.GetType(), c, val);
 	    w.Write((byte)c);
 	    w.WriteSig(sig);
 	    w.WriteSig(val);

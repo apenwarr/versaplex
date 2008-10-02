@@ -27,8 +27,7 @@ public static class VersaMain
         // XXX: Ew.
 	var b = new WvBuf();
 	trans.stream.read(b, 4096);
-	int need = conn.DoBytes(b.getall());
-	wv.printerr("Now need: {0}\n", need);
+	conn.DoBytes(b.getall());
     }
 
     private static void NoMoreData(DodgyTransport trans)
@@ -195,7 +194,7 @@ public static class VersaMain
 	
 	while (!want_to_die)
 	{
-	    log.print(WvLog.L.Debug1, "Event loop.\n");
+	    log.print(WvLog.L.Debug2, "Event loop.\n");
 	    WvStream.runonce(-1);
 	}
 

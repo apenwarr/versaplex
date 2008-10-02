@@ -17,12 +17,14 @@ namespace Wv
     {
 	int sigpos;
 	WvAutoCast cur;
+	protected WvLog log = new WvLog("DBusIter");
 	
 	internal WvDBusIter(DataConverter conv, string sig, WvBytes b)
 	    : base(conv, sig, b)
 	{
-	    wv.print("Decoding message:\n{0}\nSignature={1}\n",
-		     wv.hexdump(b), sig);
+	    log.print(WvLog.L.Debug3, "Iterating! (sig={0}, bytes={1}-{2})\n",
+	                 sig, b.start, b.len);
+	    log.print(WvLog.L.Debug5, wv.hexdump(b));
 	    Reset();
 	}
 	
@@ -213,9 +215,6 @@ namespace Wv
 	{
 	    DType dtype = (DType)sig[0];
 	    
-	    wv.print("type char:{0} [total={1}] pos=0x{2:x}, end=0x{3:x}\n",
-		     (char)dtype, sig, pos, end);
-	    
 	    switch (dtype)
 	    {
 	    case DType.Byte:
@@ -370,16 +369,13 @@ namespace Wv
 	
 	object ReadVariant()
 	{
-	    wv.print("Variant...\n");
 	    string vsig = ReadSignature();
-	    wv.print("Variant!  Sig=/{0}/\n", vsig);
 	    return getone(vsig);
 	}
 	
 	IEnumerable<WvAutoCast> ReadArray(string subsig)
 	{
 	    int len = ReadLength();
-	    wv.print("Array length is 0x{0:x} bytes\n", len);
 	    pad(Protocol.GetAlignment((DType)subsig[0]));
 	    var x = new WvDBusIter_Array(conv, subsig, data.sub(pos, len));
 	    _advance(len);
@@ -388,7 +384,6 @@ namespace Wv
 	
 	IEnumerable<WvAutoCast> ReadStruct(string structsig)
 	{
-	    wv.print("Struct!  Sig=/{0}/\n", structsig);
 	    DType first = (DType)structsig[0];
 	    DType last  = (DType)structsig[structsig.Length-1];
 	    

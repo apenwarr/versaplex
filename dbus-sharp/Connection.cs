@@ -46,7 +46,7 @@ namespace Wv
 
     public class Connection
     {
-	WvLog log = new WvLog("Connection");
+	WvLog log = new WvLog("DBusConn");
 	public Transport transport;
 
 	// FIXME: There should be a better way to hack in a socket
@@ -166,9 +166,11 @@ namespace Wv
 	    if (msgLength > Protocol.MaxMessageLength)
 		throw new Exception("Message length " + msgLength + " exceeds maximum allowed " + Protocol.MaxMessageLength + " bytes");
 	    
-	    wv.print("Sending! Header:\n{0}\nBody:\n{1}\n",
-		     wv.hexdump(HeaderData), 
-		     wv.hexdump(msg.Body));
+	    log.print(WvLog.L.Debug3, "Sending!\n");
+	    log.print(WvLog.L.Debug4, "Header:\n{0}",
+	                wv.hexdump(HeaderData));
+	    log.print(WvLog.L.Debug5, "Body:\n{0}",
+		        wv.hexdump(msg.Body));
 
 	    transport.write(HeaderData);
 	    if (msg.Body != null && msg.Body.Length != 0)
