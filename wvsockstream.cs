@@ -64,9 +64,16 @@ namespace Wv
 	    }
 	    catch (SocketException e)
 	    {
-		if (e.ErrorCode != 10004) // EINTR is normal when non-blocking
+		if (e.ErrorCode == 10004) // EINTR is normal when non-blocking
+		    return 0;
+		else if (e.ErrorCode == 10035) // EWOULDBLOCK too
+		    return 0;
+		else
+		{
 		    err = e;
-		return 0; // non-blocking, so interruptions are normal
+		    // err = new Exception(wv.fmt("Error code {0}\n", e.ErrorCode));
+		}
+		return 0;
 	    }
 	}
 
@@ -169,7 +176,7 @@ namespace Wv
 	    EndPoint ep;
 	    
 	    if (path.StartsWith("@"))
-		ep = new AbstractUnixEndPoint(path);
+		ep = new AbstractUnixEndPoint(path.Substring(1));
 	    else
 		ep = new UnixEndPoint(path);
 	    

@@ -176,11 +176,17 @@ namespace Wv.Extensions
 	
 	public static V tryget<K,V>(this IDictionary<K,V> dict, K key)
 	{
+	    return dict.tryget(key, default(V));
+	}
+	
+	public static V tryget<K,V>(this IDictionary<K,V> dict, K key,
+				    V defval)
+	{
 	    V v;
 	    if (dict.TryGetValue(key, out v))
 		return v;
 	    else
-		return default(V);
+		return defval;
 	}
 	
 	// This works if b is a byte[], too, because of the implicit
