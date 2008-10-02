@@ -40,8 +40,8 @@ namespace Wv
 	    else if (e == (byte)EndianFlag.Big)
 		return DataConverter.BigEndian;
 	    else
-		throw new ArgumentException("value '{0:x}' must be 'l' or 'B'",
-					    "e");
+		throw new ArgumentException
+		    (wv.fmt("value '0x{0:x}' must be 'l' or 'B'", e), "e");
 	}
 	
 	// IEnumerable

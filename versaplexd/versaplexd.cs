@@ -24,10 +24,7 @@ public static class VersaMain
         // FIXME: This may require special handling for padding between
         // messages: it hasn't been a problem so far, but should be addressed
 
-        // XXX: Ew.
-	var b = new WvBuf();
-	trans.stream.read(b, 4096);
-	conn.DoBytes(b.getall());
+	conn.handlemessages(0);
     }
 
     private static void NoMoreData(DodgyTransport trans)

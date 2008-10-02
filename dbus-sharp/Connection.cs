@@ -138,7 +138,7 @@ namespace Wv
 	    SendWithReply(msg, (r) => { reply = r; });
 	    
 	    while (reply == null)
-		HandleMessage(ReadMessage());
+		handlemessage(-1);
 	    
 	    return reply;
 	}
@@ -179,48 +179,70 @@ namespace Wv
 	
 	WvBuf inbuf = new WvBuf();
 	
-	void readbytes(int max)
+	int entrycount = 0;
+	void readbytes(int max, int msec_timeout)
 	{
+	    entrycount++;
+	    wv.assert(entrycount == 1);
+	    
 	    log.print(WvLog.L.Debug5, "Reading: have {0} of needed {1}\n",
 		      inbuf.used, max);
 	    int needed = max - inbuf.used;
-	    if (needed <= 0) return;
+	    if (needed > 0)
+	    {
+		WvBytes b = inbuf.alloc(needed);
+		transport.wait(msec_timeout);
+		int got = transport.read(b);
+		inbuf.unalloc(needed-got);
+	    }
+	    entrycount--;
+	}
+	
+	/**
+	 * You shouldn't use this, as it bypasses normal message processing.
+	 * Add a message handler instead.
+	 *
+	 * It exists because it's useful in our unit tests.
+	 */
+	public Message readmessage(int msec_timeout)
+	{
+	    foreach (int remain in wv.until(msec_timeout))
+	    {
+		readbytes(16, remain);
+		if (inbuf.used < 16)
+		    continue;
+		
+		int needed = Message.bytes_needed(inbuf.peek(16));
+		readbytes(needed, remain);
+		if (inbuf.used < needed)
+		    continue;
+		
+		return new Message(inbuf.get(needed));
+	    }
 	    
-	    WvBytes b = inbuf.alloc(needed);
-	    int got = transport.read(b);
-	    inbuf.unalloc(needed-got);
+	    return null;
 	}
 	
-	Message _ReadMessage()
+	public bool handlemessage(int msec_timeout)
 	{
-	    if (inbuf.used < 16)
-		return null;
-	    int needed = Message.bytes_needed(inbuf.peek(16));
-	    if (inbuf.used < needed)
-		return null;
-	    return new Message(inbuf.get(needed));
-	}
-	
-	// FIXME: a blocking Read isn't particularly useful
-	public Message ReadMessage()
-	{
-	    while (inbuf.used < 16)
-		readbytes(16);
-	    if (inbuf.used < 16)
-		return null;
-	    int needed = Message.bytes_needed(inbuf.peek(16));
-	    while (inbuf.used < needed)
-		readbytes(needed);
-	    if (inbuf.used < needed)
-		return null;
-	    return _ReadMessage();
-	}
-	
-	void handlemessages()
-	{
-	    Message m;
-	    while ((m = _ReadMessage()) != null)
+	    var m = readmessage(msec_timeout);
+	    if (m != null)
+	    {
 		OnMessage(m);
+		return true;
+	    }
+	    return false;
+	}
+	
+	public void handlemessages(int msec_timeout)
+	{
+	    while (handlemessage(msec_timeout))
+		;
+	}
+	
+	public void handlemessages()
+	{
+	    handlemessages(0);
 	}
 	
 	// used only for versaplexd - FIXME remove it eventually

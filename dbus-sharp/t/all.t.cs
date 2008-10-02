@@ -117,12 +117,9 @@ class DbusTest
 	bool got_reply = false;
 	for (int i = 0; i < 50; i++)
 	{
-	    reply = bus.ReadMessage();
+	    reply = bus.readmessage(-1);
 	    if (reply == null)
-	    {
-		wv.sleep(100);
 		continue;
-	    }
 	    
 	    wv.print("<< #{0}\n", reply.serial);
 	    wv.print("{0}\n", wv.hexdump(reply.Body));

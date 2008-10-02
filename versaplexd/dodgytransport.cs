@@ -58,6 +58,11 @@ class DodgyTransport : Wv.Transports.Transport
 					      entry.Method));
 	stream = new WvOutBufStream(s);
     }
+    
+    public override void wait(int msec_timeout)
+    {
+	stream.wait(msec_timeout, true, false);
+    }
 	    
     public override int read(WvBytes b)
     {

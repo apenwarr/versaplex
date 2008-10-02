@@ -26,6 +26,13 @@ namespace Wv.Transports
 
 	public Connection Connection;
 
+	public virtual void wait(int msec_timeout)
+	{
+	    // by default, no need to wait, since read/write are blocking
+	    // anyway
+	    return; 
+	}
+	
 	public abstract void write(WvBytes b);
 	public abstract int read(WvBytes b);
 	public abstract string AuthString();

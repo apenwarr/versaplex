@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using Mono.Unix;
@@ -132,6 +133,31 @@ namespace Wv
 	    {
 		// ignore
 	    }
+	}
+	
+	public override bool wait(int msec_timeout,
+				  bool readable, bool writable)
+	{
+	    foreach (int remain in wv.until(msec_timeout))
+	    {
+		if (!readable && !writable)
+		    wv.sleep(remain);
+		else
+		{
+		    var rlist = new List<Socket>();
+		    var wlist = new List<Socket>();
+		    if (readable)
+			rlist.Add(sock);
+		    if (writable)
+			wlist.Add(sock);
+		    Socket.Select(rlist, wlist, null, remain * 1000);
+		    
+		    if (rlist.Count > 0 || wlist.Count > 0)
+			return true;
+		}
+	    }
+	    
+	    return false;
 	}
 
 	public override void noread()
