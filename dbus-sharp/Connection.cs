@@ -67,31 +67,7 @@ namespace Wv
 	public Connection(string address)
 	{
 	    OnMessage = HandleMessage;
-	    OpenPrivate(address);
-	    Authenticate();
-	    Register();
-	}
-
-	//should we do connection sharing here?
-	public static Connection Open(string address)
-	{
-	    Connection conn = new Connection();
-	    conn.OpenPrivate(address);
-	    conn.Authenticate();
-
-	    return conn;
-	}
-
-	public static Connection Open(Transport transport)
-	{
-	    Connection conn = new Connection(transport);
-	    conn.Authenticate();
-
-	    return conn;
-	}
-
-	internal void OpenPrivate(string address)
-	{
+	    
 	    if (address == null)
 		throw new ArgumentNullException("address");
 
@@ -101,24 +77,18 @@ namespace Wv
 
 	    AddressEntry entry = entries[0];
 	    transport = new Transport(entry);
+	    
+	    Authenticate();
+	    Register();
 	}
 
-	internal void Authenticate()
+	void Authenticate()
 	{
 	    if (transport != null)
 		transport.WriteCred();
 
 	    SaslProcess auth = new ExternalAuthClient(this);
 	    auth.Run();
-	    isAuthenticated = true;
-	}
-
-	bool isAuthenticated = false;
-	internal bool IsAuthenticated
-	{
-	    get {
-		return isAuthenticated;
-	    }
 	}
 
 	uint serial = 0;
@@ -219,7 +189,7 @@ namespace Wv
 	    return null;
 	}
 	
-	public bool handlemessage(int msec_timeout)
+	bool handlemessage(int msec_timeout)
 	{
 	    var m = readmessage(msec_timeout);
 	    if (m != null)
@@ -236,23 +206,6 @@ namespace Wv
 		;
 	}
 	
-	public void handlemessages()
-	{
-	    handlemessages(0);
-	}
-	
-	// used only for versaplexd - FIXME remove it eventually
-	public int DoBytes(WvBytes b)
-	{
-	    inbuf.put(b);
-	    handlemessages();
-	    
-	    if (inbuf.used < 16)
-		return 16;
-	    int needed = Message.bytes_needed(inbuf.peek(16));
-	    return needed - inbuf.used;
-	}
-
 	// hacky
 	public delegate void MessageHandler(Message msg);
 	public MessageHandler OnMessage;
@@ -421,17 +374,6 @@ namespace Wv
             CallDBusMethod("RemoveMatch", rule);
 	}
 
-	string unique_name = null;
-	public string UniqueName
-	{
-	    get {
-		return unique_name;
-	    }
-	    set {
-		if (unique_name != null)
-		    throw new Exception("Unique name can only be set once");
-		unique_name = value;
-	    }
-	}
+	string unique_name;
     }
 }

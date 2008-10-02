@@ -12,23 +12,6 @@ namespace Wv
     {
 	public WvBufStream stream;
 	
-	// This has to be a separate function so we can delay JITting it until
-	// we're sure it's mono.
-	string MonoAuthString()
-	{
-	    try { //will work in Mono on Linux.
-		return UnixUserInfo.GetRealUserId().ToString();
-	    } catch { return "WIN32"; }
-	}
-	
-	public string AuthString()
-	{
-	    if (Wv.wv.IsMono())
-		return MonoAuthString();
-	    else
-		return "WIN32"; // FIXME do something better?
-	}
-	
 	public void WriteCred()
 	{
 	    stream.write(new byte[] { 0 });

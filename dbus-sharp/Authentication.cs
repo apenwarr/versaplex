@@ -6,6 +6,7 @@
 using System;
 using Wv;
 using Wv.Extensions;
+using Mono.Unix;
 
 namespace Wv.Authentication
 {
@@ -42,9 +43,26 @@ namespace Wv.Authentication
 	    this.s = conn.transport.stream;
 	}
 	
+	// This has to be a separate function so we can delay JITting it until
+	// we're sure it's mono.
+	string MonoAuthString()
+	{
+	    try { //will work in Mono on Linux.
+		return UnixUserInfo.GetRealUserId().ToString();
+	    } catch { return "WIN32"; }
+	}
+	
+	string AuthString()
+	{
+	    if (Wv.wv.IsMono())
+		return MonoAuthString();
+	    else
+		return "WIN32"; // FIXME do something better?
+	}
+	
 	public override void Run()
 	{
-	    byte[] bs = conn.transport.AuthString().ToUTF8();
+	    byte[] bs = AuthString().ToUTF8();
 	    string authStr = ToHex(bs);
 
 	    s.print("AUTH EXTERNAL {0}\r\n", authStr);
