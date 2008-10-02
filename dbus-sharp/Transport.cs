@@ -14,8 +14,6 @@ namespace Wv.Transports
 	    return new DodgyTransport(ae);
 	}
 
-	public Connection Connection;
-
 	public virtual void wait(int msec_timeout)
 	{
 	    // by default, no need to wait, since read/write are blocking

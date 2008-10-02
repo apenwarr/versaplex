@@ -60,7 +60,6 @@ namespace Wv
 	{
 	    OnMessage = HandleMessage;
 	    this.transport = transport;
-	    transport.Connection = this;
 	    
 	    Authenticate();
 	    Register();
