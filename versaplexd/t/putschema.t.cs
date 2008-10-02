@@ -116,7 +116,7 @@ class PutSchemaTests : SchemamaticTester
 
         WVPASSEQ(errs.Count, 1);
         WVPASSEQ(errs[key][0].key, key);
-        WVPASSEQ(errs[key][0].msg, errmsg);
+        WVPASS(errs[key][0].msg.StartsWith(errmsg));
         WVPASSEQ(errs[key][0].errnum, errno);
         WVPASSEQ((int)errs[key][0].level, (int)level);
         WVPASSEQ(errs[key].Count, 1);
@@ -529,9 +529,7 @@ class PutSchemaTests : SchemamaticTester
                 "column: name=f3,type=varchar,null=0,length=10\n";
         errmsg = "Refusing to drop and re-add column [f3] when the " + 
             "destructive option is not set.  Error when altering was: " + 
-            "'Cannot insert the value NULL into column 'f3', " + 
-            "table 'testdb.dbo.TestTable'; column does not allow nulls. " + 
-            "UPDATE fails.'";
+            "'Cannot insert the value NULL into column 'f3'";
         TestTableUpdateError("TestTable", schema7, errmsg, schema6, 
             VxPutOpts.None, -1, WvLog.L.Error);
 
