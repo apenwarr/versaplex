@@ -123,8 +123,13 @@ class PutSchemaTests : SchemamaticTester
 
         // Ensure that we didn't break what was already there.
         schema = dbus.Get(key);
-        WVPASSEQ(schema.Count, 1);
-        CheckTable(schema, tabname, oldval);
+        if (oldval.ne())
+        {
+            WVPASSEQ(schema.Count, 1);
+            CheckTable(schema, tabname, oldval);
+        }
+        else
+            WVPASSEQ(schema.Count, 0);
     }
 
     [Test, Category("Schemamatic"), Category("PutSchema")]
@@ -291,7 +296,7 @@ class PutSchemaTests : SchemamaticTester
     }
 
     [Test, Category("Schemamatic"), Category("PutSchema")]
-    public void TestChangingColumns()
+    public void TestChangingEmptyColumns()
     {
         try { VxExec("drop table TestTable"); } catch { }
 
@@ -398,18 +403,16 @@ class PutSchemaTests : SchemamaticTester
         // Try to get rid of all the columns.
         WVPASS(12);
         string schema12 = "primary-key: column=f1renamed,clustered=1\n";
-        errmsg = "The object 'PK_TestTable' is dependent on column 'f1renamed'.";
-        TestTableUpdateError("TestTable", schema12, errmsg, schema11,
-            VxPutOpts.Destructive, 5074);
+        errmsg = "No columns in schema.";
+        TestTableUpdateError("TestTable", schema12, errmsg, null,
+            VxPutOpts.Destructive);
 
         // Try to get rid of all the columns, and rename the remaining index.
         WVPASS(13);
         string schema13 = "primary-key: name=NewPK,column=f1renamed,clustered=1\n";
-        errmsg = "ALTER TABLE DROP COLUMN failed because 'f1renamed' is " + 
-            "the only data column in table 'TestTable'. A table must have " + 
-            "at least one data column.";
-        TestTableUpdateError("TestTable", schema13, errmsg, schema11,
-            VxPutOpts.Destructive, 4923);
+        errmsg = "No columns in schema.";
+        TestTableUpdateError("TestTable", schema13, errmsg, null,
+            VxPutOpts.Destructive);
 
         try { VxExec("drop table TestTable"); } catch { }
     }
@@ -434,8 +437,13 @@ class PutSchemaTests : SchemamaticTester
         WVASSERT(VxExec(wv.fmt("INSERT INTO [TestTable] VALUES (" + 
             1024*1024*1024 + ",1234.56,'{0}')", test_varchar)));
 
+        WVPASSEQ(Scalar("select count(*) from TestTable"), 1);
+        WVPASSEQ((int)Scalar("select f1 from TestTable"), 1024*1024*1024);
+        WVPASSEQ(Scalar("select f2 from TestTable"), 1234.56);
+        WVPASSEQ(Scalar("select f3 from TestTable"), test_varchar);
+
         // First check that you can't change a column out from under a 
-        // primary key constraint, with or without the Destructive option.
+        // primary key constraint, without the Destructive option.
         WVPASS(2);
         string schema2 = "column: name=f1,type=tinyint,null=0\n" + 
                 "column: name=f2,type=money,null=0\n" + 
@@ -447,15 +455,33 @@ class PutSchemaTests : SchemamaticTester
             "'The object 'PK_TestTable' is dependent on column 'f1'.'";
         TestTableUpdateError("TestTable", schema2, errmsg, schema1);
 
+        WVPASSEQ(Scalar("select count(*) from TestTable"), 1);
+        WVPASSEQ((int)Scalar("select f1 from TestTable"), 1024*1024*1024);
+        WVPASSEQ(Scalar("select f2 from TestTable"), 1234.56);
+        WVPASSEQ(Scalar("select f3 from TestTable"), test_varchar);
+
+        // The Destructive operation destroys such puny limitations...
         WVPASS(3);
         string schema3 = "column: name=f1,type=tinyint,null=0\n" + 
                 "column: name=f2,type=money,null=0\n" + 
                 "column: name=f3,type=varchar,null=1,length=80\n" +
                 "index: column=f2,column=f3 DESC,name=Idx1,unique=1,clustered=2\n" +
                 "primary-key: column=f1,column=f2,clustered=1\n";
-        errmsg = "The object 'PK_TestTable' is dependent on column 'f1'.";
-        TestTableUpdateError("TestTable", schema3, errmsg, schema1, 
-            VxPutOpts.Destructive, 5074);
+        TestTableUpdate("TestTable", schema3, VxPutOpts.Destructive);
+
+        // ... but also destroys the data.
+        WVPASSEQ(Scalar("select count(*) from TestTable"), 0);
+
+        // Restore the original schema and data
+        WVPASS(3.5);
+        TestTableUpdate("TestTable", schema1, VxPutOpts.Destructive);
+        WVASSERT(VxExec(wv.fmt("INSERT INTO [TestTable] VALUES (" + 
+            1024*1024*1024 + ",1234.56,'{0}')", test_varchar)));
+
+        WVPASSEQ(Scalar("select count(*) from TestTable"), 1);
+        WVPASSEQ((int)Scalar("select f1 from TestTable"), 1024*1024*1024);
+        WVPASSEQ(Scalar("select f2 from TestTable"), 1234.56);
+        WVPASSEQ(Scalar("select f3 from TestTable"), test_varchar);
 
         // Now try truncating columns with no indexes in the way.
         WVPASS(4);
@@ -496,18 +522,33 @@ class PutSchemaTests : SchemamaticTester
         WVPASS(Scalar("select f3 from TestTable").IsNull);
 
         // Try to drop the nullity on a column that contains a null value.
-        // Should succeed, and not destroy data, but give a warning.
+        // Doesn't work without the Destructive option
         WVPASS(7);
         string schema7 = "column: name=f2,type=money,null=0\n" + 
                 "column: name=f1,type=tinyint,null=0,default=0\n" +
                 "column: name=f3,type=varchar,null=0,length=10\n";
-        string schema7_returned = "column: name=f2,type=money,null=0\n" + 
-                "column: name=f1,type=tinyint,null=0,default=0\n" +
-                "column: name=f3,type=varchar,null=1,length=10\n";
-        errmsg = "Column 'f3' was requested to be non-null but has " + 
-            "1 null elements.";
-        TestTableUpdateError("TestTable", schema7, errmsg, schema7_returned, 
-            VxPutOpts.Destructive, -1, WvLog.L.Warning);
+        errmsg = "Refusing to drop and re-add column [f3] when the " + 
+            "destructive option is not set.  Error when altering was: " + 
+            "'Cannot insert the value NULL into column 'f3', " + 
+            "table 'testdb.dbo.TestTable'; column does not allow nulls. " + 
+            "UPDATE fails.'";
+        TestTableUpdateError("TestTable", schema7, errmsg, schema6, 
+            VxPutOpts.None, -1, WvLog.L.Error);
+
+        WVPASSEQ(Scalar("select count(*) from TestTable"), 1);
+        WVPASSEQ((int)Scalar("select f1 from TestTable"), 123);
+        WVPASSEQ(Scalar("select f2 from TestTable"), 1234.56);
+        WVPASS(Scalar("select f3 from TestTable").IsNull);
+
+        // The destructive options permits the update, but clobbers the data.
+        WVPASS(7.5);
+        TestTableUpdate("TestTable", schema7, VxPutOpts.Destructive);
+        WVPASSEQ(Scalar("select count(*) from TestTable"), 0);
+
+        // Restore the data
+        TestTableUpdate("TestTable", schema6, VxPutOpts.None);
+        WVASSERT(VxExec("INSERT INTO [TestTable] ([f1],[f2],[f3]) " + 
+            "VALUES (123,1234.56,NULL)"));
 
         WVPASSEQ(Scalar("select count(*) from TestTable"), 1);
         WVPASSEQ((int)Scalar("select f1 from TestTable"), 123);
@@ -515,54 +556,54 @@ class PutSchemaTests : SchemamaticTester
         WVPASS(Scalar("select f3 from TestTable").IsNull);
 
         // Try to add a new column that doesn't allow null.  Should give a
-        // warning, but otherwise work.  Also try dropping the nullity on f3
-        // again, but this time specifying a default value so it should work
-        // fine.
+        // warning, but otherwise work.  
         // Note: the added column shows up before the changed column.
         WVPASS(8);
         string schema8 = "column: name=f2,type=money,null=0\n" + 
                 "column: name=f1,type=tinyint,null=0,default=0\n" +
-                "column: name=f3,type=varchar,null=0,length=10,default='a'\n" +
+                "column: name=f3,type=varchar,null=1,length=10\n" +
                 "column: name=f4,type=int,null=0\n";
         string schema8_returned = "column: name=f2,type=money,null=0\n" + 
                 "column: name=f1,type=tinyint,null=0,default=0\n" +
-                "column: name=f4,type=int,null=1\n" + 
-                "column: name=f3,type=varchar,null=0,length=10,default='a'\n";
+                "column: name=f3,type=varchar,null=1,length=10\n" +
+                "column: name=f4,type=int,null=1\n"; 
         errmsg = "Column 'f4' was requested to be non-null but has " + 
             "1 null elements.";
         TestTableUpdateError("TestTable", schema8, errmsg, 
-            schema8_returned, VxPutOpts.Destructive, -1, WvLog.L.Warning);
+            schema8_returned, VxPutOpts.None, -1, WvLog.L.Warning);
 
         WVPASSEQ(Scalar("select count(*) from TestTable"), 1);
         WVPASSEQ((int)Scalar("select f1 from TestTable"), 123);
         WVPASSEQ(Scalar("select f2 from TestTable"), 1234.56);
-        WVPASSEQ(Scalar("select f3 from TestTable"), "a");
+        WVPASS(Scalar("select f3 from TestTable").IsNull);
         WVPASS(Scalar("select f4 from TestTable").IsNull);
 
+        /*
         // Try to add a new column that doesn't explicitly mention
         // nullability.  We'll still get whining about f4.
         WVPASS(9);
         string schema9 = "column: name=f2,type=money,null=0\n" + 
                 "column: name=f1,type=tinyint,null=0,default=0\n" +
-                "column: name=f3,type=varchar,null=0,length=10,default='a'\n" +
+                "column: name=f3,type=varchar,null=1,length=10\n" +
                 "column: name=f4,type=int,null=0\n" + 
                 "column: name=f5,type=int\n";
         string schema9_returned = "column: name=f2,type=money,null=0\n" + 
                 "column: name=f1,type=tinyint,null=0,default=0\n" +
-                "column: name=f3,type=varchar,null=0,length=10,default='a'\n" +
+                "column: name=f3,type=varchar,null=1,length=10\n" +
                 "column: name=f5,type=int,null=1\n" + 
                 "column: name=f4,type=int,null=1\n";
         errmsg = "Column 'f4' was requested to be non-null but has " + 
             "1 null elements.";
         TestTableUpdateError("TestTable", schema9, errmsg, schema9_returned, 
-            VxPutOpts.Destructive, -1, WvLog.L.Warning);
+            VxPutOpts.None, -1, WvLog.L.Warning);
 
         WVPASSEQ(Scalar("select count(*) from TestTable"), 1);
         WVPASSEQ((int)Scalar("select f1 from TestTable"), 123);
         WVPASSEQ(Scalar("select f2 from TestTable"), 1234.56);
-        WVPASSEQ(Scalar("select f3 from TestTable"), "a");
+        WVPASS(Scalar("select f3 from TestTable").IsNull);
         WVPASS(Scalar("select f4 from TestTable").IsNull);
         WVPASS(Scalar("select f5 from TestTable").IsNull);
+        */
 
         try { VxExec("drop table TestTable"); } catch { }
     }
@@ -707,6 +748,9 @@ class PutSchemaTests : SchemamaticTester
         WVPASSEQ(Scalar("select count(*) from TestTable"), 1);
         WVPASSEQ((int)Scalar("select f1 from TestTable"), 123);
         WVPASS(Scalar("select f2 from TestTable").IsNull);
+
+        // Check that the Destructive option forces an exact table update.
+        TestTableUpdate(tabname, schema2, VxPutOpts.Destructive);
 
         try { VxExec("drop table TestTable"); } catch { }
     }

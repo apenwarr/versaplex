@@ -427,6 +427,22 @@ internal class VxDbSchema : ISchemaBackend
             VxSchemaErrors put_table_errs = null;
             put_table_errs = PutSchemaTable(curtable, newtable, opts);
 
+            // If anything goes wrong updating a table in destructive mode, 
+            // drop and re-add it.  We want to be sure the schema is updated
+            // exactly.
+            bool destructive = (opts & VxPutOpts.Destructive) != 0;
+            if (destructive && put_table_errs.Count > 0)
+            {
+                put_table_errs = null;
+
+                log.print("Couldn't cleanly modify table '{0}'.  Dropping " + 
+                    "and re-adding it.\n", newtable.name);
+                VxSchemaError e = PutSchemaElement(newschema[key], opts);
+
+                if (e != null)
+                    errs.Add(key, e);
+            }
+
             if (put_table_errs != null && put_table_errs.Count > 0)
                 errs.Add(put_table_errs);
         }
@@ -553,19 +569,7 @@ internal class VxDbSchema : ISchemaBackend
                 log.print("Executing {0}\n", delquery);
                 dbi.execute(delquery);
                 log.print("Executing {0}\n", addquery);
-                if (expected_err.errnum != 4901)
-                {
-                    dbi.execute(addquery);
-                }
-                else
-                {
-                    // Error 4901: adding a column on a non-empty table failed
-                    // due to neither having a default nor being nullable.
-                    // So try making the column nullable.
-                    log.print("Would have caught exception trying to add " + 
-                        "non-null column; making column nullable.\n");
-                    AddNullableColumn(table, newelem);
-                }
+                dbi.execute(addquery);
                 did_default_constraint = true;
             }
             else
@@ -740,31 +744,6 @@ internal class VxDbSchema : ISchemaBackend
 
                 DbiExecRollback("coltest");
 
-                // Sometimes we'll want to run with destructive, but that
-                // might also have an error we want to deal with.  
-                if (err != null && destructive)
-                {
-                    log.print("Doing a trial run of destructively modifying {0}\n", 
-                        elem.GetElemKey());
-                    dbi.execute("BEGIN TRANSACTION coltest");
-
-                    try 
-                    {
-                        var change_errs = ApplyChangedColumn(newtable, 
-                            curtable[elem.GetElemKey()], elem, err, opts);
-                        if (change_errs.Count > 0)
-                            err = change_errs[newtable.key][0];
-                    }
-                    catch (SqlException e)
-                    {
-                        log.print("Caught exception in trial run: {0} ({1})\n", 
-                            e.Message, e.Number);
-                        err = new VxSchemaError(key, e);
-                    }
-
-                    DbiExecRollback("coltest");
-                }
-
                 ErrWhenAltering.Add(elem.GetElemKey(), err);
             }
             log.print("About to begin real transaction\n");
@@ -788,7 +767,9 @@ internal class VxDbSchema : ISchemaBackend
                 {
                     // Error 4901: adding a column on a non-empty table failed
                     // due to neither having a default nor being nullable.
-                    if (e.Number == 4901)
+                    // Don't try anything special in destructive mode, just
+                    // fail and nuke the table.
+                    if (!destructive && e.Number == 4901)
                     {
                         log.print("Couldn't add a new non-nullable column " +
                             "without a default.  Making column nullable.\n");
@@ -948,12 +929,14 @@ internal class VxDbSchema : ISchemaBackend
             }
 
             if (elem.text.ne())
+            {
+                log.print("Putting element: {0}\n", elem.ToSql());
                 DbiExec(elem.ToSql());
+            }
         } 
-        catch (VxSqlException e) 
+        catch (VxRequestException e)
         {
-            log.print("Got error from {0}: {1} ({2})\n", 
-                elem.key, e.Message, e.Number);
+            log.print("Got error from {0}: {1}\n", elem.key, e.Message);
             return new VxSchemaError(elem.key, e);
         }
 
