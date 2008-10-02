@@ -7,6 +7,7 @@
 #include <wvistreamlist.h>
 #include <wvcrash.h>
 #include "psqlodbc.h"
+#include <wvlogrcv.h>
 
 static WvLog *wvlog = NULL;
 static WvLogRcv *rcv = NULL;
@@ -34,6 +35,16 @@ int wvlog_isset()
     return !log_moniker.isnull() && *(log_moniker.cstr());
 }
 
+class WvNullRcv : public WvLogRcv
+{
+public:
+    WvNullRcv() : WvLogRcv(WvLog::Info) {}
+    ~WvNullRcv() {}
+
+protected:
+    virtual void _mid_line(const char *str, size_t len) {}
+};
+
 void wvlog_open()
 {
 #ifdef _MSC_VER
@@ -57,14 +68,14 @@ void wvlog_open()
 	assert(s);
 	WvIStreamList::globallist.append(s, false, "VxODBC logger");
 	rcv = new WvLogStream(s, pri);
+    	if (!wvlog)
+	    wvlog = new WvLog(getpid(), WvLog::Debug);
     }
     else
     {
-	rcv = new WvLogConsole(dup(2), pri);
+	// We want this to also capture (and eliminate) DBus messages.
+	rcv = new WvNullRcv();
     }
-	
-    if (!wvlog)
-	wvlog = new WvLog(getpid(), WvLog::Debug);
 }
 
 
