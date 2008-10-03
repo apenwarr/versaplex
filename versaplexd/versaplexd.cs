@@ -19,24 +19,6 @@ public static class VersaMain
     
     public static Connection conn;
 
-    private static void DataReady(Transport trans, Connection conn)
-    {
-        // FIXME: This may require special handling for padding between
-        // messages: it hasn't been a problem so far, but should be addressed
-
-	conn.handlemessages(0);
-    }
-
-    private static void NoMoreData(Transport trans)
-    {
-        log.print(
-                "***********************************************************\n"+
-                "************ D-bus connection closed by server ************\n"+
-                "***********************************************************\n");
-        want_to_die = true;
-	trans.stream.close();
-    }
-
     private static void MessageReady(Connection conn, Message msg)
     {
         // FIXME: This should really queue things to be run from the thread
@@ -165,7 +147,6 @@ public static class VersaMain
 	}
 	
         log.print("Connecting to '{0}'\n", bus);
-	var trans = new Transport(bus);
         conn = new Connection(bus);
 
         string myNameReq = "vx.versaplexd";
@@ -182,8 +163,13 @@ public static class VersaMain
                 return 2;
         }
 
-	trans.stream.onreadable += () => { DataReady(trans, conn); };
-        trans.stream.onclose    += () => { NoMoreData(trans); };
+        conn.stream.onclose += () => { 
+	    log.print(
+	      "***********************************************************\n"+
+	      "************ D-bus connection closed by server ************\n"+
+	      "***********************************************************\n");
+	    want_to_die = true;
+	};
 
         oldhandler = conn.OnMessage;
         conn.OnMessage = delegate(Message m) { MessageReady(conn, m); };

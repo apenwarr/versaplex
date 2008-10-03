@@ -50,7 +50,7 @@ namespace Wv
 	static readonly string DBusPath = "/org/freedesktop/DBus";
 
 	WvLog log = new WvLog("DBusConn");
-	public Transport transport;
+	public WvBufStream stream { get; private set; }
 
 	static Connection()
 	{
@@ -60,40 +60,52 @@ namespace Wv
 		NativeEndianness = EndianFlag.Big;
 	}
 
-	// FIXME: There should be a better way to hack in a socket
-	// created elsewhere
-	public Connection()
-	{
-	    OnMessage = default_handler;
-	}
-
-	public Connection(Transport transport)
-	{
-	    OnMessage = default_handler;
-	    this.transport = transport;
-	    
-	    Authenticate();
-	    Register();
-	}
-
 	public Connection(string address)
 	{
 	    OnMessage = default_handler;
-	    transport = new Transport(address);
-	    
+	    stream = make_stream(address);
 	    Authenticate();
 	    Register();
+	    
+	    stream.onreadable += () => {
+		handlemessages(0);
+	    };
 	}
 
 	void Authenticate()
 	{
-	    if (transport != null)
-		transport.WriteCred();
-
-	    SaslProcess auth = new ExternalAuthClient(this);
+	    // write the credential byte (needed for passing unix uids over
+	    // the unix domain socket, but anyway, part of the protocol
+	    // spec).
+	    stream.write(new byte[] { 0 });
+	    
+	    SaslProcess auth = new ExternalAuthClient(this, stream);
 	    auth.Run();
 	}
 
+	static WvBufStream make_stream(string address)
+	{
+	    WvStream s;
+	    WvUrl url = address_to_url(address);
+	    if (url.method == "unix")
+	    {
+		if (url.path.ne())
+		    s = new WvUnix(url.path);
+		else
+		    throw new Exception("No path specified for UNIX transport");
+	    }
+	    else if (url.method == "tcp")
+	    {
+		string host = url.host.or("127.0.0.1");
+		int port = url.port.or(5555);
+		s = new WvTcp(host, (ushort)port);
+	    }
+	    else
+		throw new Exception(wv.fmt("Unknown connection method {0}",
+					   url.method));
+	    return new WvBufStream(s);
+	}
+	
 	uint serial = 0;
 	uint GenerateSerial()
 	{
@@ -141,9 +153,9 @@ namespace Wv
 	    log.print(WvLog.L.Debug5, "Body:\n{0}",
 		        wv.hexdump(msg.Body));
 
-	    transport.write(HeaderData);
+	    stream.write(HeaderData);
 	    if (msg.Body != null && msg.Body.Length != 0)
-		transport.write(msg.Body);
+		stream.write(msg.Body);
 	}
 	
 	WvBuf inbuf = new WvBuf();
@@ -159,10 +171,12 @@ namespace Wv
 	    int needed = max - inbuf.used;
 	    if (needed > 0)
 	    {
-		WvBytes b = inbuf.alloc(needed);
-		transport.wait(msec_timeout);
-		int got = transport.read(b);
-		inbuf.unalloc(needed-got);
+		if (stream.wait(msec_timeout, true, false))
+		{
+		    WvBytes b = inbuf.alloc(needed);
+		    int got = stream.read(b);
+		    inbuf.unalloc(needed-got);
+		}
 	    }
 	    entrycount--;
 	}

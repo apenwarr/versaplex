@@ -38,9 +38,9 @@ namespace Wv.Authentication
 
 	WvBufStream s;
 	
-        public ExternalAuthClient(Connection conn) : base(conn)
+        public ExternalAuthClient(Connection conn, WvBufStream s) : base(conn)
 	{
-	    this.s = conn.transport.stream;
+	    this.s = s;
 	}
 	
 	// This has to be a separate function so we can delay JITting it until
