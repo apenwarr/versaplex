@@ -165,9 +165,8 @@ public static class VersaMain
 	}
 	
         log.print("Connecting to '{0}'\n", bus);
-        AddressEntry aent = AddressEntry.Parse(bus);
-	var trans = new Transport(aent);
-        conn = new Connection(trans);
+	var trans = new Transport(bus);
+        conn = new Connection(bus);
 
         string myNameReq = "vx.versaplexd";
         RequestNameReply rnr = conn.RequestName(myNameReq,

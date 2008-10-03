@@ -17,31 +17,31 @@ namespace Wv
 	    stream.write(new byte[] { 0 });
 	}
 	
-	public Transport(AddressEntry entry)
+	public Transport(WvUrl entry)
 	{
 	    WvStream s;
-	    if (entry.Method == "unix")
+	    if (entry.method == "unix")
 	    {
-		string path = entry.Properties.tryget("path");
-		string abstr = entry.Properties.tryget("abstract");
-		
-		if (path.ne())
-		    s = new WvUnix(path);
-		else if (abstr.ne())
-		    s = new WvUnix("@" + abstr);
+		if (entry.path.ne())
+		    s = new WvUnix(entry.path);
 		else
 		    throw new Exception("No path specified for UNIX transport");
 	    }
-	    else if (entry.Method == "tcp")
+	    else if (entry.method == "tcp")
 	    {
-		string host = entry.Properties.tryget("host", "127.0.0.1");
-		string port = entry.Properties.tryget("port", "5555");
-		s = new WvTcp(host, (ushort)port.atoi());
+		string host = entry.host.or("127.0.0.1");
+		int port = entry.port.or(5555);
+		s = new WvTcp(host, (ushort)port);
 	    }
 	    else
 		throw new Exception(String.Format("Unknown connection method {0}",
-						  entry.Method));
+						  entry.method));
 	    stream = new WvBufStream(s);
+	}
+	
+	public Transport(string address)
+	    : this(Address.Parse(address))
+	{
 	}
 	
 	public void wait(int msec_timeout)

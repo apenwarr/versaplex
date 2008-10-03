@@ -67,16 +67,7 @@ namespace Wv
 	public Connection(string address)
 	{
 	    OnMessage = HandleMessage;
-	    
-	    if (address == null)
-		throw new ArgumentNullException("address");
-
-	    AddressEntry[] entries = Address.Parse(address);
-	    if (entries.Length == 0)
-		throw new Exception("No addresses were found");
-
-	    AddressEntry entry = entries[0];
-	    transport = new Transport(entry);
+	    transport = new Transport(address);
 	    
 	    Authenticate();
 	    Register();
