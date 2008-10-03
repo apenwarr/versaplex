@@ -51,17 +51,17 @@ namespace Wv
 	
 	public int read(WvBytes b)
 	{
-	    if (!stream.isok)
+	    if (!stream.ok)
 		wv.printerr("STREAM ERROR: {0}\n", stream.err);
-	    wv.assert(stream.isok);
+	    wv.assert(stream.ok);
 	    return stream.read(b);
 	}
 	
 	public void write(WvBytes b)
 	{
-	    if (!stream.isok)
+	    if (!stream.ok)
 		wv.printerr("STREAM ERROR: {0}\n", stream.err);
-	    wv.assert(stream.isok);
+	    wv.assert(stream.ok);
 	    int written = stream.write(b);
 	    wv.assert(written == b.len); 
 	}

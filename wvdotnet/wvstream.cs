@@ -6,7 +6,7 @@ namespace Wv
 {
     public interface IWvStream: IDisposable
     {
-	bool isok { get; }
+	bool ok { get; }
 	Exception err { get; }
 	EndPoint localaddr { get; }
 	EndPoint remoteaddr { get; }
@@ -110,7 +110,7 @@ namespace Wv
 	}
 	
 	bool isopen = true;
-	public virtual bool isok { get { return isopen && err == null; } }
+	public virtual bool ok { get { return isopen && err == null; } }
 
 	Exception _err;
 	public virtual Exception err {
@@ -196,14 +196,14 @@ namespace Wv
 		return true;
 	    if (writable && is_writable)
 		return true;
-	    if (!isok || (readable && !canread) || (writable && !canwrite))
+	    if (!ok || (readable && !canread) || (writable && !canwrite))
 		return false;
 	    return true;
 	}
 
 	// Don't make these anything but private!  They're tempting, but
 	// they're not *really* what you want to know.  Use these instead:
-	//    isok -> whether or not your stream is useful at all
+	//    ok -> whether or not your stream is useful at all
 	//    wait(0, true, false) -> whether your stream has bytes *right now*.
 	// If canread goes false, wait(-1, true, false) will return false.
 	bool canread = true, canwrite = true;
@@ -282,8 +282,8 @@ namespace Wv
 	    }
 	}
 	
-	public override bool isok { 
-	    get { return base.isok && hasinner && inner.isok; }
+	public override bool ok { 
+	    get { return base.ok && hasinner && inner.ok; }
 	}
 	
 	public override Exception err {
@@ -416,11 +416,11 @@ namespace Wv
 		l = _getline(splitchar);
 		if (l != null) return l;
 		
-		if (inbuf.used == 0 && !isok)
+		if (inbuf.used == 0 && !ok)
 		    break;
 	    }
 	    
-	    if (!isok && inbuf.used > 0)
+	    if (!ok && inbuf.used > 0)
 		return inbuf.getall().FromUTF8();
 	    
 	    return null;

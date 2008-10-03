@@ -12,9 +12,9 @@ public class WvStreamTests
     {
 	using (WvStream s = new WvStream())
 	{
-	    WVPASS(s.isok);
+	    WVPASS(s.ok);
 	    s.close();
-	    WVFAIL(s.isok);
+	    WVFAIL(s.ok);
 	}
 	
 	using (WvStream s = new WvStream())
@@ -24,12 +24,12 @@ public class WvStreamTests
 	    s.onclose += delegate() { closed_called2++; };
 	    Exception e1 = new Exception("e1");
 	    Exception e2 = new Exception("e2");
-	    WVPASS(s.isok);
+	    WVPASS(s.ok);
 	    WVPASSEQ(closed_called, 0);
 	    WVPASSEQ(closed_called2, 0);
 	    s.err = e1;
 	    s.err = e2;
-	    WVFAIL(s.isok);
+	    WVFAIL(s.ok);
 	    WVPASS(s.err != null);
 	    WVPASS(s.err == e1);
 	    WVPASS(s.err.Message == "e1");
@@ -142,7 +142,7 @@ public class WvStreamTests
 	using (WvFile f = new WvFile("testfile.txt"))
 	{
 	    f.onreadable += checker(f).ToAction();
-	    while (f.isok)
+	    while (f.ok)
 	    {
 		Console.WriteLine("iter");
 		WvStream.runonce(1000);

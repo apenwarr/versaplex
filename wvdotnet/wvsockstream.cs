@@ -21,8 +21,8 @@ namespace Wv
 	    }
 	}
 
-	public override bool isok { 
-	    get { return (sock != null) && base.isok; }
+	public override bool ok { 
+	    get { return (sock != null) && base.ok; }
 	}
 
 	public WvSockStream(Socket sock)
@@ -32,7 +32,7 @@ namespace Wv
 
 	public override EndPoint localaddr {
 	    get {
-		if (!isok)
+		if (!ok)
 		    return null;
 		return sock.LocalEndPoint;
 	    }
@@ -40,7 +40,7 @@ namespace Wv
 
 	public override EndPoint remoteaddr {
 	    get {
-		if (!isok)
+		if (!ok)
 		    return null;
 		return sock.RemoteEndPoint;
 	    }
@@ -48,7 +48,7 @@ namespace Wv
 
 	public override int read(WvBytes b)
 	{
-	    if (!isok)
+	    if (!ok)
 		return 0;
 
 	    try
@@ -80,7 +80,7 @@ namespace Wv
 
 	public override int write(WvBytes b)
 	{
-	    if (!isok)
+	    if (!ok)
 		return 0;
 
 	    try
