@@ -40,9 +40,7 @@ namespace Wv
 	
 	public WvDbi_Versaplex()
 	{
-	    if (Address.Session == null)
-		throw new Exception ("DBUS_SESSION_BUS_ADDRESS not set");
-	    bus = new Connection(Address.Session);
+	    bus = Connection.session_bus;
 	}
 	
 	public override WvSqlRows select(string sql, params object[] args)

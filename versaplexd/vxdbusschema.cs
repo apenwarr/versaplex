@@ -19,28 +19,22 @@ internal class VxDbusSchema : ISchemaBackend
     }
 	
     public VxDbusSchema()
+	: this((string)null)
     {
-        Connect(Address.Session);
     }
 
     public VxDbusSchema(string bus_moniker)
     {
 	if (bus_moniker.e())
-	    bus_moniker = Address.Session;
-        if (bus_moniker.e())
-            throw new Exception ("DBUS_SESSION_BUS_ADDRESS not set");
-        Connect(bus_moniker);
+	    bus = Connection.session_bus;
+	else
+	    bus = new Connection(bus_moniker);
     }
 
     // If you've already got a Bus you'd like to use.
     public VxDbusSchema(Connection _bus)
     {
         bus = _bus;
-    }
-
-    private void Connect(string bus_moniker)
-    {
-        bus = new Connection(bus_moniker);
     }
 
     // 

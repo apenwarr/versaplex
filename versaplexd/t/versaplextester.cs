@@ -60,10 +60,7 @@ public class VersaplexTester: IDisposable
                 "Connection string for '{0}' missing from config.", dbname));
 
 	dbi = WvDbi.create(cfgval);
-
-        if (Address.Session == null)
-            throw new Exception ("DBUS_SESSION_BUS_ADDRESS not set");
-        bus = new Connection(Address.Session);
+        bus = Connection.session_bus;
     }
 
     public void Dispose()

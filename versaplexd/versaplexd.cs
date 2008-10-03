@@ -155,7 +155,7 @@ public static class VersaMain
 	}
 	
 	if (bus == null)
-	    bus = Address.Session;
+	    bus = Connection.session_bus_address;
 
 	if (bus == null)
 	{

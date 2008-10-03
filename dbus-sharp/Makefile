@@ -10,7 +10,6 @@ wv.dll:
 
 wvdbus-sharp.dll: \
 	assemblyinfo.cs \
-	Address.cs \
 	Authentication.cs \
 	Connection.cs \
 	DataConverter.cs \

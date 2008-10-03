@@ -95,7 +95,7 @@ class DbusTest
     [Test]
     public void send_receive()
     {
-        Connection bus = new Connection(Address.Session);
+        Connection bus = new Connection(Connection.session_bus_address);
 	WVPASS("got bus");
 	
 	Message m = new Message();

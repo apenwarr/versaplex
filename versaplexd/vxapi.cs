@@ -514,7 +514,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
     }
 
     static Dictionary<string,string> usernames = new Dictionary<string, string>();
-    static Connection sessionbus = new Connection(Address.Session);
+    static Connection sessionbus = Connection.session_bus;
     
     public static string GetClientId(Message call)
     {

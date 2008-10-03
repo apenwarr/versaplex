@@ -40,7 +40,7 @@ namespace Wv
 	}
 	
 	public Transport(string address)
-	    : this(Address.Parse(address))
+	    : this(Connection.address_to_url(address))
 	{
 	}
 	
