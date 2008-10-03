@@ -26,8 +26,8 @@ namespace Wv
 	    }
 	}
 	
-	public override bool isok { 
-	    get { return hasinner && base.isok; }
+	public override bool ok { 
+	    get { return hasinner && base.ok; }
 	}
 	
 	object readlock = new object();
@@ -93,7 +93,7 @@ namespace Wv
 	
 	public override int write(WvBytes b)
 	{
-	    if (!isok) return 0;
+	    if (!ok) return 0;
 	    try {
 		inner.BeginWrite(b.bytes, b.start, b.len,
 				 delegate(IAsyncResult ar) {
