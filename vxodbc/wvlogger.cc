@@ -13,7 +13,7 @@ static WvLog *wvlog = NULL;
 static WvLogRcv *rcv = NULL;
 
 int log_level = 0;
-WvString log_moniker;
+static WvString log_moniker;
 
 WV_LINK_TO(WvTCPConn);
 WV_LINK_TO(WvSSLStream);
