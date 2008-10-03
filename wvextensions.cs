@@ -200,5 +200,24 @@ namespace Wv.Extensions
 	{
 	    dest.put(offset, src);
 	}
+	
+	// usage: val1.or(val2)
+	// Returns val2 if val1 is default(T).  So you could write:
+	//    int port = get_port().or(80);
+        public static T or<T>(this T val1, T val2) where T: IComparable<T>
+	{
+	    if (val1.Equals(default(T)))
+		return val2;
+	    else
+		return val1;
+	}
+	
+	public static string or(this string val1, string val2)
+	{
+	    if (val1.e())
+		return val2;
+	    else
+		return val1;
+	}
     }
 }
