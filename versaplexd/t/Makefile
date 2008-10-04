@@ -54,7 +54,7 @@ TESTS=dbisanity.t.pass \
     versaplex.t.pass vxsanity.t.pass \
     verifydata.t.pass schemamatic.t.pass putschema.t.pass \
     vxexecchunkrecordset.t.pass vxschemachecksums.t.pass vxdiskschema.t.pass \
-    vxschema.t.pass
+    vxschema.t.pass storedprocedure.t.pass
 TESTEXES=$(patsubst %.pass,%.exe,$(TESTS))
 
 default: test
@@ -85,6 +85,10 @@ verifydata.t.exe: verifydata.t.cs.E \
 schemamatic.t.exe: schemamatic.t.cs.E \
 	$(VX_SOURCES) $(SCHEMAMATIC_SOURCES) \
 	../wv.dll ../NDesk.DBus.dll
+
+storedprocedure.t.exe: storedprocedure.t.cs.E \
+	../storedprocedure.cs \
+	../wv.dll
 
 putschema.t.exe: putschema.t.cs.E \
 	$(VX_SOURCES) $(SCHEMAMATIC_SOURCES) \
