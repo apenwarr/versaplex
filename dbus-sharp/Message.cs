@@ -43,6 +43,42 @@ namespace Wv
 	    SetHeaderData(b);
 	    Body = b.sub(hlen, blen).ToArray();
 	}
+	
+	public Message reply()
+	{
+	    Message reply = new Message();
+	    reply.type = MessageType.MethodReturn;
+	    reply.flags = HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
+	    reply.rserial = this.serial;
+	    reply.dest = this.sender;
+	    return reply;
+	}
+	
+	public Message err_reply(string errcode)
+	{
+	    return err_reply(errcode, null);
+	}
+
+	public Message err_reply(string errcode, string errstr)
+	{
+	    Message r = reply();
+	    r.type = MessageType.Error;
+	    r.err = err;
+	    if (errstr.ne())
+	    {
+		r.signature = "s";
+		var w = new MessageWriter();
+		w.Write(errstr);
+		r.Body = w.ToArray();
+	    }
+	    return r;
+	}
+	
+	public Message err_reply(string errcode,
+				 string fmt, params object[] args)
+	{
+	    return err_reply(errcode, wv.fmt(fmt, args));
+	}
 
 	public bool ReplyExpected
 	{

@@ -10,7 +10,6 @@ using Wv.NDesk.Options;
 public static class VersaMain
 {
     static WvLog log = new WvLog("Versaplex");
-    static Connection.MessageHandler oldhandler = null;
     static VxMethodCallRouter msgrouter = new VxMethodCallRouter();
     static WvDBusServer dbusserver;
     static Thread dbusserver_thread = null;
@@ -20,7 +19,7 @@ public static class VersaMain
     public static Connection conn;
     static Queue<Action> action_queue = new Queue<Action>();
 
-    private static void MessageReady(Connection conn, Message msg)
+    private static bool MessageReady(Connection conn, Message msg)
     {
         // FIXME: This should really queue things to be run from the thread
         // pool and then the response would be sent back through the action
@@ -46,20 +45,17 @@ public static class VersaMain
 			}
 		    }
 		});
+		return true;
 	    }
-	    break;
+	    return false;
 	    
 	default:
 	    log.print(WvLog.L.Warning,
 		      "Unexpected DBus message received: #{0} {1}->{2} {3}:{4}.{5}\n",
 		        msg.serial, msg.sender, msg.dest,
 		      msg.path, msg.ifc, msg.method);
-	    break;
+	    return false;
         }
-
-        // FIXME: This is hacky. But it covers stuff I don't want to deal with
-        // yet.
-        oldhandler(msg);
     }
     
     static void _StartDBusServerThread(string[] monikers)
@@ -174,8 +170,7 @@ public static class VersaMain
 	    want_to_die = true;
 	};
 
-        oldhandler = conn.OnMessage;
-        conn.OnMessage = delegate(Message m) { MessageReady(conn, m); };
+	conn.handlers.Insert(0, (m) => MessageReady(conn, m));
 	
 	while (!want_to_die)
 	{

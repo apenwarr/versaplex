@@ -63,7 +63,8 @@ namespace Wv
 
 	public Connection(string address)
 	{
-	    OnMessage = default_handler;
+	    handlers = new List<Func<Message,bool>>();
+	    handlers.Add(default_handler);
 	    stream = make_stream(address);
 	    Authenticate();
 	    Register();
@@ -208,7 +209,16 @@ namespace Wv
 	    var m = readmessage(msec_timeout);
 	    if (m != null)
 	    {
-		OnMessage(m);
+		// use ToArray() here in case the list changes while
+		// we're iterating
+		foreach (var handler in handlers.ToArray())
+		    if (handler(m))
+			return true;
+		
+		// if we get here, there was a message but nobody could
+		// handle it.  That's weird because our default handler
+		// should handle *everything*.
+		wv.assert(false, "No default message handler?!");
 		return true;
 	    }
 	    return false;
@@ -220,14 +230,12 @@ namespace Wv
 		;
 	}
 	
-	// hacky
-	public delegate void MessageHandler(Message msg);
-	public MessageHandler OnMessage;
+	public List<Func<Message,bool>> handlers { get; private set; }
 
-	internal void default_handler(Message msg)
+	bool default_handler(Message msg)
 	{
 	    if (msg == null)
-		return;
+		return false;
 
 	    if (msg.rserial.HasValue)
 	    {
@@ -236,7 +244,7 @@ namespace Wv
 		if (raction != null)
 		{
 		    raction(msg);
-		    return;
+		    return true;
 		}
 	    }
 
@@ -251,11 +259,19 @@ namespace Wv
 		Console.Error.WriteLine
 		    ("Remote Error: Signature='" + msg.signature
 		     + "' " + msg.err + ": " + errMsg);
-		break;
+		return true;
 	    case MessageType.Signal:
 	    case MessageType.MethodCall:
-		// nothing to do with these by default
-		break;
+		// nothing to do with these by default, so give an error
+		if (msg.ReplyExpected)
+		{
+		    var r = msg.err_reply
+			("org.freedesktop.DBus.Error.UnknownMethod", 
+			 "Unknown dbus method '{0}'.'{1}'",
+			 msg.ifc, msg.method);
+		    Send(r);
+		}
+		return true;
 	    case MessageType.Invalid:
 	    default:
 		throw new Exception("Invalid message received: MessageType='" + msg.type + "'");
