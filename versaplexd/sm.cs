@@ -23,12 +23,13 @@ public static class SchemamaticCli
   Valid commands: push, pull, dpush, dpull, pascalgen
 
   pascalgen usage:
-    sm [--verbose] pascalgen <classname> <dir>
+    sm [--verbose] [--global-syms=<syms>] pascalgen <classname> <dir>
 
   --dry-run: lists the files that would be changed but doesn't modify them.
   --force/-f: performs potentially destructive database update operations.
   --verbose/-v: Increase the verbosity of the log output.  Can be specified 
         multiple times.
+  --global-syms/-g: Move <syms> from parameters to members.
 ");
 	return 99;
     }
@@ -369,6 +370,13 @@ public static class SchemamaticCli
         public string call;
         public string defval;
 
+        // Most of the time we just care about the first pascal type.  
+        // Any other types are helper types to make convenience functions.
+        public string pascaltype
+        {
+            get { return pascaltypes[0]; }
+        }
+
         public PascalArg(string _spname, SPArg arg)
         {
             spname = _spname;
@@ -491,7 +499,8 @@ public static class SchemamaticCli
         }
     }
 
-    static void DoPascalGen(string classname, string dir)
+    static void DoPascalGen(string classname, string dir, 
+        Dictionary<string,string> global_syms)
     {
         if (!classname.StartsWith("T"))
         {
@@ -525,9 +534,29 @@ public static class SchemamaticCli
             var ctors = new List<string>();
             foreach (PascalArg parg in pargs)
             {
-                decls.Add(parg.GetDecl());
-                impls.Add(parg.GetDefine());
-                ctors.Add(parg.GetCtor());
+                if (!global_syms.ContainsKey(parg.varname))
+                {
+                    decls.Add(parg.GetDecl());
+                    impls.Add(parg.GetDefine());
+                    ctors.Add(parg.GetCtor());
+                }
+                else
+                {
+                    string old = global_syms[parg.varname];
+                    if (old.ne() && old.ToLower() != parg.pascaltype.ToLower())
+                    {
+                        log.print("Definition for global '{0}' differs!  " + 
+                            "old '{1}', new '{2}'\n", 
+                            parg.varname, old, parg.pascaltype);
+                    }
+                    else
+                    {
+                        // The global declaration supplants the local
+                        // declaration and implementation, but not the ctor.
+                        global_syms[parg.varname] = parg.pascaltype;
+                        ctors.Add(parg.GetCtor());
+                    }
+                }
             }
 
             // Factory function that produces builder objects
@@ -598,8 +627,23 @@ public static class SchemamaticCli
             + " *)\n"
             + "unit " + unitname + ";\n\n");
 
-        // FIXME: Global fields
-        // FIXME: Global properties
+        var globalfields = new List<string>();
+        var globalprops = new List<string>();
+        foreach (var kvp in global_syms)
+        {
+            string sym = kvp.Key;
+            string type = kvp.Value;
+            if (type.e())
+            {
+                log.print(WvLog.L.Error, 
+                    "Global symbol '{0}' is never used in any procedure!\n", 
+                    sym);
+                return;
+            }
+            globalfields.Add(wv.fmt("p_{0}: {1};", sym, type));
+            globalprops.Add(wv.fmt("property {0}: {1}  read p_{0} write p_{0};",
+                sym, type));
+        }
 
         sb.Append("interface\n\n"
             + "uses uPwTemp, uPwData, Db;\n"
@@ -611,10 +655,10 @@ public static class SchemamaticCli
             + "  " + classname + " = class(TObject)\n"
             + "  private\n"
             + "    fDb: TPwDatabase;\n"
-            // FIXME: Add global fields
+            + "    " + globalfields.Join("\n    ") + "\n"
             + "  published\n"
             + "    property db: TPwDatabase  read fDb write fDb;\n"
-            // FIXME: Add global properties
+            + "    " + globalprops.Join("\n    ") + "\n"
             + "  public\n"
             + "    constructor Create; overload;\n"
             + "    constructor Create(db: TPwDatabase); overload;\n"
@@ -656,10 +700,13 @@ public static class SchemamaticCli
 	VxCopyOpts opts = VxCopyOpts.Verbose;
     
 	int verbose = (int)WvLog.L.Info;
+        var global_syms = new Dictionary<string,string>();
         var extra = new OptionSet()
             .Add("dry-run", delegate(string v) { opts |= VxCopyOpts.DryRun; } )
             .Add("f|force", delegate(string v) { opts |= VxCopyOpts.Destructive; } )
             .Add("v|verbose", delegate(string v) { verbose++; } )
+            .Add("g|global-syms=", 
+                delegate(string v) { if (v.ne()) { global_syms.Add(v, null); }} )
             .Parse(args);
 
 	WvLog.maxlevel = (WvLog.L)verbose;
@@ -685,7 +732,7 @@ public static class SchemamaticCli
 	else if (cmd == "pascalgen")
         {
             string classname = extra[1];
-	    DoPascalGen(classname, dir);
+	    DoPascalGen(classname, dir, global_syms);
         }
 	else
 	{
