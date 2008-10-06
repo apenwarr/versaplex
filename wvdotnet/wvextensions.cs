@@ -157,12 +157,12 @@ namespace Wv.Extensions
 	    return wv.atod(o);
 	}
 	
-	public static WvAutoCast pop(this IEnumerator<WvAutoCast> list)
+	public static T pop<T>(this IEnumerator<T> list)
 	{
 	    if (list.MoveNext())
 		return list.Current;
 	    else
-		return default(WvAutoCast);
+		return default(T);
 	}
 	
 	// pray that you never need to use this.
@@ -218,6 +218,111 @@ namespace Wv.Extensions
 		return val2;
 	    else
 		return val1;
+	}
+	
+	static int acto<TI,T>(this IEnumerator<TI> e, out T o)
+	{
+	    if (e.MoveNext())
+	    {
+		o = (T)e.Current.autocast().to(typeof(T));
+		return 1;
+	    }
+	    return 0;
+	}
+	
+	public static int assignto<T,T1>
+	    (this IEnumerable<T> ie,
+	     out T1 a)
+	{
+	    using (var en = ie.GetEnumerator())
+		return en.acto(out a);
+	}
+	
+	public static int assignto<T,T1,T2>
+	    (this IEnumerable<T> ie,
+	     out T1 a, out T2 b)
+	{
+	    using (var en = ie.GetEnumerator())
+		return en.acto(out a)
+		     + en.acto(out b);
+	}
+	
+	public static int assignto<T,T1,T2,T3>
+	    (this IEnumerable<T> ie,
+	     out T1 a, out T2 b, out T3 c)
+	{
+	    using (var en = ie.GetEnumerator())
+		return en.acto(out a)
+		     + en.acto(out b)
+		     + en.acto(out c);
+	}
+	
+	public static int assignto<T,T1,T2,T3,T4>
+	    (this IEnumerable<T> ie,
+	     out T1 a, out T2 b, out T3 c, out T4 d)
+	{
+	    using (var en = ie.GetEnumerator())
+		return en.acto(out a)
+		     + en.acto(out b)
+		     + en.acto(out c)
+		     + en.acto(out d);
+	}
+	
+	public static int assignto<T,T1,T2,T3,T4,T5>
+	    (this IEnumerable<T> ie,
+	     out T1 a, out T2 b, out T3 c, out T4 d, out T5 e)
+	{
+	    using (var en = ie.GetEnumerator())
+		return en.acto(out a)
+		     + en.acto(out b)
+		     + en.acto(out c)
+		     + en.acto(out d)
+		     + en.acto(out e);
+	}
+	
+	public static int assignto<T,T1,T2,T3,T4,T5,T6>
+	    (this IEnumerable<T> ie,
+	     out T1 a, out T2 b, out T3 c, out T4 d,
+	     out T5 e, out T6 f)
+	{
+	    using (var en = ie.GetEnumerator())
+		return en.acto(out a)
+		     + en.acto(out b)
+		     + en.acto(out c)
+		     + en.acto(out d)
+		     + en.acto(out e)
+		     + en.acto(out f);
+	}
+	
+	public static int assignto<T,T1,T2,T3,T4,T5,T6,T7>
+	    (this IEnumerable<T> ie,
+	     out T1 a, out T2 b, out T3 c, out T4 d,
+	     out T5 e, out T6 f, out T7 g)
+	{
+	    using (var en = ie.GetEnumerator())
+		return en.acto(out a)
+		     + en.acto(out b)
+		     + en.acto(out c)
+		     + en.acto(out d)
+		     + en.acto(out e)
+		     + en.acto(out f)
+		     + en.acto(out g);
+	}
+	
+	public static int assignto<T,T1,T2,T3,T4,T5,T6,T7,T8>
+	    (this IEnumerable<T> ie,
+	     out T1 a, out T2 b, out T3 c, out T4 d,
+	     out T5 e, out T6 f, out T7 g, out T8 h)
+	{
+	    using (var en = ie.GetEnumerator())
+		return en.acto(out a)
+		     + en.acto(out b)
+		     + en.acto(out c)
+		     + en.acto(out d)
+		     + en.acto(out e)
+		     + en.acto(out f)
+		     + en.acto(out g)
+		     + en.acto(out h);
 	}
     }
 }
