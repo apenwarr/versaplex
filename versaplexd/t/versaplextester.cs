@@ -287,10 +287,9 @@ public class VersaplexTester: IDisposable
 	    else
 	    {
 	    	//Method return
-		object retsig;
-		if (!tmp.Header.Fields.TryGetValue(FieldCode.Signature,
-		    out retsig) || retsig.ToString() != "s")
-		    throw new DbusError("Garbled response for ExecChunkRecordSet");
+		RecordsetWorker(tmp, out colinfo, out tdata, out tnullity);
+		rowlist.AddRange(tdata);
+		rownulllist.AddRange(tnullity);
 		//otherwise, we presume it's our method return response
 		data = rowlist.ToArray();
 		nullity = rownulllist.ToArray();

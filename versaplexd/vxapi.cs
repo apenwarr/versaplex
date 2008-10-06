@@ -127,9 +127,8 @@ internal static class VxDb {
 		List<object[]> rows = new List<object[]>();
 		List<byte[]> rownulls = new List<byte[]>();
 		
-		// Our size here is just an approximation.  Start it at 1
-		// to ensure that at least one packet always gets sent.
-		int cursize = 1;  
+		// Our size here is just an approximation.
+		int cursize = 0;
 		
 		var columns = resultset.columns.ToArray();
 		VxColumnInfo[] colinfo  = ProcessSchema(columns);
@@ -242,21 +241,21 @@ internal static class VxDb {
 			cursize = 0;
 		    }
 		} // row iterator
-		
+
+		// OK, we're down to either one more packet or no more data
+		// Package that up in the 'reply' to this message, saving some
+		// data being sent.
 		if (cursize > 0)
-		{
 		    log.print(WvLog.L.Debug4, "(Remaining data; {0} rows)\n",
 			      rows.Count);
-		    
-		    SendChunkRecordSignal(call, sender, colinfo,
-					  rows.ToArray(),
-					  rownulls.ToArray());
-		}
+
+		// Create reply, either with or with no data
+		MessageWriter replywriter =
+		    VxDbInterfaceRouter.PrepareRecordsetWriter(colinfo,
+							       rows.ToArray(),
+							    rownulls.ToArray());
+		reply = VxDbus.CreateReply(call, "a(issnny)vaay", replywriter);
 	    } // using
-	    MessageWriter replywriter =
-	    	new MessageWriter(Connection.NativeEndianness);
-	    replywriter.Write(typeof(string), "ChunkRecordset sent you all your data!");
-	    reply = VxDbus.CreateReply(call, "s", replywriter);
         } catch (DbException e) {
             throw new VxSqlException(e.Message, e);
         }
