@@ -66,12 +66,12 @@ namespace Wv
 	    handlers = new List<Func<Message,bool>>();
 	    handlers.Add(default_handler);
 	    stream = make_stream(address);
-	    Authenticate();
-	    Register();
-	    
 	    stream.onreadable += () => {
 		handlemessages(0);
 	    };
+	    
+	    Authenticate();
+            unique_name = CallDBusMethod("Hello");
 	}
 
 	void Authenticate()
@@ -114,11 +114,11 @@ namespace Wv
 	    return ++serial;
 	}
 
-	public Message SendWithReplyAndBlock(Message msg)
+	public Message send_and_wait(Message msg)
 	{
 	    Message reply = null;
 	    
-	    SendWithReply(msg, (r) => { reply = r; });
+	    send(msg, (r) => { reply = r; });
 	    
 	    while (reply == null && ok)
 		handlemessage(-1);
@@ -126,14 +126,14 @@ namespace Wv
 	    return reply;
 	}
 
-	internal void SendWithReply(Message msg, Action<Message> replyaction)
+	public void send(Message msg, Action<Message> replyaction)
 	{
 	    msg.ReplyExpected = true;
-	    msg.serial = Send(msg);
+	    msg.serial = send(msg);
 	    rserial_to_action[msg.serial] = replyaction;
 	}
 
-	public uint Send(Message msg)
+	public uint send(Message msg)
 	{
 	    msg.serial = GenerateSerial();
 	    
@@ -269,7 +269,7 @@ namespace Wv
 			("org.freedesktop.DBus.Error.UnknownMethod", 
 			 "Unknown dbus method '{0}'.'{1}'",
 			 msg.ifc, msg.method);
-		    Send(r);
+		    send(r);
 		}
 		return true;
 	    case MessageType.Invalid:
@@ -396,19 +396,11 @@ namespace Wv
             m.method = method;
             m.Body = body;
 
-            Message reply = SendWithReplyAndBlock(m);
+            Message reply = send_and_wait(m);
 
             var i = reply.iter();
             return i.pop();
         }
-
-	void Register()
-	{
-	    if (unique_name != null)
-		throw new Exception("Bus already has a unique name");
-
-            unique_name = CallDBusMethod("Hello");
-	}
 
 	public string GetUnixUserName(string name)
 	{

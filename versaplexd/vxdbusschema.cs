@@ -54,7 +54,7 @@ internal class VxDbusSchema : ISchemaBackend
         writer.Write((int)opts);
         call.Body = writer.ToArray();
 
-        Message reply = bus.SendWithReplyAndBlock(call);
+        Message reply = bus.send_and_wait(call);
 
         switch (reply.type)
 	{
@@ -96,7 +96,7 @@ internal class VxDbusSchema : ISchemaBackend
 	});
         call.Body = writer.ToArray();
 
-        Message reply = bus.SendWithReplyAndBlock(call);
+        Message reply = bus.send_and_wait(call);
 
         switch (reply.type) {
         case MessageType.MethodReturn:
@@ -130,7 +130,7 @@ internal class VxDbusSchema : ISchemaBackend
     {
         Message call = CreateMethodCall("GetSchemaChecksums", "");
 
-        Message reply = bus.SendWithReplyAndBlock(call);
+        Message reply = bus.send_and_wait(call);
 
         switch (reply.type) {
         case MessageType.MethodReturn:
@@ -172,7 +172,7 @@ internal class VxDbusSchema : ISchemaBackend
 	});
         call.Body = writer.ToArray();
 
-        Message reply = bus.SendWithReplyAndBlock(call);
+        Message reply = bus.send_and_wait(call);
 
         switch (reply.type) {
         case MessageType.MethodReturn:
@@ -210,7 +210,7 @@ internal class VxDbusSchema : ISchemaBackend
         writer.Write(where);
         call.Body = writer.ToArray();
 
-        Message reply = bus.SendWithReplyAndBlock(call);
+        Message reply = bus.send_and_wait(call);
 
         switch (reply.type) {
         case MessageType.MethodReturn:
@@ -242,7 +242,7 @@ internal class VxDbusSchema : ISchemaBackend
         writer.Write(text);
         call.Body = writer.ToArray();
 
-        Message reply = bus.SendWithReplyAndBlock(call);
+        Message reply = bus.send_and_wait(call);
 
         switch (reply.type) {
         case MessageType.MethodReturn:

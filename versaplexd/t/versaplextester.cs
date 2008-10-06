@@ -115,7 +115,7 @@ public class VersaplexTester: IDisposable
 
         call.Body = mw.ToArray();
 
-        Message reply = bus.SendWithReplyAndBlock(call);
+        Message reply = bus.send_and_wait(call);
 
         switch (reply.type) {
         case MessageType.MethodReturn:
@@ -149,7 +149,7 @@ public class VersaplexTester: IDisposable
 
         call.Body = mw.ToArray();
 
-        Message reply = bus.SendWithReplyAndBlock(call);
+        Message reply = bus.send_and_wait(call);
 
         switch (reply.type) {
         case MessageType.MethodReturn:
@@ -224,7 +224,7 @@ public class VersaplexTester: IDisposable
 
 	call.Body = mw.ToArray();
 
-	bus.Send(call);
+	bus.send(call);
 
 	colinfo = null;
 	List<object[]> rowlist = new List<object[]>();
@@ -347,7 +347,7 @@ public class VersaplexTester: IDisposable
 
         call.Body = mw.ToArray();
 
-        Message reply = bus.SendWithReplyAndBlock(call);
+        Message reply = bus.send_and_wait(call);
 
         switch (reply.type) {
         case MessageType.MethodReturn:

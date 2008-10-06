@@ -111,7 +111,7 @@ class DbusTest
 	w.Write(0);
 	m.Body = w.ToArray();
 	
-	uint serial = bus.Send(m);
+	uint serial = bus.send(m);
 	
 	Message reply;
 	bool got_reply = false;

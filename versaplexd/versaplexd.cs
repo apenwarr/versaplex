@@ -41,7 +41,7 @@ public static class VersaMain
 			} else {
 			    // XXX: Should this be done further down rather than
 			    // passing the reply out here?
-			    conn.Send(reply);
+			    conn.send(reply);
 			}
 		    }
 		});

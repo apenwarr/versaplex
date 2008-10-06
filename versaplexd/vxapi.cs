@@ -59,7 +59,7 @@ internal static class VxDb {
 	Message signal = VxDbus.CreateSignal(sender, "ChunkRecordsetSig",
 				   	"a(issnny)vaayu",
 					writer);
-	conn.Send(signal);
+	conn.send(signal);
     }
 
 

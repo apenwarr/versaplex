@@ -54,7 +54,7 @@ namespace Wv
 	    
 	    log.print("Sending!\n");
 	    
-	    Message reply = bus.SendWithReplyAndBlock(call);
+	    Message reply = bus.send_and_wait(call);
 	    
 	    log.print("Answer came back!\n");
 
