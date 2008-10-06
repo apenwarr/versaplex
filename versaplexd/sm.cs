@@ -29,7 +29,7 @@ public static class SchemamaticCli
   --force/-f: performs potentially destructive database update operations.
   --verbose/-v: Increase the verbosity of the log output.  Can be specified 
         multiple times.
-  --global-syms/-g: Move <syms> from parameters to members.
+  --global-syms/-g: Move <syms> from parameters to members (pascalgen only).
 ");
 	return 99;
     }
@@ -387,7 +387,8 @@ public static class SchemamaticCli
 
             string type = arg.type.ToLower();
             string nulldef;
-            if (type.Contains("char") || type.Contains("text"))
+            if (type.Contains("char") || type.Contains("text") ||
+                type.Contains("binary") || type.Contains("sysname"))
             {
                 pascaltypes.Add("string");
                 nulldef = "'__!NIL!__'";
@@ -436,16 +437,14 @@ public static class SchemamaticCli
                     arg.type, arg.name));
             }
 
-            if (defval.e())
+            if (defval.e() || defval.ToLower() == "null")
                 defval = nulldef;
         }
 
         public string GetMemberDecl()
         {
-            var l = new List<string>();
-            foreach (string type in pascaltypes)
-                l.Add(wv.fmt("m_{0}: {1};", varname, type));
-            return l.Join("\n    ");
+            // The first type is the main one, and gets the declaration.
+            return wv.fmt("m_{0}: {1};", varname, pascaltypes[0]);
         }
 
         public string GetMethodDecl()
@@ -455,7 +454,7 @@ public static class SchemamaticCli
             {
                 l.Add(wv.fmt("function set{0}(v: {1}): _T{2}; {3}inline;",
                     varname, type, spname, 
-                    pascaltypes.Count > 1 ? "override " : ""));
+                    pascaltypes.Count > 1 ? "overload; " : ""));
             }
             return l.Join("\n    ");
         }
@@ -464,18 +463,12 @@ public static class SchemamaticCli
         {
             string extra = defval.ne() ? " = " + defval : "";
 
-            var l = new List<string>();
-            foreach (string type in pascaltypes)
-                l.Add("p_" + varname + ": " + type + extra);
-            return l.Join("\n    ");
+            return "p_" + varname + ": " + pascaltypes[0] + extra;
         }
 
         public string GetDefine()
         {
-            var l = new List<string>();
-            foreach (string type in pascaltypes)
-                l.Add("p_" + varname + ": " + type);
-            return l.Join("\n    ");
+            return "p_" + varname + ": " + pascaltypes[0];
         }
 
         public string GetCtor()
@@ -486,14 +479,17 @@ public static class SchemamaticCli
         public string GetSetters()
         {
             var sb = new StringBuilder();
+            bool did_first = false;
             foreach (string type in pascaltypes)
             {
+                // Types past the first get sent through ord()
                 sb.Append(wv.fmt("function _T{0}.set{1}(v: {2}): _T{0};\n" + 
                     "begin\n" +
-                    "  m_{1} := v;\n" +
+                    "  m_{1} := {3};\n" +
                     "  result := self;\n" + 
                     "end;\n\n",
-                    spname, varname, type));
+                    spname, varname, type, did_first ? "ord(v)" : "v"));
+                did_first = true;
             }
             return sb.ToString();
         }
@@ -518,16 +514,19 @@ public static class SchemamaticCli
         var impl = new List<string>();
         var setters = new List<string>();
 
-        foreach (var elem in schema)
+        var keys = schema.Keys.ToList();
+        keys.Sort(StringComparer.Ordinal);
+        foreach (var key in keys)
         {
-            if (elem.Value.type != "Procedure")
+            var elem = schema[key];
+            if (elem.type != "Procedure")
                 continue;
 
-            var sp = new StoredProcedure(elem.Value.text);
+            var sp = new StoredProcedure(elem.text);
 
             var pargs = new List<PascalArg>();
             foreach (SPArg arg in sp.args)
-                pargs.Add(new PascalArg(sp.name, arg));
+                pargs.Add(new PascalArg(elem.name, arg));
 
             var decls = new List<string>();
             var impls = new List<string>();
@@ -562,7 +561,7 @@ public static class SchemamaticCli
             // Factory function that produces builder objects
             iface.Add(wv.fmt("function {0}\n"
                 + "       ({1}): _T{0};\n",
-                sp.name, decls.Join(";\n        ")));
+                elem.name, decls.Join(";\n        ")));
 
             // Actual implementation of the factory function
             impl.Add(wv.fmt(
@@ -572,7 +571,7 @@ public static class SchemamaticCli
                 + "    result := _T{1}.Create(db)\n"
                 + "        {3};\n"
                 + "end;\n\n",
-                classname, sp.name, 
+                classname, elem.name, 
                 impls.Join(";\n        "),
                 ctors.Join("\n        ")
                 ));
@@ -586,7 +585,7 @@ public static class SchemamaticCli
             }
 
             // Declaration for per-procedure builder class
-            types.Add("_T" + sp.name + " = class(TPwDataCmd)\n"
+            types.Add("_T" + elem.name + " = class(TPwDataCmd)\n"
                 + "  private\n"
                 + "    " + memberdecls.Join("\n    ") + "\n"
                 + "  public\n"
@@ -612,7 +611,7 @@ public static class SchemamaticCli
                 + "       [{1}],\n"
                 + "       [{2}]);\n"
                 + "end;\n\n",
-                sp.name, 
+                elem.name, 
                 argstrs.Join( ",\n        "), 
                 argcalls.Join(",\n        ")));
 

@@ -80,7 +80,7 @@ class StoredProcedure
         args = new List<SPArg>();
 
         var log = new WvLog("SP.Parse", WvLog.L.Debug2);
-        log.print("Parsing {0}\n", sp);
+        log.print(WvLog.L.Debug3, "Parsing {0}\n", sp);
 
         sp = StripComments(sp);
 
