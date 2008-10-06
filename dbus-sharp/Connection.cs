@@ -51,6 +51,7 @@ namespace Wv
 
 	WvLog log = new WvLog("DBus");
 	public WvBufStream stream { get; private set; }
+	public bool ok { get { return stream.ok; } }
 
 	static Connection()
 	{
@@ -118,7 +119,7 @@ namespace Wv
 	    
 	    SendWithReply(msg, (r) => { reply = r; });
 	    
-	    while (reply == null)
+	    while (reply == null && ok)
 		handlemessage(-1);
 	    
 	    return reply;
@@ -127,20 +128,14 @@ namespace Wv
 	internal void SendWithReply(Message msg, Action<Message> replyaction)
 	{
 	    msg.ReplyExpected = true;
-	    msg.serial = GenerateSerial();
+	    msg.serial = Send(msg);
 	    rserial_to_action[msg.serial] = replyaction;
-	    WriteMessage(msg);
 	}
 
 	public uint Send(Message msg)
 	{
 	    msg.serial = GenerateSerial();
-	    WriteMessage(msg);
-	    return msg.serial;
-	}
-
-	internal void WriteMessage(Message msg)
-	{
+	    
 	    byte[] HeaderData = msg.GetHeaderData();
 
 	    long msgLength = HeaderData.Length + (msg.Body != null ? msg.Body.Length : 0);
@@ -156,6 +151,8 @@ namespace Wv
 	    stream.write(HeaderData);
 	    if (msg.Body != null && msg.Body.Length != 0)
 		stream.write(msg.Body);
+	    
+	    return msg.serial;
 	}
 	
 	WvBuf inbuf = new WvBuf();
@@ -219,7 +216,7 @@ namespace Wv
 	
 	public void handlemessages(int msec_timeout)
 	{
-	    while (handlemessage(msec_timeout))
+	    while (handlemessage(msec_timeout) && ok)
 		;
 	}
 	
