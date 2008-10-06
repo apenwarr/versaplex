@@ -59,10 +59,6 @@ internal static class VxDb {
 	Message signal = VxDbus.CreateSignal(sender, "ChunkRecordsetSig",
 				   	"a(issnny)vaayu",
 					writer);
-		    
-	// For debugging
-	VxDbus.MessageDump(" S>> ", signal);
-
 	conn.Send(signal);
     }
 
@@ -604,9 +600,6 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 	MessageWriter writer = PrepareRecordsetWriter(colinfo, data, nullity);
 	
         reply = VxDbus.CreateReply(call, "a(issnny)vaay", writer);
-	
-        // For debugging
-        VxDbus.MessageDump(" >> ", reply);
     }
 
     private static void CallQuit(Connection conn,
@@ -617,9 +610,6 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 	writer.Write("Quit");
         reply = VxDbus.CreateReply(call, "s", writer);
 	VersaMain.want_to_die = true;
-	
-        // For debugging
-        VxDbus.MessageDump(" >> ", reply);
     }
 
     private static void CallExecScalar(Connection conn,
@@ -659,9 +649,6 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 	WriteV(writer, coltype, result);
 
         reply = VxDbus.CreateReply(call, "v", writer);
-	
-        // For debugging
-        VxDbus.MessageDump(" >> ", reply);
     }
     
     static void WriteColInfo(MessageWriter writer, VxColumnInfo[] colinfo)
@@ -714,9 +701,6 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 	MessageWriter writer = PrepareRecordsetWriter(colinfo, data, nullity);
 	
         reply = VxDbus.CreateReply(call, "a(issnny)vaay", writer);
-
-        // For debugging
-        VxDbus.MessageDump(" >> ", reply);
     }
 
     private static void CallExecChunkRecordset(Connection conn,
@@ -738,9 +722,6 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 	/// XXX
 
         VxDb.ExecChunkRecordset(conn, call, out reply);
-	
-        // For debugging
-        VxDbus.MessageDump(" >> ", reply);
     }
     
     static string VxColumnTypeToSignature(VxColumnType t)
@@ -813,9 +794,6 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 
         reply = VxDbus.CreateReply(call, 
             VxSchemaChecksums.GetDbusSignature(), writer);
-
-        // For debugging
-        VxDbus.MessageDump(" >> ", reply);
     }
 
     private static void CallGetSchema(Connection conn,
@@ -848,9 +826,6 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         }
 
         reply = VxDbus.CreateReply(call, VxSchema.GetDbusSignature(), writer);
-
-        // For debugging
-        VxDbus.MessageDump(" >> ", reply);
     }
 
     private static void CallDropSchema(Connection conn,

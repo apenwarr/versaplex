@@ -27,8 +27,6 @@ public static class VersaMain
         // queue
         log.print(WvLog.L.Debug4, "MessageReady\n");
 
-        VxDbus.MessageDump("<<  ", msg);
-
         switch (msg.type)
 	{
 	case MessageType.MethodCall:

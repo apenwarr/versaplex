@@ -5,8 +5,6 @@ using Wv.Extensions;
 
 public static class VxDbus {
     static WvLog log = new WvLog("VxDbus", WvLog.L.Debug1);
-    static WvLog smalldump = log.split(WvLog.L.Debug4);
-//    static WvLog fulldump = log.split(WvLog.L.Debug5);
 
     public static Message CreateError(string type, string msg, Message cause)
     {
@@ -65,46 +63,6 @@ public static class VxDbus {
 	if (signature.ne())
 	    signal.Body = body.ToArray();
 	return signal;
-    }
-
-    public static void MessageDump(string prefix, Message msg)
-    {
-	if (msg.rserial.HasValue)
-	    log.print("MD {0} REPLY#{1}\n",
-			prefix, msg.rserial.Value);
-	else if (msg.type != MessageType.Signal)
-	    log.print("MD {0} #{1} {2}.{3}\n",
-			prefix,
-			msg.serial, msg.ifc, msg.method);
-	else
-	    log.print("MD {0} {1}\n", prefix, msg.ifc);
-
-        smalldump.print("Message dump:\n");
-        smalldump.print(" endianness={0} ", msg.endian);
-        smalldump.print(" t={0} ", msg.type);
-        smalldump.print(" blen={0} ", msg.Body==null ? 0 : msg.Body.Length);
-        smalldump.print(" ser={0}\n", msg.serial);
-        smalldump.print(" flags={0}\n", msg.flags);
-	
-#if MSG_HEADERDATA_ISNT_REGENERATING_FROM_SCRATCH
-        int hdrlen = 0;
-	byte[] header = msg.GetHeaderData();
-        if (header != null) {
-            smalldump.print("Header data:\n");
-	    smalldump.print(wv.hexdump(header));
-            hdrlen = header.Length;
-        } else {
-            smalldump.print("No header data encoded\n");
-        }
-
-        if (msg.Body != null) {
-            fulldump.print("Body data:\n");
-	    fulldump.print(wv.hexdump(msg.Body.sub(hdrlen,
-						   msg.Body.Length-hdrlen)));
-	} else {
-            smalldump.print("No body data encoded\n");
-        }
-#endif
     }
 }
 
