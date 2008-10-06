@@ -46,10 +46,12 @@ class StoredProcedure
     public StoredProcedure()
     {
         args = new List<SPArg>();
+        name = null;
     }
 
     public StoredProcedure(string sp)
     {
+        name = null;
         Parse(sp);
     }
 

@@ -20,7 +20,7 @@ public static class SchemamaticCli
   Schemamatic: copy database schemas between a database server and the
   current directory.
 
-  Valid commands: push, pull, dpush, dpull
+  Valid commands: push, pull, dpush, dpull, pascalgen
 
   --dry-run: lists the files that would be changed but doesn't modify them.
   --force/-f: performs potentially destructive database update operations.
@@ -357,6 +357,262 @@ public static class SchemamaticCli
 	return ApplyFiles(files.ToArray(), remote, opts);
     }
 
+    // The Pascal type information for a single stored procedure argument.
+    struct PascalArg
+    {
+        public string spname;
+        public string varname;
+        public List<string> pascaltypes;
+        public string call;
+        public string defval;
+
+        public PascalArg(string _spname, SPArg arg)
+        {
+            spname = _spname;
+            varname = arg.name;
+            call = "m_" + varname;
+            defval = arg.defval;
+            pascaltypes = new List<string>();
+
+            string type = arg.type.ToLower();
+            string nulldef;
+            if (type.Contains("char") || type.Contains("text"))
+            {
+                pascaltypes.Add("string");
+                nulldef = "'__!NIL!__'";
+            }
+            else if (type.Contains("int"))
+            {
+                pascaltypes.Add("integer");
+                nulldef = "low(integer)+42";
+            }
+            else if (type.Contains("bit") || type.Contains("bool"))
+            {
+                pascaltypes.Add("integer");
+                pascaltypes.Add("boolean");
+                nulldef = "low(integer)+42";
+            }
+            else if (type.Contains("float") || type.Contains("decimal") || 
+                type.Contains("real") || type.Contains("numeric"))
+            {
+                pascaltypes.Add("double");
+                nulldef = "1e-42";
+            }
+            else if (type.Contains("date") || type.Contains("time"))
+            {
+                pascaltypes.Add("TDateTime");
+                call = wv.fmt("TPwDateWrap.Create(m_{0})", arg.name);
+                nulldef = "low(integer)+42";
+                // Non-null default dates not supported.
+                if (defval.ne())
+                    defval = "";
+            }
+            else if (type.Contains("money"))
+            {
+                pascaltypes.Add("currency");
+                nulldef = "-90000000000.0042";
+            }
+            else if (type.Contains("image"))
+            {
+                pascaltypes.Add("TBlobField");
+                call = wv.fmt("TBlobField(m_{0})", varname);
+                nulldef = "nil";
+            }
+            else
+            {
+                throw new ArgumentException(wv.fmt(
+                    "Unknown parameter type '{0}' (parameter @{1})", 
+                    arg.type, arg.name));
+            }
+
+            if (defval.e())
+                defval = nulldef;
+        }
+
+        public string GetMemberDecl()
+        {
+            var l = new List<string>();
+            foreach (string type in pascaltypes)
+                l.Add(wv.fmt("m_{0}: {1};", varname, type));
+            return l.Join("\n    ");
+        }
+
+        public string GetMethodDecl()
+        {
+            var l = new List<string>();
+            foreach (string type in pascaltypes)
+            {
+                l.Add(wv.fmt("function set{0}(v: {1}): _T{2}; {3}inline;",
+                    varname, type, spname, 
+                    pascaltypes.Count > 1 ? "override " : ""));
+            }
+            return l.Join("\n    ");
+        }
+
+        public string GetDecl()
+        {
+            string extra = defval.ne() ? " = " + defval : "";
+
+            var l = new List<string>();
+            foreach (string type in pascaltypes)
+                l.Add("p_" + varname + ": " + type + extra);
+            return l.Join("\n    ");
+        }
+
+        public string GetDefine()
+        {
+            var l = new List<string>();
+            foreach (string type in pascaltypes)
+                l.Add("p_" + varname + ": " + type);
+            return l.Join("\n    ");
+        }
+
+        public string GetCtor()
+        {
+            return wv.fmt(".set{0}(p_{0})", varname);
+        }
+
+        public string GetSetters()
+        {
+            var sb = new StringBuilder();
+            foreach (string type in pascaltypes)
+            {
+                sb.Append(wv.fmt("function _T{0}.set{1}(v: {2}): _T{0};\n" + 
+                    "begin\n" +
+                    "  m_{1} := v;\n" +
+                    "  result := self;\n" + 
+                    "end;\n\n",
+                    spname, varname, type));
+            }
+            return sb.ToString();
+        }
+    }
+
+    static void DoPascalGen(ISchemaBackend remote, string dir, VxCopyOpts opts)
+    {
+        VxDiskSchema disk = new VxDiskSchema(dir);
+        VxSchema schema = disk.Get(null);
+
+        // FIXME: Set classname correctly
+        string classname = "TFIXME_classname";
+
+        var types = new List<string>();
+        var iface = new List<string>();
+        var impl = new List<string>();
+
+        foreach (var elem in schema)
+        {
+            if (elem.Value.type != "Procedure")
+                continue;
+
+            var sp = new StoredProcedure(elem.Value.text);
+
+            var pargs = new List<PascalArg>();
+            foreach (SPArg arg in sp.args)
+                pargs.Add(new PascalArg(sp.name, arg));
+
+            var decls = new List<string>();
+            var impls = new List<string>();
+            var ctors = new List<string>();
+            foreach (PascalArg parg in pargs)
+            {
+                decls.Add(parg.GetDecl());
+                impls.Add(parg.GetDefine());
+                ctors.Add(parg.GetCtor());
+            }
+
+            // Factory function that produces builder objects
+            iface.Add(wv.fmt("function {0}\n"
+                + "       ({1}): _T{0};\n",
+                sp.name, decls.Join(";\n        ")));
+
+            // Actual implementation of the factory function
+            impl.Add(wv.fmt(
+                "function {0}.{1}\n"
+                + "       ({2}): _T{1};\n"
+                + "begin\n"
+                + "    result := _T{1}.Create(db)\n"
+                + "        {3};\n"
+                + "end;\n\n",
+                classname, sp.name, 
+                impls.Join(";\n        "),
+                ctors.Join("\n        ")
+                ));
+
+            var memberdecls = new List<string>();
+            var methoddecls = new List<string>();
+            foreach (PascalArg parg in pargs)
+            {
+                memberdecls.Add(parg.GetMemberDecl());
+                methoddecls.Add(parg.GetMethodDecl());
+            }
+
+            // Declaration for per-procedure builder class
+            types.Add("_T" + sp.name + " = class(TPwDataCmd)\n"
+                + "  private\n"
+                + "    " + memberdecls.Join("\n    ") + "\n"
+                + "  public\n"
+                + "    function MakeRawSql: string; override;\n"
+                + "    " + methoddecls.Join("\n    ") + "\n"
+                + "  end;\n"
+                );
+        }
+
+        var sb = new StringBuilder();
+        // FIXME: Unit name
+        sb.Append("(*\n"
+            + " * THIS FILE IS AUTOMATICALLY GENERATED BY sm.exe\n"
+            + " * DO NOT EDIT!\n"
+            + " *)\n"
+            + "unit FIXME_Unitname;\n\n");
+
+        // FIXME: Global fields
+        // FIXME: Global properties
+
+        sb.Append("interface\n\n"
+            + "uses uPwTemp, uPwData, Db;\n"
+            + "\n"
+            + "{$M+}\n"
+            + "type\n"
+            + "  " + types.Join("\n  ")
+            + "  \n"
+            // FIXME: Add class name
+            + "  " + classname + " = class(TObject)\n"
+            + "  private\n"
+            + "    fDb: TPwDatabase;\n"
+            // FIXME: Add global fields
+            + "  published\n"
+            + "    property db: TPwDatabase  read fDb write fDb;\n"
+            // FIXME: Add global properties
+            + "  public\n"
+            + "    constructor Create; overload;\n"
+            + "    constructor Create(db: TPwDatabase); overload;\n"
+            + "    " + iface.Join("    ")
+            + "  end;\n\n");
+
+        sb.Append("implementation\n"
+            + "\n"
+            + "constructor " + classname + ".Create;\n"
+            + "begin\n"
+            + "    self.db := nil;\n"
+            + "end;\n"
+            + "\n"
+            + "constructor " + classname + ".Create(db: TPwDatabase);\n"
+            + "begin\n"
+            + "    self.db := db;\n"
+            + "end;\n"
+            + "\n"
+            + impl.Join("")
+            );
+
+        // FIXME: Add setters here
+
+        sb.Append("\n\nend.\n");
+
+        // FIXME: Write file
+        System.Console.Write(sb.ToString());
+    }
+
     public static void Main(string[] args)
     {
 	// command line options
@@ -392,6 +648,8 @@ public static class SchemamaticCli
 	    DoGetData(remote, dir, opts);
 	else if (cmd == "dpush")
 	    DoApplyData(remote, dir, opts);
+	else if (cmd == "pascalgen")
+	    DoPascalGen(remote, dir, opts);
 	else
 	{
 	    Console.Error.WriteLine("\nUnknown command '{0}'\n", cmd);
