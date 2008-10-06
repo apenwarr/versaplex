@@ -12,6 +12,7 @@ namespace Wv
 {
     public class Message
     {
+	public static readonly EndianFlag NativeEndianness;
 	public EndianFlag endian { get; private set; }
 	public MessageType type = MessageType.MethodCall;
 	public HeaderFlag flags = HeaderFlag.NoReplyExpected;
@@ -28,9 +29,17 @@ namespace Wv
 	public WvBytes bytes;
 	public byte[] Body;
 
+	static Message()
+	{
+	    if (BitConverter.IsLittleEndian)
+		NativeEndianness = EndianFlag.Little;
+	    else
+		NativeEndianness = EndianFlag.Big;
+	}
+
 	public Message()
 	{
-	    endian = Connection.NativeEndianness;
+	    endian = NativeEndianness;
 	}
 	
 	public Message(WvBytes b)

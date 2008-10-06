@@ -21,7 +21,7 @@ namespace Wv
 
 	public MessageWriter()
 	{
-	    endianness = Connection.NativeEndianness;
+	    endianness = Message.NativeEndianness;
 	    if (endianness == EndianFlag.Little)
 		conv = DataConverter.LittleEndian;
 	    else

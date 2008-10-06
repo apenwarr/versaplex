@@ -45,21 +45,12 @@ namespace Wv
 
     public class Connection
     {
-	public static readonly EndianFlag NativeEndianness;
 	static readonly string DBusName = "org.freedesktop.DBus";
 	static readonly string DBusPath = "/org/freedesktop/DBus";
 
 	WvLog log = new WvLog("DBus");
 	public WvBufStream stream { get; private set; }
 	public bool ok { get { return stream.ok; } }
-
-	static Connection()
-	{
-	    if (BitConverter.IsLittleEndian)
-		NativeEndianness = EndianFlag.Little;
-	    else
-		NativeEndianness = EndianFlag.Big;
-	}
 
 	public Connection(string address)
 	{
@@ -70,19 +61,16 @@ namespace Wv
 		handlemessages(0);
 	    };
 	    
-	    Authenticate();
-            unique_name = CallDBusMethod("Hello");
-	}
-
-	void Authenticate()
-	{
 	    // write the credential byte (needed for passing unix uids over
 	    // the unix domain socket, but anyway, part of the protocol
 	    // spec).
 	    stream.write(new byte[] { 0 });
 	    
+	    // Run the authentication phase
 	    SaslProcess auth = new ExternalAuthClient(this, stream);
 	    auth.Run();
+	    
+            unique_name = CallDBusMethod("Hello");
 	}
 
 	static WvBufStream make_stream(string address)
@@ -361,12 +349,12 @@ namespace Wv
 	    }
 	}
 	
-        private WvAutoCast CallDBusMethod(string method)
+        WvAutoCast CallDBusMethod(string method)
         {
             return CallDBusMethod(method, "", new byte[0]);
         }
 
-        private WvAutoCast CallDBusMethod(string method, string param)
+        WvAutoCast CallDBusMethod(string method, string param)
         {
             MessageWriter w = new MessageWriter();
             w.Write(param);
@@ -374,7 +362,7 @@ namespace Wv
             return CallDBusMethod(method, "s", w.ToArray());
         }
 
-        private WvAutoCast CallDBusMethod(string method, string p1, uint p2)
+        WvAutoCast CallDBusMethod(string method, string p1, uint p2)
         {
             MessageWriter w = new MessageWriter();
             w.Write(p1);
@@ -383,7 +371,7 @@ namespace Wv
             return CallDBusMethod(method, "su", w.ToArray());
         }
 
-        private WvAutoCast CallDBusMethod(string method, string sig, 
+        WvAutoCast CallDBusMethod(string method, string sig, 
             byte[] body)
         {
             Message m = new Message();
