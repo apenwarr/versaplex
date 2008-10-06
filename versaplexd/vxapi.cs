@@ -514,7 +514,6 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
     }
 
     static Dictionary<string,string> usernames = new Dictionary<string, string>();
-    static Connection sessionbus = Connection.session_bus;
     
     public static string GetClientId(Message call)
     {
@@ -523,25 +522,22 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         // For now, the client ID is just the username of the Unix UID that
         // DBus has associated with the connection.
         string username;
+	var conn = VersaMain.conn;
         if (!usernames.TryGetValue(sender, out username))
         {
 	    try
 	    {
-		// FIXME:  We should be using VersaMain.conn here,
-		//   not the session bus!!
 		// FIXME:  This will likely change as we find a more
 		//   universal way to do SSL authentication via D-Bus.
 		username = VxSqlPool.GetUsernameForCert(
-				sessionbus.GetCertFingerprint(sender));
+				conn.GetCertFingerprint(sender));
 	    }
 	    catch
 	    {
 		try
 		{
 		    // FIXME: This system call isn't actually standard
-		    // FIXME: we should be using VersaMain.conn here,
-		    //   not the session bus!!
-		    username = sessionbus.GetUnixUserName(sender);
+		    username = conn.GetUnixUserName(sender);
 		}
 		catch
 		{
@@ -549,9 +545,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 		    {
 			// FIXME: This system call is standard, but not useful
 			//   on Windows.
-			// FIXME: we should be using VersaMain.conn here,
-			//   not the session bus!!
-			username = sessionbus.GetUnixUser(sender).ToString();
+			username = conn.GetUnixUser(sender).ToString();
 		    }
 		    catch
 		    {

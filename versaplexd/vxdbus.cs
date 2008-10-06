@@ -6,7 +6,7 @@ using Wv.Extensions;
 public static class VxDbus {
     static WvLog log = new WvLog("VxDbus", WvLog.L.Debug1);
     static WvLog smalldump = log.split(WvLog.L.Debug4);
-    static WvLog fulldump = log.split(WvLog.L.Debug5);
+//    static WvLog fulldump = log.split(WvLog.L.Debug5);
 
     public static Message CreateError(string type, string msg, Message cause)
     {

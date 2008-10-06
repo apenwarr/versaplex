@@ -49,7 +49,7 @@ namespace Wv
 	static readonly string DBusName = "org.freedesktop.DBus";
 	static readonly string DBusPath = "/org/freedesktop/DBus";
 
-	WvLog log = new WvLog("DBusConn");
+	WvLog log = new WvLog("DBus");
 	public WvBufStream stream { get; private set; }
 
 	static Connection()

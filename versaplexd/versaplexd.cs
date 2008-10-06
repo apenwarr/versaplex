@@ -18,6 +18,7 @@ public static class VersaMain
     public static bool want_to_die = false;
     
     public static Connection conn;
+    static Queue<Action> action_queue = new Queue<Action>();
 
     private static void MessageReady(Connection conn, Message msg)
     {
@@ -31,18 +32,22 @@ public static class VersaMain
         switch (msg.type)
 	{
 	case MessageType.MethodCall:
-	    Message reply;
-	    if (msgrouter.RouteMessage(conn, msg, out reply))
+	    if (msg.ifc == "vx.db")
 	    {
-		if (reply == null) {
-		    // FIXME: Do something if this happens, maybe?
-		    log.print("Empty reply from RouteMessage\n");
-		} else {
-		    // XXX: Should this be done further down rather than
-		    // passing the reply out here?
-		    conn.Send(reply);
-		}
-		return;
+		action_queue.Enqueue(() => {
+		    Message reply;
+		    if (msgrouter.RouteMessage(conn, msg, out reply))
+		    {
+			if (reply == null) {
+			    // FIXME: Do something if this happens, maybe?
+			    log.print("Empty reply from RouteMessage\n");
+			} else {
+			    // XXX: Should this be done further down rather than
+			    // passing the reply out here?
+			    conn.Send(reply);
+			}
+		    }
+		});
 	    }
 	    break;
 	    
@@ -178,6 +183,8 @@ public static class VersaMain
 	{
 	    log.print(WvLog.L.Debug2, "Event loop.\n");
 	    WvStream.runonce(-1);
+	    while (action_queue.Count > 0)
+		action_queue.Dequeue()();
 	}
 
 	StopDBusServerThread();
