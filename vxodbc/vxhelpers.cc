@@ -15,10 +15,8 @@ static bool signal_sorter(WvDBusMsg &msg)
     if (!!member && member == "ChunkRecordsetSig")
     {
     	WvDBusMsg::Iter top(msg);
-	top.getnext().getnext().getnext();
-	if (!top.next())
-	    return false;
-	unsigned int reply_serial = (unsigned int)top.get_int();
+	unsigned int reply_serial =
+	    (unsigned int)top.getnext().getnext().getnext().getnext().get_int();
 	if (signal_returns[reply_serial])
 	{
 	    signal_returns[reply_serial]->process_msg(msg);
