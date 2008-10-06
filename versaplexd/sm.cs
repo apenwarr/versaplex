@@ -507,6 +507,7 @@ public static class SchemamaticCli
         var types = new List<string>();
         var iface = new List<string>();
         var impl = new List<string>();
+        var setters = new List<string>();
 
         foreach (var elem in schema)
         {
@@ -564,6 +565,30 @@ public static class SchemamaticCli
                 + "    " + methoddecls.Join("\n    ") + "\n"
                 + "  end;\n"
                 );
+
+            // Member functions of the builder classes
+
+            var argstrs = new List<string>();
+            var argcalls = new List<string>();
+            foreach (PascalArg parg in pargs)
+            {
+                argstrs.Add(wv.fmt("'{0}'", parg.varname));
+                argcalls.Add(parg.call);
+            }
+
+            setters.Add(wv.fmt(
+                "function _T{0}.MakeRawSql: string;\n"
+                + "begin\n"
+                + "    result := TPwDatabase.ExecStr('{0}',\n"
+                + "       [{1}],\n"
+                + "       [{2}]);\n"
+                + "end;\n\n",
+                sp.name, 
+                argstrs.Join( ",\n        "), 
+                argcalls.Join(",\n        ")));
+
+            foreach (PascalArg parg in pargs)
+                setters.Add(parg.GetSetters());
         }
 
         var sb = new StringBuilder();
@@ -611,7 +636,7 @@ public static class SchemamaticCli
             + impl.Join("")
             );
 
-        // FIXME: Add setters here
+        sb.Append(setters.Join(""));
 
         sb.Append("\n\nend.\n");
 
