@@ -47,7 +47,7 @@ namespace Wv
 	{
 	    var call = new MethodCall("vx.versaplexd", "/db", "vx.db",
 				      "ExecRecordset", "s");
-	    MessageWriter writer = new MessageWriter();
+	    WvDbusWriter writer = new WvDbusWriter();
 	    writer.Write(sql);
 	    call.write(writer);
 	    

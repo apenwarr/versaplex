@@ -52,7 +52,7 @@ internal static class VxDb {
 					    VxColumnInfo[] colinfo,
 					    object[][] data, byte[][] nulls)
     {
-	MessageWriter writer =
+	WvDbusWriter writer =
 	    VxDbusRouter.PrepareRecordsetWriter(colinfo, data, nulls);
 	writer.Write(call.serial);
 
@@ -255,7 +255,7 @@ internal static class VxDb {
 			      rows.Count);
 
 		// Create reply, either with or with no data
-		MessageWriter replywriter =
+		WvDbusWriter replywriter =
 		    VxDbusRouter.PrepareRecordsetWriter(colinfo,
 							       rows.ToArray(),
 							    rownulls.ToArray());
@@ -612,7 +612,7 @@ public class VxDbusRouter
             out colinfo, out data, out nullity);
 
         // FIXME: Add vx.db.toomuchdata error
-	MessageWriter writer = PrepareRecordsetWriter(colinfo, data, nullity);
+	WvDbusWriter writer = PrepareRecordsetWriter(colinfo, data, nullity);
         reply = call.reply("a(issnny)vaay").write(writer);
     }
 
@@ -620,7 +620,7 @@ public class VxDbusRouter
 				 Message call, out Message reply)
     {
 	// FIXME: Check permissions here
-        MessageWriter writer = new MessageWriter();
+        WvDbusWriter writer = new WvDbusWriter();
 	writer.Write("Quit");
         reply = call.reply("s").write(writer);
 	VersaMain.want_to_die = true;
@@ -657,14 +657,14 @@ public class VxDbusRouter
         VxDb.ExecScalar(clientid, (string)query,
 			out coltype, out result);
 
-        MessageWriter writer = new MessageWriter();
+        WvDbusWriter writer = new WvDbusWriter();
 	writer.WriteSig(VxColumnTypeToSignature(coltype));
 	WriteV(writer, coltype, result);
 
         reply = call.reply("v").write(writer);
     }
     
-    static void WriteColInfo(MessageWriter writer, VxColumnInfo[] colinfo)
+    static void WriteColInfo(WvDbusWriter writer, VxColumnInfo[] colinfo)
     {
 	// a(issnny)
 	writer.WriteArray(8, colinfo, (w2, i) => {
@@ -710,7 +710,7 @@ public class VxDbusRouter
             out colinfo, out data, out nullity);
 
         // FIXME: Add vx.db.toomuchdata error
-	MessageWriter writer = PrepareRecordsetWriter(colinfo, data, nullity);
+	WvDbusWriter writer = PrepareRecordsetWriter(colinfo, data, nullity);
 	
         reply = call.reply("a(issnny)vaay").write(writer);
     }
@@ -794,7 +794,7 @@ public class VxDbusRouter
         }
 
         // FIXME: Add vx.db.toomuchdata error
-        MessageWriter writer = new MessageWriter();
+        WvDbusWriter writer = new WvDbusWriter();
 
         using (var dbi = VxSqlPool.create(clientid))
         {
@@ -825,7 +825,7 @@ public class VxDbusRouter
 	var it = call.iter();
         string[] names = it.pop().Cast<string>().ToArray();
 
-        MessageWriter writer = new MessageWriter();
+        WvDbusWriter writer = new WvDbusWriter();
 
         using (var dbi = VxSqlPool.create(clientid))
         {
@@ -863,7 +863,7 @@ public class VxDbusRouter
             errs = backend.DropSchema(keys);
         }
 
-        MessageWriter writer = new MessageWriter();
+        WvDbusWriter writer = new WvDbusWriter();
         VxSchemaErrors.WriteErrors(writer, errs);
 
         reply = call.reply(VxSchemaErrors.GetDbusSignature()).write(writer);
@@ -903,7 +903,7 @@ public class VxDbusRouter
             errs = backend.Put(schema, null, (VxPutOpts)opts);
         }
 
-        MessageWriter writer = new MessageWriter();
+        WvDbusWriter writer = new WvDbusWriter();
         VxSchemaErrors.WriteErrors(writer, errs);
 
         reply = call.reply(VxSchemaErrors.GetDbusSignature()).write(writer);
@@ -934,7 +934,7 @@ public class VxDbusRouter
         string tablename = it.pop();
 	string where = it.pop();
 
-        MessageWriter writer = new MessageWriter();
+        WvDbusWriter writer = new WvDbusWriter();
 
         using (var dbi = VxSqlPool.create(clientid))
         {
@@ -975,7 +975,7 @@ public class VxDbusRouter
         reply = call.reply();
     }
     
-    static void WriteV(MessageWriter w, VxColumnType t, object v)
+    static void WriteV(WvDbusWriter w, VxColumnType t, object v)
     {
 	switch (t)
 	{
@@ -1018,11 +1018,11 @@ public class VxDbusRouter
     }
 
     // a(issnny)vaay
-    public static MessageWriter PrepareRecordsetWriter(VxColumnInfo[] colinfo,
+    public static WvDbusWriter PrepareRecordsetWriter(VxColumnInfo[] colinfo,
 						object[][] data,
 						byte[][] nulldata)
     {
-	MessageWriter writer = new MessageWriter();
+	WvDbusWriter writer = new WvDbusWriter();
 	
 	// a(issnny)
 	WriteColInfo(writer, colinfo);

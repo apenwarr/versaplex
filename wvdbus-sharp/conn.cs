@@ -357,7 +357,7 @@ namespace Wv
 
         WvAutoCast CallDBusMethod(string method, string param)
         {
-            MessageWriter w = new MessageWriter();
+            WvDbusWriter w = new WvDbusWriter();
             w.Write(param);
 
             return CallDBusMethod(method, "s", w.ToArray());
@@ -365,7 +365,7 @@ namespace Wv
 
         WvAutoCast CallDBusMethod(string method, string p1, uint p2)
         {
-            MessageWriter w = new MessageWriter();
+            WvDbusWriter w = new WvDbusWriter();
             w.Write(p1);
             w.Write(p2);
 

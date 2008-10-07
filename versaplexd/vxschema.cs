@@ -72,7 +72,7 @@ internal class VxSchemaElement : IComparable
         _encrypted = elem.pop() > 0;
     }
 
-    public void Write(MessageWriter writer)
+    public void Write(WvDbusWriter writer)
     {
         writer.Write(type);
         writer.Write(name);
@@ -582,7 +582,7 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
 	}
     }
 
-    public void WriteSchema(MessageWriter writer)
+    public void WriteSchema(WvDbusWriter writer)
     {
 	writer.WriteArray(8, this, (w2, p) => {
 	    p.Value.Write(w2);

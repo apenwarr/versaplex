@@ -27,7 +27,7 @@ class DbusTest
 	    m.rserial = 0xf00f;
 	    m.signature = "yisaxaxva(s)";
 	    m.sender = "booga";
-	    MessageWriter w = new MessageWriter();
+	    WvDbusWriter w = new WvDbusWriter();
 	    w.Write((byte)42);
 	    w.Write(42);
 	    w.Write("hello world");
@@ -106,7 +106,7 @@ class DbusTest
 	m.path = "/org/freedesktop/DBus";
 	m.ifc = "org.freedesktop.DBus";
 	m.method = "RequestName";
-	MessageWriter w = new MessageWriter();
+	WvDbusWriter w = new WvDbusWriter();
 	w.Write("all.t.cs");
 	w.Write(0);
 	m.Body = w.ToArray();

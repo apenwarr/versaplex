@@ -73,7 +73,7 @@ internal class VxSchemaError
         level = WvLog.L.Error;
     }
 
-    public void WriteError(MessageWriter writer)
+    public void WriteError(WvDbusWriter writer)
     {
         writer.Write(key);
         writer.Write(msg);
@@ -140,7 +140,7 @@ internal class VxSchemaErrors : Dictionary<string, List<VxSchemaError>>
     }
 
     // Static so we can properly write an empty array for a null object.
-    public static void WriteErrors(MessageWriter writer, VxSchemaErrors errs)
+    public static void WriteErrors(WvDbusWriter writer, VxSchemaErrors errs)
     {
 	writer.WriteArray(8, get_all(errs), (w2, err) => {
 	    err.WriteError(w2);

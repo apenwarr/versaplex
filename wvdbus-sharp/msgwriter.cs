@@ -13,13 +13,13 @@ using Wv.Extensions;
 
 namespace Wv
 {
-    public class MessageWriter
+    public class WvDbusWriter
     {
 	readonly DataConverter conv;
 	readonly Dbus.Endian endianness;
 	WvBuf buf = new WvBuf(1024);
 
-	public MessageWriter()
+	public WvDbusWriter()
 	{
 	    endianness = Message.NativeEndianness;
 	    if (endianness == Dbus.Endian.Little)
@@ -115,13 +115,13 @@ namespace Wv
 	static byte[] zeroes = new byte[8] { 0,0,0,0,0,0,0,0 };
 	public void WriteArray<T>(int align,
 				  IEnumerable<T> list,
-				  Action<MessageWriter,T> doelement)
+				  Action<WvDbusWriter,T> doelement)
 	{
 	    // after the arraylength, we'll be aligned to size 4, but that
 	    // might not be enough, so maybe we need to fix it up.
 	    WritePad(4);
 	    
-	    var tmp = new MessageWriter();
+	    var tmp = new WvDbusWriter();
 	    
 	    int startpad = (int)(buf.used+4) % 8;
 	    tmp.buf.put(zeroes.sub(0, startpad));

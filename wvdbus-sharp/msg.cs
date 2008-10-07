@@ -83,7 +83,7 @@ namespace Wv
 	    if (errstr.ne())
 	    {
 		r.signature = "s";
-		var w = new MessageWriter();
+		var w = new WvDbusWriter();
 		w.Write(errstr);
 		r.Body = w.ToArray();
 	    }
@@ -203,21 +203,21 @@ namespace Wv
 	    }
 	}
 	
-	void wws(MessageWriter w, Dbus.Field c, string sig, string val)
+	void wws(WvDbusWriter w, Dbus.Field c, string sig, string val)
 	{
 	    w.Write((byte)c);
 	    w.WriteSig(sig);
 	    w.Write(val);
 	}
 	
-	void wwu(MessageWriter w, Dbus.Field c, string sig, uint val)
+	void wwu(WvDbusWriter w, Dbus.Field c, string sig, uint val)
 	{
 	    w.Write((byte)c);
 	    w.WriteSig(sig);
 	    w.Write(val);
 	}
 	
-	void wwsig(MessageWriter w, Dbus.Field c, string sig, string val)
+	void wwsig(WvDbusWriter w, Dbus.Field c, string sig, string val)
 	{
 	    w.Write((byte)c);
 	    w.WriteSig(sig);
@@ -227,7 +227,7 @@ namespace Wv
 	// Header format is: yyyyuua{yv}
 	public byte[] GetHeaderData()
 	{
-	    MessageWriter w = new MessageWriter();
+	    WvDbusWriter w = new WvDbusWriter();
 	    
 	    w.Write((byte)endian);
 	    w.Write((byte)type);
@@ -299,7 +299,7 @@ namespace Wv
 	    return w.ToArray();
 	}
 	
-	public Message write(MessageWriter w)
+	public Message write(WvDbusWriter w)
 	{
 	    Body = w.ToArray();
 	    return this;

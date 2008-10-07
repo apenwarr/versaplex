@@ -74,7 +74,7 @@ internal class VxSchemaChecksum
     }
 
     // Write the checksum values to DBus
-    public void Write(MessageWriter writer)
+    public void Write(WvDbusWriter writer)
     {
         writer.Write(key);
 	writer.WriteArray(8, _checksums, (w2, sum) => {
@@ -204,7 +204,7 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
     }
 
     // Write the list of checksums to DBus in a(sat) format.
-    public void WriteChecksums(MessageWriter writer)
+    public void WriteChecksums(WvDbusWriter writer)
     {
 	writer.WriteArray(8, this, (w2, p) => {
 	    p.Value.Write(w2);
