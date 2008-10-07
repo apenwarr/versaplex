@@ -29,7 +29,9 @@ public static class SchemamaticCli
   --force/-f: performs potentially destructive database update operations.
   --verbose/-v: Increase the verbosity of the log output.  Can be specified 
         multiple times.
-  --global-syms/-g: Move <syms> from parameters to members (pascalgen only).
+  --global-syms/-g: Move <syms> from parameters to members.  Symbols can be
+        separated by any one of comma, semicolon, or colon, or this option 
+        can be specified multiple times. (pascalgen only)
 ");
 	return 99;
     }
@@ -704,8 +706,12 @@ public static class SchemamaticCli
             .Add("dry-run", delegate(string v) { opts |= VxCopyOpts.DryRun; } )
             .Add("f|force", delegate(string v) { opts |= VxCopyOpts.Destructive; } )
             .Add("v|verbose", delegate(string v) { verbose++; } )
-            .Add("g|global-syms=", 
-                delegate(string v) { if (v.ne()) { global_syms.Add(v.ToLower(), null); }} )
+            .Add("g|global-sym=", delegate(string v) 
+                { 
+                    if (v.ne()) 
+                        foreach (var sym in v.Split(',', ';', ':'))
+                            global_syms.Add(sym.ToLower(), null); 
+                } )
             .Parse(args);
 
 	WvLog.maxlevel = (WvLog.L)verbose;
