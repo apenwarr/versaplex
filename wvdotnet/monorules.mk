@@ -13,10 +13,12 @@ CSCPP=cpp
 ifeq ($(OS),Windows_NT)
   CSC?=csc
   SYMLINK=cp
+  MONORUN=
 else
   CSC?=gmcs -langversion:linq
   SYMLINK=ln -sf
   PKGS += /r:Mono.Posix
+  MONORUN=mono --debug
 endif
 
 CSFLAGS=/warn:4 /debug
@@ -74,7 +76,7 @@ endef
 
 %.pass: %.exe
 	rm -f $@
-	$(TESTRUNNER) mono --debug ./$^
+	$(TESTRUNNER) $(MONORUN) ./$^
 	touch $@
 
 clean::
