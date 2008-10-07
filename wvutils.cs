@@ -38,10 +38,16 @@ namespace Wv
 	    return shift(ref array, 0);
 	}
 	
-	public static void assert(bool b, string msg)
+	public static void assert(bool b, object msg)
 	{
 	    if (!b)
-		throw new System.ArgumentException(msg);
+		throw new System.ArgumentException(msg.ToString());
+	}
+	
+	public static void assert(bool b, string fmt, params object[] args)
+	{
+	    if (!b)
+		assert(b, (object)wv.fmt(fmt, args));
 	}
 	
 	public static void assert(bool b)
