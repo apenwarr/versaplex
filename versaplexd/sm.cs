@@ -628,12 +628,13 @@ public static class SchemamaticCli
             + " *)\n"
             + "unit " + unitname + ";\n\n");
 
+        var global_syms_keys = global_syms.Keys.ToList();
+        global_syms_keys.Sort();
         var globalfields = new List<string>();
         var globalprops = new List<string>();
-        foreach (var kvp in global_syms)
+        foreach (var sym in global_syms_keys)
         {
-            string sym = kvp.Key;
-            string type = kvp.Value;
+            string type = global_syms[sym];
             if (type.e())
             {
                 log.print(WvLog.L.Error, 
@@ -708,8 +709,10 @@ public static class SchemamaticCli
             .Add("v|verbose", delegate(string v) { verbose++; } )
             .Add("g|global-sym=", delegate(string v) 
                 { 
+                    var splitopts = StringSplitOptions.RemoveEmptyEntries;
+                    char[] splitchars = {',', ';', ':'};
                     if (v.ne()) 
-                        foreach (var sym in v.Split(',', ';', ':'))
+                        foreach (var sym in v.Split(splitchars, splitopts))
                             global_syms.Add(sym.ToLower(), null); 
                 } )
             .Parse(args);
