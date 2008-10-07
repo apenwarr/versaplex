@@ -10,14 +10,14 @@ wv.dll:
 
 wvdbus-sharp.dll: \
 	assemblyinfo.cs \
-	Authentication.cs \
-	Connection.cs \
+	auth.cs \
+	conn.cs \
 	DataConverter.cs \
-	MatchRule.cs \
-	Message.cs \
-	MessageWriter.cs \
+	matchrule.cs \
+	msg.cs \
+	msgwriter.cs \
 	msgiter.cs \
-	Protocol.cs \
+	protocol.cs \
 	$(WVDOTNET)/wv.dll
 
 tests: all t/tests
