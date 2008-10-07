@@ -18,22 +18,4 @@ class VxDbusUtils
         string errmsg = reply.iter().pop();
         return new DbusError(wv.fmt("{0}: {1}", reply.err, errmsg));
     }
-
-    // Create a method call using the default connection, object path, and
-    // interface
-    public static Message CreateMethodCall(Connection bus, 
-        string member, string signature)
-    {
-        return CreateMethodCall(bus, "vx.versaplexd", "/db", 
-				"vx.db", member, signature);
-    }
-
-    public static Message CreateMethodCall(Connection bus, string destination, 
-            string path, string iface, string member, string signature)
-    {
-	var msg = new MethodCall(destination, path, iface, member);
-	msg.signature = signature;
-        return msg;
-    }
-
 }

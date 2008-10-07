@@ -103,12 +103,18 @@ public class VersaplexTester: IDisposable
 	Console.WriteLine(" + Reader SQL Query: {0}", query);
 	return dbi.select(query);
     }
+    
+    Message methodcall(string method, string signature)
+    {
+        return new MethodCall("vx.versaplexd", "/db", 
+			      "vx.db", method, signature);
+    }
 
     internal bool VxExec(string query)
     {
 	Console.WriteLine(" + VxExec SQL Query: {0}", query);
 
-        Message call = VxDbusUtils.CreateMethodCall(bus, "ExecRecordset", "s");
+        Message call = methodcall("ExecRecordset", "s");
 
         MessageWriter mw = new MessageWriter();
         mw.Write(query);
@@ -142,7 +148,7 @@ public class VersaplexTester: IDisposable
     {
 	Console.WriteLine(" + VxScalar SQL Query: {0}", query);
 
-        Message call = VxDbusUtils.CreateMethodCall(bus, "ExecScalar", "s");
+        Message call = methodcall("ExecScalar", "s");
 
         MessageWriter mw = new MessageWriter();
         mw.Write(query);
@@ -217,7 +223,7 @@ public class VersaplexTester: IDisposable
     {
 	Console.WriteLine(" + VxChunkRecordset SQL Query: {0}", query);
 
-	Message call = VxDbusUtils.CreateMethodCall(bus, "ExecChunkRecordset", "s");
+	Message call = methodcall("ExecChunkRecordset", "s");
 
 	MessageWriter mw = new MessageWriter();
 	mw.Write(query);
@@ -341,7 +347,7 @@ public class VersaplexTester: IDisposable
     {
 	Console.WriteLine(" + VxReader SQL Query: {0}", query);
 
-        Message call = VxDbusUtils.CreateMethodCall(bus, "ExecRecordset", "s");
+        Message call = methodcall("ExecRecordset", "s");
 
         MessageWriter mw = new MessageWriter();
         mw.Write(query);

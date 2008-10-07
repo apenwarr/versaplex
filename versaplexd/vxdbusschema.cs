@@ -36,6 +36,12 @@ internal class VxDbusSchema : ISchemaBackend
     {
         bus = _bus;
     }
+    
+    static Message methodcall(string method, string signature)
+    {
+        return new MethodCall("vx.versaplexd", "/db", 
+			      "vx.db", method, signature);
+    }
 
     // 
     // The ISchema interface
@@ -45,7 +51,7 @@ internal class VxDbusSchema : ISchemaBackend
     public VxSchemaErrors Put(VxSchema schema, VxSchemaChecksums sums, 
         VxPutOpts opts)
     {
-        Message call = CreateMethodCall("PutSchema", 
+        Message call = methodcall("PutSchema", 
             String.Format("{0}i", VxSchema.GetDbusSignature()));
 
         MessageWriter writer = new MessageWriter();
@@ -84,7 +90,7 @@ internal class VxDbusSchema : ISchemaBackend
     // Utility API so you can say Get("foo").
     public VxSchema Get(params string[] keys)
     {
-        Message call = CreateMethodCall("GetSchema", "as");
+        Message call = methodcall("GetSchema", "as");
 
         MessageWriter writer = new MessageWriter();
 
@@ -128,7 +134,7 @@ internal class VxDbusSchema : ISchemaBackend
 
     public VxSchemaChecksums GetChecksums()
     {
-        Message call = CreateMethodCall("GetSchemaChecksums", "");
+        Message call = methodcall("GetSchemaChecksums", "");
 
         Message reply = bus.send_and_wait(call);
 
@@ -163,7 +169,7 @@ internal class VxDbusSchema : ISchemaBackend
     // A method exported over DBus but not exposed in ISchemaBackend
     public VxSchemaErrors DropSchema(params string[] keys)
     {
-        Message call = CreateMethodCall("DropSchema", "as");
+        Message call = methodcall("DropSchema", "as");
 
         MessageWriter writer = new MessageWriter();
 
@@ -199,7 +205,7 @@ internal class VxDbusSchema : ISchemaBackend
     
     public string GetSchemaData(string tablename, int seqnum, string where)
     {
-        Message call = CreateMethodCall("GetSchemaData", "ss");
+        Message call = methodcall("GetSchemaData", "ss");
 
         MessageWriter writer = new MessageWriter();
 
@@ -234,7 +240,7 @@ internal class VxDbusSchema : ISchemaBackend
 
     public void PutSchemaData(string tablename, string text, int seqnum)
     {
-        Message call = CreateMethodCall("PutSchemaData", "ss");
+        Message call = methodcall("PutSchemaData", "ss");
 
         MessageWriter writer = new MessageWriter();
 
@@ -259,16 +265,6 @@ internal class VxDbusSchema : ISchemaBackend
             throw new Exception("D-Bus response was not a method return or "
                     +"error");
         }
-    }
-
-    //
-    // Non-ISchemaBackend methods
-    //
-
-    // Use our Bus object to create a method call.
-    public Message CreateMethodCall(string member, string signature)
-    {
-        return VxDbusUtils.CreateMethodCall(bus, member, signature);
     }
 }
 

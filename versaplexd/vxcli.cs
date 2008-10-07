@@ -45,18 +45,13 @@ namespace Wv
 	
 	public override WvSqlRows select(string sql, params object[] args)
 	{
-	    Message call 
-		= VxDbusUtils.CreateMethodCall(bus, "ExecRecordset", "s");
+	    var call = new MethodCall("vx.versaplexd", "/db", "vx.db",
+				      "ExecRecordset", "s");
 	    MessageWriter writer = new MessageWriter();
-
 	    writer.Write(sql);
-	    call.Body = writer.ToArray();
-	    
-	    log.print("Sending!\n");
+	    call.write(writer);
 	    
 	    Message reply = bus.send_and_wait(call);
-	    
-	    log.print("Answer came back!\n");
 
 	    switch (reply.type) 
 	    {
@@ -78,13 +73,13 @@ namespace Wv
 		    var l = new List<WvColInfo>();
 		    foreach (IEnumerable<WvAutoCast> c in it.pop())
 		    {
-			WvAutoCast[] cols = c.ToArray();
-			int size = cols[0];
-			string name = cols[1];
-			// string type = cols[2];
-			short precision = cols[3];
-			short scale = cols[4];
-			byte nullable = cols[5];
+			int size;
+			string name, type;
+			short precision, scale;
+			byte nullable;
+			c.ToArray().assignto(out size, out name, out type,
+					     out precision, out scale,
+					     out nullable);
 			
 			l.Add(new WvColInfo(name, typeof(string),
 					    nullable != 0,
