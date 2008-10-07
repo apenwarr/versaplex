@@ -56,10 +56,9 @@ internal static class VxDb {
 	    VxDbInterfaceRouter.PrepareRecordsetWriter(colinfo, data, nulls);
 	writer.Write(call.serial);
 
-	Message signal = VxDbus.CreateSignal(sender, "ChunkRecordsetSig",
-				   	"a(issnny)vaayu",
-					writer);
-	conn.send(signal);
+	new Signal(call.sender, call.path, "vx.db", "ChunkRecordsetSig")
+	    .write_body("a(issnny)vaayu", writer)
+	    .send(conn);
     }
 
 

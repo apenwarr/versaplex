@@ -3,18 +3,6 @@ using System.Collections.Generic;
 using Wv;
 using Wv.Extensions;
 
-public static class VxDbus {
-    public static Message CreateSignal(string destination, string signalname,
-					string signature, MessageWriter body)
-    {
-	var sig = new Signal(destination, "/db", "vx.db", signalname);
-	sig.signature = signature;
-	if (signature.ne())
-	    sig.Body = body.ToArray();
-	return sig;
-    }
-}
-
 public class VxMethodCallRouter {
     WvLog log = new WvLog("VxMethodCallRouter", WvLog.L.Debug3);
     
