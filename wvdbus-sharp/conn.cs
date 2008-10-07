@@ -126,7 +126,8 @@ namespace Wv
 	    log.print(WvLog.L.Debug3,
 		      "{0} {1}#{2} ->{3} '{4}'.'{5}' ({6} bytes)\n",
 		      prefix, msg.type, msg.serial, msg.dest, 
-		      msg.ifc, msg.method, msg.Body.Length);
+		      msg.ifc, msg.method,
+		      msg.Body==null ? 0 : msg.Body.Length);
 	    log.print(WvLog.L.Debug4, "Header:\n{0}", wv.hexdump(hdata));
 	    log.print(WvLog.L.Debug5, "Body:\n{0}", wv.hexdump(msg.Body));
 	}

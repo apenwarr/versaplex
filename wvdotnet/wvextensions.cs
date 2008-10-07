@@ -141,6 +141,14 @@ namespace Wv.Extensions
 	{
 	    return s.Split(new string[] {splitword}, StringSplitOptions.None);
 	}
+	
+	public static string shorten(this string s, int maxlen)
+	{
+	    if (s.Length <= maxlen)
+		return s;
+	    else
+		return s.Substring(0, maxlen) + "...";
+	}
 
 	public static int atoi(this object o)
 	{

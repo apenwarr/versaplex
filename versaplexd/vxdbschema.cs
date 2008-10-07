@@ -330,8 +330,7 @@ internal class VxDbSchema : ISchemaBackend
     private IEnumerable<WvSqlRow> DbiSelect(string query, 
         params object[] bound_vars)
     {
-        log.print(WvLog.L.Debug5, "DbiSelect({0}...)\n",
-		  query.Substring(0, 60));
+        log.print(WvLog.L.Debug5, "DbiSelect({0}...)\n", query.shorten(60));
         try
         {
             return dbi.select(query, bound_vars).ToArray();
@@ -952,7 +951,7 @@ internal class VxDbSchema : ISchemaBackend
             if (elem.text.ne())
             {
                 log.print("Putting element: {0}...\n",
-			  elem.ToSql().Substring(0, 60));
+			  elem.ToSql().shorten(60));
                 DbiExec(elem.ToSql());
             }
         } 
