@@ -13,7 +13,6 @@ wvdbus-sharp.dll: \
 	auth.cs \
 	conn.cs \
 	DataConverter.cs \
-	matchrule.cs \
 	msg.cs \
 	msgwriter.cs \
 	msgiter.cs \
