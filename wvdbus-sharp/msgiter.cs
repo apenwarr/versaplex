@@ -22,7 +22,7 @@ namespace Wv
 	internal WvDbusIter(DataConverter conv, string sig, WvBytes b)
 	    : base(conv, sig, b)
 	{
-	    log.print(WvLog.L.Debug3, "Iterating! (sig={0}, bytes={1}-{2})\n",
+	    log.print(WvLog.L.Debug5, "Iterating! (sig={0}, bytes={1}-{2})\n",
 	                 sig, b.start, b.len);
 	    log.print(WvLog.L.Debug5, wv.hexdump(b));
 	    Reset();

@@ -120,24 +120,30 @@ namespace Wv
 	    rserial_to_action[msg.serial] = replyaction;
 	    return msg.serial;
 	}
+	
+	void printmsg(string prefix, WvBytes hdata, WvDbusMsg msg)
+	{
+	    log.print(WvLog.L.Debug3,
+		      "{0} {1}#{2} ->{3} '{4}'.'{5}' ({6} bytes)\n",
+		      prefix, msg.type, msg.serial, msg.dest, 
+		      msg.ifc, msg.method, msg.Body.Length);
+	    log.print(WvLog.L.Debug4, "Header:\n{0}", wv.hexdump(hdata));
+	    log.print(WvLog.L.Debug5, "Body:\n{0}", wv.hexdump(msg.Body));
+	}
 
 	public uint send(WvDbusMsg msg)
 	{
 	    msg.serial = GenerateSerial();
+	    var hdata = msg.GetHeaderData();
 	    
-	    byte[] HeaderData = msg.GetHeaderData();
-
-	    long msgLength = HeaderData.Length + (msg.Body != null ? msg.Body.Length : 0);
-	    if (msgLength > Dbus.Protocol.MaxMessageLength)
-		throw new Exception("WvDbusMsg length " + msgLength + " exceeds maximum allowed " + Dbus.Protocol.MaxMessageLength + " bytes");
+	    long len = hdata.Length + (msg.Body != null ? msg.Body.Length : 0);
+	    if (len > Dbus.Protocol.MaxMessageLength)
+		throw new Exception(
+		  wv.fmt("Message length {0} > max {1}",
+			 len, Dbus.Protocol.MaxMessageLength));
 	    
-	    log.print(WvLog.L.Debug3, "Sending!\n");
-	    log.print(WvLog.L.Debug4, "Header:\n{0}",
-	                wv.hexdump(HeaderData));
-	    log.print(WvLog.L.Debug5, "Body:\n{0}",
-		        wv.hexdump(msg.Body));
-
-	    stream.write(HeaderData);
+	    printmsg(" >>", hdata, msg);
+	    stream.write(hdata);
 	    if (msg.Body != null && msg.Body.Length != 0)
 		stream.write(msg.Body);
 	    
@@ -186,7 +192,9 @@ namespace Wv
 		if (inbuf.used < needed)
 		    continue;
 		
-		return new WvDbusMsg(inbuf.get(needed));
+		var msg = new WvDbusMsg(inbuf.get(needed));
+		printmsg("<< ", msg.GetHeaderData(), msg);
+		return msg;
 	    }
 	    
 	    return null;

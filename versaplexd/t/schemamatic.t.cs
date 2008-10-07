@@ -667,21 +667,28 @@ class SchemamaticTests : SchemamaticTester
     [Test, Category("Schemamatic"), Category("PutSchema")]
     public void TestPutSchemaErrors()
     {
+	//WvLog.maxlevel = WvLog.L.Debug4;
+	WVPASS("hello");
         SchemaCreator sc = new SchemaCreator(this);
 
         // Establish a baseline of errors.
+	WVPASS("getting baseline");
         VxPutOpts no_opts = VxPutOpts.None;
         VxSchema schema = dbus.Get();
+	WVPASS("putting");
         VxSchemaErrors errs = VxPutSchema(schema, no_opts);
 
         int baseline_err_count = errs.Count;
 
+	WVPASS("creating");
         sc.Create();
 
         // Try again with the new elements, this time for keeps.
 
         // Check that putting the same elements doesn't cause errors
+	WVPASS("getting");
         schema = dbus.Get();
+	WVPASS("putting");
         errs = VxPutSchema(schema, no_opts);
 
         WVPASSEQ(errs.Count, baseline_err_count);
