@@ -466,7 +466,7 @@ internal class VxSchemaTable : VxSchemaElement,
     public void AddIndex(string name, int unique, int clustered, 
         params string[] columns)
     {
-        WvLog log = new WvLog("AddIndex");
+        WvLog log = new WvLog("AddIndex", WvLog.L.Debug4);
         log.print("Adding index on {0}, name={1}, unique={2}, clustered={3},\n", 
             columns.Join(","), name, unique, clustered);
         var elem = new VxSchemaTableElement("index");
@@ -483,7 +483,7 @@ internal class VxSchemaTable : VxSchemaElement,
     public void AddPrimaryKey(string name, int clustered, 
         params string[] columns)
     {
-        WvLog log = new WvLog("AddPrimaryKey");
+        WvLog log = new WvLog("AddPrimaryKey", WvLog.L.Debug4);
         log.print("Adding primary key '{0}' on {1}, clustered={2}\n", 
             name, columns.Join(","), clustered);
         var elem = new VxSchemaTableElement("primary-key");

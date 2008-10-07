@@ -468,9 +468,15 @@ namespace Wv
 	
 	public override bool flush(int msec_timeout)
 	{
-	    _flush();
-	    // FIXME: do something with msec_timeout
-	    return outbuf.used == 0;
+	    foreach (int remain in wv.until(msec_timeout))
+	    {
+		_flush();
+		if (remain != 0 && outbuf.used > 0)
+		    wait(remain, false, true);
+		if (outbuf.used == 0)
+		    return true;
+	    }
+	    return false;
 	}
     }
     

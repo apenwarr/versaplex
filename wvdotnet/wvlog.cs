@@ -121,13 +121,19 @@ namespace Wv
 	public void print(L level, object s)
 	{
 	    L old = this.level;
-	    this.level = level;
-	    print(s);
-	    this.level = old;
+	    try {
+		this.level = level;
+		print(s);
+	    }
+	    finally {
+		this.level = old;
+	    }
 	}
 	
 	public void print(L level, string fmt, params object[] args)
 	{
+	    if (level > maxlevel)
+		return;
 	    print(level, (object)String.Format(fmt, args));
 	}
 	

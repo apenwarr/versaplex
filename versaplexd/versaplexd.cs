@@ -175,7 +175,11 @@ public static class VersaMain
 	    log.print(WvLog.L.Debug2, "Event loop.\n");
 	    WvStream.runonce(-1);
 	    while (action_queue.Count > 0)
+	    {
+		log.print(WvLog.L.Debug2, "Action queue.\n");
 		action_queue.Dequeue()();
+		log.print(WvLog.L.Debug2, "Action queue element done.\n");
+	    }
 	}
 
 	StopDBusServerThread();
