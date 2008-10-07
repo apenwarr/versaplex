@@ -505,7 +505,7 @@ internal class VxSchemaTable : VxSchemaElement,
     public static List<KeyValuePair<VxSchemaTableElement, VxDiffType>> GetDiff(
         VxSchemaTable oldtable, VxSchemaTable newtable)
     {
-        WvLog log = new WvLog("SchemaTable GetDiff");
+        WvLog log = new WvLog("SchemaTable GetDiff", WvLog.L.Debug4);
         var diff = new List<KeyValuePair<VxSchemaTableElement, VxDiffType>>();
 
         foreach (var elem in oldtable.elems)
