@@ -45,7 +45,7 @@ namespace Wv
 	
 	public override WvSqlRows select(string sql, params object[] args)
 	{
-	    var call = new MethodCall("vx.versaplexd", "/db", "vx.db",
+	    var call = new WvDbusCall("vx.versaplexd", "/db", "vx.db",
 				      "ExecRecordset", "s");
 	    WvDbusWriter writer = new WvDbusWriter();
 	    writer.Write(sql);

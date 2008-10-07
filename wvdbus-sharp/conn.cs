@@ -373,7 +373,7 @@ namespace Wv
         WvAutoCast CallDBusMethod(string method, string sig, 
             byte[] body)
         {
-            var m = new MethodCall(DBusName, DBusPath, DBusName, method);
+            var m = new WvDbusCall(DBusName, DBusPath, DBusName, method);
             m.signature = sig;
             m.Body = body;
 

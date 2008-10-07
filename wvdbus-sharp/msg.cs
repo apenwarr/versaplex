@@ -339,9 +339,9 @@ namespace Wv
 	}
     }
     
-    public class MethodCall : WvDbusMsg
+    public class WvDbusCall : WvDbusMsg
     {
-	public MethodCall(string dest, string path, string ifc, string method,
+	public WvDbusCall(string dest, string path, string ifc, string method,
 			  string signature)
 	{
 	    this.type = Dbus.MType.MethodCall;
@@ -359,16 +359,17 @@ namespace Wv
 	    this.ReplyExpected = true;
 	}
 	
-	public MethodCall(string dest, string path, string ifc, string method)
+	public WvDbusCall(string dest, string path, string ifc, string method)
 	    : this(dest, path, ifc, method, null)
 	{
 	}
     }
     
-    public class Signal : WvDbusMsg
+    public class WvDbusSignal : WvDbusMsg
     {
-	public Signal(string dest, string path, string ifc, string method,
-		      string signature)
+	public WvDbusSignal(string dest, string path,
+			    string ifc, string method,
+			    string signature)
 	{
 	    this.type = Dbus.MType.Signal;
 	    this.flags = Dbus.MFlag.NoReplyExpected | Dbus.MFlag.NoAutoStart;
@@ -379,7 +380,8 @@ namespace Wv
 	    this.signature = signature;
 	}
 	
-	public Signal(string dest, string path, string ifc, string method)
+	public WvDbusSignal(string dest, string path,
+			    string ifc, string method)
 	    : this(dest, path, ifc, method, null)
 	{
 	}

@@ -106,7 +106,7 @@ public class VersaplexTester: IDisposable
     
     WvDbusMsg methodcall(string method, string signature)
     {
-        return new MethodCall("vx.versaplexd", "/db", 
+        return new WvDbusCall("vx.versaplexd", "/db", 
 			      "vx.db", method, signature);
     }
 
