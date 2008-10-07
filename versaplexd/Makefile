@@ -19,7 +19,7 @@ versaplexd.exe: versaplexd.cs \
     vxexceptions.cs \
     vxschema.cs vxschemachecksums.cs vxschemadiff.cs vxschemaerrors.cs \
     vxsqlpool.cs wvdbusserver.cs \
-    ../dbus-sharp/wvdbus-sharp.dll \
+    ../wvdbus-sharp/wvdbus-sharp.dll \
     ../wvdotnet/wv.dll
 
 sm.exe: \
@@ -27,12 +27,12 @@ sm.exe: \
     vxexceptions.cs \
     vxdiskschema.cs vxdbschema.cs vxdbusschema.cs vxschema.cs \
     vxschemachecksums.cs vxschemadiff.cs vxschemaerrors.cs \
-    ../dbus-sharp/wvdbus-sharp.dll \
+    ../wvdbus-sharp/wvdbus-sharp.dll \
     ../wvdotnet/wv.dll
     
 vxcli.exe: vxcli.cs \
     vxexceptions.cs \
-    ../dbus-sharp/wvdbus-sharp.dll \
+    ../wvdbus-sharp/wvdbus-sharp.dll \
     ../wvdotnet/wv.dll
 
 clean:: t/clean

@@ -12,11 +12,11 @@ else
 WVSTREAMS_MAKEFILE=Makefile
 endif
 
-wvdotnet dbus-sharp versaplexd wvstreams vxodbc: FORCE
+wvdotnet wvdbus-sharp versaplexd wvstreams vxodbc: FORCE
 
-dbus-sharp: dbus-sharp/Makefile
+wvdbus-sharp: wvdbus-sharp/Makefile
 
-nall: wvdotnet dbus-sharp versaplexd
+nall: wvdotnet wvdbus-sharp versaplexd
 
 all: nall vxodbc
 
@@ -26,17 +26,17 @@ wvstreams:
 
 vxodbc: wvstreams
 
-versaplexd: wvdotnet dbus-sharp
+versaplexd: wvdotnet wvdbus-sharp
 
-ntests: nall wvdotnet/tests dbus-sharp/tests versaplexd/tests
+ntests: nall wvdotnet/tests wvdbus-sharp/tests versaplexd/tests
 
-ntest: nall wvdotnet/test dbus-sharp/test versaplexd/test
+ntest: nall wvdotnet/test wvdbus-sharp/test versaplexd/test
 
 tests: nall ntests vxodbc/tests
 
 test: all ntest vxodbc/test
 	
-nclean: versaplexd/clean wvdotnet/clean dbus-sharp/clean
+nclean: versaplexd/clean wvdotnet/clean wvdbus-sharp/clean
 
 clean: nclean
 	$(MAKE) -C vxodbc -fMakefile-common clean
