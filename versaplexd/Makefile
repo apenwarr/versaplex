@@ -23,7 +23,7 @@ versaplexd.exe: versaplexd.cs \
     ../wvdotnet/wv.dll
 
 sm.exe: \
-    ischemabackend.cs \
+    ischemabackend.cs storedprocedure.cs \
     vxexceptions.cs \
     vxdiskschema.cs vxdbschema.cs vxdbusschema.cs vxschema.cs \
     vxschemachecksums.cs vxschemadiff.cs vxschemaerrors.cs \
