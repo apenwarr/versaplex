@@ -4,7 +4,6 @@ using System.Text;
 using System.Collections;
 using System.Collections.Generic;
 using System.Security.Cryptography;
-using NDesk.DBus;
 using Wv;
 using Wv.Extensions;
 
@@ -64,21 +63,22 @@ internal class VxSchemaElement : IComparable
         _encrypted = copy.encrypted;
     }
 
-    public VxSchemaElement(MessageReader reader)
+    public VxSchemaElement(IEnumerable<WvAutoCast> _elem)
     {
-        _type = reader.ReadString();
-        _name = reader.ReadString();
-        _text = reader.ReadString();
-        _encrypted = reader.ReadByte() > 0;
+	var elem = _elem.GetEnumerator();
+        _type = elem.pop();
+        _name = elem.pop();
+        _text = elem.pop();
+        _encrypted = elem.pop() > 0;
     }
 
-    public void Write(MessageWriter writer)
+    public void Write(WvDbusWriter writer)
     {
-        writer.Write(typeof(string), type);
-        writer.Write(typeof(string), name);
-        writer.Write(typeof(string), text);
+        writer.Write(type);
+        writer.Write(name);
+        writer.Write(text);
         byte encb = (byte)(encrypted ? 1 : 0);
-        writer.Write(typeof(byte), encb);
+        writer.Write(encb);
     }
 
     public string GetKey()
@@ -571,37 +571,22 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
             this.Add(p.Key, new VxSchemaElement(p.Value));
     }
 
-    public VxSchema(MessageReader reader)
+    public VxSchema(IEnumerable<WvAutoCast> sch)
     {
-        int size = reader.ReadInt32();
-        int endpos = reader.Position + size;
-        while (reader.Position < endpos)
-        {
-            reader.ReadPad(8);
-            VxSchemaElement elem = new VxSchemaElement(reader);
+	foreach (var row in sch)
+	{
+            VxSchemaElement elem = new VxSchemaElement(row);
             if (elem.type == "Table")
-            {
                 elem = new VxSchemaTable(elem);
-            }
             Add(elem.GetKey(), elem);
-        }
+	}
     }
 
-    private void _WriteSchema(MessageWriter writer)
+    public void WriteSchema(WvDbusWriter writer)
     {
-        foreach (KeyValuePair<string,VxSchemaElement> p in this)
-        {
-            writer.WritePad(8);
-            p.Value.Write(writer);
-        }
-    }
-
-    public void WriteSchema(MessageWriter writer)
-    {
-        writer.WriteDelegatePrependSize(delegate(MessageWriter w)
-            {
-                _WriteSchema(w);
-            }, 8);
+	writer.WriteArray(8, this, (w2, p) => {
+	    p.Value.Write(w2);
+	});
     }
 
     // Returns only the elements of the schema that are affected by the diff.

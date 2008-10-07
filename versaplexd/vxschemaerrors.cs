@@ -2,8 +2,8 @@ using System;
 using System.Text;
 using System.Collections.Generic;
 using System.Data.SqlClient;
-using NDesk.DBus;
 using Wv;
+using Wv.Extensions;
 
 internal class VxSchemaError
 {
@@ -41,12 +41,13 @@ internal class VxSchemaError
         level = other.level;
     }
 
-    public VxSchemaError(MessageReader reader)
+    public VxSchemaError(IEnumerable<WvAutoCast> _err)
     {
-        key = reader.ReadString();
-        msg = reader.ReadString();
-        errnum = reader.ReadInt32();
-        int intlevel = reader.ReadInt32();
+	var err = _err.GetEnumerator();
+        key = err.pop();
+        msg = err.pop();
+        errnum = err.pop();
+        int intlevel = err.pop();
         // Note: C# lets you cast an invalid value to an enum without an
         // exception, we have to check this ourselves.  Default to 
         // Critical (i.e. 0) if someone sends us something unexpected.
@@ -72,7 +73,7 @@ internal class VxSchemaError
         level = WvLog.L.Error;
     }
 
-    public void WriteError(MessageWriter writer)
+    public void WriteError(WvDbusWriter writer)
     {
         writer.Write(key);
         writer.Write(msg);
@@ -97,18 +98,13 @@ internal class VxSchemaErrors : Dictionary<string, List<VxSchemaError>>
     {
     }
 
-    public VxSchemaErrors(MessageReader reader)
+    public VxSchemaErrors(IEnumerable<WvAutoCast> errs)
     {
-        int size = reader.ReadInt32();
-
-        int endpos = reader.Position + size;
-        while (reader.Position < endpos)
-        {
-            reader.ReadPad(8);
-            VxSchemaError err = new VxSchemaError(reader);
-
-            this.Add(err.key, err);
-        }
+	foreach (var err in errs)
+	{
+            VxSchemaError e = new VxSchemaError(err);
+            this.Add(e.key, e);
+	}
     }
 
     public void Add(string key, VxSchemaError val)
@@ -134,24 +130,21 @@ internal class VxSchemaErrors : Dictionary<string, List<VxSchemaError>>
         }
     }
 
-    private void _WriteErrors(MessageWriter writer)
+    public static IEnumerable<VxSchemaError> get_all(VxSchemaErrors errs)
     {
-        foreach (var kvp in this)
-            foreach (VxSchemaError err in kvp.Value)
-            {
-                writer.WritePad(8);
-                err.WriteError(writer);
-            }
+	if (errs == null)
+	    yield break;
+	foreach (var kvp in errs)
+	    foreach (VxSchemaError err in kvp.Value)
+		yield return err;
     }
 
     // Static so we can properly write an empty array for a null object.
-    public static void WriteErrors(MessageWriter writer, VxSchemaErrors errs)
+    public static void WriteErrors(WvDbusWriter writer, VxSchemaErrors errs)
     {
-        writer.WriteDelegatePrependSize(delegate(MessageWriter w)
-            {
-                if (errs != null)
-                    errs._WriteErrors(w);
-            }, 8);
+	writer.WriteArray(8, get_all(errs), (w2, err) => {
+	    err.WriteError(w2);
+	});
     }
 
     public static string GetDbusSignature()

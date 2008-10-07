@@ -10,7 +10,6 @@ using System.Security.Cryptography;
 using Wv;
 using Wv.Extensions;
 using Wv.Test;
-using NDesk.DBus;
 
 [TestFixture]
 class SchemamaticTests : SchemamaticTester
@@ -504,7 +503,7 @@ class SchemamaticTests : SchemamaticTester
 	} catch (Wv.Test.WvAssertionFailure e) {
 	    throw e;
 	} catch (System.Exception e) {
-	    WVPASS(e is DbusError);
+	    WVPASS(e is WvDbusError);
             WVPASSEQ(e.Message, "vx.db.sqlerror: Invalid object name 'Tab1'.");
             log.print(e.ToString() + "\n");
 	}
@@ -661,8 +660,8 @@ class SchemamaticTests : SchemamaticTester
         finally
         {
             Directory.Delete(tmpdir, true);
-            WVPASS(!Directory.Exists(tmpdir));
         }
+	WVPASS(!Directory.Exists(tmpdir));
     }
 
     [Test, Category("Schemamatic"), Category("PutSchema")]

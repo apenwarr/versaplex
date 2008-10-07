@@ -21,90 +21,74 @@ namespace Wv
 
     public partial class wv
     {
-	public static string _hexdump(byte[] data,
-				      int startoffset, int maxlen)
+	static string hexbyte(WvBytes b, int ofs)
 	{
+	    if (ofs >= b.start && ofs < b.start+b.len)
+		return b.bytes[ofs].ToString("x2");
+	    else
+		return "  ";
+	}
+	
+	static char printable(WvBytes b, int ofs)
+	{
+	    if (ofs >= b.start && ofs < b.start+b.len)
+	    {
+		byte n = b.bytes[ofs];
+		if (31 < n && n < 127)
+		    return (char)n;
+		else
+		    return '.';
+	    }
+	    else
+		return ' ';
+	}
+	
+	public static string _hexdump(WvBytes b)
+	{
+	    if (b.bytes == null)
+		return "(nil)";
+	    
             var sb = new StringBuilder();
 	    
 	    // This is overly complicated so that the body and header of
 	    // the same buffer can be printed separately yet still show the
 	    // proper alignment
  	    
-	    int length = data.Length > maxlen ? maxlen : data.Length;
-	    int rowoffset = startoffset & (~0xf);
-	    int coloffset = startoffset & 0xf;
+	    int rowoffset = b.start & (~0xf);
 	    
-            // 16 bytes of input turns into 70 bytes of output, plus newline, 
-            int linelen = 71;
-            // If we have to deal with more than 2^16 bytes of data, the
-            // leading count number will take more space
-            if (length > 1<<16)
-                linelen += 4;
-
-            // Add an extra line since we might have partial lines or such.
-            int result_size_est = ((length / 16) + 1) * linelen; 
             // Note: it's important to set the right capacity when dealing 
-            // with large quantities of data.
-            sb.EnsureCapacity(result_size_est);
+            // with large quantities of data.  Assume about 80 chars per line.
+            sb.EnsureCapacity((b.len / 16 + 2) * 80);
 
-	    int cnt = rowoffset;
-	    for (int i=0; i < length; cnt += 16) {
-		sb.Append(cnt.ToString("x4")).Append(" ");
+	    for (int i = rowoffset; i < b.len; i += 16)
+	    {
+		sb.Append('[').Append(i.ToString("x4")).Append("]");
 		
-		int co=0;
-		if (coloffset > 0 && i == 0) {
-		    for (int j=0; j < coloffset; j++)
-			sb.Append("   ");
-		    
-		    co=coloffset;
+		for (int j = 0; j < 16; j++)
+		{
+		    if ((j % 4)==0)
+			sb.Append(' ');
+		    sb.Append(hexbyte(b, i+j));
 		}
 		
-		// Print out the hex digits
-		for (int j=0; j < 8-co && i+j < length; j++)
-		    sb.Append(data[i+j].ToString("x2")).Append(" ");
+		sb.Append(' ');
 		
-		sb.Append(" ");
-		
-		for (int j=8-co; j < 16-co && i+j < length; j++)
-		    sb.Append(data[i+j].ToString("x2")).Append(" ");
-		
-		// extra space if incomplete line
-		if (i + 16-co > length) {
-		    for (int j = length - i; j < 16-co; j++)
-			sb.Append("   ");
+		for (int j = 0; j < 16; j++)
+		{
+		    if ((j % 4)==0)
+			sb.Append(' ');
+		    sb.Append(printable(b, i+j));
 		}
 		
-		if (co > 0) {
-		    for (int j=0; j < co; j++)
-			sb.Append(" ");
-		}
-		
-		for (int j=0; j < 16-co && i+j < length; j++) {
-		    if (31 < data[i+j] && data[i+j] < 127) {
-			sb.Append((char)data[i+j]);
-		    } else {
-			sb.Append('.');
-		    }
-		}
-		
-		sb.Append("\n");
-		
-		i += 16-co;
+		sb.Append('\n');
 	    }
 	
 	    return sb.ToString();
 	}
 	
-	public static object hexdump(byte[] data,
-				     int startoffset, int maxlen)
+	public static object hexdump(WvBytes b)
 	{
-	    return new WvDelayedString(
-			   () => _hexdump(data, startoffset, maxlen));
-	}
-	    
-	public static object hexdump(byte[] data)
-	{
-	    return hexdump(data, 0, data.Length);
+	    return new WvDelayedString(() => _hexdump(b));
 	}
     }
 }

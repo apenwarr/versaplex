@@ -1,6 +1,7 @@
 #include "wvtest.cs.h"
 using System;
 using Wv;
+using Wv.Extensions;
 using Wv.Test;
 
 [TestFixture]
@@ -44,5 +45,56 @@ public class WvDataTests
         WVPASSEQ((double)f, 0.0);
         WVPASSEQ((int)t, 1);
         WVPASSEQ((int)f, 0);
+    }
+    
+    [Test]
+    public void assignto_test()
+    {
+	var list = new object[] { 1, "foo", 99.8 };
+	
+	{
+	    int a;
+	    string b, c;
+	    double d;
+	    
+	    int num = list.assignto(out a, out b, out c, out d);
+	    WVPASSEQ(a, 1);
+	    WVPASSEQ(b, "foo");
+	    WVPASSEQ(c, "99.8");
+	    WVPASSEQ(d, 0);
+	    WVPASSEQ(num, 3);
+	}
+	
+	{
+	    int a, b, c, d;
+	    int num = list.assignto(out a, out b, out c, out d);
+	    WVPASSEQ(a, 1);
+	    WVPASSEQ(b, 0);
+	    WVPASSEQ(c, 99);
+	    WVPASSEQ(d, 0);
+	    WVPASSEQ(num, 3);
+	}
+	
+	var l2 = new int[] { 0,1,2,3,4,5,6,7,8,9,10 };
+	{
+	    int a,b,c,d;
+	    double e;
+	    float f;
+	    decimal g;
+	    bool h;
+	    int num = l2.assignto(out a, out b, out c, out d,
+				  out e, out f, out g, out h);
+	    WVPASSEQ(a, 0);
+	    WVPASSEQ(b, 1);
+	    WVPASSEQ(c, 2);
+	    WVPASSEQ(d, 3);
+	    WVPASSEQ(e, 4);
+	    WVPASSEQ(f, 5);
+	    WVPASSEQ((decimal)6, 6);
+	    WVPASSEQ((decimal)new WvAutoCast((int)6), 6);
+	    WVPASSEQ(g, 6);
+	    WVPASSEQ(h, true);
+	    WVPASSEQ(num, 8);
+	}
     }
 }

@@ -13,27 +13,26 @@ tests: all t/all
 t/all: all
 
 versaplexd.exe: versaplexd.cs \
-    dodgytransport.cs ischemabackend.cs PriorityQueue.cs \
-    vxapi.cs vxbufferstream.cs \
-    vxcolumninfo.cs vxdbus.cs vxdbusdatetime.cs vxdbschema.cs \
-    vxevent.cs vxeventloop.cs vxexceptions.cs vxnotifysocket.cs \
+    ischemabackend.cs \
+    vxapi.cs \
+    vxcolumninfo.cs vxdbusdatetime.cs vxdbschema.cs \
+    vxexceptions.cs \
     vxschema.cs vxschemachecksums.cs vxschemadiff.cs vxschemaerrors.cs \
-    vxsocket.cs vxsqlpool.cs wvdbusserver.cs \
-    ../dbus-sharp/src/NDesk.DBus.dll \
+    vxsqlpool.cs wvdbusserver.cs \
+    ../wvdbus-sharp/wvdbus-sharp.dll \
     ../wvdotnet/wv.dll
 
 sm.exe: \
-    dodgytransport.cs ischemabackend.cs storedprocedure.cs vxdbusutils.cs \
-    vxexceptions.cs vxnotifysocket.cs  vxsocket.cs \
+    ischemabackend.cs storedprocedure.cs \
+    vxexceptions.cs \
     vxdiskschema.cs vxdbschema.cs vxdbusschema.cs vxschema.cs \
     vxschemachecksums.cs vxschemadiff.cs vxschemaerrors.cs \
-    ../dbus-sharp/src/NDesk.DBus.dll \
+    ../wvdbus-sharp/wvdbus-sharp.dll \
     ../wvdotnet/wv.dll
     
 vxcli.exe: vxcli.cs \
-    dodgytransport.cs vxsocket.cs vxnotifysocket.cs vxdbusutils.cs \
     vxexceptions.cs \
-    ../dbus-sharp/src/NDesk.DBus.dll \
+    ../wvdbus-sharp/wvdbus-sharp.dll \
     ../wvdotnet/wv.dll
 
 clean:: t/clean

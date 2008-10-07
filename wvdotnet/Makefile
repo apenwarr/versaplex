@@ -4,7 +4,7 @@ include monorules.mk
 
 all: wv.dll 
 
-tests: all streamtest servtest httpservtest htmlgentest
+tests: all streamtest servtest httpservtest htmlgentest t/tests
 
 PKGS += /r:System.Data /r:System.Web
 

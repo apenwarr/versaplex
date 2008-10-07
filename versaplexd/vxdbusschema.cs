@@ -2,7 +2,6 @@ using System;
 using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
-using NDesk.DBus;
 using Wv;
 using Wv.Extensions;
 
@@ -11,7 +10,7 @@ using Wv.Extensions;
 [WvMoniker]
 internal class VxDbusSchema : ISchemaBackend
 {
-    Bus bus;
+    WvDbus bus;
 
     public static void wvmoniker_register()
     {
@@ -20,31 +19,28 @@ internal class VxDbusSchema : ISchemaBackend
     }
 	
     public VxDbusSchema()
+	: this((string)null)
     {
-        Connect(Address.Session);
     }
 
     public VxDbusSchema(string bus_moniker)
     {
 	if (bus_moniker.e())
-	    bus_moniker = Address.Session;
-        if (bus_moniker.e())
-            throw new Exception ("DBUS_SESSION_BUS_ADDRESS not set");
-        Connect(bus_moniker);
+	    bus = WvDbus.session_bus;
+	else
+	    bus = new WvDbus(bus_moniker);
     }
 
     // If you've already got a Bus you'd like to use.
-    public VxDbusSchema(Bus _bus)
+    public VxDbusSchema(WvDbus _bus)
     {
         bus = _bus;
     }
-
-    private void Connect(string bus_moniker)
+    
+    static WvDbusMsg methodcall(string method, string signature)
     {
-        AddressEntry aent = AddressEntry.Parse(bus_moniker);
-        DodgyTransport trans = new DodgyTransport();
-        trans.Open(aent);
-        bus = new Bus(trans);
+        return new WvDbusCall("vx.versaplexd", "/db", 
+			      "vx.db", method, signature);
     }
 
     // 
@@ -55,85 +51,42 @@ internal class VxDbusSchema : ISchemaBackend
     public VxSchemaErrors Put(VxSchema schema, VxSchemaChecksums sums, 
         VxPutOpts opts)
     {
-        Message call = CreateMethodCall("PutSchema", 
+        WvDbusMsg call = methodcall("PutSchema", 
             String.Format("{0}i", VxSchema.GetDbusSignature()));
 
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+        WvDbusWriter writer = new WvDbusWriter();
 
         schema.WriteSchema(writer);
-        writer.Write(typeof(int), (int)opts);
+        writer.Write((int)opts);
         call.Body = writer.ToArray();
 
-        Message reply = call.Connection.SendWithReplyAndBlock(call);
-
-        switch (reply.Header.MessageType) {
-        case MessageType.MethodReturn:
-        case MessageType.Error:
-        {
-            object replysig;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out replysig))
-                throw new Exception("D-Bus reply had no signature.");
-
-            if (replysig == null)
-                throw new Exception("D-Bus reply had null signature");
-
-            // Some unexpected error
-            if (replysig.ToString() == "s")
-                throw VxDbusUtils.GetDbusException(reply);
-
-            if (replysig.ToString() != VxSchemaErrors.GetDbusSignature())
-                throw new Exception("D-Bus reply had invalid signature: " +
-                    replysig);
-
-            MessageReader reader = new MessageReader(reply);
-            VxSchemaErrors errors = new VxSchemaErrors(reader);
-
-            return errors;
-        }
-        default:
-            throw new Exception("D-Bus response was not a method return or "
-                    +"error");
-        }
+        WvDbusMsg reply = bus.send_and_wait(call);
+	if (reply.signature == VxSchemaErrors.GetDbusSignature())
+	    return new VxSchemaErrors(reply.iter().pop());
+	else
+	    reply.check(VxSchemaErrors.GetDbusSignature());
+	return null;
     }
 
     // Utility API so you can say Get("foo").
     public VxSchema Get(params string[] keys)
     {
-        Message call = CreateMethodCall("GetSchema", "as");
+        WvDbusMsg call = methodcall("GetSchema", "as");
 
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+        WvDbusWriter writer = new WvDbusWriter();
 
         if (keys == null)
             keys = new string[0];
 
-        writer.Write(typeof(string[]), (Array)keys);
+        writer.WriteArray(4, keys, (w2, k) => {
+	    w2.Write(k);
+	});
         call.Body = writer.ToArray();
 
-        Message reply = call.Connection.SendWithReplyAndBlock(call);
-
-        switch (reply.Header.MessageType) {
-        case MessageType.MethodReturn:
-        {
-            object replysig;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out replysig))
-                throw new Exception("D-Bus reply had no signature");
-
-            if (replysig == null || replysig.ToString() != "a(sssy)")
-                throw new Exception("D-Bus reply had invalid signature: " +
-                    replysig);
-
-            MessageReader reader = new MessageReader(reply);
-            VxSchema schema = new VxSchema(reader);
-            return schema;
-        }
-        case MessageType.Error:
-            throw VxDbusUtils.GetDbusException(reply);
-        default:
-            throw new Exception("D-Bus response was not a method return or "
-                    +"error");
-        }
+        WvDbusMsg reply = bus.send_and_wait(call);
+	reply.check("a(sssy)");
+	VxSchema schema = new VxSchema(reply.iter().pop());
+	return schema;
     }
 
     public VxSchema Get(IEnumerable<string> keys)
@@ -145,32 +98,12 @@ internal class VxDbusSchema : ISchemaBackend
 
     public VxSchemaChecksums GetChecksums()
     {
-        Message call = CreateMethodCall("GetSchemaChecksums", "");
+        WvDbusMsg call = methodcall("GetSchemaChecksums", "");
 
-        Message reply = call.Connection.SendWithReplyAndBlock(call);
-
-        switch (reply.Header.MessageType) {
-        case MessageType.MethodReturn:
-        {
-            object replysig;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out replysig))
-                throw new Exception("D-Bus reply had no signature");
-
-            if (replysig == null || replysig.ToString() != "a(sat)")
-                throw new Exception("D-Bus reply had invalid signature: " +
-                    replysig);
-
-            MessageReader reader = new MessageReader(reply);
-            VxSchemaChecksums sums = new VxSchemaChecksums(reader);
-            return sums;
-        }
-        case MessageType.Error:
-            throw VxDbusUtils.GetDbusException(reply);
-        default:
-            throw new Exception("D-Bus response was not a method return or " +
-                    "error");
-        }
+        WvDbusMsg reply = bus.send_and_wait(call);
+	reply.check("a(sat)");
+	VxSchemaChecksums sums = new VxSchemaChecksums(reply);
+	return sums;
     }
 
     public VxSchemaErrors DropSchema(IEnumerable<string> keys)
@@ -183,122 +116,53 @@ internal class VxDbusSchema : ISchemaBackend
     // A method exported over DBus but not exposed in ISchemaBackend
     public VxSchemaErrors DropSchema(params string[] keys)
     {
-        Message call = CreateMethodCall("DropSchema", "as");
+        WvDbusMsg call = methodcall("DropSchema", "as");
 
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+        WvDbusWriter writer = new WvDbusWriter();
 
-        writer.Write(typeof(string[]), keys);
+	writer.WriteArray(4, keys, (w2, k) => {
+	    w2.Write(k);
+	});
         call.Body = writer.ToArray();
 
-        Message reply = call.Connection.SendWithReplyAndBlock(call);
-
-        switch (reply.Header.MessageType) {
-        case MessageType.MethodReturn:
-        case MessageType.Error:
-        {
-            object replysig;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out replysig))
-                throw new Exception("D-Bus reply had no signature.");
-
-            if (replysig == null)
-                throw new Exception("D-Bus reply had null signature");
-
-            if (replysig.ToString() == "s")
-                throw VxDbusUtils.GetDbusException(reply);
-
-            if (replysig.ToString() != VxSchemaErrors.GetDbusSignature())
-                throw new Exception("D-Bus reply had invalid signature: " +
-                    replysig);
-
-            MessageReader reader = new MessageReader(reply);
-            VxSchemaErrors errors = new VxSchemaErrors(reader);
-
-            return errors;
-        }
-        default:
-            throw new Exception("D-Bus response was not a method return or "
-                    + "error");
-        }
+        WvDbusMsg reply = bus.send_and_wait(call);
+	if (reply.signature == VxSchemaErrors.GetDbusSignature())
+	    return new VxSchemaErrors(reply.iter().pop());
+	else
+	    reply.check(VxSchemaErrors.GetDbusSignature());
+	return null;
     }
     
     public string GetSchemaData(string tablename, int seqnum, string where)
     {
-        Message call = CreateMethodCall("GetSchemaData", "ss");
+        WvDbusMsg call = methodcall("GetSchemaData", "ss");
 
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+        WvDbusWriter writer = new WvDbusWriter();
 
         if (where == null)
             where = "";
 
-        writer.Write(typeof(string), tablename);
-        writer.Write(typeof(string), where);
+        writer.Write(tablename);
+        writer.Write(where);
         call.Body = writer.ToArray();
 
-        Message reply = call.Connection.SendWithReplyAndBlock(call);
-
-        switch (reply.Header.MessageType) {
-        case MessageType.MethodReturn:
-        {
-            object replysig;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out replysig))
-                throw new Exception("D-Bus reply had no signature");
-
-            if (replysig == null || replysig.ToString() != "s")
-                throw new Exception("D-Bus reply had invalid signature: " +
-                    replysig);
-
-            MessageReader reader = new MessageReader(reply);
-            return reader.ReadString();
-        }
-        case MessageType.Error:
-            throw VxDbusUtils.GetDbusException(reply);
-        default:
-            throw new Exception("D-Bus response was not a method return or "
-                    +"error");
-        }
+        WvDbusMsg reply = bus.send_and_wait(call);
+	reply.check("s");
+	return reply.iter().pop();
     }
 
     public void PutSchemaData(string tablename, string text, int seqnum)
     {
-        Message call = CreateMethodCall("PutSchemaData", "ss");
+        WvDbusMsg call = methodcall("PutSchemaData", "ss");
 
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+        WvDbusWriter writer = new WvDbusWriter();
 
         writer.Write(tablename);
         writer.Write(text);
         call.Body = writer.ToArray();
 
-        Message reply = call.Connection.SendWithReplyAndBlock(call);
-
-        switch (reply.Header.MessageType) {
-        case MessageType.MethodReturn:
-        {
-            object replysig;
-            if (reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out replysig))
-                throw new Exception("D-Bus reply had unexpected signature" + 
-                    replysig);
-
-            return;
-        }
-        case MessageType.Error:
-            throw VxDbusUtils.GetDbusException(reply);
-        default:
-            throw new Exception("D-Bus response was not a method return or "
-                    +"error");
-        }
-    }
-
-    //
-    // Non-ISchemaBackend methods
-    //
-
-    // Use our Bus object to create a method call.
-    public Message CreateMethodCall(string member, string signature)
-    {
-        return VxDbusUtils.CreateMethodCall(bus, member, signature);
+        WvDbusMsg reply = bus.send_and_wait(call);
+	reply.check("");
     }
 }
 

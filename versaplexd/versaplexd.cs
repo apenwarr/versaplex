@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Linq;
-using NDesk.DBus;
-using org.freedesktop.DBus;
 using Wv;
 using Wv.Extensions;
 using Wv.NDesk.Options;
@@ -12,89 +10,52 @@ using Wv.NDesk.Options;
 public static class VersaMain
 {
     static WvLog log = new WvLog("Versaplex");
-    static Connection.MessageHandler oldhandler = null;
-    static VxMethodCallRouter msgrouter = new VxMethodCallRouter();
+    static VxDbusRouter msgrouter = new VxDbusRouter();
     static WvDBusServer dbusserver;
     static Thread dbusserver_thread = null;
     static ManualResetEvent thread_ready = new ManualResetEvent(false);
     public static bool want_to_die = false;
     
-    public static Bus conn;
+    public static WvDbus conn;
+    static Queue<Action> action_queue = new Queue<Action>();
 
-    private static void DataReady(object sender, object cookie)
-    {
-        // FIXME: This may require special handling for padding between
-        // messages: it hasn't been a problem so far, but should be addressed
-
-        VxBufferStream vxbs = (VxBufferStream)sender;
-
-        Connection conn = (Connection)cookie;
-
-        if (vxbs.BufferPending == 0) {
-            log.print("??? DataReady but nothing to read\n");
-            return;
-        }
-
-        // XXX: Ew.
-        byte[] buf = new byte[vxbs.BufferPending];
-        vxbs.Read(buf, 0, buf.Length);
-        vxbs.BufferAmount = conn.ReceiveBuffer(buf, 0, buf.Length);
-    }
-
-    private static void NoMoreData(object sender, object cookie)
-    {
-        log.print(
-                "***********************************************************\n"+
-                "************ D-bus connection closed by server ************\n"+
-                "***********************************************************\n");
-
-        VxBufferStream vxbs = (VxBufferStream)sender;
-        vxbs.Close();
-
-        VxEventLoop.Shutdown();
-    }
-
-    private static void MessageReady(Message msg)
+    static bool WvDbusMsgReady(WvDbus conn, WvDbusMsg msg)
     {
         // FIXME: This should really queue things to be run from the thread
         // pool and then the response would be sent back through the action
         // queue
-        log.print(WvLog.L.Debug4, "MessageReady\n");
+        log.print(WvLog.L.Debug4, "WvDbusMsgReady\n");
 
-        VxDbus.MessageDump("<<  ", msg);
-
-        switch (msg.Header.MessageType) 
+        switch (msg.type)
 	{
-	case MessageType.MethodCall:
-	    Message reply;
-	    if (msgrouter.RouteMessage(msg, out reply))
+	case Wv.Dbus.MType.MethodCall:
+	    if (msg.ifc == "vx.db")
 	    {
-		if (reply == null) {
-		    // FIXME: Do something if this happens, maybe?
-		    log.print("Empty reply from RouteMessage\n");
-		} else {
-		    // XXX: Should this be done further down rather than
-		    // passing the reply out here?
-		    msg.Connection.Send(reply);
-		}
-		return;
+		action_queue.Enqueue(() => {
+		    WvDbusMsg reply;
+		    if (msgrouter.route(conn, msg, out reply))
+		    {
+			if (reply == null) {
+			    // FIXME: Do something if this happens, maybe?
+			    log.print("Empty reply from RouteWvDbusMsg\n");
+			} else {
+			    // XXX: Should this be done further down rather than
+			    // passing the reply out here?
+			    conn.send(reply);
+			}
+		    }
+		});
+		return true;
 	    }
-	    break;
+	    return false;
 	    
 	default:
-	    Header h = msg.Header;
 	    log.print(WvLog.L.Warning,
-		      "Unexpected DBus message received: #{0} {1}\n",
-			h.Serial,
-		        (from k in h.Fields.Keys
-			 select wv.fmt("{0}={1}", k, h.Fields[k])
-			 ).Join(" "));
-	    break;
+		      "Unexpected DBus message received: #{0} {1}->{2} {3}:{4}.{5}\n",
+		        msg.serial, msg.sender, msg.dest,
+		      msg.path, msg.ifc, msg.method);
+	    return false;
         }
-
-        // FIXME: This is hacky. But it covers stuff I don't want to deal with
-        // yet.
-        oldhandler(msg);
     }
     
     static void _StartDBusServerThread(string[] monikers)
@@ -152,8 +113,6 @@ public static class VersaMain
 	
 	StartDBusServerThread(listeners.ToArray());
 
-	msgrouter.AddInterface(VxDbInterfaceRouter.Instance);
-
 	bool cfgfound = false;
 
 	if (File.Exists(cfgfile))
@@ -175,7 +134,7 @@ public static class VersaMain
 	}
 	
 	if (bus == null)
-	    bus = Address.Session;
+	    bus = WvDbus.session_bus_address;
 
 	if (bus == null)
 	{
@@ -185,12 +144,7 @@ public static class VersaMain
 	}
 	
         log.print("Connecting to '{0}'\n", bus);
-        AddressEntry aent = AddressEntry.Parse(bus);
-
-        DodgyTransport trans = new DodgyTransport();
-        trans.Open(aent);
-
-        conn = new Bus(trans);
+        conn = new WvDbus(bus);
 
         string myNameReq = "vx.versaplexd";
         RequestNameReply rnr = conn.RequestName(myNameReq,
@@ -206,18 +160,23 @@ public static class VersaMain
                 return 2;
         }
 
-        VxBufferStream vxbs = new VxBufferStream(trans.Socket);
-        conn.Transport.Stream = vxbs;
-        conn.ns = conn.Transport.Stream;
-        vxbs.Cookie = conn;
-        vxbs.DataReady += DataReady;
-        vxbs.NoMoreData += NoMoreData;
-        vxbs.BufferAmount = 16;
+        conn.stream.onclose += () => { 
+	    log.print(
+	      "***********************************************************\n"+
+	      "************ D-bus connection closed by server ************\n"+
+	      "***********************************************************\n");
+	    want_to_die = true;
+	};
 
-        oldhandler = conn.OnMessage;
-        conn.OnMessage = MessageReady;
-
-        VxEventLoop.Run();
+	conn.handlers.Insert(0, (m) => WvDbusMsgReady(conn, m));
+	
+	while (!want_to_die)
+	{
+	    log.print(WvLog.L.Debug2, "Event loop.\n");
+	    WvStream.runonce(-1);
+	    while (action_queue.Count > 0)
+		action_queue.Dequeue()();
+	}
 
 	StopDBusServerThread();
         log.print("Done!\n");

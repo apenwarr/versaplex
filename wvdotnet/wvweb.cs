@@ -326,7 +326,7 @@ namespace Wv.Web
 	
 	public void _send(string s)
 	{
-	    stream.Write(s.ToUTF8());
+	    stream.write(s.ToUTF8());
 	}
 	
 	public void send(params Html[] ha)

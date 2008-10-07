@@ -5,7 +5,6 @@ using System.Data;
 using System.Data.Common;
 using System.Data.SqlClient;
 using System.Collections.Generic;
-using NDesk.DBus;
 using Wv;
 using Wv.Extensions;
 
@@ -13,14 +12,33 @@ internal static class VxDb {
     static WvLog log = new WvLog("VxDb", WvLog.L.Debug2);
 
     internal static void ExecScalar(string connid, string query, 
-        out object result)
+			    out VxColumnType coltype, out object result)
     {
         log.print(WvLog.L.Debug3, "ExecScalar {0}\n", query);
 
 	try
 	{
 	    using (var dbi = VxSqlPool.create(connid))
-		result = dbi.select_one(query).inner;
+	    using (var qr = dbi.select(query))
+	    {
+		var ci = ProcessSchema(qr.columns);
+		if (ci.Length == 0)
+		{
+		    coltype = VxColumnType.String;
+		    result = "";
+		    return;
+		}
+		
+		coltype = ci[0].VxColumnType;
+		var en = qr.GetEnumerator();
+		if (en.MoveNext())
+		    result = en.Current[0].inner;
+		else
+		{
+		    coltype = VxColumnType.String;
+		    result = "";
+		}
+	    }
         }
 	catch (DbException e)
 	{
@@ -29,40 +47,38 @@ internal static class VxDb {
     }
 
 
-    internal static void SendChunkRecordSignal(Message call, object sender,
+    internal static void SendChunkRecordSignal(WvDbus conn,
+					       WvDbusMsg call, string sender,
 					    VxColumnInfo[] colinfo,
 					    object[][] data, byte[][] nulls)
     {
-	MessageWriter writer =
-	    VxDbInterfaceRouter.PrepareRecordsetWriter(colinfo, data, nulls);
-	writer.Write(typeof(uint), call.Header.Serial);
+	WvDbusWriter writer =
+	    VxDbusRouter.PrepareRecordsetWriter(colinfo, data, nulls);
+	writer.Write(call.serial);
 
-	Message signal = VxDbus.CreateSignal(sender, "ChunkRecordsetSig",
-				   	"a(issnny)vaayu",
-					writer);
-		    
-	// For debugging
-	VxDbus.MessageDump(" S>> ", signal);
-
-	call.Connection.Send(signal);
+	new WvDbusSignal(call.sender, call.path, "vx.db", "ChunkRecordsetSig",
+		   "a(issnny)vaayu")
+	    .write(writer)
+	    .send(conn);
     }
 
 
-    internal static void ExecChunkRecordset(Message call, out Message reply)
+    internal static void ExecChunkRecordset(WvDbus conn, 
+					    WvDbusMsg call, out WvDbusMsg reply)
     {
-	string connid = VxDbInterfaceRouter.GetClientId(call);
+	string connid = VxDbusRouter.GetClientId(call);
 	
         if (connid == null)
         {
-            reply = VxDbus.CreateError(
+            reply = call.err_reply(
                     "org.freedesktop.DBus.Error.Failed",
-                    "Could not identify the client", call);
+                    "Could not identify the client");
             return;
         }
         
-	MessageReader reader = new MessageReader(call);
+	var it = call.iter();
 
-        string query = reader.ReadString();
+        string query = it.pop();
 	string iquery = query.ToLower().Trim();
 	reply = null;
         // XXX this is fishy, really... whitespace fucks it up.
@@ -104,9 +120,7 @@ internal static class VxDb {
 
         log.print(WvLog.L.Debug3, "ExecChunkRecordset {0}\n", query);
 
-	object sender;
-        if (!call.Header.Fields.TryGetValue(FieldCode.Sender, out sender))
-	    sender = null;
+	string sender = call.sender;
 
         try
 	{
@@ -223,7 +237,7 @@ internal static class VxDb {
 				  "(1 MB reached; {0} rows)\n",
 				  rows.Count);
 			
-			SendChunkRecordSignal(call, sender, colinfo,
+			SendChunkRecordSignal(conn, call, sender, colinfo,
 					      rows.ToArray(),
 					      rownulls.ToArray());
 			
@@ -241,11 +255,11 @@ internal static class VxDb {
 			      rows.Count);
 
 		// Create reply, either with or with no data
-		MessageWriter replywriter =
-		    VxDbInterfaceRouter.PrepareRecordsetWriter(colinfo,
+		WvDbusWriter replywriter =
+		    VxDbusRouter.PrepareRecordsetWriter(colinfo,
 							       rows.ToArray(),
 							    rownulls.ToArray());
-		reply = VxDbus.CreateReply(call, "a(issnny)vaay", replywriter);
+		reply = call.reply("a(issnny)vaay").write(replywriter);
 	    } // using
         } catch (DbException e) {
             throw new VxSqlException(e.Message, e);
@@ -441,81 +455,103 @@ internal static class VxDb {
     }
 }
 
-public class VxDbInterfaceRouter : VxInterfaceRouter 
+public class VxDbusRouter
 {
-
-    static WvLog log = new WvLog("VxDbInterfaceRouter");
-    static readonly VxDbInterfaceRouter instance;
-    public static VxDbInterfaceRouter Instance {
-        get { return instance; }
-    }
-
-    static VxDbInterfaceRouter() {
-        instance = new VxDbInterfaceRouter();
-    }
-
-    private VxDbInterfaceRouter() : base("vx.db")
+    static WvLog log = new WvLog("VxDbusRouter");
+    protected delegate
+        void MethodCallProcessor(WvDbus conn, WvDbusMsg call,
+				 out WvDbusMsg reply);
+    
+    public VxDbusRouter()
     {
-        methods.Add("Test", CallTest);
-        methods.Add("Quit", CallQuit);
-        methods.Add("ExecScalar", CallExecScalar);
-        methods.Add("ExecRecordset", CallExecRecordset);
-        methods.Add("ExecChunkRecordset", CallExecChunkRecordset);
-        methods.Add("GetSchemaChecksums", CallGetSchemaChecksums);
-        methods.Add("GetSchema", CallGetSchema);
-        methods.Add("PutSchema", CallPutSchema);
-        methods.Add("DropSchema", CallDropSchema);
-        methods.Add("GetSchemaData", CallGetSchemaData);
-        methods.Add("PutSchemaData", CallPutSchemaData);
+    }
+    
+    public bool route(WvDbus conn, WvDbusMsg msg, out WvDbusMsg reply)
+    {
+	MethodCallProcessor p;
+	
+	if (msg.ifc != "vx.db" || msg.path != "/db")
+	{
+	    reply = null;
+	    return false;
+	}
+	
+	if (msg.method == "Test")
+	    p = CallTest;
+	else if (msg.method == "Quit")
+	    p = CallQuit;
+	else if (msg.method == "ExecScalar")
+	    p = CallExecScalar;
+	else if (msg.method == "ExecRecordset")
+	    p = CallExecRecordset;
+	else if (msg.method == "ExecChunkRecordset")
+	    p = CallExecChunkRecordset;
+	else if (msg.method == "GetSchemaChecksums")
+	    p = CallGetSchemaChecksums;
+	else if (msg.method == "GetSchema")
+	    p = CallGetSchema;
+	else if (msg.method == "PutSchema")
+	    p = CallPutSchema;
+	else if (msg.method == "DropSchema")
+	    p = CallDropSchema;
+	else if (msg.method == "GetSchemaData")
+	    p = CallGetSchemaData;
+	else if (msg.method == "PutSchemaData")
+	    p = CallPutSchemaData;
+	else
+	{
+	    // FIXME: this should be done at a higher level somewhere
+            reply = msg.err_reply(
+                    "org.freedesktop.DBus.Error.UnknownMethod",
+                    "Method name {0} not found on interface {1}",
+                    msg.method, msg.ifc);
+	    return true;
+	}
+	ExecuteCall(p, conn, msg, out reply);
+	return true;
     }
 
-    protected override void ExecuteCall(MethodCallProcessor processor,
-            Message call, out Message reply)
+    void ExecuteCall(MethodCallProcessor processor,
+		     WvDbus conn,
+		     WvDbusMsg call, out WvDbusMsg reply)
     {
         try {
-            processor(call, out reply);
+            processor(conn, call, out reply);
         } catch (VxRequestException e) {
-            reply = VxDbus.CreateError(e.DBusErrorType, e.Message, call);
+            reply = call.err_reply(e.DBusErrorType, e.Message);
             log.print("SQL result: {0}\n", e.Short());
         } catch (Exception e) {
-            reply = VxDbus.CreateError(
-                    "vx.db.exception", 
-                    "An internal error occurred.", call);
+            reply = call.err_reply("vx.db.exception", 
+                    "An internal error occurred.");
             log.print("{0}\n", e.ToString());
         }
     }
 
     static Dictionary<string,string> usernames = new Dictionary<string, string>();
-
-    public static string GetClientId(Message call)
+    
+    public static string GetClientId(WvDbusMsg call)
     {
-        object sender_obj;
-        if (!call.Header.Fields.TryGetValue(FieldCode.Sender, out sender_obj))
-            return null;
-        string sender = (string)sender_obj;
+        string sender = call.sender;
 
         // For now, the client ID is just the username of the Unix UID that
         // DBus has associated with the connection.
         string username;
+	var conn = VersaMain.conn;
         if (!usernames.TryGetValue(sender, out username))
         {
 	    try
 	    {
-		// FIXME:  We should be using VersaMain.conn here,
-		//   not the session bus!!
 		// FIXME:  This will likely change as we find a more
 		//   universal way to do SSL authentication via D-Bus.
 		username = VxSqlPool.GetUsernameForCert(
-				Bus.Session.GetCertFingerprint(sender));
+				conn.GetCertFingerprint(sender));
 	    }
 	    catch
 	    {
 		try
 		{
 		    // FIXME: This system call isn't actually standard
-		    // FIXME: we should be using VersaMain.conn here,
-		    //   not the session bus!!
-		    username = Bus.Session.GetUnixUserName(sender);
+		    username = conn.GetUnixUserName(sender);
 		}
 		catch
 		{
@@ -523,9 +559,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 		    {
 			// FIXME: This system call is standard, but not useful
 			//   on Windows.
-			// FIXME: we should be using VersaMain.conn here,
-			//   not the session bus!!
-			username = Bus.Session.GetUnixUser(sender).ToString();
+			username = conn.GetUnixUser(sender).ToString();
 		    }
 		    catch
 		    {
@@ -547,19 +581,18 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         return username;
     }
 
-    private static Message CreateUnknownMethodReply(Message call, 
+    static WvDbusMsg CreateUnknownMethodReply(WvDbusMsg call, 
         string methodname)
     {
-        return VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.UnknownMethod",
-                    String.Format(
-                        "No overload of {0} has signature '{1}'",
-                        methodname, call.Signature), call);
+        return call.err_reply("org.freedesktop.DBus.Error.UnknownMethod",
+			      "No overload of {0} has signature '{1}'",
+			      methodname, call.signature);
     }
 
-    private static void CallTest(Message call, out Message reply)
+    static void CallTest(WvDbus conn,
+				 WvDbusMsg call, out WvDbusMsg reply)
     {
-        if (call.Signature.ToString() != "") {
+        if (call.signature.ne()) {
             reply = CreateUnknownMethodReply(call, "Test");
             return;
         }
@@ -567,9 +600,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         string clientid = GetClientId(call);
         if (clientid == null)
         {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.Failed",
-                    "Could not identify the client", call);
+            reply = call.err_reply("org.freedesktop.DBus.Error.Failed",
+				   "Could not identify the client");
             return;
         }
 
@@ -580,110 +612,96 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             out colinfo, out data, out nullity);
 
         // FIXME: Add vx.db.toomuchdata error
-	MessageWriter writer = PrepareRecordsetWriter(colinfo, data, nullity);
-	
-        reply = VxDbus.CreateReply(call, "a(issnny)vaay", writer);
-	
-        // For debugging
-        VxDbus.MessageDump(" >> ", reply);
+	WvDbusWriter writer = PrepareRecordsetWriter(colinfo, data, nullity);
+        reply = call.reply("a(issnny)vaay").write(writer);
     }
 
-    private static void CallQuit(Message call, out Message reply)
+    static void CallQuit(WvDbus conn,
+				 WvDbusMsg call, out WvDbusMsg reply)
     {
 	// FIXME: Check permissions here
-        MessageWriter writer =
-                new MessageWriter(Connection.NativeEndianness);
-	writer.Write(typeof(string), "Quit");
-        reply = VxDbus.CreateReply(call, "s", writer);
+        WvDbusWriter writer = new WvDbusWriter();
+	writer.Write("Quit");
+        reply = call.reply("s").write(writer);
 	VersaMain.want_to_die = true;
-	
-        // For debugging
-        VxDbus.MessageDump(" >> ", reply);
     }
 
-    private static void CallExecScalar(Message call, out Message reply)
+    static void CallExecScalar(WvDbus conn,
+				       WvDbusMsg call, out WvDbusMsg reply)
     {
-        if (call.Signature.ToString() != "s") {
+        if (call.signature != "s") {
             reply = CreateUnknownMethodReply(call, "ExecScalar");
             return;
         }
 
         if (call.Body == null) {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.InvalidSignature",
-                    "Signature provided but no body received", call);
+            reply = call.err_reply
+		("org.freedesktop.DBus.Error.InvalidSignature",
+		 "Signature provided but no body received");
             return;
         }
 
         string clientid = GetClientId(call);
         if (clientid == null)
         {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.Failed",
-                    "Could not identify the client", call);
+            reply = call.err_reply("org.freedesktop.DBus.Error.Failed",
+				   "Could not identify the client");
             return;
         }
 
-        MessageReader reader = new MessageReader(call);
-
-        string query = reader.ReadString();
+	var it = call.iter();
+        string query = it.pop();
 
         object result;
-        VxDb.ExecScalar(clientid, (string)query, out result);
+	VxColumnType coltype;
+        VxDb.ExecScalar(clientid, (string)query,
+			out coltype, out result);
 
-        MessageWriter writer =
-                new MessageWriter(Connection.NativeEndianness);
-        writer.Write(result);
+        WvDbusWriter writer = new WvDbusWriter();
+	writer.WriteSig(VxColumnTypeToSignature(coltype));
+	WriteV(writer, coltype, result);
 
-        reply = VxDbus.CreateReply(call, "v", writer);
-	
-        // For debugging
-        VxDbus.MessageDump(" >> ", reply);
+        reply = call.reply("v").write(writer);
     }
     
-    private static void _WriteColInfo(MessageWriter w,
-				      VxColumnInfo[] colinfo)
+    static void WriteColInfo(WvDbusWriter writer, VxColumnInfo[] colinfo)
     {
 	// a(issnny)
-	foreach (VxColumnInfo c in colinfo)
-	    c.Write(w);
-    }
-    
-    private static void WriteColInfo(MessageWriter writer, 
-				     VxColumnInfo[] colinfo)
-    {
-	writer.WriteDelegatePrependSize(delegate(MessageWriter w) 
-	    {
-		_WriteColInfo(w, colinfo);
-	    }, 8);
+	writer.WriteArray(8, colinfo, (w2, i) => {
+	    w2.Write(i.size);
+	    w2.Write(i.colname);
+	    w2.Write(i.coltype.ToString());
+	    w2.Write(i.precision);
+	    w2.Write(i.scale);
+	    w2.Write(i.nullable);
+	});
     }
 
-    public static void CallExecRecordset(Message call, out Message reply)
+    public static void CallExecRecordset(WvDbus conn,
+					 WvDbusMsg call, out WvDbusMsg reply)
     {
-        if (call.Signature.ToString() != "s") {
+        if (call.signature != "s") {
             reply = CreateUnknownMethodReply(call, "ExecRecordset");
             return;
         }
 
         if (call.Body == null) {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.InvalidSignature",
-                    "Signature provided but no body received", call);
+            reply = call.err_reply
+		("org.freedesktop.DBus.Error.InvalidSignature",
+		 "Signature provided but no body received");
             return;
         }
 
         string clientid = GetClientId(call);
         if (clientid == null)
         {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.Failed",
-                    "Could not identify the client", call);
+            reply = call.err_reply("org.freedesktop.DBus.Error.Failed",
+				   "Could not identify the client");
             return;
         }
 
-        MessageReader reader = new MessageReader(call);
-
-        string query = reader.ReadString();
+	var it = call.iter();
+        string query = it.pop();
 
         VxColumnInfo[] colinfo;
         object[][] data;
@@ -692,152 +710,77 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             out colinfo, out data, out nullity);
 
         // FIXME: Add vx.db.toomuchdata error
-	MessageWriter writer = PrepareRecordsetWriter(colinfo, data, nullity);
+	WvDbusWriter writer = PrepareRecordsetWriter(colinfo, data, nullity);
 	
-        reply = VxDbus.CreateReply(call, "a(issnny)vaay", writer);
-
-        // For debugging
-        VxDbus.MessageDump(" >> ", reply);
+        reply = call.reply("a(issnny)vaay").write(writer);
     }
 
-    private static void CallExecChunkRecordset(Message call, out Message reply)
+    static void CallExecChunkRecordset(WvDbus conn,
+					       WvDbusMsg call, out WvDbusMsg reply)
     {
 	// XXX: Stuff in this comment block shamelessly stolen from
 	// "CallExecRecordset".
-        if (call.Signature.ToString() != "s") {
+        if (call.signature != "s") {
             reply = CreateUnknownMethodReply(call, "ExecChunkRecordset");
             return;
         }
 
         if (call.Body == null) {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.InvalidSignature",
-                    "Signature provided but no body received", call);
+            reply = call.err_reply
+		("org.freedesktop.DBus.Error.InvalidSignature",
+		 "Signature provided but no body received");
             return;
         }
 	/// XXX
 
-        VxDb.ExecChunkRecordset(call, out reply);
-	
-        // For debugging
-        VxDbus.MessageDump(" >> ", reply);
+        VxDb.ExecChunkRecordset(conn, call, out reply);
+    }
+    
+    static string VxColumnTypeToSignature(VxColumnType t)
+    {
+	switch (t)
+	{
+	case VxColumnType.Int64:
+	    return "x";
+	case VxColumnType.Int32:
+	    return "i";
+	case VxColumnType.Int16:
+	    return "n";
+	case VxColumnType.UInt8:
+	    return "y";
+	case VxColumnType.Bool:
+	    return "b";
+	case VxColumnType.Double:
+	    return "d";
+	case VxColumnType.Uuid:
+	    return "s";
+	case VxColumnType.Binary:
+	    return "ay";
+	case VxColumnType.String:
+	    return "s";
+	case VxColumnType.DateTime:
+	    return "(xi)";
+	case VxColumnType.Decimal:
+	    return "s";
+	default:
+	    throw new ArgumentException("Unknown VxColumnType");
+	}
     }
 
-    private static Signature VxColumnInfoToArraySignature(VxColumnInfo[] vxci)
+    static string VxColumnInfoToArraySignature(VxColumnInfo[] vxci)
     {
         StringBuilder sig = new StringBuilder("a(");
-
-        foreach (VxColumnInfo ci in vxci) {
-            switch (ci.VxColumnType) {
-            case VxColumnType.Int64:
-                sig.Append("x");
-                break;
-            case VxColumnType.Int32:
-                sig.Append("i");
-                break;
-            case VxColumnType.Int16:
-                sig.Append("n");
-                break;
-            case VxColumnType.UInt8:
-                sig.Append("y");
-                break;
-            case VxColumnType.Bool:
-                sig.Append("b");
-                break;
-            case VxColumnType.Double:
-                sig.Append("d");
-                break;
-            case VxColumnType.Uuid:
-                sig.Append("s");
-                break;
-            case VxColumnType.Binary:
-                sig.Append("ay");
-                break;
-            case VxColumnType.String:
-                sig.Append("s");
-                break;
-            case VxColumnType.DateTime:
-                sig.Append("(xi)");
-                break;
-            case VxColumnType.Decimal:
-                sig.Append("s");
-                break;
-            default:
-                throw new ArgumentException("Unknown VxColumnType");
-            }
-        }
-
+        foreach (VxColumnInfo ci in vxci)
+	    sig.Append(VxColumnTypeToSignature(ci.VxColumnType));
         sig.Append(")");
 
-        return new Signature(sig.ToString());
+        return sig.ToString();
     }
 
-    private static Type[] VxColumnInfoToType(VxColumnInfo[] vxci)
+    static void CallGetSchemaChecksums(WvDbus conn,
+					       WvDbusMsg call, out WvDbusMsg reply)
     {
-        Type[] ret = new Type[vxci.Length];
-
-        for (int i=0; i < vxci.Length; i++) {
-            switch (vxci[i].VxColumnType) {
-            case VxColumnType.Int64:
-                ret[i] = typeof(Int64);
-                break;
-            case VxColumnType.Int32:
-                ret[i] = typeof(Int32);
-                break;
-            case VxColumnType.Int16:
-                ret[i] = typeof(Int16);
-                break;
-            case VxColumnType.UInt8:
-                ret[i] = typeof(Byte);
-                break;
-            case VxColumnType.Bool:
-                ret[i] = typeof(Boolean);
-                break;
-            case VxColumnType.Double:
-                ret[i] = typeof(Double);
-                break;
-            case VxColumnType.Uuid:
-                ret[i] = typeof(string);
-                break;
-            case VxColumnType.Binary:
-                ret[i] = typeof(byte[]);
-                break;
-            case VxColumnType.String:
-                ret[i] = typeof(string);
-                break;
-            case VxColumnType.DateTime:
-                ret[i] = typeof(VxDbusDateTime);
-                break;
-            case VxColumnType.Decimal:
-                ret[i] = typeof(string);
-                break;
-            default:
-                throw new ArgumentException("Unknown VxColumnType");
-            }
-        }
-
-        return ret;
-    }
-
-    private static void WriteStructArray(MessageWriter writer,
-            Type[] types, object[][] data)
-    {
-        foreach (object[] row in data) {
-            writer.WritePad(8);
-
-            for (int i=0; i < row.Length; i++) {
-                if (!types[i].IsInstanceOfType(row[i]))
-                    throw new ArgumentException("Data does not match type for "
-                            +"column " + i);
-
-                writer.Write(types[i], row[i]);
-            }
-        }
-    }
-
-    private static void CallGetSchemaChecksums(Message call, out Message reply)
-    {
-        if (call.Signature.ToString() != "") {
+        if (call.signature.ne()) {
             reply = CreateUnknownMethodReply(call, "GetSchemaChecksums");
             return;
         }
@@ -845,14 +788,13 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         string clientid = GetClientId(call);
         if (clientid == null)
         {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.Failed",
-                    "Could not identify the client", call);
+            reply = call.err_reply("org.freedesktop.DBus.Error.Failed",
+				   "Could not identify the client");
             return;
         }
 
         // FIXME: Add vx.db.toomuchdata error
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+        WvDbusWriter writer = new WvDbusWriter();
 
         using (var dbi = VxSqlPool.create(clientid))
         {
@@ -861,16 +803,13 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             sums.WriteChecksums(writer);
         }
 
-        reply = VxDbus.CreateReply(call, 
-            VxSchemaChecksums.GetDbusSignature(), writer);
-
-        // For debugging
-        VxDbus.MessageDump(" >> ", reply);
+        reply = call.reply(VxSchemaChecksums.GetDbusSignature()).write(writer);
     }
 
-    private static void CallGetSchema(Message call, out Message reply)
+    static void CallGetSchema(WvDbus conn,
+				      WvDbusMsg call, out WvDbusMsg reply)
     {
-        if (call.Signature.ToString() != "as") {
+        if (call.signature != "as") {
             reply = CreateUnknownMethodReply(call, "GetSchema");
             return;
         }
@@ -878,35 +817,30 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         string clientid = GetClientId(call);
         if (clientid == null)
         {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.Failed",
-                    "Could not identify the client", call);
+            reply = call.err_reply("org.freedesktop.DBus.Error.Failed",
+				   "Could not identify the client");
             return;
         }
 
-        Array names_untyped;
+	var it = call.iter();
+        string[] names = it.pop().Cast<string>().ToArray();
 
-        MessageReader mr = new MessageReader(call);
-        names_untyped = mr.ReadArray(typeof(string));
-
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+        WvDbusWriter writer = new WvDbusWriter();
 
         using (var dbi = VxSqlPool.create(clientid))
         {
             VxDbSchema backend = new VxDbSchema(dbi);
-            VxSchema schema = backend.Get(names_untyped.Cast<string>());
+            VxSchema schema = backend.Get(names);
             schema.WriteSchema(writer);
         }
 
-        reply = VxDbus.CreateReply(call, VxSchema.GetDbusSignature(), writer);
-
-        // For debugging
-        VxDbus.MessageDump(" >> ", reply);
+        reply = call.reply(VxSchema.GetDbusSignature()).write(writer);
     }
 
-    private static void CallDropSchema(Message call, out Message reply)
+    static void CallDropSchema(WvDbus conn,
+				       WvDbusMsg call, out WvDbusMsg reply)
     {
-        if (call.Signature.ToString() != "as") {
+        if (call.signature != "as") {
             reply = CreateUnknownMethodReply(call, "DropSchema");
             return;
         }
@@ -914,14 +848,13 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         string clientid = GetClientId(call);
         if (clientid == null)
         {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.Failed",
-                    "Could not identify the client", call);
+            reply = call.err_reply("org.freedesktop.DBus.Error.Failed",
+				   "Could not identify the client");
             return;
         }
 
-        MessageReader mr = new MessageReader(call);
-	string[] keys = (string[])mr.ReadArray(typeof(string));
+	var it = call.iter();
+	string[] keys = it.pop().Cast<string>().ToArray();
 
         VxSchemaErrors errs;
         using (var dbi = VxSqlPool.create(clientid))
@@ -930,22 +863,21 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             errs = backend.DropSchema(keys);
         }
 
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+        WvDbusWriter writer = new WvDbusWriter();
         VxSchemaErrors.WriteErrors(writer, errs);
 
-        reply = VxDbus.CreateReply(call, VxSchemaErrors.GetDbusSignature(), 
-            writer);
+        reply = call.reply(VxSchemaErrors.GetDbusSignature()).write(writer);
         if (errs != null && errs.Count > 0)
         {
-            reply.Header.MessageType = MessageType.Error;
-            reply.Header.Fields[FieldCode.ErrorName] = 
-                "org.freedesktop.DBus.Error.Failed";
+            reply.type = Wv.Dbus.MType.Error;
+            reply.err = "org.freedesktop.DBus.Error.Failed";
         }
     }
 
-    private static void CallPutSchema(Message call, out Message reply)
+    static void CallPutSchema(WvDbus conn,
+				      WvDbusMsg call, out WvDbusMsg reply)
     {
-        if (call.Signature.ToString() != String.Format("{0}i", 
+        if (call.signature != String.Format("{0}i", 
                 VxSchema.GetDbusSignature())) {
             reply = CreateUnknownMethodReply(call, "PutSchema");
             return;
@@ -954,15 +886,14 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         string clientid = GetClientId(call);
         if (clientid == null)
         {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.Failed",
-                    "Could not identify the client", call);
+            reply = call.err_reply("org.freedesktop.DBus.Error.Failed",
+				   "Could not identify the client");
             return;
         }
 
-        MessageReader mr = new MessageReader(call);
-        VxSchema schema = new VxSchema(mr);
-        int opts = mr.ReadInt32();
+	var it = call.iter();
+        VxSchema schema = new VxSchema(it.pop());
+        int opts = it.pop();
 
         VxSchemaErrors errs;
         
@@ -972,22 +903,21 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             errs = backend.Put(schema, null, (VxPutOpts)opts);
         }
 
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+        WvDbusWriter writer = new WvDbusWriter();
         VxSchemaErrors.WriteErrors(writer, errs);
 
-        reply = VxDbus.CreateReply(call, VxSchemaErrors.GetDbusSignature(), 
-            writer);
+        reply = call.reply(VxSchemaErrors.GetDbusSignature()).write(writer);
         if (errs != null && errs.Count > 0)
         {
-            reply.Header.MessageType = MessageType.Error;
-            reply.Header.Fields[FieldCode.ErrorName] = 
-                "org.freedesktop.DBus.Error.Failed";
+            reply.type = Wv.Dbus.MType.Error;
+            reply.err = "org.freedesktop.DBus.Error.Failed";
         }
     }
 
-    private static void CallGetSchemaData(Message call, out Message reply)
+    static void CallGetSchemaData(WvDbus conn,
+					  WvDbusMsg call, out WvDbusMsg reply)
     {
-        if (call.Signature.ToString() != "ss") {
+        if (call.signature != "ss") {
             reply = CreateUnknownMethodReply(call, "GetSchemaData");
             return;
         }
@@ -995,17 +925,16 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         string clientid = GetClientId(call);
         if (clientid == null)
         {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.Failed",
-                    "Could not identify the client", call);
+            reply = call.err_reply("org.freedesktop.DBus.Error.Failed",
+				   "Could not identify the client");
             return;
         }
 
-        MessageReader mr = new MessageReader(call);
-        string tablename = mr.ReadString();
-	string where = mr.ReadString();
+	var it = call.iter();
+        string tablename = it.pop();
+	string where = it.pop();
 
-        MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
+        WvDbusWriter writer = new WvDbusWriter();
 
         using (var dbi = VxSqlPool.create(clientid))
         {
@@ -1014,12 +943,13 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             writer.Write(schemadata);
         }
 
-        reply = VxDbus.CreateReply(call, "s", writer);
+        reply = call.reply("s").write(writer);
     }
 
-    private static void CallPutSchemaData(Message call, out Message reply)
+    static void CallPutSchemaData(WvDbus conn,
+					  WvDbusMsg call, out WvDbusMsg reply)
     {
-        if (call.Signature.ToString() != "ss") {
+        if (call.signature != "ss") {
             reply = CreateUnknownMethodReply(call, "PutSchemaData");
             return;
         }
@@ -1027,15 +957,14 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         string clientid = GetClientId(call);
         if (clientid == null)
         {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.Failed",
-                    "Could not identify the client", call);
+            reply = call.err_reply("org.freedesktop.DBus.Error.Failed",
+				   "Could not identify the client");
             return;
         }
 
-        MessageReader mr = new MessageReader(call);
-        string tablename = mr.ReadString();
-        string text = mr.ReadString();
+	var it = call.iter();
+        string tablename = it.pop();
+        string text = it.pop();
 
         using (var dbi = VxSqlPool.create(clientid))
         {
@@ -1043,29 +972,81 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             backend.PutSchemaData(tablename, text, 0);
         }
 
-        reply = VxDbus.CreateReply(call);
+        reply = call.reply();
+    }
+    
+    static void WriteV(WvDbusWriter w, VxColumnType t, object v)
+    {
+	switch (t)
+	{
+	case VxColumnType.Int64:
+	    w.Write((Int64)v);
+	    break;
+	case VxColumnType.Int32:
+	    w.Write((Int32)v);
+	    break;
+	case VxColumnType.Int16:
+	    w.Write((Int16)v);
+	    break;
+	case VxColumnType.UInt8:
+	    w.Write((byte)v);
+	    break;
+	case VxColumnType.Bool:
+	    w.Write((bool)v);
+	    break;
+	case VxColumnType.Double:
+	    w.Write((double)v);
+	    break;
+	case VxColumnType.Binary:
+	    w.Write((byte[])v);
+	    break;
+	case VxColumnType.String:
+	case VxColumnType.Decimal:
+	case VxColumnType.Uuid:
+	    w.Write((string)v);
+	    break;
+	case VxColumnType.DateTime:
+	    {
+		var dt = (VxDbusDateTime)v;
+		w.Write(dt.seconds);
+		w.Write(dt.microseconds);
+		break;
+	    }
+	default:
+	    throw new ArgumentException("Unknown VxColumnType");
+	}
     }
 
-    public static MessageWriter PrepareRecordsetWriter(VxColumnInfo[] colinfo,
+    // a(issnny)vaay
+    public static WvDbusWriter PrepareRecordsetWriter(VxColumnInfo[] colinfo,
 						object[][] data,
 						byte[][] nulldata)
     {
-	MessageWriter writer = new MessageWriter(Connection.NativeEndianness);
-
+	WvDbusWriter writer = new WvDbusWriter();
+	
+	// a(issnny)
 	WriteColInfo(writer, colinfo);
+	
+	// v
 	if (colinfo.Length <= 0)
 	{
 	    // Some clients can't parse a() (empty struct) properly, so
 	    // we'll have an empty array of (i) instead.
-	    writer.Write(typeof(Signature), new Signature("a(i)"));
+	    writer.WriteSig("a(i)");
 	}
 	else
-	    writer.Write(typeof(Signature), VxColumnInfoToArraySignature(colinfo));
-	writer.WriteDelegatePrependSize(delegate(MessageWriter w)
-		{
-		    WriteStructArray(w, VxColumnInfoToType(colinfo), data);
-		}, 8);
-	writer.Write(typeof(byte[][]), nulldata);
+	    writer.WriteSig(VxColumnInfoToArraySignature(colinfo));
+
+	// a(whatever)
+	writer.WriteArray(8, data, (w2, r) => {
+	    for (int i = 0; i < colinfo.Length; i++)
+		WriteV(w2, colinfo[i].VxColumnType, r[i]);
+	});
+	
+	// aay
+	writer.WriteArray(4, nulldata, (w2, r) => {
+	    w2.Write(r);
+	});
 
 	return writer;
     }

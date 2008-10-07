@@ -4,6 +4,7 @@ using System.Data.SqlTypes;
 using System.Data.SqlClient;
 using System.Collections;
 using System.Collections.Generic;
+using SCG = System.Collections.Generic;
 using System.Linq;
 using Wv.Extensions;
 
@@ -22,7 +23,7 @@ namespace Wv
      * When converting to bool, we assume any non-zero int is true, just
      * like C/C++ would do. 
      */
-    public struct WvAutoCast
+    public struct WvAutoCast : IEnumerable<WvAutoCast>
     {
 	object v;
 	public static readonly WvAutoCast _null = new WvAutoCast(null);
@@ -48,6 +49,8 @@ namespace Wv
 		return "(nil)"; // shouldn't return null since this != null
             else if (v is Boolean)
                 return intify().ToString();
+	    else if (v is IEnumerable<WvAutoCast>)
+		return "[" + this.Join(",") + "]";
 	    else
 		return v.ToString();
 	}
@@ -90,7 +93,19 @@ namespace Wv
 	    else
 		return new SqlBinary((byte[])o.v);
         }
-
+	
+	bool isint()
+	{
+	    if (IsNull)
+		return false;
+	    else if (v is Int64 || v is Int32 || v is Int16
+		     || v is UInt64 || v is UInt32 || v is UInt16
+		     || v is byte || v is bool)
+		return true;
+	    else
+		return false;
+	}
+	
 	Int64 intify()
 	{
 	    if (IsNull)
@@ -122,6 +137,21 @@ namespace Wv
 	public static implicit operator Int16(WvAutoCast o)
 	{
 	    return (Int16)o.intify();
+	}
+
+	public static implicit operator UInt64(WvAutoCast o)
+	{
+	    return (UInt64) o.intify();
+	}
+
+	public static implicit operator UInt32(WvAutoCast o)
+	{
+	    return (UInt32)o.intify();
+	}
+
+	public static implicit operator UInt16(WvAutoCast o)
+	{
+	    return (UInt16)o.intify();
 	}
 
 	public static implicit operator Byte(WvAutoCast o)
@@ -168,28 +198,32 @@ namespace Wv
 	{
 	    if (o.IsNull)
 		return Char.MinValue;
-	    else if (o.v is char)
-		return (char)o.v;
+	    else if (o.v is char || o.isint())
+		return (char)o.intify();
 	    else
 		return Char.MinValue;
 	}
 
 	public static implicit operator Decimal(WvAutoCast o)
 	{
-	    // FIXME:  double/int to decimal conversions?
 	    if (o.v is Decimal)
 		return (Decimal)o.v;
+	    else if (o.v is UInt64)
+		return new Decimal((UInt64)o.v);
+	    else if (o.isint())
+		return new Decimal(o.intify());
+	    else if (o.v is double || o.v is float)
+		return new Decimal((double)o);
 	    else
 		return Decimal.MinValue;
 	}
 	
 	public static implicit operator SqlDecimal(WvAutoCast o)
 	{
-	    // FIXME:  double/int to decimal conversions?
 	    if (o.v is SqlDecimal)
 		return (SqlDecimal)o.v;
 	    else
-		return SqlDecimal.MinValue;
+		return (Decimal)o;
 	}
 	
 	public static implicit operator Guid(WvAutoCast o)
@@ -210,6 +244,78 @@ namespace Wv
 		return (Guid)o.v;
 	    else
 		return SqlGuid.Null;
+	}
+	
+	public object to(Type t)
+	{
+	    if (t == typeof(string))
+		return (string)this;
+	    else if (t == typeof(DateTime))
+		return (DateTime)this;
+	    else if (t == typeof(SqlDateTime))
+		return (SqlDateTime)this;
+	    else if (t == typeof(byte[]))
+		return (byte[])this;
+	    else if (t == typeof(SqlBinary))
+		return (SqlBinary)this;
+	    else if (t == typeof(Int64))
+		return (Int64)this;
+	    else if (t == typeof(UInt64))
+		return (UInt64)this;
+	    else if (t == typeof(Int32))
+		return (Int32)this;
+	    else if (t == typeof(UInt32))
+		return (UInt32)this;
+	    else if (t == typeof(Int16))
+		return (Int16)this;
+	    else if (t == typeof(UInt16))
+		return (UInt16)this;
+	    else if (t == typeof(byte))
+		return (byte)this;
+	    else if (t == typeof(bool))
+		return (bool)this;
+	    else if (t == typeof(double))
+		return (double)this;
+	    else if (t == typeof(float))
+		return (float)this;
+	    else if (t == typeof(char))
+		return (char)this;
+	    else if (t == typeof(Decimal))
+		return (Decimal)this;
+	    else if (t == typeof(SqlDecimal))
+		return (SqlDecimal)this;
+	    else if (t == typeof(Guid))
+		return (Guid)this;
+	    else if (t == typeof(SqlGuid))
+		return (SqlGuid)this;
+	    else
+		return v;
+	}
+	
+	IEnumerable<object> _iter()
+	{
+	    if (!IsNull && v is IEnumerable)
+	    {
+		foreach (object i in (IEnumerable)v)
+		{
+		    if (i is WvAutoCast)
+			yield return ((WvAutoCast)i).inner;
+		    else
+			yield return i;
+		}
+	    }
+	}
+	
+	IEnumerator System.Collections.IEnumerable.GetEnumerator()
+	{
+	    foreach (var i in _iter())
+		yield return i;
+	}
+	
+	public IEnumerator<WvAutoCast> GetEnumerator()
+	{
+	    foreach (object i in _iter())
+		yield return new WvAutoCast(i);
 	}
     }
     
