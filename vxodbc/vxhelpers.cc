@@ -15,10 +15,8 @@ static bool signal_sorter(WvDBusMsg &msg)
     if (!!member && member == "ChunkRecordsetSig")
     {
     	WvDBusMsg::Iter top(msg);
-	top.getnext().getnext().getnext();
-	if (!top.next())
-	    return false;
-	unsigned int reply_serial = (unsigned int)top.get_int();
+	unsigned int reply_serial =
+	    (unsigned int)top.getnext().getnext().getnext().getnext().get_int();
 	if (signal_returns[reply_serial])
 	{
 	    signal_returns[reply_serial]->process_msg(msg);
@@ -93,15 +91,9 @@ void VxResultSet::runquery(WvDBusConn &conn, const char *func,
     			wv::bind(&update_sigrets, _1, this));
 
     if (reply.iserror())
-	    mylog("DBus error: '%s'\n", ((WvString)reply).cstr());
-    else
-    {
-    	// Method return
-	WvDBusMsg::Iter top(reply);
-	if (top.next() &&
-	    top.get_str() != "ChunkRecordset sent you all your data!")
-	    process_msg(reply);
-    }
+	mylog("DBus error: '%s'\n", ((WvString)reply).cstr());
+    else // Method return
+	process_msg(reply);
 
     uint32_t reply_serial = reply.get_replyserial();
     if (signal_returns[reply_serial])

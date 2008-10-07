@@ -7,12 +7,13 @@
 #include <wvistreamlist.h>
 #include <wvcrash.h>
 #include "psqlodbc.h"
+#include <wvlogrcv.h>
 
 static WvLog *wvlog = NULL;
 static WvLogRcv *rcv = NULL;
 
 int log_level = 0;
-WvString log_moniker;
+static WvString log_moniker;
 
 WV_LINK_TO(WvTCPConn);
 WV_LINK_TO(WvSSLStream);
@@ -34,37 +35,45 @@ int wvlog_isset()
     return !log_moniker.isnull() && *(log_moniker.cstr());
 }
 
+class WvNullRcv : public WvLogRcv
+{
+public:
+    WvNullRcv() : WvLogRcv(WvLog::Info) {}
+    ~WvNullRcv() {}
+
+protected:
+    virtual void _mid_line(const char *str, size_t len) {}
+};
+
 void wvlog_open()
 {
-#ifdef _MSC_VER
-    setup_console_crash();
-#endif
-    WvLog::LogLevel pri = WvLog::Info;
-    if (log_level)
-    {
-	if (log_level >= (int)WvLog::NUM_LOGLEVELS)
-	    pri = WvLog::Debug5;
-	else if (log_level >= (int)WvLog::Info)
-	    pri = (WvLog::LogLevel)log_level;
-    }
-
     if (rcv)
-	delete rcv;
+	wvlog_close();
+#ifdef _MSC_VER
+    else  // This will only be true once; when we first call this function
+	setup_console_crash();
+#endif
 
     if (wvlog_isset())
     {
+	WvLog::LogLevel pri = WvLog::Info;
+	if (log_level)
+	{
+	    if (log_level >= (int)WvLog::NUM_LOGLEVELS)
+		pri = WvLog::Debug5;
+	    else if (log_level >= (int)WvLog::Info)
+		pri = (WvLog::LogLevel)log_level;
+	}
+
 	IWvStream *s = wvcreate<IWvStream>(log_moniker);
 	assert(s);
 	WvIStreamList::globallist.append(s, false, "VxODBC logger");
 	rcv = new WvLogStream(s, pri);
+    	if (!wvlog)
+	    wvlog = new WvLog(getpid(), WvLog::Debug);
     }
-    else
-    {
-	rcv = new WvLogConsole(dup(2), pri);
-    }
-	
-    if (!wvlog)
-	wvlog = new WvLog(getpid(), WvLog::Debug);
+    else // We want this to also capture (and eliminate) DBus messages.
+	rcv = new WvNullRcv();
 }
 
 

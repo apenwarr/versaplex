@@ -14,8 +14,6 @@
 WV_LINK_TO(WvTCPConn);
 WV_LINK_TO(WvSSLStream);
 
-int VxOdbcTester::num_names_registered = 0;
-
 bool VxOdbcTester::name_request_cb(WvDBusMsg &msg)
 {
     WvLog log("name_request_cb", WvLog::Debug1);
@@ -30,6 +28,8 @@ VxOdbcTester::VxOdbcTester(bool always_create_server) :
     dbus_server(),
     vxserver_conn(dbus_server.moniker),
     t(NULL),
+    expected_query(WvString::null),
+    num_names_registered(0),
     log("Fake Versaplex", WvLog::Debug1)
 {
     dbus_moniker = dbus_server.moniker;
@@ -41,7 +41,7 @@ VxOdbcTester::VxOdbcTester(bool always_create_server) :
 					 "vxserver_conn");
 
         log("*** Registering vx.versaplexd\n");
-        vxserver_conn.request_name("vx.versaplexd", &name_request_cb);
+        vxserver_conn.request_name("vx.versaplexd", wv::bind(&VxOdbcTester::name_request_cb, this, _1));
         while (num_names_registered < 1)
             WvIStreamList::globallist.runonce();
 

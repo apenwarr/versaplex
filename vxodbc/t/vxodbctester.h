@@ -52,7 +52,7 @@ public:
     WvString dbus_moniker;
     Table *t;
     WvString expected_query;
-    static int num_names_registered;
+    int num_names_registered;
     WvLog log;
 
     // Set always_create_server to true if you don't ever want to use the real
@@ -60,7 +60,7 @@ public:
     VxOdbcTester(bool always_create_server = false);
     ~VxOdbcTester();
 
-    static bool name_request_cb(WvDBusMsg &msg); 
+    bool name_request_cb(WvDBusMsg &msg); 
     bool msg_received(WvDBusMsg &msg);
 };
 
