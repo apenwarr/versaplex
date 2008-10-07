@@ -25,7 +25,7 @@ public class VersaplexTester: IDisposable
     private const string image_file = "thtbacs.tiff";
 
     public WvDbi dbi;
-    protected Connection bus;
+    protected WvDbus bus;
 
     public VersaplexTester()
     {
@@ -57,10 +57,10 @@ public class VersaplexTester: IDisposable
         string cfgval = cfg.get("Connections", dbname);
         if (cfgval == null)
             throw new Exception(String.Format(
-                "Connection string for '{0}' missing from config.", dbname));
+                "WvDbus string for '{0}' missing from config.", dbname));
 
 	dbi = WvDbi.create(cfgval);
-        bus = Connection.session_bus;
+        bus = WvDbus.session_bus;
     }
 
     public void Dispose()

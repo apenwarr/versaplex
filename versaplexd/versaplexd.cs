@@ -16,10 +16,10 @@ public static class VersaMain
     static ManualResetEvent thread_ready = new ManualResetEvent(false);
     public static bool want_to_die = false;
     
-    public static Connection conn;
+    public static WvDbus conn;
     static Queue<Action> action_queue = new Queue<Action>();
 
-    static bool WvDbusMsgReady(Connection conn, WvDbusMsg msg)
+    static bool WvDbusMsgReady(WvDbus conn, WvDbusMsg msg)
     {
         // FIXME: This should really queue things to be run from the thread
         // pool and then the response would be sent back through the action
@@ -134,7 +134,7 @@ public static class VersaMain
 	}
 	
 	if (bus == null)
-	    bus = Connection.session_bus_address;
+	    bus = WvDbus.session_bus_address;
 
 	if (bus == null)
 	{
@@ -144,7 +144,7 @@ public static class VersaMain
 	}
 	
         log.print("Connecting to '{0}'\n", bus);
-        conn = new Connection(bus);
+        conn = new WvDbus(bus);
 
         string myNameReq = "vx.versaplexd";
         RequestNameReply rnr = conn.RequestName(myNameReq,

@@ -41,7 +41,7 @@ namespace Wv
         AlreadyRunning, // connection already owns the given name
     }
 
-    public class Connection
+    public class WvDbus
     {
 	static readonly string DBusName = "org.freedesktop.DBus";
 	static readonly string DBusPath = "/org/freedesktop/DBus";
@@ -50,7 +50,7 @@ namespace Wv
 	public WvBufStream stream { get; private set; }
 	public bool ok { get { return stream.ok; } }
 
-	public Connection(string address)
+	public WvDbus(string address)
 	{
 	    handlers = new List<Func<WvDbusMsg,bool>>();
 	    handlers.Add(default_handler);
@@ -340,11 +340,11 @@ namespace Wv
 	}
 
 	// FIXME: might as well cache this
-	public static Connection session_bus {
+	public static WvDbus session_bus {
 	    get {
 		if (session_bus_address.e())
 		    throw new Exception("DBUS_SESSION_BUS_ADDRESS not set");
-		return new Connection(session_bus_address);
+		return new WvDbus(session_bus_address);
 	    }
 	}
 	
@@ -373,8 +373,7 @@ namespace Wv
         WvAutoCast CallDBusMethod(string method, string sig, 
             byte[] body)
         {
-            var m = new WvDbusCall(DBusName, DBusPath, DBusName, method);
-            m.signature = sig;
+            var m = new WvDbusCall(DBusName, DBusPath, DBusName, method, sig);
             m.Body = body;
 
             return send_and_wait(m).iter().pop();
@@ -387,7 +386,7 @@ namespace Wv
 
 	public ulong GetUnixUser(string name)
 	{
-            return CallDBusMethod("GetUnixUser", name);
+            return CallDBusMethod("GetConnectionUnixUser", name);
 	}
 
 	public string GetCert(string name)
@@ -445,21 +444,23 @@ namespace Wv
 	public string unique_name { get; private set; }
     }
     
-    public static class ConnectionWvDbusMsgHelpers
+    // These are here rather than in WvDbusMsg itself so that WvDbusMsg
+    // can be compiled entirely without knowing about connections.
+    public static class WvDbusHelpers
     {
-	public static uint send(this WvDbusMsg msg, Connection conn)
+	public static uint send(this WvDbusMsg msg, WvDbus conn)
 	{
 	    return conn.send(msg);
 	}
 	
-	public static uint send(this WvDbusMsg msg, Connection conn,
+	public static uint send(this WvDbusMsg msg, WvDbus conn,
 				Action<WvDbusMsg> replyaction)
 	{
 	    return conn.send(msg, replyaction);
 	}
 	
 	public static WvDbusMsg send_and_wait(this WvDbusMsg msg,
-	                                         Connection conn)
+	                                         WvDbus conn)
 	{
 	    return conn.send_and_wait(msg);
 	}

@@ -10,7 +10,7 @@ using Wv.Extensions;
 [WvMoniker]
 internal class VxDbusSchema : ISchemaBackend
 {
-    Connection bus;
+    WvDbus bus;
 
     public static void wvmoniker_register()
     {
@@ -26,13 +26,13 @@ internal class VxDbusSchema : ISchemaBackend
     public VxDbusSchema(string bus_moniker)
     {
 	if (bus_moniker.e())
-	    bus = Connection.session_bus;
+	    bus = WvDbus.session_bus;
 	else
-	    bus = new Connection(bus_moniker);
+	    bus = new WvDbus(bus_moniker);
     }
 
     // If you've already got a Bus you'd like to use.
-    public VxDbusSchema(Connection _bus)
+    public VxDbusSchema(WvDbus _bus)
     {
         bus = _bus;
     }

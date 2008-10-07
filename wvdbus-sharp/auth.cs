@@ -38,7 +38,7 @@ namespace Wv.Dbus
 
 	WvBufStream s;
 	
-        public ExternalAuthClient(Connection conn, WvBufStream s) : base(conn)
+        public ExternalAuthClient(WvDbus conn, WvBufStream s) : base(conn)
 	{
 	    this.s = s;
 	}
@@ -90,7 +90,7 @@ namespace Wv.Dbus
     }
 
     public abstract class SaslProcess {
-	protected Connection conn;
+	protected WvDbus conn;
 
 	public abstract bool SupportNonBlocking { get; }
 	public abstract bool Done { get; }
@@ -107,7 +107,7 @@ namespace Wv.Dbus
 	    throw new NotImplementedException();
 	}
 
-	protected SaslProcess(Connection conn)
+	protected SaslProcess(WvDbus conn)
 	{
 	    this.conn = conn;
 	}
@@ -168,9 +168,9 @@ namespace Wv.Dbus
 
     public abstract class SaslAuthCtx
     {
-	protected Connection conn;
+	protected WvDbus conn;
 
-	protected SaslAuthCtx (Connection conn)
+	protected SaslAuthCtx (WvDbus conn)
 	{
 	    this.conn = conn;
 	}

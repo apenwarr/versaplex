@@ -20,7 +20,7 @@ namespace Wv
     [WvMoniker]
     public class WvDbi_Versaplex : WvDbi
     {
-	Connection bus;
+	WvDbus bus;
 	
 	struct ColInfo
 	{
@@ -40,7 +40,7 @@ namespace Wv
 	
 	public WvDbi_Versaplex()
 	{
-	    bus = Connection.session_bus;
+	    bus = WvDbus.session_bus;
 	}
 	
 	public override WvSqlRows select(string sql, params object[] args)

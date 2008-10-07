@@ -47,7 +47,7 @@ internal static class VxDb {
     }
 
 
-    internal static void SendChunkRecordSignal(Connection conn,
+    internal static void SendChunkRecordSignal(WvDbus conn,
 					       WvDbusMsg call, string sender,
 					    VxColumnInfo[] colinfo,
 					    object[][] data, byte[][] nulls)
@@ -63,7 +63,7 @@ internal static class VxDb {
     }
 
 
-    internal static void ExecChunkRecordset(Connection conn, 
+    internal static void ExecChunkRecordset(WvDbus conn, 
 					    WvDbusMsg call, out WvDbusMsg reply)
     {
 	string connid = VxDbusRouter.GetClientId(call);
@@ -459,14 +459,14 @@ public class VxDbusRouter
 {
     static WvLog log = new WvLog("VxDbusRouter");
     protected delegate
-        void MethodCallProcessor(Connection conn, WvDbusMsg call,
+        void MethodCallProcessor(WvDbus conn, WvDbusMsg call,
 				 out WvDbusMsg reply);
     
     public VxDbusRouter()
     {
     }
     
-    public bool route(Connection conn, WvDbusMsg msg, out WvDbusMsg reply)
+    public bool route(WvDbus conn, WvDbusMsg msg, out WvDbusMsg reply)
     {
 	MethodCallProcessor p;
 	
@@ -512,7 +512,7 @@ public class VxDbusRouter
     }
 
     void ExecuteCall(MethodCallProcessor processor,
-		     Connection conn,
+		     WvDbus conn,
 		     WvDbusMsg call, out WvDbusMsg reply)
     {
         try {
@@ -589,7 +589,7 @@ public class VxDbusRouter
 			      methodname, call.signature);
     }
 
-    static void CallTest(Connection conn,
+    static void CallTest(WvDbus conn,
 				 WvDbusMsg call, out WvDbusMsg reply)
     {
         if (call.signature.ne()) {
@@ -616,7 +616,7 @@ public class VxDbusRouter
         reply = call.reply("a(issnny)vaay").write(writer);
     }
 
-    static void CallQuit(Connection conn,
+    static void CallQuit(WvDbus conn,
 				 WvDbusMsg call, out WvDbusMsg reply)
     {
 	// FIXME: Check permissions here
@@ -626,7 +626,7 @@ public class VxDbusRouter
 	VersaMain.want_to_die = true;
     }
 
-    static void CallExecScalar(Connection conn,
+    static void CallExecScalar(WvDbus conn,
 				       WvDbusMsg call, out WvDbusMsg reply)
     {
         if (call.signature != "s") {
@@ -677,7 +677,7 @@ public class VxDbusRouter
 	});
     }
 
-    public static void CallExecRecordset(Connection conn,
+    public static void CallExecRecordset(WvDbus conn,
 					 WvDbusMsg call, out WvDbusMsg reply)
     {
         if (call.signature != "s") {
@@ -715,7 +715,7 @@ public class VxDbusRouter
         reply = call.reply("a(issnny)vaay").write(writer);
     }
 
-    static void CallExecChunkRecordset(Connection conn,
+    static void CallExecChunkRecordset(WvDbus conn,
 					       WvDbusMsg call, out WvDbusMsg reply)
     {
 	// XXX: Stuff in this comment block shamelessly stolen from
@@ -777,7 +777,7 @@ public class VxDbusRouter
         return sig.ToString();
     }
 
-    static void CallGetSchemaChecksums(Connection conn,
+    static void CallGetSchemaChecksums(WvDbus conn,
 					       WvDbusMsg call, out WvDbusMsg reply)
     {
         if (call.signature.ne()) {
@@ -806,7 +806,7 @@ public class VxDbusRouter
         reply = call.reply(VxSchemaChecksums.GetDbusSignature()).write(writer);
     }
 
-    static void CallGetSchema(Connection conn,
+    static void CallGetSchema(WvDbus conn,
 				      WvDbusMsg call, out WvDbusMsg reply)
     {
         if (call.signature != "as") {
@@ -837,7 +837,7 @@ public class VxDbusRouter
         reply = call.reply(VxSchema.GetDbusSignature()).write(writer);
     }
 
-    static void CallDropSchema(Connection conn,
+    static void CallDropSchema(WvDbus conn,
 				       WvDbusMsg call, out WvDbusMsg reply)
     {
         if (call.signature != "as") {
@@ -874,7 +874,7 @@ public class VxDbusRouter
         }
     }
 
-    static void CallPutSchema(Connection conn,
+    static void CallPutSchema(WvDbus conn,
 				      WvDbusMsg call, out WvDbusMsg reply)
     {
         if (call.signature != String.Format("{0}i", 
@@ -914,7 +914,7 @@ public class VxDbusRouter
         }
     }
 
-    static void CallGetSchemaData(Connection conn,
+    static void CallGetSchemaData(WvDbus conn,
 					  WvDbusMsg call, out WvDbusMsg reply)
     {
         if (call.signature != "ss") {
@@ -946,7 +946,7 @@ public class VxDbusRouter
         reply = call.reply("s").write(writer);
     }
 
-    static void CallPutSchemaData(Connection conn,
+    static void CallPutSchemaData(WvDbus conn,
 					  WvDbusMsg call, out WvDbusMsg reply)
     {
         if (call.signature != "ss") {
