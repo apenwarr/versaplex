@@ -10,7 +10,6 @@ using System.Security.Cryptography;
 using Wv;
 using Wv.Extensions;
 using Wv.Test;
-using NDesk.DBus;
 
 [TestFixture]
 class SchemamaticTests : SchemamaticTester
@@ -504,7 +503,7 @@ class SchemamaticTests : SchemamaticTester
 	} catch (Wv.Test.WvAssertionFailure e) {
 	    throw e;
 	} catch (System.Exception e) {
-	    WVPASS(e is DbusError);
+	    WVPASS(e is WvDbusError);
             WVPASSEQ(e.Message, "vx.db.sqlerror: Invalid object name 'Tab1'.");
             log.print(e.ToString() + "\n");
 	}
@@ -661,28 +660,35 @@ class SchemamaticTests : SchemamaticTester
         finally
         {
             Directory.Delete(tmpdir, true);
-            WVPASS(!Directory.Exists(tmpdir));
         }
+	WVPASS(!Directory.Exists(tmpdir));
     }
 
     [Test, Category("Schemamatic"), Category("PutSchema")]
     public void TestPutSchemaErrors()
     {
+	//WvLog.maxlevel = WvLog.L.Debug4;
+	WVPASS("hello");
         SchemaCreator sc = new SchemaCreator(this);
 
         // Establish a baseline of errors.
+	WVPASS("getting baseline");
         VxPutOpts no_opts = VxPutOpts.None;
         VxSchema schema = dbus.Get();
+	WVPASS("putting");
         VxSchemaErrors errs = VxPutSchema(schema, no_opts);
 
         int baseline_err_count = errs.Count;
 
+	WVPASS("creating");
         sc.Create();
 
         // Try again with the new elements, this time for keeps.
 
         // Check that putting the same elements doesn't cause errors
+	WVPASS("getting");
         schema = dbus.Get();
+	WVPASS("putting");
         errs = VxPutSchema(schema, no_opts);
 
         WVPASSEQ(errs.Count, baseline_err_count);

@@ -3,7 +3,6 @@ using System.IO;
 using System.Linq;
 using System.Collections.Generic;
 using System.Security.Cryptography;
-using NDesk.DBus;
 using Wv;
 using Wv.Extensions;
 
@@ -65,34 +64,7 @@ internal class VxSchemaChecksum
         else
             _checksums = sumlist;
     }
-
-    // Read a set of checksums from a DBus message into a VxSchemaChecksum.
-    public VxSchemaChecksum(MessageReader reader)
-    {
-        _key = reader.ReadString();
-
-        // Fill the list
-        List<ulong> list = new List<ulong>();
-	int size = reader.ReadInt32();
-        int endpos = reader.Position + size;
-        while (reader.Position < endpos)
-        {
-            reader.ReadPad(8);
-            ulong sum = reader.ReadUInt64();
-            list.Add(sum);
-        }
-
-        // Tables need to maintain their checksums in sorted order, as the
-        // columns might get out of order when the tables are otherwise
-        // identical.
-        string type, name;
-        VxSchemaChecksums.ParseKey(key, out type, out name);
-        if (type == "Table")
-            list.Sort();
-
-        _checksums = list;
-    }
-
+    
     public string GetSumString()
     {
         List<string> l = new List<string>();
@@ -101,20 +73,13 @@ internal class VxSchemaChecksum
         return l.Join(" ");
     }
 
-    private void _WriteSums(MessageWriter writer)
-    {
-        foreach (ulong sum in _checksums)
-            writer.Write(sum);
-    }
-
     // Write the checksum values to DBus
-    public void Write(MessageWriter writer)
+    public void Write(WvDbusWriter writer)
     {
-        writer.Write(typeof(string), key);
-        writer.WriteDelegatePrependSize(delegate(MessageWriter w)
-            {
-                _WriteSums(w);
-            }, 8);
+        writer.Write(key);
+	writer.WriteArray(8, _checksums, (w2, sum) => {
+	    w2.Write(sum);
+	});
     }
 
     // Note: this is only safe to override because the class is immutable.
@@ -223,34 +188,27 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
     }
 
     // Read an array of checksums from a DBus message.
-    public VxSchemaChecksums(MessageReader reader)
+    // Signature: a(sat)
+    public VxSchemaChecksums(WvDbusMsg reply)
     {
-        int size = reader.ReadInt32();
-        int endpos = reader.Position + size;
-        while (reader.Position < endpos)
-        {
-            reader.ReadPad(8);
-            VxSchemaChecksum cs = new VxSchemaChecksum(reader);
-            Add(cs.key, cs);
-        }
-    }
-
-    private void _WriteChecksums(MessageWriter writer)
-    {
-        foreach (KeyValuePair<string,VxSchemaChecksum> p in this)
-        {
-            writer.WritePad(8);
-            p.Value.Write(writer);
-        }
+	var array = reply.iter().pop();
+	
+	foreach (WvAutoCast i in array)
+	{
+	    var ii = i.GetEnumerator();
+	    string key = ii.pop();
+	    var sums = ii.pop().Cast<UInt64>();
+	    var cs = new VxSchemaChecksum(key, sums);
+	    Add(cs.key, cs);
+	}
     }
 
     // Write the list of checksums to DBus in a(sat) format.
-    public void WriteChecksums(MessageWriter writer)
+    public void WriteChecksums(WvDbusWriter writer)
     {
-        writer.WriteDelegatePrependSize(delegate(MessageWriter w)
-            {
-                _WriteChecksums(w);
-            }, 8);
+	writer.WriteArray(8, this, (w2, p) => {
+	    p.Value.Write(w2);
+	});
     }
 
     public void AddSum(string key, ulong checksum)

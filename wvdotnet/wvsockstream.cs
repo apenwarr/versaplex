@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
+using Mono.Unix;
 using Wv;
 
 namespace Wv
@@ -19,8 +21,8 @@ namespace Wv
 	    }
 	}
 
-	public override bool isok { 
-	    get { return (sock != null) && base.isok; }
+	public override bool ok { 
+	    get { return (sock != null) && base.ok; }
 	}
 
 	public WvSockStream(Socket sock)
@@ -30,7 +32,7 @@ namespace Wv
 
 	public override EndPoint localaddr {
 	    get {
-		if (!isok)
+		if (!ok)
 		    return null;
 		return sock.LocalEndPoint;
 	    }
@@ -38,20 +40,20 @@ namespace Wv
 
 	public override EndPoint remoteaddr {
 	    get {
-		if (!isok)
+		if (!ok)
 		    return null;
 		return sock.RemoteEndPoint;
 	    }
 	}
 
-	public override int read(byte[] buf, int offset, int len)
+	public override int read(WvBytes b)
 	{
-	    if (!isok)
+	    if (!ok)
 		return 0;
 
 	    try
 	    {
-		int ret = sock.Receive(buf, offset, len, 0);
+		int ret = sock.Receive(b.bytes, b.start, b.len, 0);
 		if (ret <= 0) // EOF
 		{
 		    nowrite();
@@ -63,39 +65,62 @@ namespace Wv
 	    }
 	    catch (SocketException e)
 	    {
-		if (e.ErrorCode != 10004) // EINTR is normal when non-blocking
+		if (e.ErrorCode == 10004) // EINTR is normal when non-blocking
+		    return 0;
+		else if (e.ErrorCode == 10035) // EWOULDBLOCK too
+		    return 0;
+		else
+		{
 		    err = e;
-		return 0; // non-blocking, so interruptions are normal
+		    // err = new Exception(wv.fmt("Error code {0}\n", e.ErrorCode));
+		}
+		return 0;
 	    }
 	}
 
-	public override int write(byte[] buf, int offset, int len)
+	public override int write(WvBytes b)
 	{
-	    if (!isok)
+	    if (!ok)
 		return 0;
 
-	    int ret = sock.Send(buf, offset, len, 0);
-	    if (ret < 0) // Error
+	    try
 	    {
-		err = new Exception("Write error"); // FIXME
+		int ret = sock.Send(b.bytes, b.start, b.len, 0);
+		if (ret < 0) // Unexpected error
+		{
+		    err = new Exception(wv.fmt("Write error #{0}", ret));
+		    return 0;
+		}
+		else
+		    return ret;
+	    }
+	    catch (SocketException e)
+	    {
+		if (e.ErrorCode == 10004) // EINTR is normal when non-blocking
+		    return 0;
+		else if (e.ErrorCode == 10035) // EWOULDBLOCK too
+		    return 0;
+		else
+		{
+		    err = e;
+		    // err = new Exception(wv.fmt("Error code {0}\n", e.ErrorCode));
+		}
 		return 0;
 	    }
-	    else
-		return ret;
 	}
 	
 	public override event Action onreadable {
 	    add { base.onreadable += value;
 		  ev.onreadable(sock, do_readable); }
 	    remove { base.onreadable -= value;
-		     if (can_onreadable) ev.onreadable(sock, null); }
+		     if (!can_onreadable) ev.onreadable(sock, null); }
 	}
 
 	public override event Action onwritable {
 	    add { base.onwritable += value;
 		  ev.onwritable(sock, do_writable); }
 	    remove { base.onwritable -= value;
-		     if (can_onwritable) ev.onwritable(sock, null); }
+		     if (!can_onwritable) ev.onwritable(sock, null); }
 	}
 
 	void tryshutdown(SocketShutdown sd)
@@ -108,6 +133,31 @@ namespace Wv
 	    {
 		// ignore
 	    }
+	}
+	
+	public override bool wait(int msec_timeout,
+				  bool readable, bool writable)
+	{
+	    foreach (int remain in wv.until(msec_timeout))
+	    {
+		if (!readable && !writable)
+		    wv.sleep(remain);
+		else
+		{
+		    var rlist = new List<Socket>();
+		    var wlist = new List<Socket>();
+		    if (readable)
+			rlist.Add(sock);
+		    if (writable)
+			wlist.Add(sock);
+		    Socket.Select(rlist, wlist, null, remain * 1000);
+		    
+		    if (rlist.Count > 0 || wlist.Count > 0)
+			return true;
+		}
+	    }
+	    
+	    return false;
 	}
 
 	public override void noread()
@@ -141,12 +191,13 @@ namespace Wv
 
     public class WvTcp : WvSockStream
     {
-        public WvTcp(string remote) : base(null)
+        public WvTcp(string remote, ushort port) : base(null)
 	{
+	    // FIXME: do DNS lookups asynchronously?
 	    try
 	    {
 		IPHostEntry ipe = Dns.GetHostEntry(remote);
-		IPEndPoint ipep = new IPEndPoint(ipe.AddressList[0], 80);
+		IPEndPoint ipep = new IPEndPoint(ipe.AddressList[0], port);
 		Socket sock = new Socket(AddressFamily.InterNetwork,
 					 SocketType.Stream,
 					 ProtocolType.Tcp);
@@ -159,5 +210,22 @@ namespace Wv
 	    }
 	}
     }
-
+    
+    public class WvUnix : WvSockStream
+    {	
+        public WvUnix(string path) : base(null)
+	{
+	    EndPoint ep;
+	    
+	    if (path.StartsWith("@"))
+		ep = new AbstractUnixEndPoint(path.Substring(1));
+	    else
+		ep = new UnixEndPoint(path);
+	    
+	    Socket sock = new Socket(AddressFamily.Unix,
+				     SocketType.Stream, 0);
+	    sock.Connect(ep);
+	    this.sock = sock;
+	}
+    }
 }

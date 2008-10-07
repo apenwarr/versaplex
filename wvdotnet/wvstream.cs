@@ -6,13 +6,13 @@ namespace Wv
 {
     public interface IWvStream: IDisposable
     {
-	bool isok { get; }
+	bool ok { get; }
 	Exception err { get; }
 	EndPoint localaddr { get; }
 	EndPoint remoteaddr { get; }
 	
-	int read(byte[] buf, int offset, int len);
-	int write(byte[] buf, int offset, int len);
+	int read(WvBytes b);
+	int write(WvBytes b);
 	bool flush(int msec_timeout);
 	
 	event Action onreadable;
@@ -110,7 +110,7 @@ namespace Wv
 	}
 	
 	bool isopen = true;
-	public virtual bool isok { get { return isopen && err == null; } }
+	public virtual bool ok { get { return isopen && err == null; } }
 
 	Exception _err;
 	public virtual Exception err {
@@ -128,15 +128,16 @@ namespace Wv
 
 	public virtual void close()
 	{
+	    ev.delpending(pr_obj);
+	    ev.delpending(pw_obj);
+	    canread = false;
 	    flush(-1);
-	    canread = canwrite = false;
+	    canwrite = false;
 	    if (isopen)
 	    {
 		isopen = false;
 		if (_onclose != null) _onclose();
 	    }
-	    ev.delpending(pr_obj);
-	    ev.delpending(pw_obj);
 	    GC.SuppressFinalize(this);
 	}
 
@@ -148,42 +149,63 @@ namespace Wv
 	    get { return null; }
 	}
 
-	public virtual int read(byte[] buf, int offset, int len)
+	public virtual int read(WvBytes b)
 	{
 	    return 0;
 	}
 	
-	public int read(byte[] buf)
-	{
-	    return read(buf, 0, buf.Length);
-	}
-
 	// for convenience.  Note: always returns non-null, but the returned
 	// array size might be zero.
-	public byte[] read(int len)
+	public WvBytes read(int len)
 	{
-	    byte[] bytes = new byte[len];
-	    int got = read(bytes, 0, len);
-	    if (got < len)
-	    {
-		byte[] ret = new byte[got];
-		Array.Copy(bytes, 0, ret, 0, got);
-		return ret;
-	    }
-	    else
-		return bytes;
+	    WvBytes bytes = new byte[len];
+	    int got = read(bytes);
+	    return bytes.sub(0, got);
+	}
+	
+	public void read(WvBuf b, int max)
+	{
+	    int got = read(b.alloc(max));
+	    b.unalloc(max-got);
 	}
 
-	public virtual int write(byte[] buf, int offset, int len)
+	public virtual int write(WvBytes b)
 	{
-	    return len; // lie: we "wrote" all the bytes to nowhere
+	    return b.len; // lie: we "wrote" all the bytes to nowhere
+	}
+	
+	/**
+	 * Wait up to msec_timeout milliseconds for the stream to become
+	 * readable or writable, respectively.
+	 * 
+	 * Our default implementation always returns immediately, consistent
+	 * with the Unix select() behaviour of returning immediately on
+	 * non-select()able file handles.
+	 * 
+	 * Returns true if the stream is readable or writable before the 
+	 * timeout, false otherwise.
+	 * 
+	 * Waiting synchronously is usually a bad idea in WvStreams
+	 * programs.  Use onreadable/onwritable/onclose instead whenever
+	 * you can.
+	 */
+	public virtual bool wait(int msec_timeout,
+				 bool readable, bool writable)
+	{
+	    if (readable && is_readable)
+		return true;
+	    if (writable && is_writable)
+		return true;
+	    if (!ok || (readable && !canread) || (writable && !canwrite))
+		return false;
+	    return true;
 	}
 
-	public int write(byte[] buf)
-	{
-	    return write(buf, 0, buf.Length);
-	}
-
+	// Don't make these anything but private!  They're tempting, but
+	// they're not *really* what you want to know.  Use these instead:
+	//    ok -> whether or not your stream is useful at all
+	//    wait(0, true, false) -> whether your stream has bytes *right now*.
+	// If canread goes false, wait(-1, true, false) will return false.
 	bool canread = true, canwrite = true;
 
 	public virtual void noread()
@@ -260,8 +282,8 @@ namespace Wv
 	    }
 	}
 	
-	public override bool isok { 
-	    get { return base.isok && hasinner && inner.isok; }
+	public override bool ok { 
+	    get { return base.ok && hasinner && inner.ok; }
 	}
 	
 	public override Exception err {
@@ -283,20 +305,29 @@ namespace Wv
 	    get { return hasinner ? inner.localaddr : base.localaddr; }
 	}
 	
-	public override int read(byte[] buf, int offset, int len)
+	public override int read(WvBytes b)
 	{
 	    if (hasinner)
-		return inner.read(buf, offset, len);
+		return inner.read(b);
 	    else
 		return 0; // 0 bytes read
 	}
 	
-	public override int write(byte[] buf, int offset, int len)
+	public override int write(WvBytes b)
 	{
 	    if (hasinner)
-		return inner.write(buf, offset, len);
+		return inner.write(b);
 	    else
 		return 0; // 0 bytes written
+	}
+	
+	public override bool wait(int msec_timeout,
+				  bool readable, bool writable)
+	{
+	    if (hasinner)
+		return inner.wait(msec_timeout, readable, writable);
+	    else
+		return base.wait(msec_timeout, readable, writable);
 	}
 	
 	public override void noread()
@@ -340,7 +371,7 @@ namespace Wv
 	
     }
     
-    // Adds an input buffer to a WvStream.
+    /// Adds an input buffer to a WvStream.
     public class WvInBufStream : WvStreamClone
     {
 	WvBuf inbuf = new WvBuf();
@@ -349,34 +380,119 @@ namespace Wv
 	{
 	}
 	
-	public override int read(byte[] buf, int offset, int len)
+	public override int read(WvBytes b)
 	{
 	    if (inbuf.used > 0)
 	    {
-		int max = inbuf.used > len ? len : inbuf.used;
-		Array.Copy(inbuf.get(max), 0, buf, offset, max);
+		int max = inbuf.used > b.len ? b.len : inbuf.used;
+		b.put(0, inbuf.get(max));
 		post_readable();
 		return max;
 	    }
 	    else
-		return base.read(buf, offset, len);
+		return base.read(b);
 	}
 	
-	public string getline(char splitchar)
+	public string _getline(char splitchar)
 	{
-	    while (isok && inbuf.strchr(splitchar) <= 0)
+	    if (inbuf.strchr(splitchar) > 0)
+	    {    
+		post_readable(); // not stalled yet!
+		return inbuf.get(inbuf.strchr(splitchar)).FromUTF8();
+	    }
+	    return null;
+	}
+	
+	public string getline(int msec_timeout, char splitchar)
+	{
+	    string l = _getline(splitchar);
+	    if (l != null) return l;
+	    
+	    foreach (var remain in wv.until(msec_timeout))
 	    {
-		byte[] b = inner.read(4096);
-		// Console.WriteLine("got {0} bytes", b.Length);
-		if (b.Length == 0)
-		    return null;
-		inbuf.put(b);
+		if (inner.wait(remain, true, false))
+		    inner.read(inbuf, 4096);
+		
+		l = _getline(splitchar);
+		if (l != null) return l;
+		
+		if (inbuf.used == 0 && !ok)
+		    break;
 	    }
 	    
-	    // if we get here, there's a splitchar in the buffer
-	    post_readable(); // not stalled yet!
-	    return inbuf.get(inbuf.strchr(splitchar)).FromUTF8();
+	    if (!ok && inbuf.used > 0)
+		return inbuf.getall().FromUTF8();
+	    
+	    return null;
 	}
     }
     
+    /// Adds an output buffer to a WvStream
+    public class WvOutBufStream : WvStreamClone
+    {
+	WvBuf outbuf = new WvBuf();
+	bool writereg = true;
+	
+        public WvOutBufStream(WvStream inner) : base(inner)
+	{
+	}
+	
+	public override int write(WvBytes b)
+	{
+	    outbuf.put(b);
+	    flush(0);
+	    
+	    // always succeed
+	    return b.len;
+	}
+	
+	void _flush()
+	{
+	    int wrote = base.write(outbuf.peekall());
+	    outbuf.get(wrote);
+	    
+	    if (outbuf.used > 0 && !writereg)
+	    {
+		inner.onwritable += _flush;
+		writereg = true;
+	    }
+	    else if (outbuf.used == 0 && writereg)
+	    {
+		inner.onwritable -= _flush;
+		writereg = false;
+	    }
+	    
+	    if (outbuf.used == 0)
+		post_writable();
+	}
+	
+	public override bool flush(int msec_timeout)
+	{
+	    foreach (int remain in wv.until(msec_timeout))
+	    {
+		_flush();
+		if (remain != 0 && outbuf.used > 0)
+		    wait(remain, false, true);
+		if (outbuf.used == 0)
+		    return true;
+	    }
+	    return false;
+	}
+    }
+    
+    /**
+     * A combination of WvInBufStream and WvOutBufStream.
+     * 
+     * We put the OutBufStream on the inside and the InBufStream on the
+     * outside, because InBufStream actually adds API functions while 
+     * OutBufStream doesn't.  So getline() will work as expected on this
+     * kind of stream.
+     */
+    public class WvBufStream : WvInBufStream
+    {
+	public WvBufStream(WvStream inner)
+	    : base(new WvOutBufStream(inner))
+	{
+	}
+    }
 }

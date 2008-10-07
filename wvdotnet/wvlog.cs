@@ -11,9 +11,9 @@ namespace Wv
 	string open_header = null;
 	byte[] nl = "\n".ToUTF8();
 	
-	void w(byte[] b)
+	void w(WvBytes b)
 	{
-	    outstr.Write(b, 0, b.Length);
+	    outstr.Write(b.bytes, b.start, b.len);
 	}
 	
 	void w(string s)
@@ -106,28 +106,34 @@ namespace Wv
 	    : this(name, L.Info)
 	    { }
 	
-	public override int write(byte[] buf, int offset, int len)
+	public override int write(WvBytes b)
 	{
 	    if (level > maxlevel)
-		return len; // pretend it's written
+		return b.len; // pretend it's written
 	    
 	    WvBuf outbuf = new WvBuf();
-	    outbuf.put(buf, offset, len);
+	    outbuf.put(b);
 	    recv.writelines(wv.fmt("{0}<{1}>: ", name, levelstr(level)),
 			    outbuf);
-	    return len;
+	    return b.len;
 	}
 	
 	public void print(L level, object s)
 	{
 	    L old = this.level;
-	    this.level = level;
-	    print(s);
-	    this.level = old;
+	    try {
+		this.level = level;
+		print(s);
+	    }
+	    finally {
+		this.level = old;
+	    }
 	}
 	
 	public void print(L level, string fmt, params object[] args)
 	{
+	    if (level > maxlevel)
+		return;
 	    print(level, (object)String.Format(fmt, args));
 	}
 	

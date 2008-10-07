@@ -15,7 +15,7 @@ using Wv.Extensions;
 [WvMoniker]
 internal class VxDbSchema : ISchemaBackend
 {
-    static WvLog log = new WvLog("VxDbSchema", WvLog.L.Debug2);
+    static WvLog log = new WvLog("VxDbSchema", WvLog.L.Debug4);
 
     public static void wvmoniker_register()
     {
@@ -134,7 +134,7 @@ internal class VxDbSchema : ISchemaBackend
         foreach (string key in keys)
         {
             string fullname = EscapeSchemaElementName(key);
-            Console.WriteLine("CallGetSchema: Read name " + fullname);
+            log.print("CallGetSchema: Read name " + fullname);
             all_names.Add(fullname);
 
             string[] parts = fullname.Split(new char[] {'/'}, 2);
@@ -330,7 +330,7 @@ internal class VxDbSchema : ISchemaBackend
     private IEnumerable<WvSqlRow> DbiSelect(string query, 
         params object[] bound_vars)
     {
-        log.print("In DbiSelect\n");
+        log.print(WvLog.L.Debug5, "DbiSelect({0}...)\n", query.shorten(60));
         try
         {
             return dbi.select(query, bound_vars).ToArray();
@@ -486,18 +486,6 @@ internal class VxDbSchema : ISchemaBackend
                 nullable.AddParam(kvp.Key, kvp.Value);
 
         return nullable;
-    }
-
-    private void AddNullableColumn(VxSchemaTable table, 
-        VxSchemaTableElement elem)
-    {
-        var nullable = GetNullableColumn(elem);
-
-        string nullquery = wv.fmt("ALTER TABLE [{0}] ADD {1}", 
-                table.name, table.ColumnToSql(nullable, true));
-
-        log.print("Executing {0}", nullquery);
-        dbi.execute(nullquery);
     }
 
     private void DropTableColumn(VxSchemaTable table, VxSchemaTableElement col)
@@ -781,8 +769,9 @@ internal class VxDbSchema : ISchemaBackend
             foreach (var elem in coladd)
             {
                 log.print("Adding {0}\n", elem.ToString());
-                string query = wv.fmt("ALTER TABLE [{0}] ADD {1}\n", 
-                    tabname, newtable.ColumnToSql(elem));
+                string add_format = "ALTER TABLE [{0}] ADD {1}\n"; 
+                string query = wv.fmt(add_format, 
+                    tabname, newtable.ColumnToSql(elem, true));
 
                 try
                 {
@@ -798,7 +787,13 @@ internal class VxDbSchema : ISchemaBackend
                     {
                         log.print("Couldn't add a new non-nullable column " +
                             "without a default.  Making column nullable.\n");
-                        AddNullableColumn(newtable, elem);
+                        var nullable = GetNullableColumn(elem);
+
+                        string nullquery = wv.fmt(add_format, 
+                            tabname, newtable.ColumnToSql(nullable, true));
+
+                        log.print("Executing {0}", nullquery);
+                        dbi.execute(nullquery);
                     }
                     else
                         throw;
@@ -955,7 +950,8 @@ internal class VxDbSchema : ISchemaBackend
 
             if (elem.text.ne())
             {
-                log.print("Putting element: {0}\n", elem.ToSql());
+                log.print("Putting element: {0}...\n",
+			  elem.ToSql().shorten(60));
                 DbiExec(elem.ToSql());
             }
         } 
@@ -1179,7 +1175,7 @@ internal class VxDbSchema : ISchemaBackend
         string type, int encrypted)
     {
         string query = RetrieveProcSchemasQuery(type, encrypted, false, names);
-        log.print("Query={0}\n", query);
+        log.print(WvLog.L.Debug3, "Query={0}\n", query);
 
         foreach (WvSqlRow row in DbiSelect(query))
         {
@@ -1359,7 +1355,7 @@ internal class VxDbSchema : ISchemaBackend
     // "((2)-(1))" => "(2)-(1)"
     public static string StripMatchingParens(string s)
     {
-        WvLog log = new WvLog("StripMatchingParens");
+        WvLog log = new WvLog("StripMatchingParens", WvLog.L.Debug5);
         int len = s.Length;
 
         // Count the initial and trailing number of parens

@@ -71,6 +71,7 @@ public class WvEventer : IWvEventer
     // NOTE: 
     // This is the only kind of event you can enqueue from a thread other
     // than the one doing runonce()!
+    // It will run your Action in the runonce() thread on the next pass.
     public void addpending(Object cookie, Action a)
     {
 	lock(pending)

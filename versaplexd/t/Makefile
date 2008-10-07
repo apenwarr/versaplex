@@ -37,8 +37,8 @@ export LD_LIBRARY_PATH=..:$(WVLIBDIR):$(WVSTREAMS)
 LIBS+=-L$(WVSTREAMS) -lwvdbus 
 endif
 
-VX_SOURCES = ../dodgytransport.cs ../vxnotifysocket.cs ../vxsocket.cs \
-	../vxcolumninfo.cs ../vxdbusdatetime.cs ../vxdbusutils.cs \
+VX_SOURCES = \
+	../vxcolumninfo.cs ../vxdbusdatetime.cs \
 	../vxexceptions.cs versaplextester.cs.E
 
 SCHEMAMATIC_SOURCES = ../vxschema.cs ../vxschemachecksums.cs \
@@ -54,7 +54,7 @@ TESTS=dbisanity.t.pass \
     versaplex.t.pass vxsanity.t.pass \
     verifydata.t.pass schemamatic.t.pass putschema.t.pass \
     vxexecchunkrecordset.t.pass vxschemachecksums.t.pass vxdiskschema.t.pass \
-    vxschema.t.pass
+    vxschema.t.pass storedprocedure.t.pass
 TESTEXES=$(patsubst %.pass,%.exe,$(TESTS))
 
 default: test
@@ -68,46 +68,50 @@ test: $(TESTS) all.t
 
 versaplex.t.exe: versaplex.t.cs.E \
 	$(VX_SOURCES) \
-	../wv.dll ../NDesk.DBus.dll
+	../wv.dll ../wvdbus-sharp.dll
 
 vxsanity.t.exe: vxsanity.t.cs.E \
 	$(VX_SOURCES) \
-	../wv.dll ../NDesk.DBus.dll
+	../wv.dll ../wvdbus-sharp.dll
 
 dbisanity.t.exe: dbisanity.t.cs.E \
 	$(VX_SOURCES) \
-	../wv.dll ../NDesk.DBus.dll
+	../wv.dll ../wvdbus-sharp.dll
 
 verifydata.t.exe: verifydata.t.cs.E \
 	$(VX_SOURCES) \
-	../wv.dll ../NDesk.DBus.dll
+	../wv.dll ../wvdbus-sharp.dll
 
 schemamatic.t.exe: schemamatic.t.cs.E \
 	$(VX_SOURCES) $(SCHEMAMATIC_SOURCES) \
-	../wv.dll ../NDesk.DBus.dll
+	../wv.dll ../wvdbus-sharp.dll
+
+storedprocedure.t.exe: storedprocedure.t.cs.E \
+	../storedprocedure.cs \
+	../wv.dll
 
 putschema.t.exe: putschema.t.cs.E \
 	$(VX_SOURCES) $(SCHEMAMATIC_SOURCES) \
-	../wv.dll ../NDesk.DBus.dll
+	../wv.dll ../wvdbus-sharp.dll
 
 vxexecchunkrecordset.t.exe: vxexecchunkrecordset.t.cs.E \
 	$(VX_SOURCES) \
-	../wv.dll ../NDesk.DBus.dll
+	../wv.dll ../wvdbus-sharp.dll
 
 vxschemachecksums.t.exe: vxschemachecksums.t.cs.E \
 	../vxschemachecksums.cs \
-	../wv.dll ../NDesk.DBus.dll
+	../wv.dll ../wvdbus-sharp.dll
 
 # This test file doesn't need the whole Versaplex/Schemamatic stack, 
 # so let's try to save some needless recompilations.
 vxschema.t.exe: vxschema.t.cs.E \
 	../vxschema.cs ../vxschemaerrors.cs ../vxschemachecksums.cs \
 	../vxschemadiff.cs ../ischemabackend.cs ../vxexceptions.cs \
-	../wv.dll ../NDesk.DBus.dll
+	../wv.dll ../wvdbus-sharp.dll
 
 vxdiskschema.t.exe: vxdiskschema.t.cs.E \
 	$(VX_SOURCES) $(SCHEMAMATIC_SOURCES) \
-	../wv.dll ../NDesk.DBus.dll
+	../wv.dll ../wvdbus-sharp.dll
 
 %.o: %.cc
 	$(CXX) $(CXXFLAGS) -c -o $@ $< 

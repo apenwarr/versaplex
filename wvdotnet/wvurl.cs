@@ -11,6 +11,19 @@ namespace Wv
 	public int port = 0;
 	public string path;
 	
+	public WvUrl(string method,
+		     string user, string password,
+		     string host, int port,
+		     string path)
+	{
+	    this.method = method;
+	    this.user = user;
+	    this.password = password;
+	    this.host = host;
+	    this.port = port;
+	    this.path = path;
+	}
+	
 	// input is of form:
 	//    method://user:password@host:port/path/path/path
 	// where all the parts are optional, eg:

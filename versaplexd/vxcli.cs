@@ -7,7 +7,6 @@ using System.Linq;
 using Wv.Mono.Terminal;
 using Wv;
 using Wv.Extensions;
-using NDesk.DBus;
 
 namespace Wv
 {
@@ -21,7 +20,7 @@ namespace Wv
     [WvMoniker]
     public class WvDbi_Versaplex : WvDbi
     {
-	Bus bus;
+	WvDbus bus;
 	
 	struct ColInfo
 	{
@@ -33,11 +32,6 @@ namespace Wv
 	    public byte nullable;
 	}
 	
-	struct Stupid
-	{
-	    public string s;
-	}
-	
 	public static void wvmoniker_register()
 	{
 	    WvMoniker<WvDbi>.register("vx",
@@ -46,84 +40,47 @@ namespace Wv
 	
 	public WvDbi_Versaplex()
 	{
-	    if (Address.Session == null)
-		throw new Exception ("DBUS_SESSION_BUS_ADDRESS not set");
-	    AddressEntry aent = AddressEntry.Parse(Address.Session);
-	    DodgyTransport trans = new DodgyTransport();
-	    trans.Open(aent);
-	    bus = new Bus(trans);
+	    bus = WvDbus.session_bus;
 	}
 	
 	public override WvSqlRows select(string sql, params object[] args)
 	{
-	    Message call 
-		= VxDbusUtils.CreateMethodCall(bus, "ExecRecordset", "s");
-	    MessageWriter writer 
-		= new MessageWriter(Connection.NativeEndianness);
-
-	    writer.Write(typeof(string), sql);
-	    call.Body = writer.ToArray();
+	    var call = new WvDbusCall("vx.versaplexd", "/db", "vx.db",
+				      "ExecRecordset", "s");
+	    WvDbusWriter writer = new WvDbusWriter();
+	    writer.Write(sql);
+	    call.write(writer);
 	    
-	    log.print("Sending!\n");
-	    
-	    Message reply = call.Connection.SendWithReplyAndBlock(call);
-	    
-	    log.print("Answer came back!\n");
-
-	    switch (reply.Header.MessageType) 
+	    WvDbusMsg reply = bus.send_and_wait(call);
+	    if (reply.err == "vx.db.sqlerror")
+		throw new VxDbException(reply.iter().pop());
+	    reply.check("a(issnny)vaay");
+	    var it = reply.iter();
+		    
+	    // decode the raw column info
+	    var l = new List<WvColInfo>();
+	    foreach (IEnumerable<WvAutoCast> c in it.pop())
 	    {
-	    case MessageType.MethodReturn:
-	    case MessageType.Error:
-		{
-		    object replysig;
-		    if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-							 out replysig))
-			throw new Exception("D-Bus reply had no signature.");
-		    
-		    if (replysig == null)
-			throw new Exception("D-Bus reply had null signature");
-		    
-		    MessageReader reader = new MessageReader(reply);
-		    
-		    // Some unexpected error
-		    if (replysig.ToString() == "s")
-			throw new VxDbException(reader.ReadString());
-		    
-		    if (replysig.ToString() != "a(issnny)vaay")
-			throw new 
-			  Exception("D-Bus reply had invalid signature: " +
-				    replysig);
-		    
-		    // decode the raw column info
-		    ColInfo[] x = (ColInfo[])reader.ReadArray(typeof(ColInfo));
-		    WvColInfo[] colinfo
-			= (from c in x
-			   select new WvColInfo(c.name, typeof(string),
-						(c.nullable & 1) != 0,
-						c.size, c.precision, c.scale))
-			    .ToArray();
-		    
-		    Signature sig = reader.ReadSignature();
-		    log.print("Variant signature: '{0}'\n", sig);
-		    
-		    WvSqlRow[] rows;
-		    if (sig.ToString() == "a(s)")
-		    {
-			Stupid[] a = (Stupid[])reader.ReadArray(typeof(Stupid));
-			rows = (from r in a
-				select new WvSqlRow(new object[] { r.s },
-						    colinfo))
-			    .ToArray();
-		    }
-		    else
-			rows = new WvSqlRow[0];
-		    
-		    return new WvSqlRows_Versaplex(rows, colinfo);
-		}
-	    default:
-		throw new Exception("D-Bus response was not a method "
-				    + "return or error");
+		int size;
+		string name, type;
+		short precision, scale;
+		byte nullable;
+		c.ToArray().assignto(out size, out name, out type,
+				     out precision, out scale,
+				     out nullable);
+		
+		l.Add(new WvColInfo(name, typeof(string),
+				    nullable != 0,
+				    size, precision, scale));
 	    }
+	    
+	    WvColInfo[] colinfo = l.ToArray();
+	    var rows = new List<WvSqlRow>();
+	    foreach (var r in it.pop())
+		rows.Add(new WvSqlRow(r.Cast<object>().ToArray(), 
+				      colinfo));
+	    
+	    return new WvSqlRows_Versaplex(rows.ToArray(), colinfo);
 	}
 	
 	public override int execute(string sql, params object[] args)

@@ -10,7 +10,6 @@ using System.Security.Cryptography;
 using Wv;
 using Wv.Extensions;
 using Wv.Test;
-using NDesk.DBus;
 
 [TestFixture]
 class DiskSchemaTests : SchemamaticTester
@@ -99,8 +98,8 @@ class DiskSchemaTests : SchemamaticTester
         finally
         {
             Directory.Delete(tmpdir, true);
-            WVPASS(!Directory.Exists(tmpdir));
         }
+	WVPASS(!Directory.Exists(tmpdir));
     }
 
     [Test, Category("Schemamatic"), Category("PutSchemaData"), Category("DiskBackend")]
@@ -127,9 +126,8 @@ class DiskSchemaTests : SchemamaticTester
         finally
         {
             Directory.Delete(tmpdir, true);
-            WVPASS(!Directory.Exists(tmpdir));
         }
-
+	WVPASS(!Directory.Exists(tmpdir));
     }
 
     [Test, Category("Schemamatic"), Category("DiskBackend")]
@@ -153,8 +151,8 @@ class DiskSchemaTests : SchemamaticTester
         finally
         {
             Directory.Delete(tmpdir);
-            WVASSERT(!Directory.Exists(tmpdir));
         }
+	WVASSERT(!Directory.Exists(tmpdir));
     }
 
     private void CheckExportedFileContents(string filename, string header, 
@@ -370,10 +368,9 @@ class DiskSchemaTests : SchemamaticTester
         finally
         {
             tmpdirinfo.Delete(true);
-            WVASSERT(!tmpdirinfo.Exists);
-
             sc.Cleanup();
         }
+	WVASSERT(!tmpdirinfo.Exists);
     }
 
     [Test, Category("Schemamatic"), Category("DiskBackend")]
@@ -436,10 +433,9 @@ class DiskSchemaTests : SchemamaticTester
         finally
         {
             tmpdirinfo.Delete(true);
-            WVASSERT(!tmpdirinfo.Exists);
-
             sc.Cleanup();
         }
+	WVASSERT(!tmpdirinfo.Exists);
     }
 
     [Test, Category("Schemamatic"), Category("DiskBackend")]
@@ -481,9 +477,8 @@ class DiskSchemaTests : SchemamaticTester
         finally
         {
             Directory.Delete(tmpdir, true);
-            WVPASS(!Directory.Exists(tmpdir));
         }
-
+	WVPASS(!Directory.Exists(tmpdir));
     }
 
     [Test, Category("Schemamatic"), Category("DiskBackend")]
@@ -517,8 +512,8 @@ class DiskSchemaTests : SchemamaticTester
         finally
         {
             Directory.Delete(tmpdir, true);
-            WVPASS(!Directory.Exists(tmpdir));
         }
+	WVPASS(!Directory.Exists(tmpdir));
     }
 
     [Test, Category("Schemamatic"), Category("CopySchema")]
@@ -573,9 +568,8 @@ class DiskSchemaTests : SchemamaticTester
         finally
         {
             Directory.Delete(tmpdir, true);
-            WVPASS(!Directory.Exists(tmpdir));
         }
-
+	WVPASS(!Directory.Exists(tmpdir));
         sc.Cleanup();
     }
 

@@ -4,10 +4,11 @@ using System;
 using System.Data.SqlClient;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using Wv;
 using Wv.Test;
-using NDesk.DBus;
+using Wv.Extensions;
 
 // Several mono bugs worked around in this test fixture are filed as mono bug
 // #81940
@@ -24,7 +25,7 @@ public class VersaplexTester: IDisposable
     private const string image_file = "thtbacs.tiff";
 
     public WvDbi dbi;
-    protected Bus bus;
+    protected WvDbus bus;
 
     public VersaplexTester()
     {
@@ -56,16 +57,10 @@ public class VersaplexTester: IDisposable
         string cfgval = cfg.get("Connections", dbname);
         if (cfgval == null)
             throw new Exception(String.Format(
-                "Connection string for '{0}' missing from config.", dbname));
+                "WvDbus string for '{0}' missing from config.", dbname));
 
 	dbi = WvDbi.create(cfgval);
-
-        if (Address.Session == null)
-            throw new Exception ("DBUS_SESSION_BUS_ADDRESS not set");
-        AddressEntry aent = AddressEntry.Parse(Address.Session);
-        DodgyTransport trans = new DodgyTransport();
-        trans.Open(aent);
-        bus = new Bus(trans);
+        bus = WvDbus.session_bus;
     }
 
     public void Dispose()
@@ -108,120 +103,62 @@ public class VersaplexTester: IDisposable
 	Console.WriteLine(" + Reader SQL Query: {0}", query);
 	return dbi.select(query);
     }
+    
+    WvDbusMsg methodcall(string method, string signature)
+    {
+        return new WvDbusCall("vx.versaplexd", "/db", 
+			      "vx.db", method, signature);
+    }
 
     internal bool VxExec(string query)
     {
 	Console.WriteLine(" + VxExec SQL Query: {0}", query);
 
-        Message call = VxDbusUtils.CreateMethodCall(bus, "ExecRecordset", "s");
+        WvDbusMsg call = methodcall("ExecRecordset", "s");
 
-        MessageWriter mw = new MessageWriter(Connection.NativeEndianness);
-        mw.Write(typeof(string), query);
+        WvDbusWriter mw = new WvDbusWriter();
+        mw.Write(query);
 
         call.Body = mw.ToArray();
 
-        Message reply = bus.SendWithReplyAndBlock(call);
-
-        switch (reply.Header.MessageType) {
-        case MessageType.MethodReturn:
-            return true;
-        case MessageType.Error:
-        {
-            object errname;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.ErrorName,
-                        out errname))
-                throw new Exception("D-Bus error received but no error name "
-                        +"given");
-
-            object errsig;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out errsig) || errsig.ToString() != "s")
-                throw new DbusError(errname.ToString());
-
-            MessageReader mr = new MessageReader(reply);
-
-            string errmsg = mr.ReadString();
-
-            throw new DbusError(errname.ToString() + ": " + errmsg.ToString());
-        }
-        default:
-            throw new Exception("D-Bus response was not a method return or "
-                    +"error");
-        }
+        WvDbusMsg reply = bus.send_and_wait(call);
+	reply.check("a(issnny)vaay");
+	return true;
     }
 
     internal bool VxScalar(string query, out object result)
     {
 	Console.WriteLine(" + VxScalar SQL Query: {0}", query);
 
-        Message call = VxDbusUtils.CreateMethodCall(bus, "ExecScalar", "s");
+        WvDbusMsg call = methodcall("ExecScalar", "s");
 
-        MessageWriter mw = new MessageWriter(Connection.NativeEndianness);
-        mw.Write(typeof(string), query);
+        WvDbusWriter mw = new WvDbusWriter();
+        mw.Write(query);
 
         call.Body = mw.ToArray();
 
-        Message reply = bus.SendWithReplyAndBlock(call);
-
-        switch (reply.Header.MessageType) {
-        case MessageType.MethodReturn:
-        {
-            object replysig;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out replysig))
-                throw new Exception("D-Bus reply had no signature");
-
-            if (replysig == null || replysig.ToString() != "v")
-                throw new Exception("D-Bus reply had invalid signature");
-
-            MessageReader reader = new MessageReader(reply);
-            result = reader.ReadVariant();
-
-            return true;
-        }
-        case MessageType.Error:
-        {
-            object errname;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.ErrorName,
-                        out errname))
-                throw new Exception("D-Bus error received but no error name "
-                        +"given");
-
-            object errsig;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out errsig) || errsig.ToString() != "s")
-                throw new DbusError(errname.ToString());
-
-            MessageReader mr = new MessageReader(reply);
-
-            object errmsg = mr.ReadString();
-
-            throw new DbusError(errname.ToString() + ": " + errmsg.ToString());
-        }
-        default:
-            throw new Exception("D-Bus response was not a method return or "
-                    +"error");
-        }
+        WvDbusMsg reply = bus.send_and_wait(call);
+	reply.check("v");
+	result = reply.iter().pop().inner;
+	return true;
     }
 
     // Read the standard issnny signature for column information.  We can't
     // just read a VxColumnInfo[] straight from the reader any more, as the
     // format of VxColumnInfo differs from the format on the wire.
-    internal VxColumnInfo[] ReadColInfo(MessageReader reader)
+    internal VxColumnInfo[] ReadColInfo(IEnumerable<WvAutoCast> rows)
     {
-        List<VxColumnInfo> colinfolist = new List<VxColumnInfo>();
-
-        int colinfosize = reader.ReadInt32();
-        int endpos = reader.Position + colinfosize;
-        while (reader.Position < endpos)
-        {
-            reader.ReadPad(8);
-	    int size = reader.ReadInt32();
-	    string colname = reader.ReadString();
-	    string coltype_str = reader.ReadString();
-	    short precision = reader.ReadInt16();
-	    short scale = reader.ReadInt16();
-	    byte nullable = reader.ReadByte();
+        var colinfolist = new List<VxColumnInfo>();
+	
+	foreach (var _r in rows)
+	{
+	    var r = _r.GetEnumerator();
+	    int size           = r.pop();
+	    string colname     = r.pop();
+	    string coltype_str = r.pop();
+	    short precision    = r.pop();
+	    short scale        = r.pop();
+	    byte nullable      = r.pop();
 
             VxColumnType coltype = (VxColumnType)Enum.Parse(
                 typeof(VxColumnType), coltype_str, true);
@@ -232,7 +169,7 @@ public class VersaplexTester: IDisposable
 
             colinfolist.Add(new VxColumnInfo(colname, coltype, nullable > 0,
                 size, precision, scale));
-        }
+	}
 
         return colinfolist.ToArray();
     }
@@ -242,15 +179,14 @@ public class VersaplexTester: IDisposable
     {
 	Console.WriteLine(" + VxChunkRecordset SQL Query: {0}", query);
 
-	Message call = VxDbusUtils.CreateMethodCall(bus, "ExecChunkRecordset", "s");
-	//call.Header.Flags = HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
+	WvDbusMsg call = methodcall("ExecChunkRecordset", "s");
 
-	MessageWriter mw = new MessageWriter(Connection.NativeEndianness);
-	mw.Write(typeof(string), query);
+	WvDbusWriter mw = new WvDbusWriter();
+	mw.Write(query);
 
 	call.Body = mw.ToArray();
 
-	bus.Send(call);
+	bus.send(call);
 
 	colinfo = null;
 	List<object[]> rowlist = new List<object[]>();
@@ -259,34 +195,18 @@ public class VersaplexTester: IDisposable
 	{
 	    object[][] tdata;
 	    bool[][] tnullity;
-	    Message tmp = bus.GetNext();
-	    if (tmp.Header.MessageType == MessageType.Signal)
+	    WvDbusMsg tmp = bus.readmessage(-1);
+	    if (tmp.type == Wv.Dbus.MType.Signal)
 	    {
+		tmp.check("a(issnny)vaayu");
 		RecordsetWorker(tmp, out colinfo, out tdata, out tnullity);
 		rowlist.AddRange(tdata);
 		rownulllist.AddRange(tnullity);
 	    }
-	    else if (tmp.Header.MessageType == MessageType.Error)
-	    {
-		object errname;
-		if (!tmp.Header.Fields.TryGetValue(FieldCode.ErrorName,
-                        out errname))
-		    throw new Exception("D-Bus error received but no error "
-			+ "name given");
-
-		object errsig;
-		if (!tmp.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out errsig) || errsig.ToString() != "s")
-		    throw new DbusError(errname.ToString());
-
-		MessageReader mr = new MessageReader(tmp);
-
-		string errmsg = mr.ReadString();
-		throw new DbusError(errname.ToString() + ": " + errmsg);
-	    }
 	    else
 	    {
 	    	//Method return
+		tmp.check("a(issnny)vaay");
 		RecordsetWorker(tmp, out colinfo, out tdata, out tnullity);
 		rowlist.AddRange(tdata);
 		rownulllist.AddRange(tnullity);
@@ -300,126 +220,44 @@ public class VersaplexTester: IDisposable
 	return true;
     }
 
-    internal bool RecordsetWorker(Message reply, out VxColumnInfo[] colinfo,
+    internal bool RecordsetWorker(WvDbusMsg reply, out VxColumnInfo[] _colinfo,
 				    out object[][] data, out bool[][] nullity)
     {
-        object replysig;
-        if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                    out replysig))
-            throw new Exception("D-Bus reply had no signature");
+        if (reply.signature.e())
+	    throw new Exception("D-Bus reply had no signature");
 
-        if (replysig == null || !replysig.ToString().StartsWith("a(issnny)vaay"))
+        if (!reply.signature.StartsWith("a(issnny)vaay"))
             throw new Exception("D-Bus reply had invalid signature");
 
-        MessageReader reader = new MessageReader(reply);
+	var it = reply.iter();
 
         // Read the column information
-        colinfo = ReadColInfo(reader);
+        VxColumnInfo[] colinfo = _colinfo = ReadColInfo(it.pop());
 
-            reader.ReadSignature();
-
-        // TODO: Check that sig matches colinfo
+        // TODO: Check that variant sig matches colinfo
         // Sig should be of the form a(...)
 
-            int arraysz = reader.ReadInt32();
-
-        // The header is 8-byte aligned
-        reader.ReadPad(8);
-        int endpos = reader.Position + arraysz;
-
-        List<object[]> results = new List<object[]>();
-        while (reader.Position < endpos) {
+        var results = new List<object[]>();
+	foreach (var _r in it.pop())
+	{
+	    var r = _r.GetEnumerator();
             object[] row = new object[colinfo.Length];
 
-            // Each structure element is 8-byte aligned
-            reader.ReadPad(8);
-
-            for (int i=0; i < row.Length; i++) {
-                switch (colinfo[i].VxColumnType) {
-                case VxColumnType.Int64:
-                {
-                    Console.WriteLine("Reading Int64 from pos {0}",
-                            reader.Position);
-                        long cell = reader.ReadInt64();
-                    row[i] = cell;
-                    break;
-                }
-                case VxColumnType.Int32:
-                {
-                    Console.WriteLine("Reading Int32 from pos {0}",
-                           reader.Position);
-                        int cell = reader.ReadInt32();
-                    row[i] = cell;
-                    break;
-                }
-                case VxColumnType.Int16:
-                {
-                    Console.WriteLine("Reading Int16 from pos {0}",
-                            reader.Position);
-                        short cell = reader.ReadInt16();
-                    row[i] = cell;
-                    break;
-                }
-                case VxColumnType.UInt8:
-                {
-                    Console.WriteLine("Reading UInt8 from pos {0}",
-                            reader.Position);
-                        byte cell = reader.ReadByte();
-                    row[i] = cell;
-                    break;
-                }
-                case VxColumnType.Bool:
-                {
-                    Console.WriteLine("Reading Bool from pos {0}",
-                            reader.Position);
-                        bool cell = reader.ReadBoolean();
-                    row[i] = cell;
-                    break;
-                }
-                case VxColumnType.Double:
-                {
-                    Console.WriteLine("Reading Double from pos {0}",
-                           reader.Position);
-                        double cell = reader.ReadDouble();
-                    row[i] = cell;
-                    break;
-                }
+            for (int i=0; i < row.Length; i++)
+	    {
+                switch (colinfo[i].VxColumnType)
+		{
                 case VxColumnType.Uuid:
-                {
-                    Console.WriteLine("Reading UUID from pos {0}",
-                            reader.Position);
-                        string cell = reader.ReadString();
-
-                    if (cell == "") {
+		    string cell = r.pop();
+                    if (cell == "")
                         row[i] = new Guid();
-                    } else {
+		    else
 			row[i] = new Guid(cell);
-                    }
                     break;
-                }
-                case VxColumnType.Binary:
-                {
-                    Console.WriteLine("Reading Binary from pos {0}",
-                           reader.Position);
-                        object cell = reader.ReadArray(typeof(byte));
-                    row[i] = cell;
-                    break;
-                }
-                case VxColumnType.String:
-                {
-                    Console.WriteLine("Reading string from pos {0}",
-                            reader.Position);
-                        string cell = reader.ReadString();
-                    row[i] = cell;
-                    break;
-                }
                 case VxColumnType.DateTime:
-                {
-                    Console.WriteLine("Reading DateTime from pos {0}",
-                                reader.Position);
-                    reader.ReadPad(8);
-                        long seconds = reader.ReadInt64();
-                        int microseconds = reader.ReadInt32();
+		    var xit = r.pop().GetEnumerator();
+		    long seconds     = xit.pop();
+		    int microseconds = xit.pop();
 
                     VxDbusDateTime dt = new VxDbusDateTime();
                     dt.seconds = seconds;
@@ -427,48 +265,26 @@ public class VersaplexTester: IDisposable
 
                     row[i] = dt;
 		    break;
-                }
-                case VxColumnType.Decimal:
-                {
-                    Console.WriteLine("Reading Decimal from pos {0}",
-                           reader.Position);
-                        string cell = reader.ReadString();
-
-                    if (cell == "") {
+		case VxColumnType.Decimal:
+		    string dcell = r.pop();
+                    if (dcell == "")
                         row[i] = new Decimal();
-                    } else {
-                        row[i] = Decimal.Parse(cell);
-                    }
+		    else
+                        row[i] = Decimal.Parse(dcell);
                     break;
-                }
                 default:
-                    throw new Exception("Invalid column type received");
-                }
-            }
-
-	    results.Add(row);
-        }
-
-        WVPASSEQ(reader.Position, endpos);
-        if (reader.Position != endpos)
-            throw new Exception("Position mismatch after reading data");
- 
-        data = results.ToArray();
-
-            object rawnulls = reader.ReadArray(typeof(byte[]));
-
-        byte[][] rawnulls_typed = (byte[][])rawnulls;
-
-        nullity = new bool[rawnulls_typed.Length][];
-
-        for (int i=0; i < rawnulls_typed.Length; i++) {
-	    nullity[i] = new bool[rawnulls_typed[i].Length];
-
-	    for (int j=0; j < rawnulls_typed[i].Length; j++) {
-		nullity[i][j] = (rawnulls_typed[i][j] == 0) ? false : true;
+		    row[i] = r.pop().inner;
+		    break;
+		}
 	    }
-        }
+	    results.Add(row);
+	}
 
+        data = results.ToArray();
+	nullity =
+	    (from rr in it.pop() 
+	     select (from c in (IEnumerable<WvAutoCast>)rr
+		     select (bool)(c!=0)).ToArray()).ToArray();
 	return true;
     }
 
@@ -477,43 +293,16 @@ public class VersaplexTester: IDisposable
     {
 	Console.WriteLine(" + VxReader SQL Query: {0}", query);
 
-        Message call = VxDbusUtils.CreateMethodCall(bus, "ExecRecordset", "s");
+        WvDbusMsg call = methodcall("ExecRecordset", "s");
 
-        MessageWriter mw = new MessageWriter(Connection.NativeEndianness);
-        mw.Write(typeof(string), query);
+        WvDbusWriter mw = new WvDbusWriter();
+        mw.Write(query);
 
         call.Body = mw.ToArray();
 
-        Message reply = bus.SendWithReplyAndBlock(call);
-
-        switch (reply.Header.MessageType) {
-        case MessageType.MethodReturn:
-        {
-	    return RecordsetWorker(reply, out colinfo, out data, out nullity);
-        }
-        case MessageType.Error:
-        {
-            object errname;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.ErrorName,
-                        out errname))
-                throw new Exception("D-Bus error received but no error name "
-                        +"given");
-
-            object errsig;
-            if (!reply.Header.Fields.TryGetValue(FieldCode.Signature,
-                        out errsig) || errsig.ToString() != "s")
-                throw new DbusError(errname.ToString());
-
-            MessageReader mr = new MessageReader(reply);
-
-            string errmsg = mr.ReadString();
-
-            throw new DbusError(errname.ToString() + ": " + errmsg.ToString());
-        }
-        default:
-            throw new Exception("D-Bus response was not a method return or "
-                    +"error");
-        }
+        WvDbusMsg reply = bus.send_and_wait(call);
+	reply.check("a(issnny)vaay");
+	return RecordsetWorker(reply, out colinfo, out data, out nullity);
     }
 
     internal bool Insert(string table, params object [] param)

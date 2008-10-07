@@ -1,10 +1,131 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Wv.Extensions;
 
 namespace Wv
 {
+    /**
+     * A simple structure that allows us to wrap *part* of a byte[] array.
+     * This is intended to be an efficient alternative to constantly
+     * reallocating and copying arrays just because we want to talk about
+     * subsets of them.
+     * 
+     * In C/C++, manipulations on subsets of byte arrays are common using
+     * pointer arithmetic.  We don't want to use pointers because it makes
+     * our code unsafe, but there's no need to be copying entire arrays
+     * around just because of that!
+     */
+    public struct WvBytes : IEnumerable<byte>
+    {
+	public byte[] bytes;
+	public int start, len;
+	
+	/**
+	 * Wrap a particular section of the given bytes[] array.
+	 */
+	public WvBytes(byte[] bytes, int start, int len)
+	{
+	    this.bytes = bytes;
+	    this.start = start;
+	    this.len = len;
+	    wv.assert(start >= 0);
+	    wv.assert(len >= 0);
+	    wv.assert(bytes==null || start+len <= bytes.Length);
+	}
+	
+	/**
+	 * Any byte array can produce a WvBytes object with no effort.
+	 */
+	public static implicit operator WvBytes(byte[] b)
+	{
+	    return new WvBytes(b, 0, b != null ? b.Length : 0);
+	}
+	
+	/**
+	 * Any WvBytes object is enough to produce a byte array, but it
+	 * might require an array copy.  So we make it explicit to avoid
+	 * doing it by accident.
+	 */
+	public static explicit operator byte[](WvBytes b)
+	{
+	    return b.ToArray();
+	}
+	
+	/**
+	 * Convert this byte array to a simple byte[] structure.  This
+	 * *might* imply making a copy, but might not, so don't modify the
+	 * resulting array.  Of course, we can't stop you from modifying
+	 * the array, because there's no const, so we'll have to trust you.
+	 */
+	public byte[] ToArray()
+	{
+	    if (start == 0 && len == bytes.Length)
+		return bytes;
+	    else
+	    {
+		byte[] b = new byte[len];
+		Array.Copy(bytes, start, b, 0, len);
+		return b;
+	    }
+	}
+	
+	public bool IsNull {
+	    get { return bytes == null; }
+	}
+	
+	/// parallels WvBuf.getall()
+	public byte[] getall()
+	{
+	    return ToArray();
+	}
+	
+	/// get a subset of this set of bytes, without copying any actual data
+	public WvBytes sub(int start, int len)
+	{
+	    wv.assert(start >= 0);
+	    wv.assert(len >= 0);
+	    wv.assert(start+len <= this.len);
+	    if (start == this.start && len == this.len)
+		return this;
+	    int s = this.start + start;
+	    wv.assert(s+len <= bytes.Length);
+	    
+	    return new WvBytes(bytes, s, len);
+	}
+	
+	public byte this[int i] {
+	    get	{
+		wv.assert(i < len);
+		return bytes[start+i];
+	    }
+	}
+	
+	public void put(int offset, WvBytes b)
+	{
+	    wv.assert(offset >= 0);
+	    wv.assert(offset+b.len <= len);
+	    Array.Copy(b.bytes, b.start, this.bytes, start+offset, b.len);
+	}
+	
+	// IEnumerable<byte>
+	public IEnumerator<byte> GetEnumerator()
+	{
+	    int end = start+len;
+	    for (int i = start; i < end; i++)
+		yield return bytes[i];
+	}
+	
+	// IEnumerable
+	IEnumerator IEnumerable.GetEnumerator()
+	{
+	    int end = start+len;
+	    for (int i = start; i < end; i++)
+		yield return bytes[i];
+	}
+    }
+    
     public class WvMiniBuf
     {
 	byte[] bytes;
@@ -22,30 +143,35 @@ namespace Wv
 	public int used { get { return next-first; } }
 
 	public int avail { get { return (int)bytes.Length-next; } }
-
-	public void put(byte[] bytes, int offset, int len)
+	
+	public WvBytes alloc(int size)
 	{
-	    wv.assert(len <= avail);
-	    Array.Copy(bytes, offset, this.bytes, next, len);
-	    next += len;
-	}
-
-	public void put(byte[] bytes)
-	{
-	    put(bytes, 0, (int)bytes.Length);
-	}
-
-	public byte[] peek(int len)
-	{
-	    wv.assert(len <= used);
-	    byte[] ret = new byte[len];
-	    Array.Copy(this.bytes, first, ret, 0, len);
+	    wv.assert(size <= avail);
+	    var ret = bytes.sub(next, size);
+	    next += size;
 	    return ret;
 	}
-
-	public byte[] get(int len)
+	
+	public void unalloc(int size)
 	{
-	    byte[] ret = peek(len);
+	    wv.assert(size <= used);
+	    next -= size;
+	}
+	
+	public void put(WvBytes b)
+	{
+	    wv.assert(b.len <= avail);
+	    alloc(b.len).put(0, b);
+	}
+
+	public WvBytes peek(int len)
+	{
+	    return bytes.sub(first, len);
+	}
+
+	public WvBytes get(int len)
+	{
+	    var ret = peek(len);
 	    first += len;
 	    return ret;
 	}
@@ -65,15 +191,27 @@ namespace Wv
 		    return i-first+1;
 	    return 0;
 	}
+	
+	public void zap()
+	{
+	    first = next = 0;
+	}
     }
 
     public class WvBuf
     {
 	List<WvMiniBuf> list = new List<WvMiniBuf>();
+	int startsize = 10;
 
-	public WvBuf()
+	public WvBuf(int startsize)
 	{
+	    this.startsize = startsize;
 	    zap();
+	}
+	
+	public WvBuf()
+	    : this(10)
+	{
 	}
 
 	public int used {
@@ -87,27 +225,33 @@ namespace Wv
 	public void zap()
 	{
 	    list.Clear();
-	    list.Add(new WvMiniBuf(10));
+	    list.Add(new WvMiniBuf(startsize));
 	}
 
 	void addbuf(int len)
 	{
-	    int s = last.size;
+	    int s = last.size * 2;
 	    while (s < len*2)
 		s *= 2;
 	    list.Add(new WvMiniBuf(s));
 	}
-
-	public void put(byte[] bytes, int offset, int len)
+	
+	public WvBytes alloc(int size)
 	{
-	    if (last.avail < len)
-		addbuf(len);
-	    last.put(bytes, offset, len);
+	    if (last.avail < size)
+		addbuf(size);
+	    return last.alloc(size);
 	}
 	
-	public void put(byte[] bytes)
+	public void unalloc(int size)
 	{
-	    put(bytes, 0, (int)bytes.Length);
+	    wv.assert(last.used >= size);
+	    last.unalloc(size);
+	}
+
+	public void put(WvBytes b)
+	{
+	    alloc(b.len).put(0, b);
 	}
 	
 	public void put(char c)
@@ -120,9 +264,21 @@ namespace Wv
 	    put(s.ToUTF8());
 	}
 	
+	public void put(byte b)
+	{
+	    // FIXME: this could be much more optimal :)
+	    put(new byte[1] { b });
+	}
+	
 	public void put(string fmt, params object[] args)
 	{
 	    put(String.Format(fmt, args));
+	}
+	
+	public void eat(WvBuf buf)
+	{
+	    list.AddRange(buf.list);
+	    buf.zap();
 	}
 
 	int min(int a, int b)
@@ -147,21 +303,26 @@ namespace Wv
 	    }
 	}
 
-	public byte[] peek(int len)
+	public WvBytes peek(int len)
 	{
 	    wv.assert(used >= len);
 	    coagulate(len);
 	    return list[0].peek(len);
 	}
+	
+	public WvBytes peekall()
+	{
+	    return peek(used);
+	}
 
-	public byte[] get(int len)
+	public WvBytes get(int len)
 	{
 	    wv.assert(used >= len);
 	    coagulate(len);
 	    return list[0].get(len);
 	}
 
-	public byte[] getall()
+	public WvBytes getall()
 	{
 	    return get(used);
 	}

@@ -12,9 +12,9 @@ public class WvStreamTests
     {
 	using (WvStream s = new WvStream())
 	{
-	    WVPASS(s.isok);
+	    WVPASS(s.ok);
 	    s.close();
-	    WVFAIL(s.isok);
+	    WVFAIL(s.ok);
 	}
 	
 	using (WvStream s = new WvStream())
@@ -24,12 +24,12 @@ public class WvStreamTests
 	    s.onclose += delegate() { closed_called2++; };
 	    Exception e1 = new Exception("e1");
 	    Exception e2 = new Exception("e2");
-	    WVPASS(s.isok);
+	    WVPASS(s.ok);
 	    WVPASSEQ(closed_called, 0);
 	    WVPASSEQ(closed_called2, 0);
 	    s.err = e1;
 	    s.err = e2;
-	    WVFAIL(s.isok);
+	    WVFAIL(s.ok);
 	    WVPASS(s.err != null);
 	    WVPASS(s.err == e1);
 	    WVPASS(s.err.Message == "e1");
@@ -82,7 +82,6 @@ public class WvStreamTests
 	using (WvLoopback l = new WvLoopback())
 	using (WvInBufStream b = new WvInBufStream(l))
 	{
-	    
 	    string s = null;
 	    int wcount = 0, rcount = 0;
 	    
@@ -97,7 +96,7 @@ public class WvStreamTests
 	    b.onreadable += delegate() {
 		Console.WriteLine("reading");
 		rcount++;
-		s = b.getline('\n');
+		s = b.getline(0, '\n');
 		Console.WriteLine("done reading");
 	    };
 	    
@@ -113,11 +112,13 @@ public class WvStreamTests
 	    WVPASSEQ(rcount, 1);
 	    WVPASSEQ(s, null);
 	    
+	    wv.print("putstring\n");
 	    b.print("string!\n");
 	    WvStream.runonce(10000);
 	    
 	    WVPASSEQ(wcount, 3);
 	    WVPASSEQ(rcount, 2);
+	    WVPASS(s != null);
 	    WVPASSEQ(s, "XXstring!\n");
 	}
     }
@@ -125,13 +126,13 @@ public class WvStreamTests
     IEnumerable<int> checker(WvFile f)
     {
 	Console.WriteLine("checker!");
-	WVPASSEQ(f.getline('\n'), "Line 1\n");
+	WVPASSEQ(f.getline(-1, '\n'), "Line 1\n");
 	yield return 0;
-	WVPASSEQ(f.getline('\n'), "Line 2!!\n");
+	WVPASSEQ(f.getline(-1, '\n'), "Line 2!!\n");
 	yield return 0;
-	WVPASSEQ(f.getline('\n'), "Line 3\rwith CR\n");
+	WVPASSEQ(f.getline(-1, '\n'), "Line 3\rwith CR\n");
 	yield return 0;
-	WVPASSEQ(f.getline('\n'), null);
+	WVPASSEQ(f.getline(-1, '\n'), null);
 	yield return 0;
 	WVPASS(false); // should never reach here
     }
@@ -141,7 +142,7 @@ public class WvStreamTests
 	using (WvFile f = new WvFile("testfile.txt"))
 	{
 	    f.onreadable += checker(f).ToAction();
-	    while (f.isok)
+	    while (f.ok)
 	    {
 		Console.WriteLine("iter");
 		WvStream.runonce(1000);
@@ -164,7 +165,7 @@ public class WvStreamTests
 	    WvStream.runonce(10000);
 	    WVPASSEQ(rcount, 1);
 	    WVPASSEQ(f.read(1).FromUTF8(), "L");
-	    WVPASSEQ(f.getline('\r'), "ine 1\nLine 2!!\nLine 3\r");
+	    WVPASSEQ(f.getline(-1, '\r'), "ine 1\nLine 2!!\nLine 3\r");
 	    WvStream.runonce(10000);
 	    WVPASSEQ(f.read(1024).FromUTF8(), "with CR\n");
 	    WVPASSEQ(rcount, 3);
