@@ -259,7 +259,7 @@ internal static class VxDb {
 		    VxDbInterfaceRouter.PrepareRecordsetWriter(colinfo,
 							       rows.ToArray(),
 							    rownulls.ToArray());
-		reply = VxDbus.CreateReply(call, "a(issnny)vaay", replywriter);
+		reply = call.reply().write_body("a(issnny)vaay", replywriter);
 	    } // using
         } catch (DbException e) {
             throw new VxSqlException(e.Message, e);
@@ -586,7 +586,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         // FIXME: Add vx.db.toomuchdata error
 	MessageWriter writer = PrepareRecordsetWriter(colinfo, data, nullity);
 	
-        reply = VxDbus.CreateReply(call, "a(issnny)vaay", writer);
+        reply = call.reply().write_body("a(issnny)vaay", writer);
     }
 
     private static void CallQuit(Connection conn,
@@ -595,7 +595,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 	// FIXME: Check permissions here
         MessageWriter writer = new MessageWriter();
 	writer.Write("Quit");
-        reply = VxDbus.CreateReply(call, "s", writer);
+        reply = call.reply().write_body("s", writer);
 	VersaMain.want_to_die = true;
     }
 
@@ -634,7 +634,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 	writer.WriteSig(VxColumnTypeToSignature(coltype));
 	WriteV(writer, coltype, result);
 
-        reply = VxDbus.CreateReply(call, "v", writer);
+        reply = call.reply().write_body("v", writer);
     }
     
     static void WriteColInfo(MessageWriter writer, VxColumnInfo[] colinfo)
@@ -685,7 +685,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         // FIXME: Add vx.db.toomuchdata error
 	MessageWriter writer = PrepareRecordsetWriter(colinfo, data, nullity);
 	
-        reply = VxDbus.CreateReply(call, "a(issnny)vaay", writer);
+        reply = call.reply().write_body("a(issnny)vaay", writer);
     }
 
     private static void CallExecChunkRecordset(Connection conn,
@@ -776,7 +776,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             sums.WriteChecksums(writer);
         }
 
-        reply = VxDbus.CreateReply(call, 
+        reply = call.reply().write_body(
             VxSchemaChecksums.GetDbusSignature(), writer);
     }
 
@@ -808,7 +808,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             schema.WriteSchema(writer);
         }
 
-        reply = VxDbus.CreateReply(call, VxSchema.GetDbusSignature(), writer);
+        reply = call.reply().write_body(VxSchema.GetDbusSignature(), writer);
     }
 
     private static void CallDropSchema(Connection conn,
@@ -840,7 +840,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         MessageWriter writer = new MessageWriter();
         VxSchemaErrors.WriteErrors(writer, errs);
 
-        reply = VxDbus.CreateReply(call, VxSchemaErrors.GetDbusSignature(), 
+        reply = call.reply().write_body(VxSchemaErrors.GetDbusSignature(), 
             writer);
         if (errs != null && errs.Count > 0)
         {
@@ -881,7 +881,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         MessageWriter writer = new MessageWriter();
         VxSchemaErrors.WriteErrors(writer, errs);
 
-        reply = VxDbus.CreateReply(call, VxSchemaErrors.GetDbusSignature(), 
+        reply = call.reply().write_body(VxSchemaErrors.GetDbusSignature(), 
             writer);
         if (errs != null && errs.Count > 0)
         {
@@ -919,7 +919,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             writer.Write(schemadata);
         }
 
-        reply = VxDbus.CreateReply(call, "s", writer);
+        reply = call.reply().write_body("s", writer);
     }
 
     private static void CallPutSchemaData(Connection conn,
@@ -948,7 +948,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             backend.PutSchemaData(tablename, text, 0);
         }
 
-        reply = VxDbus.CreateReply(call);
+        reply = call.reply();
     }
     
     static void WriteV(MessageWriter w, VxColumnType t, object v)

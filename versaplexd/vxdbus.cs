@@ -4,21 +4,6 @@ using Wv;
 using Wv.Extensions;
 
 public static class VxDbus {
-    public static Message CreateReply(Message call)
-    {
-        return CreateReply(call, null, null);
-    }
-
-    public static Message CreateReply(Message call, string signature,
-            MessageWriter body)
-    {
-        var reply = call.reply();
-	reply.signature = signature;
-	if (signature.ne())
-	    reply.Body = body.ToArray();
-        return reply;
-    }
-
     public static Message CreateSignal(string destination, string signalname,
 					string signature, MessageWriter body)
     {

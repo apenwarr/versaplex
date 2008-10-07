@@ -292,6 +292,14 @@ namespace Wv
 	    return w.ToArray();
 	}
 	
+	public Message write_body(string signature, MessageWriter w)
+	{
+	    this.signature = signature;
+	    if (signature.ne())
+		Body = w.ToArray();
+	    return this;
+	}
+	
 	// FIXME: this whole Message class is junk, so this will presumably
 	// migrate elsewhere eventually.
 	public WvDBusIter iter()

@@ -444,7 +444,7 @@ namespace Wv
             CallDBusMethod("RemoveMatch", rule);
 	}
 
-	string unique_name;
+	public string unique_name { get; private set; }
     }
     
     public static class ConnectionMessageHelpers
