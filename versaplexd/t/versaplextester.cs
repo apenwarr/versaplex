@@ -196,7 +196,7 @@ public class VersaplexTester: IDisposable
 	    object[][] tdata;
 	    bool[][] tnullity;
 	    Message tmp = bus.readmessage(-1);
-	    if (tmp.type == MessageType.Signal)
+	    if (tmp.type == Wv.Dbus.MType.Signal)
 	    {
 		tmp.check("a(issnny)vaayu");
 		RecordsetWorker(tmp, out colinfo, out tdata, out tnullity);

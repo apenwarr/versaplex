@@ -129,8 +129,8 @@ namespace Wv
 	    byte[] HeaderData = msg.GetHeaderData();
 
 	    long msgLength = HeaderData.Length + (msg.Body != null ? msg.Body.Length : 0);
-	    if (msgLength > Protocol.MaxMessageLength)
-		throw new Exception("Message length " + msgLength + " exceeds maximum allowed " + Protocol.MaxMessageLength + " bytes");
+	    if (msgLength > Dbus.Protocol.MaxMessageLength)
+		throw new Exception("Message length " + msgLength + " exceeds maximum allowed " + Dbus.Protocol.MaxMessageLength + " bytes");
 	    
 	    log.print(WvLog.L.Debug3, "Sending!\n");
 	    log.print(WvLog.L.Debug4, "Header:\n{0}",
@@ -239,7 +239,7 @@ namespace Wv
 
 	    switch (msg.type)
 	    {
-	    case MessageType.Error:
+	    case Dbus.MType.Error:
 		//TODO: better exception handling
 		string errMsg = String.Empty;
 		if (msg.signature.StartsWith("s")) {
@@ -249,8 +249,8 @@ namespace Wv
 		    ("Remote Error: Signature='" + msg.signature
 		     + "' " + msg.err + ": " + errMsg);
 		return true;
-	    case MessageType.Signal:
-	    case MessageType.MethodCall:
+	    case Dbus.MType.Signal:
+	    case Dbus.MType.MethodCall:
 		// nothing to do with these by default, so give an error
 		if (msg.ReplyExpected)
 		{
@@ -261,9 +261,9 @@ namespace Wv
 		    send(r);
 		}
 		return true;
-	    case MessageType.Invalid:
+	    case Dbus.MType.Invalid:
 	    default:
-		throw new Exception("Invalid message received: MessageType='" + msg.type + "'");
+		throw new Exception("Invalid message received: Dbus.MType='" + msg.type + "'");
 	    }
 	}
 

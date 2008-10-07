@@ -13,10 +13,10 @@ namespace Wv
 {
     public class Message
     {
-	public static readonly EndianFlag NativeEndianness;
-	public EndianFlag endian { get; private set; }
-	public MessageType type = MessageType.MethodCall;
-	public HeaderFlag flags = HeaderFlag.NoReplyExpected;
+	public static readonly Dbus.Endian NativeEndianness;
+	public Dbus.Endian endian { get; private set; }
+	public Dbus.MType type = Dbus.MType.MethodCall;
+	public Dbus.MFlag flags = Dbus.MFlag.NoReplyExpected;
 	public uint serial { get; internal set; }
 	public uint? rserial = null;
 	public string path = null;
@@ -26,16 +26,16 @@ namespace Wv
 	public string sender = null;
 	public string dest = null;
 	public string signature = null;
-	
+
 	public WvBytes bytes;
 	public byte[] Body;
 
 	static Message()
 	{
 	    if (BitConverter.IsLittleEndian)
-		NativeEndianness = EndianFlag.Little;
+		NativeEndianness = Dbus.Endian.Little;
 	    else
-		NativeEndianness = EndianFlag.Big;
+		NativeEndianness = Dbus.Endian.Big;
 	}
 
 	public Message()
@@ -57,8 +57,8 @@ namespace Wv
 	public Message reply(string signature)
 	{
 	    Message reply = new Message();
-	    reply.type = MessageType.MethodReturn;
-	    reply.flags = HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
+	    reply.type = Dbus.MType.MethodReturn;
+	    reply.flags = Dbus.MFlag.NoReplyExpected | Dbus.MFlag.NoAutoStart;
 	    reply.rserial = this.serial;
 	    reply.dest = this.sender;
 	    reply.signature = signature;
@@ -78,7 +78,7 @@ namespace Wv
 	public Message err_reply(string errcode, string errstr)
 	{
 	    Message r = reply();
-	    r.type = MessageType.Error;
+	    r.type = Dbus.MType.Error;
 	    r.err = errcode;
 	    if (errstr.ne())
 	    {
@@ -99,14 +99,14 @@ namespace Wv
 	public bool ReplyExpected
 	{
 	    get {
-		return (flags & HeaderFlag.NoReplyExpected)
-		          == HeaderFlag.None;
+		return (flags & Dbus.MFlag.NoReplyExpected)
+		          == Dbus.MFlag.None;
 	    }
 	    set {
 		if (value)
-		    flags &= ~HeaderFlag.NoReplyExpected;
+		    flags &= ~Dbus.MFlag.NoReplyExpected;
 		else
-		    flags |= HeaderFlag.NoReplyExpected;
+		    flags |= Dbus.MFlag.NoReplyExpected;
 	    }
 	}
 	
@@ -122,7 +122,7 @@ namespace Wv
 	    // that the a{yv} starts with an unsigned int that's the number
 	    // of bytes in the array, which is what we *really* want to know.
 	    // So we lie about the signature here.
-	    var it = new WvDBusIter((EndianFlag)b[0], "yyyyuuu", b.sub(0,16))
+	    var it = new WvDbusIter((Dbus.Endian)b[0], "yyyyuuu", b.sub(0,16))
 		.GetEnumerator();
 
 	    it.pop();
@@ -131,9 +131,9 @@ namespace Wv
 
 	    byte version = it.pop();
 
-	    if (version < Protocol.MinVersion || version > Protocol.MaxVersion)
+	    if (version < Dbus.Protocol.MinVersion || version > Dbus.Protocol.MaxVersion)
 		throw new NotSupportedException
-		    ("Protocol version '"
+		    ("Dbus.Protocol version '"
 		     + version.ToString() + "' is not supported");
 
 	    uint _blen = it.pop(); // body length
@@ -144,7 +144,7 @@ namespace Wv
 		throw new NotImplementedException
 		    ("Long messages are not yet supported");
 
-	    hlen = 16 + Protocol.Padded((int)_hlen, 8);
+	    hlen = 16 + Dbus.Protocol.Padded((int)_hlen, 8);
 	    blen = (int)_blen;
 	}
 	
@@ -157,44 +157,44 @@ namespace Wv
 
 	public void SetHeaderData(WvBytes data)
 	{
-	    var it = new WvDBusIter((EndianFlag)data[0], "yyyyuua{yv}", data)
+	    var it = new WvDbusIter((Dbus.Endian)data[0], "yyyyuua{yv}", data)
 		.GetEnumerator();
 
-	    endian   = (EndianFlag)(byte)it.pop();
-	    type     = (MessageType)(byte)it.pop();
-	    flags    = (HeaderFlag)(byte)it.pop();
+	    endian   = (Dbus.Endian)(byte)it.pop();
+	    type     = (Dbus.MType)(byte)it.pop();
+	    flags    = (Dbus.MFlag)(byte)it.pop();
 	    it.pop(); // version
 	    it.pop(); // length
 	    serial = it.pop();
 	    foreach (var _f in it.pop())
 	    {
 		var f = _f.GetEnumerator();
-	        FieldCode c = (FieldCode)(byte)f.pop();
+	        Dbus.Field c = (Dbus.Field)(byte)f.pop();
 		var v = f.pop();
 		switch (c)
 		{
-		case FieldCode.Sender:
+		case Dbus.Field.Sender:
 		    sender = v;
 		    break;
-		case FieldCode.Destination:
+		case Dbus.Field.Destination:
 		    dest = v;
 		    break;
-		case FieldCode.ReplySerial:
+		case Dbus.Field.ReplySerial:
 		    rserial = v;
 		    break;
-		case FieldCode.Signature:
+		case Dbus.Field.Signature:
 		    signature = v;
 		    break;
-		case FieldCode.Path:
+		case Dbus.Field.Path:
 		    path = v;
 		    break;
-		case FieldCode.Interface:
+		case Dbus.Field.Interface:
 		    ifc = v;
 		    break;
-		case FieldCode.Member:
+		case Dbus.Field.Member:
 		    method = v;
 		    break;
-		case FieldCode.ErrorName:
+		case Dbus.Field.ErrorName:
 		    err = v;
 		    break;
 		default:
@@ -203,21 +203,21 @@ namespace Wv
 	    }
 	}
 	
-	void wws(MessageWriter w, FieldCode c, string sig, string val)
+	void wws(MessageWriter w, Dbus.Field c, string sig, string val)
 	{
 	    w.Write((byte)c);
 	    w.WriteSig(sig);
 	    w.Write(val);
 	}
 	
-	void wwu(MessageWriter w, FieldCode c, string sig, uint val)
+	void wwu(MessageWriter w, Dbus.Field c, string sig, uint val)
 	{
 	    w.Write((byte)c);
 	    w.WriteSig(sig);
 	    w.Write(val);
 	}
 	
-	void wwsig(MessageWriter w, FieldCode c, string sig, string val)
+	void wwsig(MessageWriter w, Dbus.Field c, string sig, string val)
 	{
 	    w.Write((byte)c);
 	    w.WriteSig(sig);
@@ -232,7 +232,7 @@ namespace Wv
 	    w.Write((byte)endian);
 	    w.Write((byte)type);
 	    w.Write((byte)flags);
-	    w.Write((byte)Protocol.Version);
+	    w.Write((byte)Dbus.Protocol.Version);
 	    w.Write(Body != null ? (uint)Body.Length : 0);
 	    w.Write((uint)serial);
 	    
@@ -244,50 +244,50 @@ namespace Wv
 	    // which means it needs to know in advance how many elements
 	    // are in our array.
 	    
-	    var l = new List<FieldCode>();
+	    var l = new List<Dbus.Field>();
 	    if (sender.ne())
-		l.Add(FieldCode.Sender);
+		l.Add(Dbus.Field.Sender);
 	    if (dest.ne())
-		l.Add(FieldCode.Destination);
+		l.Add(Dbus.Field.Destination);
 	    if (rserial.HasValue)
-		l.Add(FieldCode.ReplySerial);
+		l.Add(Dbus.Field.ReplySerial);
 	    if (signature.ne())
-		l.Add(FieldCode.Signature);
+		l.Add(Dbus.Field.Signature);
 	    if (path.ne())
-		l.Add(FieldCode.Path);
+		l.Add(Dbus.Field.Path);
 	    if (ifc.ne())
-		l.Add(FieldCode.Interface);
+		l.Add(Dbus.Field.Interface);
 	    if (method.ne())
-		l.Add(FieldCode.Member);
+		l.Add(Dbus.Field.Member);
 	    if (err.ne())
-		l.Add(FieldCode.ErrorName);
+		l.Add(Dbus.Field.ErrorName);
 
 	    w.WriteArray(8, l, (w2, i) => {
 		switch (i)
 		{
-		case FieldCode.Sender:
+		case Dbus.Field.Sender:
 		    wws(w2, i, "s", sender);
 		    break;
-		case FieldCode.Destination:
+		case Dbus.Field.Destination:
 		    wws(w2, i, "s", dest);
 		    break;
-		case FieldCode.ReplySerial:
+		case Dbus.Field.ReplySerial:
 		    wv.assert(rserial.Value != 0);
 		    wwu(w2, i, "u", rserial.Value);
 		    break;
-		case FieldCode.Signature:
+		case Dbus.Field.Signature:
 		    wwsig(w2, i, "g", signature);
 		    break;
-		case FieldCode.Path:
+		case Dbus.Field.Path:
 		    wws(w2, i, "o", path);
 		    break;
-		case FieldCode.Interface:
+		case Dbus.Field.Interface:
 		    wws(w2, i, "s", ifc);
 		    break;
-		case FieldCode.Member:
+		case Dbus.Field.Member:
 		    wws(w2, i, "s", method);
 		    break;
-		case FieldCode.ErrorName:
+		case Dbus.Field.ErrorName:
 		    wws(w2, i, "s", err);
 		    break;
 		default:
@@ -305,19 +305,19 @@ namespace Wv
 	    return this;
 	}
 	
-	public WvDBusIter iter()
+	public WvDbusIter iter()
 	{
-	    return new WvDBusIter(endian, signature, Body);
+	    return new WvDbusIter(endian, signature, Body);
 	}
 	
-	public static implicit operator WvDBusIter(Message m)
+	public static implicit operator WvDbusIter(Message m)
 	{
 	    return m.iter();
 	}
 	
 	public Message check(string testsig)
 	{
-	    if (type == MessageType.Error || err.ne())
+	    if (type == Dbus.MType.Error || err.ne())
 	    {
 		if (signature.ne())
 		    throw new WvDbusError(wv.fmt("{0}: {1}", 
@@ -344,7 +344,7 @@ namespace Wv
 	public MethodCall(string dest, string path, string ifc, string method,
 			  string signature)
 	{
-	    this.type = MessageType.MethodCall;
+	    this.type = Dbus.MType.MethodCall;
 	    this.dest = dest;
 	    this.path = path;
 	    this.ifc = ifc;
@@ -370,8 +370,8 @@ namespace Wv
 	public Signal(string dest, string path, string ifc, string method,
 		      string signature)
 	{
-	    this.type = MessageType.Signal;
-	    this.flags = HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
+	    this.type = Dbus.MType.Signal;
+	    this.flags = Dbus.MFlag.NoReplyExpected | Dbus.MFlag.NoAutoStart;
 	    this.dest = dest;
 	    this.path = path;
 	    this.ifc = ifc;

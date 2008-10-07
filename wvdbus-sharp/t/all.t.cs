@@ -100,7 +100,7 @@ class DbusTest
 	
 	Message m = new Message();
 	m.signature = "su";
-	m.type = MessageType.MethodCall;
+	m.type = Wv.Dbus.MType.MethodCall;
 	m.ReplyExpected = true;
 	m.dest = "org.freedesktop.DBus";
 	m.path = "/org/freedesktop/DBus";

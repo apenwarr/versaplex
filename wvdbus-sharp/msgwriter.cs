@@ -16,13 +16,13 @@ namespace Wv
     public class MessageWriter
     {
 	readonly DataConverter conv;
-	readonly EndianFlag endianness;
+	readonly Dbus.Endian endianness;
 	WvBuf buf = new WvBuf(1024);
 
 	public MessageWriter()
 	{
 	    endianness = Message.NativeEndianness;
-	    if (endianness == EndianFlag.Little)
+	    if (endianness == Dbus.Endian.Little)
 		conv = DataConverter.LittleEndian;
 	    else
 	        conv = DataConverter.BigEndian;
@@ -101,11 +101,11 @@ namespace Wv
 	{
 	    byte[] b = val.ToUTF8();
 
-	    if (b.Length > Protocol.MaxSignatureLength)
+	    if (b.Length > Dbus.Protocol.MaxSignatureLength)
 		throw new Exception
 		    ("Signature length "
 		     + b.Length + " exceeds maximum allowed "
-		     + Protocol.MaxSignatureLength + " bytes");
+		     + Dbus.Protocol.MaxSignatureLength + " bytes");
 
 	    Write((byte)b.Length);
 	    buf.put(b);
@@ -161,7 +161,7 @@ namespace Wv
 
 	public void WritePad(int alignment)
 	{
-	    int needed = Protocol.PadNeeded(buf.used, alignment);
+	    int needed = Dbus.Protocol.PadNeeded(buf.used, alignment);
 	    buf.put(zeroes.sub(0, needed));
 	}
     }

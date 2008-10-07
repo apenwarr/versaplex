@@ -28,7 +28,7 @@ public static class VersaMain
 
         switch (msg.type)
 	{
-	case MessageType.MethodCall:
+	case Wv.Dbus.MType.MethodCall:
 	    if (msg.ifc == "vx.db")
 	    {
 		action_queue.Enqueue(() => {

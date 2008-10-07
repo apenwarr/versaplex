@@ -869,7 +869,7 @@ public class VxDbusRouter
         reply = call.reply(VxSchemaErrors.GetDbusSignature()).write(writer);
         if (errs != null && errs.Count > 0)
         {
-            reply.type = MessageType.Error;
+            reply.type = Wv.Dbus.MType.Error;
             reply.err = "org.freedesktop.DBus.Error.Failed";
         }
     }
@@ -909,7 +909,7 @@ public class VxDbusRouter
         reply = call.reply(VxSchemaErrors.GetDbusSignature()).write(writer);
         if (errs != null && errs.Count > 0)
         {
-            reply.type = MessageType.Error;
+            reply.type = Wv.Dbus.MType.Error;
             reply.err = "org.freedesktop.DBus.Error.Failed";
         }
     }

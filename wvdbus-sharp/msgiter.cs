@@ -12,14 +12,14 @@ using Wv.Extensions;
 
 namespace Wv
 {
-    public class WvDBusIter 
-	: WvDBusIterBase, IEnumerator<WvAutoCast>, IEnumerable<WvAutoCast>
+    public class WvDbusIter 
+	: WvDbusIterBase, IEnumerator<WvAutoCast>, IEnumerable<WvAutoCast>
     {
 	int sigpos;
 	WvAutoCast cur;
-	protected WvLog log = new WvLog("DBusIter");
+	protected WvLog log = new WvLog("DbusIter");
 	
-	internal WvDBusIter(DataConverter conv, string sig, WvBytes b)
+	internal WvDbusIter(DataConverter conv, string sig, WvBytes b)
 	    : base(conv, sig, b)
 	{
 	    log.print(WvLog.L.Debug3, "Iterating! (sig={0}, bytes={1}-{2})\n",
@@ -28,16 +28,16 @@ namespace Wv
 	    Reset();
 	}
 	
-	internal WvDBusIter(EndianFlag e, string sig, WvBytes b)
+	internal WvDbusIter(Dbus.Endian e, string sig, WvBytes b)
 	    : this(parse_endian_byte((byte)e), sig, b)
 	{
 	}
 	
 	static DataConverter parse_endian_byte(byte e)
 	{
-	    if (e == (byte)EndianFlag.Little)
+	    if (e == (byte)Dbus.Endian.Little)
 		return DataConverter.LittleEndian;
-	    else if (e == (byte)EndianFlag.Big)
+	    else if (e == (byte)Dbus.Endian.Big)
 		return DataConverter.BigEndian;
 	    else
 		throw new ArgumentException
@@ -47,11 +47,11 @@ namespace Wv
 	// IEnumerable
 	public IEnumerator<WvAutoCast> GetEnumerator()
 	{
-	    return new WvDBusIter(conv, sig, data.sub(start, end-start));
+	    return new WvDbusIter(conv, sig, data.sub(start, end-start));
 	}
 	IEnumerator System.Collections.IEnumerable.GetEnumerator()
 	{
-	    return new WvDBusIter(conv, sig, data.sub(start, end-start));
+	    return new WvDbusIter(conv, sig, data.sub(start, end-start));
 	}
 	
 	// IEnumerator
@@ -95,12 +95,12 @@ namespace Wv
 	}
     }
     
-    class WvDBusIter_Array 
-	: WvDBusIterBase, IEnumerator<WvAutoCast>, IEnumerable<WvAutoCast>
+    class WvDbusIter_Array 
+	: WvDbusIterBase, IEnumerator<WvAutoCast>, IEnumerable<WvAutoCast>
     {
 	WvAutoCast cur;
 	
-	internal WvDBusIter_Array(DataConverter conv, string sig, WvBytes b)
+	internal WvDbusIter_Array(DataConverter conv, string sig, WvBytes b)
 	    : base(conv, sig, b)
 	{
 	    Reset();
@@ -109,11 +109,11 @@ namespace Wv
 	// IEnumerable
 	public IEnumerator<WvAutoCast> GetEnumerator()
 	{
-	    return new WvDBusIter_Array(conv, sig, data.sub(start, end-start));
+	    return new WvDbusIter_Array(conv, sig, data.sub(start, end-start));
 	}
 	IEnumerator System.Collections.IEnumerable.GetEnumerator()
 	{
-	    return new WvDBusIter_Array(conv, sig, data.sub(start, end-start));
+	    return new WvDbusIter_Array(conv, sig, data.sub(start, end-start));
 	}
 	
 	// IEnumerator
@@ -151,14 +151,14 @@ namespace Wv
 	}
     }
     
-    public class WvDBusIterBase
+    public class WvDbusIterBase
     {
 	internal DataConverter conv;
 	protected string sig;
 	protected byte[] data;
 	protected int start, end, pos;
 	
-	internal WvDBusIterBase(DataConverter conv, string sig, WvBytes b)
+	internal WvDbusIterBase(DataConverter conv, string sig, WvBytes b)
 	{
 	    this.conv = conv;
 	    this.sig = sig;
@@ -179,23 +179,23 @@ namespace Wv
 	
 	protected static string subsig(string sig, int offset)
 	{
-	    DType dtype = (DType)sig[offset];
+	    Dbus.DType dtype = (Dbus.DType)sig[offset];
 	    switch (dtype)
 	    {
-	    case DType.Array:
+	    case Dbus.DType.Array:
 		return "a" + subsig(sig, offset+1);
-	    case DType.StructBegin:
-	    case DType.DictEntryBegin:
+	    case Dbus.DType.StructBegin:
+	    case Dbus.DType.DictEntryBegin:
 		{
 		    int depth = 0, i;
 		    for (i = offset; i < sig.Length; i++)
 		    {
-			DType c = (DType)sig[i];
-			if (c == DType.StructBegin 
-			       || c == DType.DictEntryBegin)
+			Dbus.DType c = (Dbus.DType)sig[i];
+			if (c == Dbus.DType.StructBegin 
+			       || c == Dbus.DType.DictEntryBegin)
 			    depth++;
-			else if (c == DType.StructEnd 
-				 || c == DType.DictEntryEnd)
+			else if (c == Dbus.DType.StructEnd 
+				 || c == Dbus.DType.DictEntryEnd)
 			{
 			    depth--;
 			    if (depth <= 0) break;
@@ -213,41 +213,41 @@ namespace Wv
 	
 	protected object getone(string sig)
 	{
-	    DType dtype = (DType)sig[0];
+	    Dbus.DType dtype = (Dbus.DType)sig[0];
 	    
 	    switch (dtype)
 	    {
-	    case DType.Byte:
+	    case Dbus.DType.Byte:
 		return ReadByte();
-	    case DType.Boolean:
+	    case Dbus.DType.Boolean:
 		return ReadBoolean();
-	    case DType.Int16:
+	    case Dbus.DType.Int16:
 		return ReadInt16();
-	    case DType.UInt16:
+	    case Dbus.DType.UInt16:
 		return ReadUInt16();
-	    case DType.Int32:
+	    case Dbus.DType.Int32:
 		return ReadInt32();
-	    case DType.UInt32:
+	    case Dbus.DType.UInt32:
 		return ReadUInt32();
-	    case DType.Int64:
+	    case Dbus.DType.Int64:
 		return ReadInt64();
-	    case DType.UInt64:
+	    case Dbus.DType.UInt64:
 		return ReadUInt64();
-	    case DType.Single:
+	    case Dbus.DType.Single:
 		return ReadSingle();
-	    case DType.Double:
+	    case Dbus.DType.Double:
 		return ReadDouble();
-	    case DType.String:
-	    case DType.ObjectPath:
+	    case Dbus.DType.String:
+	    case Dbus.DType.ObjectPath:
 		return ReadString();
-	    case DType.Signature:
+	    case Dbus.DType.Signature:
 		return ReadSignature();
-	    case DType.Variant:
+	    case Dbus.DType.Variant:
 		return ReadVariant();
-	    case DType.Array:
+	    case Dbus.DType.Array:
 		return ReadArray(subsig(sig, 1));
-	    case DType.StructBegin:
-	    case DType.DictEntryBegin:
+	    case Dbus.DType.StructBegin:
+	    case Dbus.DType.DictEntryBegin:
 		return ReadStruct(sig);
 	    default:
 		throw new Exception("Unhandled D-Bus type: " + dtype);
@@ -376,21 +376,21 @@ namespace Wv
 	IEnumerable<WvAutoCast> ReadArray(string subsig)
 	{
 	    int len = ReadLength();
-	    pad(Protocol.GetAlignment((DType)subsig[0]));
-	    var x = new WvDBusIter_Array(conv, subsig, data.sub(pos, len));
+	    pad(Dbus.Protocol.GetAlignment((Dbus.DType)subsig[0]));
+	    var x = new WvDbusIter_Array(conv, subsig, data.sub(pos, len));
 	    _advance(len);
 	    return x;
 	}
 	
 	IEnumerable<WvAutoCast> ReadStruct(string structsig)
 	{
-	    DType first = (DType)structsig[0];
-	    DType last  = (DType)structsig[structsig.Length-1];
+	    Dbus.DType first = (Dbus.DType)structsig[0];
+	    Dbus.DType last  = (Dbus.DType)structsig[structsig.Length-1];
 	    
-	    if (first == DType.StructBegin)
-		wv.assert(last == DType.StructEnd, "No matching ')'");
-	    else if (first == DType.DictEntryBegin)
-		wv.assert(last == DType.DictEntryEnd, "No matching '}'");
+	    if (first == Dbus.DType.StructBegin)
+		wv.assert(last == Dbus.DType.StructEnd, "No matching ')'");
+	    else if (first == Dbus.DType.DictEntryBegin)
+		wv.assert(last == Dbus.DType.DictEntryEnd, "No matching '}'");
 	    else
 		wv.assert(false,
 			  wv.fmt("ReadStruct called for unknown type '{0}'",

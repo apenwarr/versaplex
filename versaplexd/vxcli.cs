@@ -52,52 +52,35 @@ namespace Wv
 	    call.write(writer);
 	    
 	    Message reply = bus.send_and_wait(call);
-
-	    switch (reply.type) 
+	    if (reply.err == "vx.db.sqlerror")
+		throw new VxDbException(reply.iter().pop());
+	    reply.check("a(issnny)vaay");
+	    var it = reply.iter();
+		    
+	    // decode the raw column info
+	    var l = new List<WvColInfo>();
+	    foreach (IEnumerable<WvAutoCast> c in it.pop())
 	    {
-	    case MessageType.MethodReturn:
-	    case MessageType.Error:
-		{
-		    string sig = reply.signature;
-		    var it = reply.iter();
-		    
-		    // Some unexpected error
-		    if (sig == "s")
-			throw new VxDbException(it.pop());
-		    
-		    if (sig != "a(issnny)vaay")
-			throw new Exception
-			   ("D-Bus reply had invalid signature: " + sig);
-		    
-		    // decode the raw column info
-		    var l = new List<WvColInfo>();
-		    foreach (IEnumerable<WvAutoCast> c in it.pop())
-		    {
-			int size;
-			string name, type;
-			short precision, scale;
-			byte nullable;
-			c.ToArray().assignto(out size, out name, out type,
-					     out precision, out scale,
-					     out nullable);
-			
-			l.Add(new WvColInfo(name, typeof(string),
-					    nullable != 0,
-					    size, precision, scale));
-		    }
-		    
-		    WvColInfo[] colinfo = l.ToArray();
-		    var rows = new List<WvSqlRow>();
-		    foreach (var r in it.pop())
-			rows.Add(new WvSqlRow(r.Cast<object>().ToArray(), 
-                            colinfo));
-		    
-		    return new WvSqlRows_Versaplex(rows.ToArray(), colinfo);
-		}
-	    default:
-		throw new Exception("D-Bus response was not a method "
-				    + "return or error");
+		int size;
+		string name, type;
+		short precision, scale;
+		byte nullable;
+		c.ToArray().assignto(out size, out name, out type,
+				     out precision, out scale,
+				     out nullable);
+		
+		l.Add(new WvColInfo(name, typeof(string),
+				    nullable != 0,
+				    size, precision, scale));
 	    }
+	    
+	    WvColInfo[] colinfo = l.ToArray();
+	    var rows = new List<WvSqlRow>();
+	    foreach (var r in it.pop())
+		rows.Add(new WvSqlRow(r.Cast<object>().ToArray(), 
+				      colinfo));
+	    
+	    return new WvSqlRows_Versaplex(rows.ToArray(), colinfo);
 	}
 	
 	public override int execute(string sql, params object[] args)
