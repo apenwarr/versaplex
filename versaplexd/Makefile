@@ -15,7 +15,7 @@ t/all: all
 versaplexd.exe: versaplexd.cs \
     ischemabackend.cs \
     vxapi.cs \
-    vxcolumninfo.cs vxdbus.cs vxdbusdatetime.cs vxdbschema.cs \
+    vxcolumninfo.cs vxdbusdatetime.cs vxdbschema.cs \
     vxexceptions.cs \
     vxschema.cs vxschemachecksums.cs vxschemadiff.cs vxschemaerrors.cs \
     vxsqlpool.cs wvdbusserver.cs \

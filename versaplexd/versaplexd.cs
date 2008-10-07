@@ -10,7 +10,7 @@ using Wv.NDesk.Options;
 public static class VersaMain
 {
     static WvLog log = new WvLog("Versaplex");
-    static VxMethodCallRouter msgrouter = new VxMethodCallRouter();
+    static VxDbusRouter msgrouter = new VxDbusRouter();
     static WvDBusServer dbusserver;
     static Thread dbusserver_thread = null;
     static ManualResetEvent thread_ready = new ManualResetEvent(false);
@@ -19,7 +19,7 @@ public static class VersaMain
     public static Connection conn;
     static Queue<Action> action_queue = new Queue<Action>();
 
-    private static bool MessageReady(Connection conn, Message msg)
+    static bool MessageReady(Connection conn, Message msg)
     {
         // FIXME: This should really queue things to be run from the thread
         // pool and then the response would be sent back through the action
@@ -33,7 +33,7 @@ public static class VersaMain
 	    {
 		action_queue.Enqueue(() => {
 		    Message reply;
-		    if (msgrouter.RouteMessage(conn, msg, out reply))
+		    if (msgrouter.route(conn, msg, out reply))
 		    {
 			if (reply == null) {
 			    // FIXME: Do something if this happens, maybe?
@@ -112,8 +112,6 @@ public static class VersaMain
 	WvLog.maxlevel = (WvLog.L)verbose;
 	
 	StartDBusServerThread(listeners.ToArray());
-
-	msgrouter.AddInterface(VxDbInterfaceRouter.Instance);
 
 	bool cfgfound = false;
 

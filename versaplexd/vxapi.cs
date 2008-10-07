@@ -53,7 +53,7 @@ internal static class VxDb {
 					    object[][] data, byte[][] nulls)
     {
 	MessageWriter writer =
-	    VxDbInterfaceRouter.PrepareRecordsetWriter(colinfo, data, nulls);
+	    VxDbusRouter.PrepareRecordsetWriter(colinfo, data, nulls);
 	writer.Write(call.serial);
 
 	new Signal(call.sender, call.path, "vx.db", "ChunkRecordsetSig",
@@ -66,7 +66,7 @@ internal static class VxDb {
     internal static void ExecChunkRecordset(Connection conn, 
 					    Message call, out Message reply)
     {
-	string connid = VxDbInterfaceRouter.GetClientId(call);
+	string connid = VxDbusRouter.GetClientId(call);
 	
         if (connid == null)
         {
@@ -256,7 +256,7 @@ internal static class VxDb {
 
 		// Create reply, either with or with no data
 		MessageWriter replywriter =
-		    VxDbInterfaceRouter.PrepareRecordsetWriter(colinfo,
+		    VxDbusRouter.PrepareRecordsetWriter(colinfo,
 							       rows.ToArray(),
 							    rownulls.ToArray());
 		reply = call.reply("a(issnny)vaay").write(replywriter);
@@ -455,37 +455,65 @@ internal static class VxDb {
     }
 }
 
-public class VxDbInterfaceRouter : VxInterfaceRouter 
+public class VxDbusRouter
 {
-
-    static WvLog log = new WvLog("VxDbInterfaceRouter");
-    static readonly VxDbInterfaceRouter instance;
-    public static VxDbInterfaceRouter Instance {
-        get { return instance; }
-    }
-
-    static VxDbInterfaceRouter() {
-        instance = new VxDbInterfaceRouter();
-    }
-
-    private VxDbInterfaceRouter() : base("vx.db")
+    static WvLog log = new WvLog("VxDbusRouter");
+    protected delegate
+        void MethodCallProcessor(Connection conn, Message call,
+				 out Message reply);
+    
+    public VxDbusRouter()
     {
-        methods.Add("Test", CallTest);
-        methods.Add("Quit", CallQuit);
-        methods.Add("ExecScalar", CallExecScalar);
-        methods.Add("ExecRecordset", CallExecRecordset);
-        methods.Add("ExecChunkRecordset", CallExecChunkRecordset);
-        methods.Add("GetSchemaChecksums", CallGetSchemaChecksums);
-        methods.Add("GetSchema", CallGetSchema);
-        methods.Add("PutSchema", CallPutSchema);
-        methods.Add("DropSchema", CallDropSchema);
-        methods.Add("GetSchemaData", CallGetSchemaData);
-        methods.Add("PutSchemaData", CallPutSchemaData);
+    }
+    
+    public bool route(Connection conn, Message msg, out Message reply)
+    {
+	MethodCallProcessor p;
+	
+	if (msg.ifc != "vx.db" || msg.path != "/db")
+	{
+	    reply = null;
+	    return false;
+	}
+	
+	if (msg.method == "Test")
+	    p = CallTest;
+	else if (msg.method == "Quit")
+	    p = CallQuit;
+	else if (msg.method == "ExecScalar")
+	    p = CallExecScalar;
+	else if (msg.method == "ExecRecordset")
+	    p = CallExecRecordset;
+	else if (msg.method == "ExecChunkRecordset")
+	    p = CallExecChunkRecordset;
+	else if (msg.method == "GetSchemaChecksums")
+	    p = CallGetSchemaChecksums;
+	else if (msg.method == "GetSchema")
+	    p = CallGetSchema;
+	else if (msg.method == "PutSchema")
+	    p = CallPutSchema;
+	else if (msg.method == "DropSchema")
+	    p = CallDropSchema;
+	else if (msg.method == "GetSchemaData")
+	    p = CallGetSchemaData;
+	else if (msg.method == "PutSchemaData")
+	    p = CallPutSchemaData;
+	else
+	{
+	    // FIXME: this should be done at a higher level somewhere
+            reply = msg.err_reply(
+                    "org.freedesktop.DBus.Error.UnknownMethod",
+                    "Method name {0} not found on interface {1}",
+                    msg.method, msg.ifc);
+	    return true;
+	}
+	ExecuteCall(p, conn, msg, out reply);
+	return true;
     }
 
-    protected override void ExecuteCall(MethodCallProcessor processor,
-					Connection conn,
-					Message call, out Message reply)
+    void ExecuteCall(MethodCallProcessor processor,
+		     Connection conn,
+		     Message call, out Message reply)
     {
         try {
             processor(conn, call, out reply);
@@ -553,7 +581,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         return username;
     }
 
-    private static Message CreateUnknownMethodReply(Message call, 
+    static Message CreateUnknownMethodReply(Message call, 
         string methodname)
     {
         return call.err_reply("org.freedesktop.DBus.Error.UnknownMethod",
@@ -561,7 +589,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 			      methodname, call.signature);
     }
 
-    private static void CallTest(Connection conn,
+    static void CallTest(Connection conn,
 				 Message call, out Message reply)
     {
         if (call.signature.ne()) {
@@ -588,7 +616,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         reply = call.reply("a(issnny)vaay").write(writer);
     }
 
-    private static void CallQuit(Connection conn,
+    static void CallQuit(Connection conn,
 				 Message call, out Message reply)
     {
 	// FIXME: Check permissions here
@@ -598,7 +626,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 	VersaMain.want_to_die = true;
     }
 
-    private static void CallExecScalar(Connection conn,
+    static void CallExecScalar(Connection conn,
 				       Message call, out Message reply)
     {
         if (call.signature != "s") {
@@ -687,7 +715,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         reply = call.reply("a(issnny)vaay").write(writer);
     }
 
-    private static void CallExecChunkRecordset(Connection conn,
+    static void CallExecChunkRecordset(Connection conn,
 					       Message call, out Message reply)
     {
 	// XXX: Stuff in this comment block shamelessly stolen from
@@ -749,7 +777,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         return sig.ToString();
     }
 
-    private static void CallGetSchemaChecksums(Connection conn,
+    static void CallGetSchemaChecksums(Connection conn,
 					       Message call, out Message reply)
     {
         if (call.signature.ne()) {
@@ -778,7 +806,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         reply = call.reply(VxSchemaChecksums.GetDbusSignature()).write(writer);
     }
 
-    private static void CallGetSchema(Connection conn,
+    static void CallGetSchema(Connection conn,
 				      Message call, out Message reply)
     {
         if (call.signature != "as") {
@@ -809,7 +837,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         reply = call.reply(VxSchema.GetDbusSignature()).write(writer);
     }
 
-    private static void CallDropSchema(Connection conn,
+    static void CallDropSchema(Connection conn,
 				       Message call, out Message reply)
     {
         if (call.signature != "as") {
@@ -846,7 +874,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         }
     }
 
-    private static void CallPutSchema(Connection conn,
+    static void CallPutSchema(Connection conn,
 				      Message call, out Message reply)
     {
         if (call.signature != String.Format("{0}i", 
@@ -886,7 +914,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         }
     }
 
-    private static void CallGetSchemaData(Connection conn,
+    static void CallGetSchemaData(Connection conn,
 					  Message call, out Message reply)
     {
         if (call.signature != "ss") {
@@ -918,7 +946,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         reply = call.reply("s").write(writer);
     }
 
-    private static void CallPutSchemaData(Connection conn,
+    static void CallPutSchemaData(Connection conn,
 					  Message call, out Message reply)
     {
         if (call.signature != "ss") {
