@@ -105,6 +105,7 @@ namespace Wv
 	    WvDbusMsg reply = null;
 	    
 	    send(msg, (r) => { reply = r; });
+	    stream.flush(-1);
 	    
 	    while (reply == null && ok)
 		handlemessage(-1);
