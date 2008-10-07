@@ -533,7 +533,7 @@ public static class SchemamaticCli
             var ctors = new List<string>();
             foreach (PascalArg parg in pargs)
             {
-                if (!global_syms.ContainsKey(parg.varname))
+                if (!global_syms.ContainsKey(parg.varname.ToLower()))
                 {
                     decls.Add(parg.GetDecl());
                     impls.Add(parg.GetDefine());
@@ -541,7 +541,7 @@ public static class SchemamaticCli
                 }
                 else
                 {
-                    string old = global_syms[parg.varname];
+                    string old = global_syms[parg.varname.ToLower()];
                     if (old.ne() && old.ToLower() != parg.pascaltype.ToLower())
                     {
                         log.print("Definition for global '{0}' differs!  " + 
@@ -552,7 +552,7 @@ public static class SchemamaticCli
                     {
                         // The global declaration supplants the local
                         // declaration and implementation, but not the ctor.
-                        global_syms[parg.varname] = parg.pascaltype;
+                        global_syms[parg.varname.ToLower()] = parg.pascaltype;
                         ctors.Add(parg.GetCtor());
                     }
                 }
@@ -705,7 +705,7 @@ public static class SchemamaticCli
             .Add("f|force", delegate(string v) { opts |= VxCopyOpts.Destructive; } )
             .Add("v|verbose", delegate(string v) { verbose++; } )
             .Add("g|global-syms=", 
-                delegate(string v) { if (v.ne()) { global_syms.Add(v, null); }} )
+                delegate(string v) { if (v.ne()) { global_syms.Add(v.ToLower(), null); }} )
             .Parse(args);
 
 	WvLog.maxlevel = (WvLog.L)verbose;
