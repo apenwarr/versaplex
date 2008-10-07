@@ -371,12 +371,19 @@ namespace Wv
         }
 
         WvAutoCast CallDBusMethod(string method, string sig, 
-            byte[] body)
+				  byte[] body)
         {
-            var m = new WvDbusCall(DBusName, DBusPath, DBusName, method, sig);
-            m.Body = body;
-
-            return send_and_wait(m).iter().pop();
+            var call = new WvDbusCall(DBusName, DBusPath,
+				       DBusName, method, sig);
+            call.Body = body;
+	    var reply = send_and_wait(call);
+	    if (reply.err.ne())
+	    {
+		reply.check("IGNORED"); // we know it's an error
+		return default(WvAutoCast);
+	    }
+	    else
+		return reply.iter().pop();
         }
 
 	public string GetUnixUserName(string name)
