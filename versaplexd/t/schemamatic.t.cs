@@ -692,23 +692,14 @@ class SchemamaticTests : SchemamaticTester
     public void TestPutSchemaErrors()
     {
         SchemaCreator sc = new SchemaCreator(this);
+        sc.Create();
 
-        // Establish a baseline of errors.
+        // Check that putting the same elements doesn't cause errors
         VxPutOpts no_opts = VxPutOpts.None;
         VxSchema schema = dbus.Get();
         VxSchemaErrors errs = VxPutSchema(schema, no_opts);
 
-        int baseline_err_count = errs.Count;
-
-        sc.Create();
-
-        // Try again with the new elements, this time for keeps.
-
-        // Check that putting the same elements doesn't cause errors
-        schema = dbus.Get();
-        errs = VxPutSchema(schema, no_opts);
-
-        WVPASSEQ(errs.Count, baseline_err_count);
+        WVPASSEQ(errs.Count, 0);
 
         // Check that invalid SQL causes errors.
 
@@ -721,7 +712,7 @@ class SchemamaticTests : SchemamaticTester
         log.print("Results: \n{0}", errs.ToString());
         log.print("Done results.\n");
 
-        WVPASSEQ(errs.Count, baseline_err_count + 2);
+        WVPASSEQ(errs.Count, 2);
         WVPASSEQ(errs["ScalarFunction/ErrSF"][0].key, "ScalarFunction/ErrSF");
         WVPASSEQ(errs["ScalarFunction/ErrSF"][0].msg, 
             "Incorrect syntax near the keyword 'not'.");
