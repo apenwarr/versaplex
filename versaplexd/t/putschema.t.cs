@@ -115,6 +115,7 @@ class PutSchemaTests : SchemamaticTester
 
         WVPASSEQ(errs.Count, 1);
         WVPASSEQ(errs[key][0].key, key);
+	log.print("Expected error prefix: [{0}]\n", errmsg);
         WVPASS(errs[key][0].msg.StartsWith(errmsg));
         WVPASSEQ(errs[key][0].errnum, errno);
         WVPASSEQ((int)errs[key][0].level, (int)level);
@@ -451,7 +452,7 @@ class PutSchemaTests : SchemamaticTester
                 "primary-key: column=f1,column=f2,clustered=1\n";
         string errmsg = "Refusing to drop and re-add column [f1] when " + 
             "the destructive option is not set.  Error when altering was: " + 
-            "'The object 'PK_TestTable' is dependent on column 'f1'.'";
+            "'The object 'PK_TestTable' is dependent on column 'f1'.";
         TestTableUpdateError("TestTable", schema2, errmsg, schema1);
 
         WVPASSEQ(Scalar("select count(*) from TestTable"), 1);
@@ -490,7 +491,7 @@ class PutSchemaTests : SchemamaticTester
         errmsg = "Refusing to drop and re-add column [f1] when the " + 
             "destructive option is not set.  Error when altering was: " + 
             "'Arithmetic overflow error for data type tinyint, " + 
-            "value = 1073741824.'";
+            "value = 1073741824.";
         TestTableUpdateError("TestTable", schema4, errmsg, schema1);
 
         WVPASS(5);
@@ -499,7 +500,7 @@ class PutSchemaTests : SchemamaticTester
                 "column: name=f3,type=varchar,null=1,length=10\n";
         errmsg = "Refusing to drop and re-add column [f3] when the " + 
             "destructive option is not set.  Error when altering was: " + 
-            "'String or binary data would be truncated.'";
+            "'String or binary data would be truncated.";
         TestTableUpdateError("TestTable", schema5, errmsg, schema1);
 
         WVPASSEQ(Scalar("select count(*) from TestTable"), 1);
