@@ -933,7 +933,7 @@ internal class VxDbSchema : ISchemaBackend
         try 
         {
             bool destructive = (opts & VxPutOpts.Destructive) != 0;
-            if (destructive || !elem.type.StartsWith("Table"))
+            if (destructive || elem.type != "Table")
             {
                 try { 
                     DropSchema(elem.key);
