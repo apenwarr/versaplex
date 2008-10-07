@@ -13,18 +13,18 @@ namespace Wv.Dbus
     enum ClientState
     {
 	WaitingForData,
-	    WaitingForOK,
-	    WaitingForReject,
-	    Terminate
+        WaitingForOK,
+        WaitingForReject,
+        Terminate
     }
 
     enum ServerState
     {
 	WaitingForAuth,
-	    WaitingForData,
-	    WaitingForBegin,
-	    Terminate,
-	    DoneAuth
+        WaitingForData,
+        WaitingForBegin,
+        Terminate,
+        DoneAuth
     }
 
     public class ExternalAuthClient : SaslProcess
@@ -84,9 +84,9 @@ namespace Wv.Dbus
     }
 
     public enum SaslMechResponse {
-	Continue,
-	    OK,
-	    Reject
+        Continue,
+        OK,
+        Reject
     }
 
     public abstract class SaslProcess {
