@@ -48,7 +48,7 @@ internal static class VxDb {
 
 
     internal static void SendChunkRecordSignal(Connection conn,
-					       Message call, string sender,
+					       WvDbusMsg call, string sender,
 					    VxColumnInfo[] colinfo,
 					    object[][] data, byte[][] nulls)
     {
@@ -64,7 +64,7 @@ internal static class VxDb {
 
 
     internal static void ExecChunkRecordset(Connection conn, 
-					    Message call, out Message reply)
+					    WvDbusMsg call, out WvDbusMsg reply)
     {
 	string connid = VxDbusRouter.GetClientId(call);
 	
@@ -459,14 +459,14 @@ public class VxDbusRouter
 {
     static WvLog log = new WvLog("VxDbusRouter");
     protected delegate
-        void MethodCallProcessor(Connection conn, Message call,
-				 out Message reply);
+        void MethodCallProcessor(Connection conn, WvDbusMsg call,
+				 out WvDbusMsg reply);
     
     public VxDbusRouter()
     {
     }
     
-    public bool route(Connection conn, Message msg, out Message reply)
+    public bool route(Connection conn, WvDbusMsg msg, out WvDbusMsg reply)
     {
 	MethodCallProcessor p;
 	
@@ -513,7 +513,7 @@ public class VxDbusRouter
 
     void ExecuteCall(MethodCallProcessor processor,
 		     Connection conn,
-		     Message call, out Message reply)
+		     WvDbusMsg call, out WvDbusMsg reply)
     {
         try {
             processor(conn, call, out reply);
@@ -529,7 +529,7 @@ public class VxDbusRouter
 
     static Dictionary<string,string> usernames = new Dictionary<string, string>();
     
-    public static string GetClientId(Message call)
+    public static string GetClientId(WvDbusMsg call)
     {
         string sender = call.sender;
 
@@ -581,7 +581,7 @@ public class VxDbusRouter
         return username;
     }
 
-    static Message CreateUnknownMethodReply(Message call, 
+    static WvDbusMsg CreateUnknownMethodReply(WvDbusMsg call, 
         string methodname)
     {
         return call.err_reply("org.freedesktop.DBus.Error.UnknownMethod",
@@ -590,7 +590,7 @@ public class VxDbusRouter
     }
 
     static void CallTest(Connection conn,
-				 Message call, out Message reply)
+				 WvDbusMsg call, out WvDbusMsg reply)
     {
         if (call.signature.ne()) {
             reply = CreateUnknownMethodReply(call, "Test");
@@ -617,7 +617,7 @@ public class VxDbusRouter
     }
 
     static void CallQuit(Connection conn,
-				 Message call, out Message reply)
+				 WvDbusMsg call, out WvDbusMsg reply)
     {
 	// FIXME: Check permissions here
         WvDbusWriter writer = new WvDbusWriter();
@@ -627,7 +627,7 @@ public class VxDbusRouter
     }
 
     static void CallExecScalar(Connection conn,
-				       Message call, out Message reply)
+				       WvDbusMsg call, out WvDbusMsg reply)
     {
         if (call.signature != "s") {
             reply = CreateUnknownMethodReply(call, "ExecScalar");
@@ -678,7 +678,7 @@ public class VxDbusRouter
     }
 
     public static void CallExecRecordset(Connection conn,
-					 Message call, out Message reply)
+					 WvDbusMsg call, out WvDbusMsg reply)
     {
         if (call.signature != "s") {
             reply = CreateUnknownMethodReply(call, "ExecRecordset");
@@ -716,7 +716,7 @@ public class VxDbusRouter
     }
 
     static void CallExecChunkRecordset(Connection conn,
-					       Message call, out Message reply)
+					       WvDbusMsg call, out WvDbusMsg reply)
     {
 	// XXX: Stuff in this comment block shamelessly stolen from
 	// "CallExecRecordset".
@@ -778,7 +778,7 @@ public class VxDbusRouter
     }
 
     static void CallGetSchemaChecksums(Connection conn,
-					       Message call, out Message reply)
+					       WvDbusMsg call, out WvDbusMsg reply)
     {
         if (call.signature.ne()) {
             reply = CreateUnknownMethodReply(call, "GetSchemaChecksums");
@@ -807,7 +807,7 @@ public class VxDbusRouter
     }
 
     static void CallGetSchema(Connection conn,
-				      Message call, out Message reply)
+				      WvDbusMsg call, out WvDbusMsg reply)
     {
         if (call.signature != "as") {
             reply = CreateUnknownMethodReply(call, "GetSchema");
@@ -838,7 +838,7 @@ public class VxDbusRouter
     }
 
     static void CallDropSchema(Connection conn,
-				       Message call, out Message reply)
+				       WvDbusMsg call, out WvDbusMsg reply)
     {
         if (call.signature != "as") {
             reply = CreateUnknownMethodReply(call, "DropSchema");
@@ -875,7 +875,7 @@ public class VxDbusRouter
     }
 
     static void CallPutSchema(Connection conn,
-				      Message call, out Message reply)
+				      WvDbusMsg call, out WvDbusMsg reply)
     {
         if (call.signature != String.Format("{0}i", 
                 VxSchema.GetDbusSignature())) {
@@ -915,7 +915,7 @@ public class VxDbusRouter
     }
 
     static void CallGetSchemaData(Connection conn,
-					  Message call, out Message reply)
+					  WvDbusMsg call, out WvDbusMsg reply)
     {
         if (call.signature != "ss") {
             reply = CreateUnknownMethodReply(call, "GetSchemaData");
@@ -947,7 +947,7 @@ public class VxDbusRouter
     }
 
     static void CallPutSchemaData(Connection conn,
-					  Message call, out Message reply)
+					  WvDbusMsg call, out WvDbusMsg reply)
     {
         if (call.signature != "ss") {
             reply = CreateUnknownMethodReply(call, "PutSchemaData");

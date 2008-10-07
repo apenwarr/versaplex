@@ -52,7 +52,7 @@ namespace Wv
 
 	public Connection(string address)
 	{
-	    handlers = new List<Func<Message,bool>>();
+	    handlers = new List<Func<WvDbusMsg,bool>>();
 	    handlers.Add(default_handler);
 	    stream = make_stream(address);
 	    stream.onreadable += () => {
@@ -100,9 +100,9 @@ namespace Wv
 	    return ++serial;
 	}
 
-	public Message send_and_wait(Message msg)
+	public WvDbusMsg send_and_wait(WvDbusMsg msg)
 	{
-	    Message reply = null;
+	    WvDbusMsg reply = null;
 	    
 	    send(msg, (r) => { reply = r; });
 	    
@@ -112,7 +112,7 @@ namespace Wv
 	    return reply;
 	}
 
-	public uint send(Message msg, Action<Message> replyaction)
+	public uint send(WvDbusMsg msg, Action<WvDbusMsg> replyaction)
 	{
 	    msg.ReplyExpected = true;
 	    msg.serial = send(msg);
@@ -120,7 +120,7 @@ namespace Wv
 	    return msg.serial;
 	}
 
-	public uint send(Message msg)
+	public uint send(WvDbusMsg msg)
 	{
 	    msg.serial = GenerateSerial();
 	    
@@ -128,7 +128,7 @@ namespace Wv
 
 	    long msgLength = HeaderData.Length + (msg.Body != null ? msg.Body.Length : 0);
 	    if (msgLength > Dbus.Protocol.MaxMessageLength)
-		throw new Exception("Message length " + msgLength + " exceeds maximum allowed " + Dbus.Protocol.MaxMessageLength + " bytes");
+		throw new Exception("WvDbusMsg length " + msgLength + " exceeds maximum allowed " + Dbus.Protocol.MaxMessageLength + " bytes");
 	    
 	    log.print(WvLog.L.Debug3, "Sending!\n");
 	    log.print(WvLog.L.Debug4, "Header:\n{0}",
@@ -172,7 +172,7 @@ namespace Wv
 	 *
 	 * It exists because it's useful in our unit tests.
 	 */
-	public Message readmessage(int msec_timeout)
+	public WvDbusMsg readmessage(int msec_timeout)
 	{
 	    foreach (int remain in wv.until(msec_timeout))
 	    {
@@ -180,12 +180,12 @@ namespace Wv
 		if (inbuf.used < 16)
 		    continue;
 		
-		int needed = Message.bytes_needed(inbuf.peek(16));
+		int needed = WvDbusMsg.bytes_needed(inbuf.peek(16));
 		readbytes(needed, remain);
 		if (inbuf.used < needed)
 		    continue;
 		
-		return new Message(inbuf.get(needed));
+		return new WvDbusMsg(inbuf.get(needed));
 	    }
 	    
 	    return null;
@@ -217,16 +217,16 @@ namespace Wv
 		;
 	}
 	
-	public List<Func<Message,bool>> handlers { get; private set; }
+	public List<Func<WvDbusMsg,bool>> handlers { get; private set; }
 
-	bool default_handler(Message msg)
+	bool default_handler(WvDbusMsg msg)
 	{
 	    if (msg == null)
 		return false;
 
 	    if (msg.rserial.HasValue)
 	    {
-		Action<Message> raction 
+		Action<WvDbusMsg> raction 
 		    = rserial_to_action.tryget(msg.rserial.Value);
 		if (raction != null)
 		{
@@ -265,8 +265,8 @@ namespace Wv
 	    }
 	}
 
-	Dictionary<uint,Action<Message>> rserial_to_action
-	    = new Dictionary<uint,Action<Message>>();
+	Dictionary<uint,Action<WvDbusMsg>> rserial_to_action
+	    = new Dictionary<uint,Action<WvDbusMsg>>();
 
 	// Standard D-Bus monikers:
 	//   unix:path=whatever,guid=whatever
@@ -445,20 +445,21 @@ namespace Wv
 	public string unique_name { get; private set; }
     }
     
-    public static class ConnectionMessageHelpers
+    public static class ConnectionWvDbusMsgHelpers
     {
-	public static uint send(this Message msg, Connection conn)
+	public static uint send(this WvDbusMsg msg, Connection conn)
 	{
 	    return conn.send(msg);
 	}
 	
-	public static uint send(this Message msg, Connection conn,
-				Action<Message> replyaction)
+	public static uint send(this WvDbusMsg msg, Connection conn,
+				Action<WvDbusMsg> replyaction)
 	{
 	    return conn.send(msg, replyaction);
 	}
 	
-	public static Message send_and_wait(this Message msg, Connection conn)
+	public static WvDbusMsg send_and_wait(this WvDbusMsg msg,
+	                                         Connection conn)
 	{
 	    return conn.send_and_wait(msg);
 	}

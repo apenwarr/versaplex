@@ -51,7 +51,7 @@ namespace Wv
 	    writer.Write(sql);
 	    call.write(writer);
 	    
-	    Message reply = bus.send_and_wait(call);
+	    WvDbusMsg reply = bus.send_and_wait(call);
 	    if (reply.err == "vx.db.sqlerror")
 		throw new VxDbException(reply.iter().pop());
 	    reply.check("a(issnny)vaay");

@@ -37,7 +37,7 @@ internal class VxDbusSchema : ISchemaBackend
         bus = _bus;
     }
     
-    static Message methodcall(string method, string signature)
+    static WvDbusMsg methodcall(string method, string signature)
     {
         return new MethodCall("vx.versaplexd", "/db", 
 			      "vx.db", method, signature);
@@ -51,7 +51,7 @@ internal class VxDbusSchema : ISchemaBackend
     public VxSchemaErrors Put(VxSchema schema, VxSchemaChecksums sums, 
         VxPutOpts opts)
     {
-        Message call = methodcall("PutSchema", 
+        WvDbusMsg call = methodcall("PutSchema", 
             String.Format("{0}i", VxSchema.GetDbusSignature()));
 
         WvDbusWriter writer = new WvDbusWriter();
@@ -60,7 +60,7 @@ internal class VxDbusSchema : ISchemaBackend
         writer.Write((int)opts);
         call.Body = writer.ToArray();
 
-        Message reply = bus.send_and_wait(call);
+        WvDbusMsg reply = bus.send_and_wait(call);
 	if (reply.signature == VxSchemaErrors.GetDbusSignature())
 	    return new VxSchemaErrors(reply.iter().pop());
 	else
@@ -71,7 +71,7 @@ internal class VxDbusSchema : ISchemaBackend
     // Utility API so you can say Get("foo").
     public VxSchema Get(params string[] keys)
     {
-        Message call = methodcall("GetSchema", "as");
+        WvDbusMsg call = methodcall("GetSchema", "as");
 
         WvDbusWriter writer = new WvDbusWriter();
 
@@ -83,7 +83,7 @@ internal class VxDbusSchema : ISchemaBackend
 	});
         call.Body = writer.ToArray();
 
-        Message reply = bus.send_and_wait(call);
+        WvDbusMsg reply = bus.send_and_wait(call);
 	reply.check("a(sssy)");
 	VxSchema schema = new VxSchema(reply.iter().pop());
 	return schema;
@@ -98,9 +98,9 @@ internal class VxDbusSchema : ISchemaBackend
 
     public VxSchemaChecksums GetChecksums()
     {
-        Message call = methodcall("GetSchemaChecksums", "");
+        WvDbusMsg call = methodcall("GetSchemaChecksums", "");
 
-        Message reply = bus.send_and_wait(call);
+        WvDbusMsg reply = bus.send_and_wait(call);
 	reply.check("a(sat)");
 	VxSchemaChecksums sums = new VxSchemaChecksums(reply);
 	return sums;
@@ -116,7 +116,7 @@ internal class VxDbusSchema : ISchemaBackend
     // A method exported over DBus but not exposed in ISchemaBackend
     public VxSchemaErrors DropSchema(params string[] keys)
     {
-        Message call = methodcall("DropSchema", "as");
+        WvDbusMsg call = methodcall("DropSchema", "as");
 
         WvDbusWriter writer = new WvDbusWriter();
 
@@ -125,7 +125,7 @@ internal class VxDbusSchema : ISchemaBackend
 	});
         call.Body = writer.ToArray();
 
-        Message reply = bus.send_and_wait(call);
+        WvDbusMsg reply = bus.send_and_wait(call);
 	if (reply.signature == VxSchemaErrors.GetDbusSignature())
 	    return new VxSchemaErrors(reply.iter().pop());
 	else
@@ -135,7 +135,7 @@ internal class VxDbusSchema : ISchemaBackend
     
     public string GetSchemaData(string tablename, int seqnum, string where)
     {
-        Message call = methodcall("GetSchemaData", "ss");
+        WvDbusMsg call = methodcall("GetSchemaData", "ss");
 
         WvDbusWriter writer = new WvDbusWriter();
 
@@ -146,14 +146,14 @@ internal class VxDbusSchema : ISchemaBackend
         writer.Write(where);
         call.Body = writer.ToArray();
 
-        Message reply = bus.send_and_wait(call);
+        WvDbusMsg reply = bus.send_and_wait(call);
 	reply.check("s");
 	return reply.iter().pop();
     }
 
     public void PutSchemaData(string tablename, string text, int seqnum)
     {
-        Message call = methodcall("PutSchemaData", "ss");
+        WvDbusMsg call = methodcall("PutSchemaData", "ss");
 
         WvDbusWriter writer = new WvDbusWriter();
 
@@ -161,7 +161,7 @@ internal class VxDbusSchema : ISchemaBackend
         writer.Write(text);
         call.Body = writer.ToArray();
 
-        Message reply = bus.send_and_wait(call);
+        WvDbusMsg reply = bus.send_and_wait(call);
 	reply.check("");
     }
 }

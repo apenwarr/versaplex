@@ -21,7 +21,7 @@ namespace Wv
 
 	public WvDbusWriter()
 	{
-	    endianness = Message.NativeEndianness;
+	    endianness = WvDbusMsg.NativeEndianness;
 	    if (endianness == Dbus.Endian.Little)
 		conv = DataConverter.LittleEndian;
 	    else

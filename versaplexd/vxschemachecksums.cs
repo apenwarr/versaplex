@@ -189,7 +189,7 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
 
     // Read an array of checksums from a DBus message.
     // Signature: a(sat)
-    public VxSchemaChecksums(Message reply)
+    public VxSchemaChecksums(WvDbusMsg reply)
     {
 	var array = reply.iter().pop();
 	

@@ -104,7 +104,7 @@ public class VersaplexTester: IDisposable
 	return dbi.select(query);
     }
     
-    Message methodcall(string method, string signature)
+    WvDbusMsg methodcall(string method, string signature)
     {
         return new MethodCall("vx.versaplexd", "/db", 
 			      "vx.db", method, signature);
@@ -114,14 +114,14 @@ public class VersaplexTester: IDisposable
     {
 	Console.WriteLine(" + VxExec SQL Query: {0}", query);
 
-        Message call = methodcall("ExecRecordset", "s");
+        WvDbusMsg call = methodcall("ExecRecordset", "s");
 
         WvDbusWriter mw = new WvDbusWriter();
         mw.Write(query);
 
         call.Body = mw.ToArray();
 
-        Message reply = bus.send_and_wait(call);
+        WvDbusMsg reply = bus.send_and_wait(call);
 	reply.check("a(issnny)vaay");
 	return true;
     }
@@ -130,14 +130,14 @@ public class VersaplexTester: IDisposable
     {
 	Console.WriteLine(" + VxScalar SQL Query: {0}", query);
 
-        Message call = methodcall("ExecScalar", "s");
+        WvDbusMsg call = methodcall("ExecScalar", "s");
 
         WvDbusWriter mw = new WvDbusWriter();
         mw.Write(query);
 
         call.Body = mw.ToArray();
 
-        Message reply = bus.send_and_wait(call);
+        WvDbusMsg reply = bus.send_and_wait(call);
 	reply.check("v");
 	result = reply.iter().pop().inner;
 	return true;
@@ -179,7 +179,7 @@ public class VersaplexTester: IDisposable
     {
 	Console.WriteLine(" + VxChunkRecordset SQL Query: {0}", query);
 
-	Message call = methodcall("ExecChunkRecordset", "s");
+	WvDbusMsg call = methodcall("ExecChunkRecordset", "s");
 
 	WvDbusWriter mw = new WvDbusWriter();
 	mw.Write(query);
@@ -195,7 +195,7 @@ public class VersaplexTester: IDisposable
 	{
 	    object[][] tdata;
 	    bool[][] tnullity;
-	    Message tmp = bus.readmessage(-1);
+	    WvDbusMsg tmp = bus.readmessage(-1);
 	    if (tmp.type == Wv.Dbus.MType.Signal)
 	    {
 		tmp.check("a(issnny)vaayu");
@@ -220,7 +220,7 @@ public class VersaplexTester: IDisposable
 	return true;
     }
 
-    internal bool RecordsetWorker(Message reply, out VxColumnInfo[] _colinfo,
+    internal bool RecordsetWorker(WvDbusMsg reply, out VxColumnInfo[] _colinfo,
 				    out object[][] data, out bool[][] nullity)
     {
         if (reply.signature.e())
@@ -293,14 +293,14 @@ public class VersaplexTester: IDisposable
     {
 	Console.WriteLine(" + VxReader SQL Query: {0}", query);
 
-        Message call = methodcall("ExecRecordset", "s");
+        WvDbusMsg call = methodcall("ExecRecordset", "s");
 
         WvDbusWriter mw = new WvDbusWriter();
         mw.Write(query);
 
         call.Body = mw.ToArray();
 
-        Message reply = bus.send_and_wait(call);
+        WvDbusMsg reply = bus.send_and_wait(call);
 	reply.check("a(issnny)vaay");
 	return RecordsetWorker(reply, out colinfo, out data, out nullity);
     }

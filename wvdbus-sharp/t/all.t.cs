@@ -23,7 +23,7 @@ class DbusTest
 	
 	// write
 	{
-	    Message m = new Message();
+	    WvDbusMsg m = new WvDbusMsg();
 	    m.rserial = 0xf00f;
 	    m.signature = "yisaxaxva(s)";
 	    m.sender = "booga";
@@ -61,7 +61,7 @@ class DbusTest
 	
 	// new-style read
 	{
-	    Message m = new Message();
+	    WvDbusMsg m = new WvDbusMsg();
 	    m.Body = (byte[])msgdata;
 	    m.SetHeaderData(msgdata);
 	    m.Body = (byte[])content;
@@ -98,7 +98,7 @@ class DbusTest
         Connection bus = new Connection(Connection.session_bus_address);
 	WVPASS("got bus");
 	
-	Message m = new Message();
+	WvDbusMsg m = new WvDbusMsg();
 	m.signature = "su";
 	m.type = Wv.Dbus.MType.MethodCall;
 	m.ReplyExpected = true;
@@ -113,7 +113,7 @@ class DbusTest
 	
 	uint serial = bus.send(m);
 	
-	Message reply;
+	WvDbusMsg reply;
 	bool got_reply = false;
 	for (int i = 0; i < 50; i++)
 	{

@@ -19,12 +19,12 @@ public static class VersaMain
     public static Connection conn;
     static Queue<Action> action_queue = new Queue<Action>();
 
-    static bool MessageReady(Connection conn, Message msg)
+    static bool WvDbusMsgReady(Connection conn, WvDbusMsg msg)
     {
         // FIXME: This should really queue things to be run from the thread
         // pool and then the response would be sent back through the action
         // queue
-        log.print(WvLog.L.Debug4, "MessageReady\n");
+        log.print(WvLog.L.Debug4, "WvDbusMsgReady\n");
 
         switch (msg.type)
 	{
@@ -32,12 +32,12 @@ public static class VersaMain
 	    if (msg.ifc == "vx.db")
 	    {
 		action_queue.Enqueue(() => {
-		    Message reply;
+		    WvDbusMsg reply;
 		    if (msgrouter.route(conn, msg, out reply))
 		    {
 			if (reply == null) {
 			    // FIXME: Do something if this happens, maybe?
-			    log.print("Empty reply from RouteMessage\n");
+			    log.print("Empty reply from RouteWvDbusMsg\n");
 			} else {
 			    // XXX: Should this be done further down rather than
 			    // passing the reply out here?
@@ -168,7 +168,7 @@ public static class VersaMain
 	    want_to_die = true;
 	};
 
-	conn.handlers.Insert(0, (m) => MessageReady(conn, m));
+	conn.handlers.Insert(0, (m) => WvDbusMsgReady(conn, m));
 	
 	while (!want_to_die)
 	{

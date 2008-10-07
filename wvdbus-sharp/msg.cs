@@ -11,7 +11,7 @@ using Wv.Extensions;
 
 namespace Wv
 {
-    public class Message
+    public class WvDbusMsg
     {
 	public static readonly Dbus.Endian NativeEndianness;
 	public Dbus.Endian endian { get; private set; }
@@ -30,7 +30,7 @@ namespace Wv
 	public WvBytes bytes;
 	public byte[] Body;
 
-	static Message()
+	static WvDbusMsg()
 	{
 	    if (BitConverter.IsLittleEndian)
 		NativeEndianness = Dbus.Endian.Little;
@@ -38,12 +38,12 @@ namespace Wv
 		NativeEndianness = Dbus.Endian.Big;
 	}
 
-	public Message()
+	public WvDbusMsg()
 	{
 	    endian = NativeEndianness;
 	}
 	
-	public Message(WvBytes b)
+	public WvDbusMsg(WvBytes b)
 	{
 	    int hlen, blen;
 	    _bytes_needed(b, out hlen, out blen);
@@ -54,9 +54,9 @@ namespace Wv
 	    Body = b.sub(hlen, blen).ToArray();
 	}
 	
-	public Message reply(string signature)
+	public WvDbusMsg reply(string signature)
 	{
-	    Message reply = new Message();
+	    WvDbusMsg reply = new WvDbusMsg();
 	    reply.type = Dbus.MType.MethodReturn;
 	    reply.flags = Dbus.MFlag.NoReplyExpected | Dbus.MFlag.NoAutoStart;
 	    reply.rserial = this.serial;
@@ -65,19 +65,19 @@ namespace Wv
 	    return reply;
 	}
 	
-	public Message reply()
+	public WvDbusMsg reply()
 	{
 	    return reply(null);
 	}
 	
-	public Message err_reply(string errcode)
+	public WvDbusMsg err_reply(string errcode)
 	{
 	    return err_reply(errcode, null);
 	}
 
-	public Message err_reply(string errcode, string errstr)
+	public WvDbusMsg err_reply(string errcode, string errstr)
 	{
-	    Message r = reply();
+	    WvDbusMsg r = reply();
 	    r.type = Dbus.MType.Error;
 	    r.err = errcode;
 	    if (errstr.ne())
@@ -90,7 +90,7 @@ namespace Wv
 	    return r;
 	}
 	
-	public Message err_reply(string errcode,
+	public WvDbusMsg err_reply(string errcode,
 				 string fmt, params object[] args)
 	{
 	    return err_reply(errcode, wv.fmt(fmt, args));
@@ -299,7 +299,7 @@ namespace Wv
 	    return w.ToArray();
 	}
 	
-	public Message write(WvDbusWriter w)
+	public WvDbusMsg write(WvDbusWriter w)
 	{
 	    Body = w.ToArray();
 	    return this;
@@ -310,12 +310,12 @@ namespace Wv
 	    return new WvDbusIter(endian, signature, Body);
 	}
 	
-	public static implicit operator WvDbusIter(Message m)
+	public static implicit operator WvDbusIter(WvDbusMsg m)
 	{
 	    return m.iter();
 	}
 	
-	public Message check(string testsig)
+	public WvDbusMsg check(string testsig)
 	{
 	    if (type == Dbus.MType.Error || err.ne())
 	    {
@@ -339,7 +339,7 @@ namespace Wv
 	}
     }
     
-    public class MethodCall : Message
+    public class MethodCall : WvDbusMsg
     {
 	public MethodCall(string dest, string path, string ifc, string method,
 			  string signature)
@@ -365,7 +365,7 @@ namespace Wv
 	}
     }
     
-    public class Signal : Message
+    public class Signal : WvDbusMsg
     {
 	public Signal(string dest, string path, string ifc, string method,
 		      string signature)
