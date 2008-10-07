@@ -20,6 +20,9 @@ class SchemamaticTester : VersaplexTester
         public string func1q;
         public string func2q;
         public string xmlq;
+        public string tabfuncq;
+        public string triggerq;
+        public string viewq;
 
         VersaplexTester t;
 
@@ -67,6 +70,11 @@ class SchemamaticTester : VersaplexTester
                   "</xsd:complexType>" +
                  "</xsd:element>" +
                 "</xsd:schema>'\n";
+            tabfuncq = "create function TabFunc1 ( ) returns table as " + 
+                "return (select 1 as col)\n";
+            triggerq = "create trigger Trig1 on Tab1 for insert as " + 
+                "select 1\n";
+            viewq = "create view View1 as select 1 as col\n";
         }
 
         public void Create()
@@ -76,15 +84,21 @@ class SchemamaticTester : VersaplexTester
             WVASSERT(t.VxExec(func1q));
             WVASSERT(t.VxExec(func2q));
             WVASSERT(t.VxExec(xmlq));
+            WVASSERT(t.VxExec(tabfuncq));
+            WVASSERT(t.VxExec(triggerq));
+            WVASSERT(t.VxExec(viewq));
         }
 
         public void Cleanup()
         {
+            try { t.VxExec("drop view View1"); } catch { }
+            try { t.VxExec("drop trigger Trig1"); } catch { }
             try { t.VxExec("drop table Tab1"); } catch { }
             try { t.VxExec("drop table Tab2"); } catch { }
             try { t.VxExec("drop xml schema collection TestSchema"); } catch { }
             try { t.VxExec("drop procedure Func1"); } catch { }
             try { t.VxExec("drop function Func2"); } catch { }
+            try { t.VxExec("drop function TabFunc1"); } catch { }
         }
     }
 

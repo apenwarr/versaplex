@@ -158,6 +158,7 @@ class DiskSchemaTests : SchemamaticTester
     private void CheckExportedFileContents(string filename, string header, 
         string text)
     {
+        log.print("Checking contents of {0}\n", filename);
         WVPASS(File.Exists(filename));
         using (StreamReader sr = new StreamReader(filename))
         {
@@ -174,13 +175,19 @@ class DiskSchemaTests : SchemamaticTester
     {
         string procdir = Path.Combine(exportdir, "Procedure");
         string scalardir = Path.Combine(exportdir, "ScalarFunction");
+        string tabfuncdir = Path.Combine(exportdir, "TableFunction");
         string tabdir = Path.Combine(exportdir, "Table");
+        string triggerdir = Path.Combine(exportdir, "Trigger");
+        string viewdir = Path.Combine(exportdir, "View");
         string xmldir = Path.Combine(exportdir, "XMLSchema");
 
         Dictionary<string, int> retval = new Dictionary<string, int>();
         int num_procs = 0;
         int num_scalars = 0;
         int num_tables = 0;
+        int num_tabfuncs = 0;
+        int num_triggers = 0;
+        int num_views = 0;
         int num_xmls = 0;
 
         if (Directory.Exists(procdir))
@@ -189,12 +196,21 @@ class DiskSchemaTests : SchemamaticTester
             num_scalars = Directory.GetFiles(scalardir).Length;
         if (Directory.Exists(tabdir))
             num_tables = Directory.GetFiles(tabdir).Length;
+        if (Directory.Exists(tabfuncdir))
+            num_tabfuncs = Directory.GetFiles(tabfuncdir).Length;
+        if (Directory.Exists(triggerdir))
+            num_triggers = Directory.GetFiles(triggerdir).Length;
+        if (Directory.Exists(viewdir))
+            num_views = Directory.GetFiles(viewdir).Length;
         if (Directory.Exists(xmldir))
             num_xmls = Directory.GetFiles(xmldir).Length;
 
         retval.Add("Procedure", num_procs);
         retval.Add("ScalarFunction", num_scalars);
         retval.Add("Table", num_tables);
+        retval.Add("TableFunction", num_tabfuncs);
+        retval.Add("Trigger", num_triggers);
+        retval.Add("View", num_views);
         retval.Add("XMLSchema", num_xmls);
 
         return retval;
@@ -211,6 +227,9 @@ class DiskSchemaTests : SchemamaticTester
         string scalardir = Path.Combine(exportdir, "ScalarFunction");
         string idxdir = Path.Combine(exportdir, "Index");
         string tabdir = Path.Combine(exportdir, "Table");
+        string tabfuncdir = Path.Combine(exportdir, "TableFunction");
+        string triggerdir = Path.Combine(exportdir, "Trigger");
+        string viewdir = Path.Combine(exportdir, "View");
         string xmldir = Path.Combine(exportdir, "XMLSchema");
 
         WVPASSEQ(Directory.GetFiles(exportdir).Length, 0);
@@ -220,8 +239,11 @@ class DiskSchemaTests : SchemamaticTester
         // that directory doesn't get created.
         WVPASS(!Directory.Exists(idxdir));
         WVPASS(Directory.Exists(tabdir));
+        WVPASS(Directory.Exists(tabfuncdir));
+        WVPASS(Directory.Exists(triggerdir));
+        WVPASS(Directory.Exists(viewdir));
         WVPASS(Directory.Exists(xmldir));
-        WVPASSEQ(Directory.GetDirectories(exportdir).Length, 4);
+        WVPASSEQ(Directory.GetDirectories(exportdir).Length, 7);
 
         Dictionary<string, int> filecounts = GetFileCounts(exportdir);
 
@@ -243,6 +265,15 @@ class DiskSchemaTests : SchemamaticTester
             "!!SCHEMAMATIC c7c257ba4f7817e4e460a3cef0c78985 0xd6fe554f ",
             sc.func2q);
 
+        // Table-valued functions
+        WVPASSEQ(Directory.GetDirectories(tabfuncdir).Length, 0);
+        WVPASSEQ(filecounts["TableFunction"], 
+            (1 + base_filecounts["TableFunction"]) * filemultiplier);
+        string tabfunc1file = Path.Combine(tabfuncdir, "TabFunc1" + suffix);
+        CheckExportedFileContents(tabfunc1file, 
+            "!!SCHEMAMATIC 1d3f1392a80e44876254209feebe7860 0x4b96fbe4 ",
+            sc.tabfuncq);
+
         // Tables
         WVPASSEQ(Directory.GetDirectories(tabdir).Length, 0);
         WVPASSEQ(filecounts["Table"], 
@@ -262,6 +293,24 @@ class DiskSchemaTests : SchemamaticTester
             "!!SCHEMAMATIC 69b15b6da6961a0f006fa55106cb243b " +
             sums["Table/Tab2"].GetSumString() + " ", sc.tab2sch);
 
+        // Triggers
+        WVPASSEQ(Directory.GetDirectories(triggerdir).Length, 0);
+        WVPASSEQ(filecounts["Trigger"], 
+            (1 + base_filecounts["Trigger"]) * filemultiplier);
+        string triggerfile = Path.Combine(triggerdir, "Trig1" + suffix);
+        CheckExportedFileContents(triggerfile, 
+            "!!SCHEMAMATIC 363b2dc0cba5b41362fba5683b7885d5 0x55e66255 ",
+            sc.triggerq);
+
+        // Views
+        WVPASSEQ(Directory.GetDirectories(viewdir).Length, 0);
+        WVPASSEQ(filecounts["View"], 
+            (1 + base_filecounts["View"]) * filemultiplier);
+        string viewfile = Path.Combine(viewdir, "View1" + suffix);
+        CheckExportedFileContents(viewfile, 
+            "!!SCHEMAMATIC b43a8c712d3a274a6842fc2413516665 0xe0af9ccd ",
+            sc.viewq);
+
         // XML Schemas
         WVPASSEQ(Directory.GetDirectories(xmldir).Length, 0);
         WVPASSEQ(filecounts["XMLSchema"], 
@@ -272,6 +321,7 @@ class DiskSchemaTests : SchemamaticTester
         CheckExportedFileContents(testschemafile, 
             "!!SCHEMAMATIC f45c4ea54c268c91f41c7054c8f20bc9 0xf4b2c764 ",
             sc.xmlq);
+
     }
 
     [Test, Category("Schemamatic"), Category("DiskBackend")]
