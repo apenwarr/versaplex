@@ -48,21 +48,23 @@ protected:
 void wvlog_open()
 {
     if (rcv)
-	return;
+	wvlog_close();
 #ifdef _MSC_VER
-    setup_console_crash();
+    else  // This will only be true once; when we first call this function
+	setup_console_crash();
 #endif
-    WvLog::LogLevel pri = WvLog::Info;
-    if (log_level)
-    {
-	if (log_level >= (int)WvLog::NUM_LOGLEVELS)
-	    pri = WvLog::Debug5;
-	else if (log_level >= (int)WvLog::Info)
-	    pri = (WvLog::LogLevel)log_level;
-    }
 
     if (wvlog_isset())
     {
+	WvLog::LogLevel pri = WvLog::Info;
+	if (log_level)
+	{
+	    if (log_level >= (int)WvLog::NUM_LOGLEVELS)
+		pri = WvLog::Debug5;
+	    else if (log_level >= (int)WvLog::Info)
+		pri = (WvLog::LogLevel)log_level;
+	}
+
 	IWvStream *s = wvcreate<IWvStream>(log_moniker);
 	assert(s);
 	WvIStreamList::globallist.append(s, false, "VxODBC logger");
@@ -70,11 +72,8 @@ void wvlog_open()
     	if (!wvlog)
 	    wvlog = new WvLog(getpid(), WvLog::Debug);
     }
-    else
-    {
-	// We want this to also capture (and eliminate) DBus messages.
+    else // We want this to also capture (and eliminate) DBus messages.
 	rcv = new WvNullRcv();
-    }
 }
 
 
