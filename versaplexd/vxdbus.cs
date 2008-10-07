@@ -4,25 +4,18 @@ using Wv;
 using Wv.Extensions;
 
 public static class VxDbus {
-    static WvLog log = new WvLog("VxDbus", WvLog.L.Debug1);
-
     public static Message CreateError(string type, string msg, Message cause)
     {
-        Message error = new Message();
-        error.type = MessageType.Error;
-        error.flags = HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
-        error.err = type;
-        error.rserial = cause.serial;
-	error.dest = cause.sender;
+	var errmsg = cause.err_reply(type);
 
         if (msg != null) {
-            error.signature = "s";
+            errmsg.signature = "s";
             MessageWriter writer = new MessageWriter();
             writer.Write(msg);
-            error.Body = writer.ToArray();
+            errmsg.Body = writer.ToArray();
         }
 
-        return error;
+        return errmsg;
     }
 
     public static Message CreateReply(Message call)
@@ -33,36 +26,21 @@ public static class VxDbus {
     public static Message CreateReply(Message call, string signature,
             MessageWriter body)
     {
-        Message reply = new Message();
-        reply.type = MessageType.MethodReturn;
-        reply.flags = HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
-        reply.rserial = call.serial;
-        
-	reply.dest = call.sender;
+        var reply = call.reply();
 	reply.signature = signature;
 	if (signature.ne())
 	    reply.Body = body.ToArray();
-
         return reply;
     }
 
     public static Message CreateSignal(string destination, string signalname,
 					string signature, MessageWriter body)
     {
-	// Idea shamelessly stolen from CreateReply method above
-	Message signal = new Message();
-	signal.type = MessageType.Signal;
-	signal.flags = HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
-	// The ObjectPath is required by signals, and is the "source of the
-	// signal."  OK then; seems useless to me.
-	signal.path = "/db";
-	signal.ifc = "vx.db";
-	signal.method = signalname;
-	signal.dest = destination;
-	signal.signature = signature;
+	var sig = new Signal(destination, "/db", "vx.db", signalname);
+	sig.signature = signature;
 	if (signature.ne())
-	    signal.Body = body.ToArray();
-	return signal;
+	    sig.Body = body.ToArray();
+	return sig;
     }
 }
 

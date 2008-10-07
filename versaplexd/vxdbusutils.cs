@@ -39,13 +39,7 @@ class VxDbusUtils
     public static Message CreateMethodCall(Connection bus, string destination, 
             string path, string iface, string member, string signature)
     {
-        Message msg = new Message();
-        msg.type = MessageType.MethodCall;
-        msg.flags = HeaderFlag.None;
-        msg.path = path;
-        msg.method = member;
-	msg.dest = destination;
-        msg.ifc = iface;
+	var msg = new MethodCall(destination, path, iface, member);
 	msg.signature = signature;
         return msg;
     }

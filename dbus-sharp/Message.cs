@@ -72,7 +72,7 @@ namespace Wv
 	{
 	    Message r = reply();
 	    r.type = MessageType.Error;
-	    r.err = err;
+	    r.err = errcode;
 	    if (errstr.ne())
 	    {
 		r.signature = "s";
@@ -297,6 +297,43 @@ namespace Wv
 	public WvDBusIter iter()
 	{
 	    return new WvDBusIter(endian, signature, Body);
+	}
+	
+	public static implicit operator WvDBusIter(Message m)
+	{
+	    return m.iter();
+	}
+    }
+    
+    public class MethodCall : Message
+    {
+	public MethodCall(string dest, string path, string ifc, string method)
+	{
+	    this.type = MessageType.MethodCall;
+	    this.dest = dest;
+	    this.path = path;
+	    this.ifc = ifc;
+	    this.method = method;
+	    
+	    // This shouldn't be needed, since send() will set it if you
+	    // have a replyaction.  But sometimes people don't actually plan
+	    // to look at the reply, in which case the server will get a
+	    // weird security error; so we have to set this to true even if
+	    // we don't intend to see the reply.
+	    this.ReplyExpected = true;
+	}
+    }
+    
+    public class Signal : Message
+    {
+	public Signal(string dest, string path, string ifc, string method)
+	{
+	    this.type = MessageType.Signal;
+	    this.flags = HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
+	    this.dest = dest;
+	    this.path = path;
+	    this.ifc = ifc;
+	    this.method = method;
 	}
     }
 }

@@ -114,11 +114,12 @@ namespace Wv
 	    return reply;
 	}
 
-	public void send(Message msg, Action<Message> replyaction)
+	public uint send(Message msg, Action<Message> replyaction)
 	{
 	    msg.ReplyExpected = true;
 	    msg.serial = send(msg);
 	    rserial_to_action[msg.serial] = replyaction;
+	    return msg.serial;
 	}
 
 	public uint send(Message msg)
@@ -374,20 +375,11 @@ namespace Wv
         WvAutoCast CallDBusMethod(string method, string sig, 
             byte[] body)
         {
-            Message m = new Message();
+            var m = new MethodCall(DBusName, DBusPath, DBusName, method);
             m.signature = sig;
-            m.type = MessageType.MethodCall;
-            m.ReplyExpected = true;
-            m.dest = DBusName;
-            m.path = DBusPath;
-            m.ifc = DBusName;
-            m.method = method;
             m.Body = body;
 
-            Message reply = send_and_wait(m);
-
-            var i = reply.iter();
-            return i.pop();
+            return send_and_wait(m).iter().pop();
         }
 
 	public string GetUnixUserName(string name)
@@ -453,5 +445,24 @@ namespace Wv
 	}
 
 	string unique_name;
+    }
+    
+    public static class ConnectionMessageHelpers
+    {
+	public static uint send(this Message msg, Connection conn)
+	{
+	    return conn.send(msg);
+	}
+	
+	public static uint send(this Message msg, Connection conn,
+				Action<Message> replyaction)
+	{
+	    return conn.send(msg, replyaction);
+	}
+	
+	public static Message send_and_wait(this Message msg, Connection conn)
+	{
+	    return conn.send_and_wait(msg);
+	}
     }
 }
