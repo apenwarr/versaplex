@@ -23,7 +23,7 @@ versaplexd.exe: versaplexd.cs \
     ../wvdotnet/wv.dll
 
 sm.exe: \
-    ischemabackend.cs vxdbusutils.cs \
+    ischemabackend.cs \
     vxexceptions.cs \
     vxdiskschema.cs vxdbschema.cs vxdbusschema.cs vxschema.cs \
     vxschemachecksums.cs vxschemadiff.cs vxschemaerrors.cs \
@@ -31,7 +31,6 @@ sm.exe: \
     ../wvdotnet/wv.dll
     
 vxcli.exe: vxcli.cs \
-    vxdbusutils.cs \
     vxexceptions.cs \
     ../dbus-sharp/wvdbus-sharp.dll \
     ../wvdotnet/wv.dll

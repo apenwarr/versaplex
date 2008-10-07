@@ -503,7 +503,7 @@ class SchemamaticTests : SchemamaticTester
 	} catch (Wv.Test.WvAssertionFailure e) {
 	    throw e;
 	} catch (System.Exception e) {
-	    WVPASS(e is DbusError);
+	    WVPASS(e is WvDbusError);
             WVPASSEQ(e.Message, "vx.db.sqlerror: Invalid object name 'Tab1'.");
             log.print(e.ToString() + "\n");
 	}

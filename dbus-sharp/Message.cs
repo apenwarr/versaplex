@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Mono;
 using Wv.Extensions;
 
@@ -312,6 +313,29 @@ namespace Wv
 	public static implicit operator WvDBusIter(Message m)
 	{
 	    return m.iter();
+	}
+	
+	public Message check(string testsig)
+	{
+	    if (type == MessageType.Error || err.ne())
+	    {
+		if (signature.ne())
+		    throw new WvDbusError(wv.fmt("{0}: {1}", 
+						 err, iter().Join(",")));
+		else
+		    throw new WvDbusError(err + ": Unknown error");
+	    }
+	    
+	    if (testsig.e() && signature.ne())
+		throw new WvDbusError
+		    (wv.fmt("Expected empty message, got '{0}'", signature));
+	    else if (testsig.ne() && signature.e())
+		throw new WvDbusError
+		    (wv.fmt("Expected '{0}', got empty message", testsig));
+	    else if (signature.ne() && testsig.ne() && signature != testsig)
+		throw new WvDbusError(wv.fmt("Expected '{0}', got '{1}'",
+						 testsig, signature));
+	    return this;
 	}
     }
     

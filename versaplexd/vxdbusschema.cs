@@ -61,30 +61,11 @@ internal class VxDbusSchema : ISchemaBackend
         call.Body = writer.ToArray();
 
         Message reply = bus.send_and_wait(call);
-
-        switch (reply.type)
-	{
-        case MessageType.MethodReturn:
-        case MessageType.Error:
-        {
-	    if (reply.signature.e())
-                throw new Exception("D-Bus reply had no signature.");
-
-            // Some unexpected error
-            if (reply.signature == "s")
-                throw VxDbusUtils.GetDbusException(reply);
-
-            if (reply.signature != VxSchemaErrors.GetDbusSignature())
-                throw new Exception("D-Bus reply had invalid signature: " +
-                    reply.signature);
-
-            VxSchemaErrors errors = new VxSchemaErrors(reply.iter().pop());
-            return errors;
-        }
-        default:
-            throw new Exception("D-Bus response was not a method return or "
-                    +"error");
-        }
+	if (reply.signature == VxSchemaErrors.GetDbusSignature())
+	    return new VxSchemaErrors(reply.iter().pop());
+	else
+	    reply.check(VxSchemaErrors.GetDbusSignature());
+	return null;
     }
 
     // Utility API so you can say Get("foo").
@@ -103,26 +84,9 @@ internal class VxDbusSchema : ISchemaBackend
         call.Body = writer.ToArray();
 
         Message reply = bus.send_and_wait(call);
-
-        switch (reply.type) {
-        case MessageType.MethodReturn:
-        {
-            if (reply.signature.e())
-                throw new Exception("D-Bus reply had no signature");
-
-            if (reply.signature != "a(sssy)")
-                throw new Exception("D-Bus reply had invalid signature: " +
-				    reply.signature);
-
-            VxSchema schema = new VxSchema(reply.iter().pop());
-            return schema;
-        }
-        case MessageType.Error:
-            throw VxDbusUtils.GetDbusException(reply);
-        default:
-            throw new Exception("D-Bus response was not a method return or "
-                    +"error");
-        }
+	reply.check("a(sssy)");
+	VxSchema schema = new VxSchema(reply.iter().pop());
+	return schema;
     }
 
     public VxSchema Get(IEnumerable<string> keys)
@@ -137,26 +101,9 @@ internal class VxDbusSchema : ISchemaBackend
         Message call = methodcall("GetSchemaChecksums", "");
 
         Message reply = bus.send_and_wait(call);
-
-        switch (reply.type) {
-        case MessageType.MethodReturn:
-        {
-            if (reply.signature.e())
-                throw new Exception("D-Bus reply had no signature");
-
-            if (reply.signature != "a(sat)")
-                throw new Exception("D-Bus reply had invalid signature: " +
-				    reply.signature);
-
-            VxSchemaChecksums sums = new VxSchemaChecksums(reply);
-            return sums;
-        }
-        case MessageType.Error:
-            throw VxDbusUtils.GetDbusException(reply);
-        default:
-            throw new Exception("D-Bus response was not a method return or " +
-                    "error");
-        }
+	reply.check("a(sat)");
+	VxSchemaChecksums sums = new VxSchemaChecksums(reply);
+	return sums;
     }
 
     public VxSchemaErrors DropSchema(IEnumerable<string> keys)
@@ -179,28 +126,11 @@ internal class VxDbusSchema : ISchemaBackend
         call.Body = writer.ToArray();
 
         Message reply = bus.send_and_wait(call);
-
-        switch (reply.type) {
-        case MessageType.MethodReturn:
-        case MessageType.Error:
-        {
-            if (reply.signature.e())
-                throw new Exception("D-Bus reply had no signature.");
-
-            if (reply.signature == "s")
-                throw VxDbusUtils.GetDbusException(reply);
-
-            if (reply.signature != VxSchemaErrors.GetDbusSignature())
-                throw new Exception("D-Bus reply had invalid signature: " +
-                    reply.signature);
-
-            VxSchemaErrors errors = new VxSchemaErrors(reply.iter().pop());
-            return errors;
-        }
-        default:
-            throw new Exception("D-Bus response was not a method return or "
-                    + "error");
-        }
+	if (reply.signature == VxSchemaErrors.GetDbusSignature())
+	    return new VxSchemaErrors(reply.iter().pop());
+	else
+	    reply.check(VxSchemaErrors.GetDbusSignature());
+	return null;
     }
     
     public string GetSchemaData(string tablename, int seqnum, string where)
@@ -217,25 +147,8 @@ internal class VxDbusSchema : ISchemaBackend
         call.Body = writer.ToArray();
 
         Message reply = bus.send_and_wait(call);
-
-        switch (reply.type) {
-        case MessageType.MethodReturn:
-        {
-            if (reply.signature.e())
-                throw new Exception("D-Bus reply had no signature");
-
-            if (reply.signature != "s")
-                throw new Exception("D-Bus reply had invalid signature: " +
-                    reply.signature);
-
-            return reply.iter().pop();
-        }
-        case MessageType.Error:
-            throw VxDbusUtils.GetDbusException(reply);
-        default:
-            throw new Exception("D-Bus response was not a method return or "
-                    +"error");
-        }
+	reply.check("s");
+	return reply.iter().pop();
     }
 
     public void PutSchemaData(string tablename, string text, int seqnum)
@@ -249,22 +162,7 @@ internal class VxDbusSchema : ISchemaBackend
         call.Body = writer.ToArray();
 
         Message reply = bus.send_and_wait(call);
-
-        switch (reply.type) {
-        case MessageType.MethodReturn:
-        {
-            if (reply.signature.ne())
-                throw new Exception("D-Bus reply had unexpected signature" + 
-                    reply.signature);
-
-            return;
-        }
-        case MessageType.Error:
-            throw VxDbusUtils.GetDbusException(reply);
-        default:
-            throw new Exception("D-Bus response was not a method return or "
-                    +"error");
-        }
+	reply.check("");
     }
 }
 

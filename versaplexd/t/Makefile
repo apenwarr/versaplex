@@ -38,7 +38,7 @@ LIBS+=-L$(WVSTREAMS) -lwvdbus
 endif
 
 VX_SOURCES = \
-	../vxcolumninfo.cs ../vxdbusdatetime.cs ../vxdbusutils.cs \
+	../vxcolumninfo.cs ../vxdbusdatetime.cs \
 	../vxexceptions.cs versaplextester.cs.E
 
 SCHEMAMATIC_SOURCES = ../vxschema.cs ../vxschemachecksums.cs \

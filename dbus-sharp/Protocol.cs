@@ -159,4 +159,19 @@ namespace Wv
 	    Verbose = wv.getenv("DBUS_VERBOSE").ne();
 	}
     }
+
+    public class WvDbusError : Exception
+    {
+	public WvDbusError() : base()
+	{
+	}
+	
+	public WvDbusError(string msg) : base(msg)
+	{
+	}
+	
+        public WvDbusError(string msg, Exception inner) : base(msg, inner)
+	{
+	}
+    }
 }

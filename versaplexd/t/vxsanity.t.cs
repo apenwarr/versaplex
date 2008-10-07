@@ -52,11 +52,11 @@ class VxSanityTests : VersaplexTester
 	    WVEXCEPT(VxRecordset("SELECT * FROM #nonexistant", out colinfo,
                         out data, out nullity));
 	} catch (Wv.Test.WvAssertionFailure e) {
-	    throw e;
+	    throw;
 	} catch (System.Exception e) {
             // FIXME: This should check for a vx.db.sqlerror
             // rather than any dbus error
-	    WVPASS(e is DbusError);
+	    WVPASS(e is WvDbusError);
 	}
 	
 	// The only way to get here is for the test to pass (otherwise an

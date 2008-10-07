@@ -122,26 +122,8 @@ public class VersaplexTester: IDisposable
         call.Body = mw.ToArray();
 
         Message reply = bus.send_and_wait(call);
-
-        switch (reply.type) {
-        case MessageType.MethodReturn:
-            return true;
-        case MessageType.Error:
-        {
-            if (reply.err.e())
-                throw new Exception("D-Bus error received but no error name "
-                        +"given");
-
-            if (reply.signature != "s")
-                throw new DbusError(reply.err);
-
-	    string errmsg = reply.iter().pop();
-            throw new DbusError(reply.err + ": " + errmsg);
-        }
-        default:
-            throw new Exception("D-Bus response was not a method return or "
-                    +"error");
-        }
+	reply.check("a(issnny)vaay");
+	return true;
     }
 
     internal bool VxScalar(string query, out object result)
@@ -156,35 +138,9 @@ public class VersaplexTester: IDisposable
         call.Body = mw.ToArray();
 
         Message reply = bus.send_and_wait(call);
-
-        switch (reply.type) {
-        case MessageType.MethodReturn:
-        {
-            if (reply.signature.e())
-                throw new Exception("D-Bus reply had no signature");
-
-            if (reply.signature != "v")
-                throw new Exception("D-Bus reply had invalid signature");
-
-	    result = reply.iter().pop().inner;
-            return true;
-        }
-        case MessageType.Error:
-        {
-            if (reply.err.e())
-                throw new Exception("D-Bus error received but no error name "
-                        +"given");
-
-            if (reply.signature != "s")
-                throw new DbusError(reply.err);
-
-            string errmsg = reply.iter().pop();
-            throw new DbusError(reply.err + ": " + errmsg);
-        }
-        default:
-            throw new Exception("D-Bus response was not a method return or "
-                    +"error");
-        }
+	reply.check("v");
+	result = reply.iter().pop().inner;
+	return true;
     }
 
     // Read the standard issnny signature for column information.  We can't
@@ -242,25 +198,15 @@ public class VersaplexTester: IDisposable
 	    Message tmp = bus.readmessage(-1);
 	    if (tmp.type == MessageType.Signal)
 	    {
+		tmp.check("a(issnny)vaayu");
 		RecordsetWorker(tmp, out colinfo, out tdata, out tnullity);
 		rowlist.AddRange(tdata);
 		rownulllist.AddRange(tnullity);
 	    }
-	    else if (tmp.type == MessageType.Error)
-	    {
-		if (tmp.err.e())
-		    throw new Exception("D-Bus error received but no error "
-			+ "name given");
-
-		if (tmp.signature != "s")
-		    throw new DbusError(tmp.err);
-
-		string errmsg = tmp.iter().pop();
-		throw new DbusError(tmp.err + ": " + errmsg);
-	    }
 	    else
 	    {
 	    	//Method return
+		tmp.check("a(issnny)vaay");
 		RecordsetWorker(tmp, out colinfo, out tdata, out tnullity);
 		rowlist.AddRange(tdata);
 		rownulllist.AddRange(tnullity);
@@ -355,28 +301,8 @@ public class VersaplexTester: IDisposable
         call.Body = mw.ToArray();
 
         Message reply = bus.send_and_wait(call);
-
-        switch (reply.type) {
-        case MessageType.MethodReturn:
-        {
-	    return RecordsetWorker(reply, out colinfo, out data, out nullity);
-        }
-        case MessageType.Error:
-        {
-            if (reply.err.e())
-                throw new Exception("D-Bus error received but no error name "
-                        +"given");
-
-            if (reply.signature != "s")
-                throw new DbusError(reply.err);
-
-	    string errmsg = reply.iter().pop();
-            throw new DbusError(reply.err + ": " + errmsg);
-        }
-        default:
-            throw new Exception("D-Bus response was not a method return or "
-                    +"error");
-        }
+	reply.check("a(issnny)vaay");
+	return RecordsetWorker(reply, out colinfo, out data, out nullity);
     }
 
     internal bool Insert(string table, params object [] param)
