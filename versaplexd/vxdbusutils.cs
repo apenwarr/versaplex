@@ -5,14 +5,6 @@ using Wv.Extensions;
 // Utility methods for dealing with DBus
 class VxDbusUtils
 {
-    static string DbusConnName = "vx.versaplexd";
-    static string DbusInterface = "vx.db";
-    static readonly string DbusObjPath = "/db";
-
-    static VxDbusUtils()
-    {
-    }
-
     // Fishes an error name and error message out of a DBus message and
     // returns them in an exception.
     public static Exception GetDbusException(Message reply)
@@ -32,8 +24,8 @@ class VxDbusUtils
     public static Message CreateMethodCall(Connection bus, 
         string member, string signature)
     {
-        return CreateMethodCall(bus, DbusConnName, DbusObjPath, 
-            DbusInterface, member, signature);
+        return CreateMethodCall(bus, "vx.versaplexd", "/db", 
+				"vx.db", member, signature);
     }
 
     public static Message CreateMethodCall(Connection bus, string destination, 

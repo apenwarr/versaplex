@@ -53,14 +53,20 @@ namespace Wv
 	    Body = b.sub(hlen, blen).ToArray();
 	}
 	
-	public Message reply()
+	public Message reply(string signature)
 	{
 	    Message reply = new Message();
 	    reply.type = MessageType.MethodReturn;
 	    reply.flags = HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
 	    reply.rserial = this.serial;
 	    reply.dest = this.sender;
+	    reply.signature = signature;
 	    return reply;
+	}
+	
+	public Message reply()
+	{
+	    return reply(null);
 	}
 	
 	public Message err_reply(string errcode)
@@ -292,16 +298,12 @@ namespace Wv
 	    return w.ToArray();
 	}
 	
-	public Message write_body(string signature, MessageWriter w)
+	public Message write(MessageWriter w)
 	{
-	    this.signature = signature;
-	    if (signature.ne())
-		Body = w.ToArray();
+	    Body = w.ToArray();
 	    return this;
 	}
 	
-	// FIXME: this whole Message class is junk, so this will presumably
-	// migrate elsewhere eventually.
 	public WvDBusIter iter()
 	{
 	    return new WvDBusIter(endian, signature, Body);
@@ -315,13 +317,15 @@ namespace Wv
     
     public class MethodCall : Message
     {
-	public MethodCall(string dest, string path, string ifc, string method)
+	public MethodCall(string dest, string path, string ifc, string method,
+			  string signature)
 	{
 	    this.type = MessageType.MethodCall;
 	    this.dest = dest;
 	    this.path = path;
 	    this.ifc = ifc;
 	    this.method = method;
+	    this.signature = signature;
 	    
 	    // This shouldn't be needed, since send() will set it if you
 	    // have a replyaction.  But sometimes people don't actually plan
@@ -330,11 +334,17 @@ namespace Wv
 	    // we don't intend to see the reply.
 	    this.ReplyExpected = true;
 	}
+	
+	public MethodCall(string dest, string path, string ifc, string method)
+	    : this(dest, path, ifc, method, null)
+	{
+	}
     }
     
     public class Signal : Message
     {
-	public Signal(string dest, string path, string ifc, string method)
+	public Signal(string dest, string path, string ifc, string method,
+		      string signature)
 	{
 	    this.type = MessageType.Signal;
 	    this.flags = HeaderFlag.NoReplyExpected | HeaderFlag.NoAutoStart;
@@ -342,6 +352,12 @@ namespace Wv
 	    this.path = path;
 	    this.ifc = ifc;
 	    this.method = method;
+	    this.signature = signature;
+	}
+	
+	public Signal(string dest, string path, string ifc, string method)
+	    : this(dest, path, ifc, method, null)
+	{
 	}
     }
 }

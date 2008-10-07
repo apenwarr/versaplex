@@ -56,8 +56,9 @@ internal static class VxDb {
 	    VxDbInterfaceRouter.PrepareRecordsetWriter(colinfo, data, nulls);
 	writer.Write(call.serial);
 
-	new Signal(call.sender, call.path, "vx.db", "ChunkRecordsetSig")
-	    .write_body("a(issnny)vaayu", writer)
+	new Signal(call.sender, call.path, "vx.db", "ChunkRecordsetSig",
+		   "a(issnny)vaayu")
+	    .write(writer)
 	    .send(conn);
     }
 
@@ -258,7 +259,7 @@ internal static class VxDb {
 		    VxDbInterfaceRouter.PrepareRecordsetWriter(colinfo,
 							       rows.ToArray(),
 							    rownulls.ToArray());
-		reply = call.reply().write_body("a(issnny)vaay", replywriter);
+		reply = call.reply("a(issnny)vaay").write(replywriter);
 	    } // using
         } catch (DbException e) {
             throw new VxSqlException(e.Message, e);
@@ -584,8 +585,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 
         // FIXME: Add vx.db.toomuchdata error
 	MessageWriter writer = PrepareRecordsetWriter(colinfo, data, nullity);
-	
-        reply = call.reply().write_body("a(issnny)vaay", writer);
+        reply = call.reply("a(issnny)vaay").write(writer);
     }
 
     private static void CallQuit(Connection conn,
@@ -594,7 +594,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 	// FIXME: Check permissions here
         MessageWriter writer = new MessageWriter();
 	writer.Write("Quit");
-        reply = call.reply().write_body("s", writer);
+        reply = call.reply("s").write(writer);
 	VersaMain.want_to_die = true;
     }
 
@@ -633,7 +633,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
 	writer.WriteSig(VxColumnTypeToSignature(coltype));
 	WriteV(writer, coltype, result);
 
-        reply = call.reply().write_body("v", writer);
+        reply = call.reply("v").write(writer);
     }
     
     static void WriteColInfo(MessageWriter writer, VxColumnInfo[] colinfo)
@@ -684,7 +684,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         // FIXME: Add vx.db.toomuchdata error
 	MessageWriter writer = PrepareRecordsetWriter(colinfo, data, nullity);
 	
-        reply = call.reply().write_body("a(issnny)vaay", writer);
+        reply = call.reply("a(issnny)vaay").write(writer);
     }
 
     private static void CallExecChunkRecordset(Connection conn,
@@ -775,8 +775,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             sums.WriteChecksums(writer);
         }
 
-        reply = call.reply().write_body(
-            VxSchemaChecksums.GetDbusSignature(), writer);
+        reply = call.reply(VxSchemaChecksums.GetDbusSignature()).write(writer);
     }
 
     private static void CallGetSchema(Connection conn,
@@ -807,7 +806,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             schema.WriteSchema(writer);
         }
 
-        reply = call.reply().write_body(VxSchema.GetDbusSignature(), writer);
+        reply = call.reply(VxSchema.GetDbusSignature()).write(writer);
     }
 
     private static void CallDropSchema(Connection conn,
@@ -839,8 +838,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         MessageWriter writer = new MessageWriter();
         VxSchemaErrors.WriteErrors(writer, errs);
 
-        reply = call.reply().write_body(VxSchemaErrors.GetDbusSignature(), 
-            writer);
+        reply = call.reply(VxSchemaErrors.GetDbusSignature()).write(writer);
         if (errs != null && errs.Count > 0)
         {
             reply.type = MessageType.Error;
@@ -880,8 +878,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         MessageWriter writer = new MessageWriter();
         VxSchemaErrors.WriteErrors(writer, errs);
 
-        reply = call.reply().write_body(VxSchemaErrors.GetDbusSignature(), 
-            writer);
+        reply = call.reply(VxSchemaErrors.GetDbusSignature()).write(writer);
         if (errs != null && errs.Count > 0)
         {
             reply.type = MessageType.Error;
@@ -918,7 +915,7 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
             writer.Write(schemadata);
         }
 
-        reply = call.reply().write_body("s", writer);
+        reply = call.reply("s").write(writer);
     }
 
     private static void CallPutSchemaData(Connection conn,
