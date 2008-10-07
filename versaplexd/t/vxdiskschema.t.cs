@@ -297,9 +297,9 @@ class DiskSchemaTests : SchemamaticTester
         WVPASSEQ(Directory.GetDirectories(triggerdir).Length, 0);
         WVPASSEQ(filecounts["Trigger"], 
             (1 + base_filecounts["Trigger"]) * filemultiplier);
-        string triggerfile = Path.Combine(triggerdir, "Trig1" + suffix);
+        string triggerfile = Path.Combine(triggerdir, "Trigger1" + suffix);
         CheckExportedFileContents(triggerfile, 
-            "!!SCHEMAMATIC 363b2dc0cba5b41362fba5683b7885d5 0x55e66255 ",
+            "!!SCHEMAMATIC eb7556c49140340ff74f06660a55457b 0x5a93c375 ",
             sc.triggerq);
 
         // Views

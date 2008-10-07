@@ -418,7 +418,10 @@ class SchemamaticTests : SchemamaticTester
 
         VxPutOpts no_opts = VxPutOpts.None;
         WVPASSEQ(VxPutSchema("Table", "Tab1", sc.tab1sch, no_opts), null);
+        WVPASSEQ(VxPutSchema("TableFunction", "TabFunc1", sc.tabfuncq, no_opts), null);
         WVPASSEQ(VxPutSchema("Procedure", "Func1", sc.func1q, no_opts), null);
+        WVPASSEQ(VxPutSchema("Trigger", "Trigger1", sc.triggerq, no_opts), null);
+        WVPASSEQ(VxPutSchema("View", "View1", sc.viewq, no_opts), null);
         WVPASSEQ(VxPutSchema("XMLSchema", "TestSchema", sc.xmlq, no_opts), null);
         
         VxSchema schema = dbus.Get();
@@ -431,11 +434,32 @@ class SchemamaticTests : SchemamaticTester
         WVPASSEQ(schema["Table/Tab1"].name, "Tab1");
         WVPASSEQ(schema["Table/Tab1"].type, "Table");
         WVPASSEQ(schema["Table/Tab1"].text, sc.tab1sch);
+        WVASSERT(schema.ContainsKey("TableFunction/TabFunc1"));
+        WVPASSEQ(schema["TableFunction/TabFunc1"].name, "TabFunc1");
+        WVPASSEQ(schema["TableFunction/TabFunc1"].type, "TableFunction");
+        WVPASSEQ(schema["TableFunction/TabFunc1"].text, sc.tabfuncq);
+        WVASSERT(schema.ContainsKey("Trigger/Trigger1"));
+        WVPASSEQ(schema["Trigger/Trigger1"].name, "Trigger1");
+        WVPASSEQ(schema["Trigger/Trigger1"].type, "Trigger");
+        WVPASSEQ(schema["Trigger/Trigger1"].text, sc.triggerq);
+        WVASSERT(schema.ContainsKey("View/View1"));
+        WVPASSEQ(schema["View/View1"].name, "View1");
+        WVPASSEQ(schema["View/View1"].type, "View");
+        WVPASSEQ(schema["View/View1"].text, sc.viewq);
         WVASSERT(schema.ContainsKey("XMLSchema/TestSchema"));
         WVPASSEQ(schema["XMLSchema/TestSchema"].name, "TestSchema");
         WVPASSEQ(schema["XMLSchema/TestSchema"].type, "XMLSchema");
         WVPASSEQ(schema["XMLSchema/TestSchema"].text, sc.xmlq);
 
+        // Check that putting again with no changes doesn't cause errors, even
+        // without the destructive option.
+        WVPASSEQ(VxPutSchema("Table", "Tab1", sc.tab1sch, no_opts), null);
+        WVPASSEQ(VxPutSchema("TableFunction", "TabFunc1", sc.tabfuncq, no_opts), null);
+        WVPASSEQ(VxPutSchema("Procedure", "Func1", sc.func1q, no_opts), null);
+        WVPASSEQ(VxPutSchema("Trigger", "Trigger1", sc.triggerq, no_opts), null);
+        WVPASSEQ(VxPutSchema("View", "View1", sc.viewq, no_opts), null);
+        WVPASSEQ(VxPutSchema("XMLSchema", "TestSchema", sc.xmlq, no_opts), null);
+        
         string tab1sch2 = "column: name=f4,type=binary,null=0,length=1\n";
 
         VxSchemaError err = VxPutSchema("Table", "Tab1", tab1sch2, no_opts);

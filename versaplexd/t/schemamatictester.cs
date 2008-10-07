@@ -72,7 +72,7 @@ class SchemamaticTester : VersaplexTester
                 "</xsd:schema>'\n";
             tabfuncq = "create function TabFunc1 ( ) returns table as " + 
                 "return (select 1 as col)\n";
-            triggerq = "create trigger Trig1 on Tab1 for insert as " + 
+            triggerq = "create trigger Trigger1 on Tab1 for insert as " + 
                 "select 1\n";
             viewq = "create view View1 as select 1 as col\n";
         }
