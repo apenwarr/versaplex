@@ -4,20 +4,6 @@ using Wv;
 using Wv.Extensions;
 
 public static class VxDbus {
-    public static Message CreateError(string type, string msg, Message cause)
-    {
-	var errmsg = cause.err_reply(type);
-
-        if (msg != null) {
-            errmsg.signature = "s";
-            MessageWriter writer = new MessageWriter();
-            writer.Write(msg);
-            errmsg.Body = writer.ToArray();
-        }
-
-        return errmsg;
-    }
-
     public static Message CreateReply(Message call)
     {
         return CreateReply(call, null, null);
@@ -116,11 +102,10 @@ public abstract class VxInterfaceRouter {
 
         MethodCallProcessor processor;
         if (!methods.TryGetValue(method, out processor)) {
-            reply = VxDbus.CreateError(
+            reply = call.err_reply(
                     "org.freedesktop.DBus.Error.UnknownMethod",
-                    String.Format(
-                        "Method name {0} not found on interface {1}",
-                        method, Interface), call);
+                    "Method name {0} not found on interface {1}",
+                    method, Interface);
 
             return true;
         }
@@ -136,9 +121,7 @@ public abstract class VxInterfaceRouter {
         try {
             processor(conn, call, out reply);
         } catch (Exception e) {
-            reply = VxDbus.CreateError(
-                    "vx.db.exception",
-                    e.ToString(), call);
+            reply = call.err_reply("vx.db.exception", e.ToString());
         }
     }
 }

@@ -70,9 +70,9 @@ internal static class VxDb {
 	
         if (connid == null)
         {
-            reply = VxDbus.CreateError(
+            reply = call.err_reply(
                     "org.freedesktop.DBus.Error.Failed",
-                    "Could not identify the client", call);
+                    "Could not identify the client");
             return;
         }
         
@@ -490,12 +490,11 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         try {
             processor(conn, call, out reply);
         } catch (VxRequestException e) {
-            reply = VxDbus.CreateError(e.DBusErrorType, e.Message, call);
+            reply = call.err_reply(e.DBusErrorType, e.Message);
             log.print("SQL result: {0}\n", e.Short());
         } catch (Exception e) {
-            reply = VxDbus.CreateError(
-                    "vx.db.exception", 
-                    "An internal error occurred.", call);
+            reply = call.err_reply("vx.db.exception", 
+                    "An internal error occurred.");
             log.print("{0}\n", e.ToString());
         }
     }
@@ -557,11 +556,9 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
     private static Message CreateUnknownMethodReply(Message call, 
         string methodname)
     {
-        return VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.UnknownMethod",
-                    String.Format(
-                        "No overload of {0} has signature '{1}'",
-                        methodname, call.signature), call);
+        return call.err_reply("org.freedesktop.DBus.Error.UnknownMethod",
+			      "No overload of {0} has signature '{1}'",
+			      methodname, call.signature);
     }
 
     private static void CallTest(Connection conn,
@@ -575,9 +572,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         string clientid = GetClientId(call);
         if (clientid == null)
         {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.Failed",
-                    "Could not identify the client", call);
+            reply = call.err_reply("org.freedesktop.DBus.Error.Failed",
+				   "Could not identify the client");
             return;
         }
 
@@ -612,18 +608,17 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         }
 
         if (call.Body == null) {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.InvalidSignature",
-                    "Signature provided but no body received", call);
+            reply = call.err_reply
+		("org.freedesktop.DBus.Error.InvalidSignature",
+		 "Signature provided but no body received");
             return;
         }
 
         string clientid = GetClientId(call);
         if (clientid == null)
         {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.Failed",
-                    "Could not identify the client", call);
+            reply = call.err_reply("org.freedesktop.DBus.Error.Failed",
+				   "Could not identify the client");
             return;
         }
 
@@ -664,18 +659,17 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         }
 
         if (call.Body == null) {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.InvalidSignature",
-                    "Signature provided but no body received", call);
+            reply = call.err_reply
+		("org.freedesktop.DBus.Error.InvalidSignature",
+		 "Signature provided but no body received");
             return;
         }
 
         string clientid = GetClientId(call);
         if (clientid == null)
         {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.Failed",
-                    "Could not identify the client", call);
+            reply = call.err_reply("org.freedesktop.DBus.Error.Failed",
+				   "Could not identify the client");
             return;
         }
 
@@ -705,9 +699,9 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         }
 
         if (call.Body == null) {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.InvalidSignature",
-                    "Signature provided but no body received", call);
+            reply = call.err_reply
+		("org.freedesktop.DBus.Error.InvalidSignature",
+		 "Signature provided but no body received");
             return;
         }
 	/// XXX
@@ -767,9 +761,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         string clientid = GetClientId(call);
         if (clientid == null)
         {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.Failed",
-                    "Could not identify the client", call);
+            reply = call.err_reply("org.freedesktop.DBus.Error.Failed",
+				   "Could not identify the client");
             return;
         }
 
@@ -798,9 +791,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         string clientid = GetClientId(call);
         if (clientid == null)
         {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.Failed",
-                    "Could not identify the client", call);
+            reply = call.err_reply("org.freedesktop.DBus.Error.Failed",
+				   "Could not identify the client");
             return;
         }
 
@@ -830,9 +822,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         string clientid = GetClientId(call);
         if (clientid == null)
         {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.Failed",
-                    "Could not identify the client", call);
+            reply = call.err_reply("org.freedesktop.DBus.Error.Failed",
+				   "Could not identify the client");
             return;
         }
 
@@ -870,9 +861,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         string clientid = GetClientId(call);
         if (clientid == null)
         {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.Failed",
-                    "Could not identify the client", call);
+            reply = call.err_reply("org.freedesktop.DBus.Error.Failed",
+				   "Could not identify the client");
             return;
         }
 
@@ -911,9 +901,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         string clientid = GetClientId(call);
         if (clientid == null)
         {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.Failed",
-                    "Could not identify the client", call);
+            reply = call.err_reply("org.freedesktop.DBus.Error.Failed",
+				   "Could not identify the client");
             return;
         }
 
@@ -944,9 +933,8 @@ public class VxDbInterfaceRouter : VxInterfaceRouter
         string clientid = GetClientId(call);
         if (clientid == null)
         {
-            reply = VxDbus.CreateError(
-                    "org.freedesktop.DBus.Error.Failed",
-                    "Could not identify the client", call);
+            reply = call.err_reply("org.freedesktop.DBus.Error.Failed",
+				   "Could not identify the client");
             return;
         }
 
