@@ -11,8 +11,6 @@ using Wv.Extensions;
 
 namespace Wv
 {
-    using Authentication;
-
     [Flags]
     public enum NameFlag : uint
     {
@@ -67,7 +65,7 @@ namespace Wv
 	    stream.write(new byte[] { 0 });
 	    
 	    // Run the authentication phase
-	    SaslProcess auth = new ExternalAuthClient(this, stream);
+	    var auth = new Dbus.ExternalAuthClient(this, stream);
 	    auth.Run();
 	    
             unique_name = CallDBusMethod("Hello");

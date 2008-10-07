@@ -8,7 +8,7 @@ using Wv;
 using Wv.Extensions;
 using Mono.Unix;
 
-namespace Wv.Authentication
+namespace Wv.Dbus
 {
     enum ClientState
     {
