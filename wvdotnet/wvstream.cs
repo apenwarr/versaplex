@@ -44,7 +44,8 @@ namespace Wv
 	
 	~WvStream()
 	{
-	    wv.assert(false, "A WvStream was not close()d/Dispose()d.");
+	    wv.assert(false, "A WvStream ({0}) was not close()d/Dispose()d.",
+		      this.GetType().ToString());
 	}
 	
 	public void Dispose()
