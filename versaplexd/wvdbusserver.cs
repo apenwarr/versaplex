@@ -15,6 +15,14 @@ public class WvDBusServer : IDisposable
     [DllImport("wvdbusd.dll")]
     static extern void wvdbusd_runonce();
     
+    [DllImport("wvdbusd.dll")]
+    static extern int wvdbusd_check();
+    
+    public static int check()
+    {
+	return wvdbusd_check();
+    }
+    
     public WvDBusServer()
     {
 	wvdbusd_start();

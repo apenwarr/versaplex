@@ -4,3 +4,4 @@ wvdbusd_start @1
 wvdbusd_stop @2
 wvdbusd_listen @3
 wvdbusd_runonce @4
+wvdbusd_check @5

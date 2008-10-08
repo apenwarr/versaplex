@@ -42,3 +42,8 @@ extern "C" void wvdbusd_runonce()
     // with.
     s->runonce(1000);
 }
+
+extern "C" int wvdbusd_check()
+{
+    return 42;
+}

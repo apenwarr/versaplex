@@ -73,6 +73,7 @@ public static class VersaMain
     static void StartDBusServerThread(string[] monikers)
     {
 	if (monikers.Length == 0) return;
+	wv.assert(WvDBusServer.check() == 42, "wvdbusd.dll test failed");
 	thread_ready.Reset();
 	dbusserver_thread = new Thread(() => _StartDBusServerThread(monikers));
 	dbusserver_thread.Start();

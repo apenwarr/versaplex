@@ -4,6 +4,7 @@
 	wvdbusd_stop;
 	wvdbusd_listen;
 	wvdbusd_runonce;
+	wvdbusd_check;
     local:
 	*;
 };
