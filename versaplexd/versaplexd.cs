@@ -98,11 +98,16 @@ public static class VersaMain
     public static int Main(string[] args)
     {
 	try {
-	    return _Main(args);
+	    try {
+		return _Main(args);
+	    }
+	    catch (Exception e) {
+		wv.printerr("versaplexd: {0}\n", e.Message);
+		return 99;
+	    }
 	}
-	catch (Exception e) {
-	    wv.printerr("versaplexd: {0}\n", e.Message);
-	    return 99;
+	finally {
+	    StopDBusServerThread();
 	}
     }
     
@@ -136,12 +141,12 @@ public static class VersaMain
 	}
 
 	if (cfgfound == true) {
-		VxSqlPool.SetIniFile(cfgfile);
+	    VxSqlPool.SetIniFile(cfgfile);
 	} else {
-		throw new Exception(wv.fmt(
-			"Could not find config file '{0}',\n" +
+	    throw new Exception
+		(wv.fmt("Could not find config file '{0}',\n" +
 			"and /etc/versaplexd.ini does not exist",
-					   cfgfile));
+			cfgfile));
 	}
 	
 	if (bus == null)
