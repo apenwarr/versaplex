@@ -10,3 +10,5 @@ stamp-h1
 linker-test
 *.a
 *.map
+CC
+CXX

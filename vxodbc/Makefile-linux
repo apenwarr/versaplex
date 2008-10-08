@@ -1,32 +1,14 @@
-include Makefile-common
-
-WVPORTS=../wv/wvports
-XPLC=$(WVPORTS)/xplc/build/xplc
-OPENSSL=$(WVPORTS)/openssl/build/openssl
-DBUS=$(WVPORTS)/dbus/build/dbus/dbus/.libs
-BOOST=$(WVPORTS)/boost/build/boost
-ZLIB=$(WVPORTS)/zlib/build/zlib
-WVSTREAMS=../wv/wvstreams
-CFLAGS=-g -w \
-	-DUNICODE_SUPPORT -DODBCVER=0x0351 \
-	-I$(WVSTREAMS)/include -I$(XPLC)/include \
-	-I/usr/include/postgresql
-CXXFLAGS=$(CFLAGS) -I$(BOOST)
-WVSTREAMS_STATIC=$(WVSTREAMS)/libwvstatic.a
 LIBS=\
-	$(WVSTREAMS_STATIC) \
 	$(DBUS)/libdbus-1.a \
 	$(OPENSSL)/libssl.a $(OPENSSL)/libcrypto.a \
 	$(ZLIB)/libz.a \
 	$(XPLC)/libxplc-cxx.a $(XPLC)/libxplc.a -ldl \
 	/usr/lib/libodbc.a -lpthread
-DYNLIBS=\
-	-L$(WVSTREAMS) -lwvstreams -lwvdbus -lodbc
 LDFLAGS=-g
 
 all: wvdbusd.so vxodbc.so vxodbc-test.so test-linker
 
-wvdbusd.so: wvdbusd.o $(WVSTREAMS_STATIC)
+wvdbusd.so: wvdbusd.o $(LIBWVSTATIC)
 	@echo Linking $@...
 	@$(CXX) -shared -o $@ \
 		$(LDFLAGS) \
@@ -37,7 +19,7 @@ wvdbusd.so: wvdbusd.o $(WVSTREAMS_STATIC)
 
 $(OBJS): configure config.h 
 
-vxodbc.so: $(OBJS) $(WVSTREAMS_STATIC)
+vxodbc.so: $(OBJS) $(LIBWVSTATIC)
 	@echo Linking $@...
 	@$(CXX) -shared -o $@ \
 		$(LDFLAGS) \
@@ -47,7 +29,7 @@ vxodbc.so: $(OBJS) $(WVSTREAMS_STATIC)
 		$(LIBS)
 
 # Build a dynamically linked version suitable for use by unit tests
-vxodbc-test.so: $(OBJS)
+vxodbc-test.so: $(OBJS) $(LIBWVSTATIC)
 	@echo Linking $@...
 	@$(CXX) -shared -o $@ \
 		$(LDFLAGS) \
@@ -55,7 +37,7 @@ vxodbc-test.so: $(OBJS)
 		-Wl,--soname,$@ \
 		$(DYNLIBS)
 
-linker-test: linker-test.o vxodbc.so
+linker-test: linker-test.o vxodbc.so $(LIBWVSTATIC)
 	@echo Linking $@...
 	$(CXX) -o $@ $(LDFLAGS) $^
 

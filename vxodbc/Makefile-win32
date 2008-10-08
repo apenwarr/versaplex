@@ -1,26 +1,11 @@
-include Makefile-common
-
-CC=i586-mingw32msvc-g++
-CXX=i586-mingw32msvc-g++
 WINDRES=i586-mingw32msvc-windres
-WVPORTS=../wv/wvports
-XPLC=$(WVPORTS)/xplc/build/xplc
-OPENSSL=$(WVPORTS)/openssl/build/openssl
-DBUS=$(WVPORTS)/dbus/build/dbus/dbus/.libs
-BOOST=$(WVPORTS)/boost/build/boost
-ZLIB=$(WVPORTS)/zlib/build/zlib
 W32API=$(WVPORTS)/win32api/build/w32api
-WVSTREAMS=../wv/wvstreams
-CFLAGS=-w \
+CXXFLAGS+=\
 	-D_MSC_VER=1300 \
-	-DUNICODE_SUPPORT -DODBCVER=0x0351 -D_WIN32_WINNT=0x0501 \
+	-D_WIN32_WINNT=0x0501 \
 	-DWIN_MULTITHREAD_SUPPORT \
-	-I$(WVSTREAMS)/include -I$(XPLC)/include -I$(BOOST) \
-	-I/usr/include/postgresql -I$(W32API)/include
-CXXFLAGS=$(CFLAGS)
-RSCFLAGS=-DUNICODE_SUPPORT
+	-I$(W32API)/include
 LIBS=\
-	-L$(WVSTREAMS) -lwvstatic \
 	-L$(DBUS) -ldbus-1 \
 	-L$(XPLC) -lxplc-cxx -lxplc \
 	-L$(OPENSSL) -lssl -lcrypto \
@@ -35,43 +20,28 @@ OBJS+=\
 	setup.o \
 	vxodbc.res.o \
 	vxodbc.def
-
-
+	
 all: wvdbusd.dll vxodbc.dll regwriter.exe
 
 %.res.o: %.rc
 	$(WINDRES) $< $@
 
-wvdbusd.dll: wvdbusd.o wvdbusd.def
+%.dll: %.def
 	@echo Linking $@...
 	@$(CXX) \
 		-o $@ \
 		-shared \
 		$(LDFLAGS) \
 		$^ \
-		-Wl,--out-implib,wvdbusd.a \
-		-Wl,-Map,wvdbusd.map \
+		-Wl,--out-implib,$*.a \
+		-Wl,-Map,$*.map \
 		$(LIBS) \
 		2>&1 | grep -v '^Warning: resolving .* by linking to' >&2
 
-vxodbc.dll: $(OBJS)
-	@echo Linking $@...
-	@$(CXX) \
-		-o $@ \
-		-shared \
-		$(LDFLAGS) \
-		$^ \
-		-Wl,--out-implib,vxodbc.a \
-		-Wl,-Map,vxodbc.map \
-		$(LIBS) \
-		2>&1 | grep -v '^Warning: resolving .* by linking to' >&2
+wvdbusd.dll: wvdbusd.o $(LIBWVSTATIC)
 
-regwriter.exe: regwriter.o
-	@echo Linking $@...
-	@$(CXX) \
-		-o $@ \
-		$(LDFLAGS) \
-		$^ \
-		$(LIBS)
+vxodbc.dll: $(OBJS) $(LIBWVSTATIC)
+
+regwriter.exe: regwriter.o $(LIBWVSTATIC)
 
 test: vxodbc.dll vxodbc.a
