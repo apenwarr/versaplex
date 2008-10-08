@@ -97,6 +97,17 @@ public static class VersaMain
     
     public static int Main(string[] args)
     {
+	try {
+	    return _Main(args);
+	}
+	catch (Exception e) {
+	    wv.printerr("versaplexd: {0}\n", e.Message);
+	    return 99;
+	}
+    }
+    
+    static int _Main(string[] args)
+    {
 	WvLog.L verbose = WvLog.L.Info;
 	string bus = null;
 	string cfgfile = "versaplexd.ini";

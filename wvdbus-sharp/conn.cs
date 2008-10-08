@@ -64,6 +64,9 @@ namespace Wv
 	    // spec).
 	    stream.write(new byte[] { 0 });
 	    
+	    if (stream.err != null)
+		throw stream.err;
+	    
 	    // Run the authentication phase
 	    var auth = new Dbus.ExternalAuthClient(this, stream);
 	    auth.Run();

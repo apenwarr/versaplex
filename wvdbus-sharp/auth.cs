@@ -67,7 +67,7 @@ namespace Wv.Dbus
 
 	    s.print("AUTH EXTERNAL {0}\r\n", authStr);
 
-	    string ok_rep = s.getline(-1, '\n');
+	    string ok_rep = s.getline(-1, '\n').or("");
 	    string[] parts = ok_rep.Split(' ');
 
 	    if (parts.Length < 1 || parts[0] != "OK") {

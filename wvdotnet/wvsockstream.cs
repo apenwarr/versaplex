@@ -9,7 +9,7 @@ namespace Wv
 {
     public class WvSockStream : WvStream
     {
-	Socket _sock;
+	Socket _sock = null;
 	protected Socket sock {
 	    get {
 		return _sock;
@@ -111,14 +111,14 @@ namespace Wv
 	
 	public override event Action onreadable {
 	    add { base.onreadable += value;
-		  ev.onreadable(sock, do_readable); }
+		  if (ok) ev.onreadable(sock, do_readable); }
 	    remove { base.onreadable -= value;
 		     if (!can_onreadable) ev.onreadable(sock, null); }
 	}
 
 	public override event Action onwritable {
 	    add { base.onwritable += value;
-		  ev.onwritable(sock, do_writable); }
+		  if (ok) ev.onwritable(sock, do_writable); }
 	    remove { base.onwritable -= value;
 		     if (!can_onwritable) ev.onwritable(sock, null); }
 	}
@@ -140,6 +140,8 @@ namespace Wv
 	{
 	    foreach (int remain in wv.until(msec_timeout))
 	    {
+		if (!ok)
+		    return false;
 		if (!readable && !writable)
 		    wv.sleep(remain);
 		else
@@ -181,10 +183,16 @@ namespace Wv
 	    base.close();
 	    if (sock != null)
 	    {
-		tryshutdown(SocketShutdown.Both);
-		sock.Close();
-		((IDisposable)sock).Dispose();
-		sock = null;
+		try {
+		    ev.onreadable(sock, null);
+		    ev.onwritable(sock, null);
+		    tryshutdown(SocketShutdown.Both);
+		    sock.Close();
+		    ((IDisposable)sock).Dispose();
+		}
+		finally {
+		    sock = null;
+		}
 	    }
 	}
     }
