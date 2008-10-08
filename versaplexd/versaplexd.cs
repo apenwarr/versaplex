@@ -98,15 +98,13 @@ public static class VersaMain
     
     public static int Main(string[] args)
     {
-	try {
-	    try {
-		return _Main(args);
-	    }
-	    catch (Exception e) {
-		wv.printerr("versaplexd: {0}\n", e.Message);
-		return 99;
-	    }
-	}
+        try {
+            return _Main(args);
+        }
+        catch (Exception e) {
+            wv.printerr("versaplexd: {0}\n", e.Message);
+            return 99;
+        }
 	finally {
 	    StopDBusServerThread();
 	}
