@@ -754,6 +754,41 @@ class PutSchemaTests : SchemamaticTester
         try { VxExec("drop table TestTable"); } catch { }
     }
 
+    [Test, Category("Schemamatic"), Category("PutSchema")]
+    public void TestTableChecksumSorting()
+    {
+        try { VxExec("drop table TestTable"); } catch { }
+
+        WVPASS(1);
+        string schema1 = "column: name=f1,type=int,null=0\n" + 
+                "column: name=f2,type=money,null=0\n" + 
+                "column: name=f3,type=varchar,null=1,length=80\n";
+        TestTableUpdate("TestTable", schema1);
+
+        VxSchemaChecksums origsums = dbus.GetChecksums();
+
+        WVPASS(2);
+        string schema2 = "column: name=f1,type=int,null=0\n" + 
+                "column: name=f3,type=varchar,null=1,length=80\n";
+        TestTableUpdate("TestTable", schema2, VxPutOpts.Destructive);
+
+        WVPASS(3);
+        string schema3 = "column: name=f1,type=int,null=0\n" + 
+                "column: name=f3,type=varchar,null=1,length=80\n" +
+                "column: name=f2,type=money,null=0\n";
+        TestTableUpdate("TestTable", schema3, VxPutOpts.Destructive);
+
+        VxSchemaChecksums newsums = dbus.GetChecksums();
+
+        // Test that the checksums match even if the column order changes -
+        // avoids spurious checksum mismatches when you try to add a column 
+        // in the middle of the table (and MSSQL makes you put it at the end).
+        WVPASSEQ(origsums["Table/TestTable"].GetSumString(),
+            newsums["Table/TestTable"].GetSumString());
+
+        try { VxExec("drop table TestTable"); } catch { }
+    }
+
     public static void Main()
     {
         WvTest.DoMain();
