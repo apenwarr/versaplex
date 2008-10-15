@@ -29,7 +29,7 @@ vxodbc.so: $(OBJS) $(LIBWVSTATIC)
 		$(LIBS)
 
 # Build a dynamically linked version suitable for use by unit tests
-vxodbc-test.so: $(OBJS) $(LIBWVSTATIC)
+vxodbc-test.so: $(OBJS)
 	@echo Linking $@...
 	@$(CXX) -shared -o $@ \
 		$(LDFLAGS) \
@@ -37,7 +37,7 @@ vxodbc-test.so: $(OBJS) $(LIBWVSTATIC)
 		-Wl,--soname,$@ \
 		$(DYNLIBS)
 
-linker-test: linker-test.o vxodbc.so $(LIBWVSTATIC)
+linker-test: linker-test.o vxodbc.so
 	@echo Linking $@...
 	$(CXX) -o $@ $(LDFLAGS) $^
 
