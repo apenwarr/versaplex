@@ -55,7 +55,7 @@ test: tests
 	$(RUNTEST) $(VALGRIND) ./all.t $(TESTNAME)
 
 # FIXME: Should be using GCC-generated dependencies here
-all.t: $(HELPEROBJS) $(TESTOBJS) 
+all.t: $(HELPEROBJS) $(TESTOBJS)
 	$(CXX) -o $@ $^ $(LIBS)
 
 # FIXME: Should be using GCC-generated dependencies here
