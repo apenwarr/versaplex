@@ -21,8 +21,14 @@ nall: wvdotnet wvdbus-sharp versaplexd
 all: nall vxodbc
 
 # Note: $(MAKE) -C wv doesn't work, as wv's Makefile needs an accurate $(PWD)
+
+# We tell the autobuilder to ignore all warnings produced in the 'wv'
+# directory, since that project isn't really this project and it should
+# have its own autobuilder.
 wvstreams:
+	@echo --START-IGNORE-WARNINGS
 	cd wv && $(MAKE) wvstreams
+	@echo --STOP-IGNORE-WARNINGS
 
 vxodbc: wvstreams
 

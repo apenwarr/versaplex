@@ -7,7 +7,11 @@ cat >config.mk <<EOF
 	BUILD_TARGET=win32
 EOF
 
+# We tell the autobuilder to ignore warnings in the 'wv' directory, as
+# they're not our fault. That project should have its own autobuilder.
+echo --START-IGNORE-WARNINGS
 (cd wv && ./configure-mingw32) || exit $?
+echo --STOP-IGNORE-WARNINGS
 
 # Not needed on win32
 #(cd vxodbc && make configure && ./configure) || exit $?
