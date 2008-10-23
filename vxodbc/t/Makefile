@@ -6,7 +6,6 @@ CFLAGS+=-DDEBUG=1
 
 WVDIR=../../wv
 WVLIBDIR=$(WVDIR)/lib
-XPLC=$(WVDIR)/wvports/xplc/build/xplc
 BOOST=$(WVDIR)/wvports/boost/build/boost
 DBUS=$(WVDIR)/wvports/dbus/build/dbus
 ARGP=$(WVDIR)/wvports/argp/build/argp
@@ -16,7 +15,7 @@ RUNTEST=$(WVSTREAMS)/wvtestrunner.pl
 
 CFLAGS+=-Wall -Wno-long-long  
 CFLAGS+=-g 
-CFLAGS+=-I$(WVSTREAMS)/include -I$(XPLC)/include -I$(BOOST)
+CFLAGS+=-I$(WVSTREAMS)/include -I$(BOOST)
 CFLAGS+=-DODBCVER=0x0351
 CXXFLAGS=$(CFLAGS)
 
@@ -25,7 +24,7 @@ CC=i586-mingw32msvc-g++
 CXX=i586-mingw32msvc-g++
 CFLAGS+= -D_MSC_VER=1300 -D_WIN32_WINNT=0x0501 -DWIN_MULTITHREAD_SUPPORT
 LIBS+=-L. -L.. -L$(WVSTREAMS) -L$(WVLIBDIR)
-LIBS+=-lwvstatic -lssl -lcrypto -lxplc-cxx 
+LIBS+=-lwvstatic -lssl -lcrypto
 LIBS+=../vxodbc.a $(DBUS)/dbus/.libs/libdbus-1.a
 LIBS+=$(WVSTREAMS)/wvtestmain.o $(WVSTREAMS)/utils/wvcrash.o 
 LIBS+=-lwsock32 -lgdi32 -lrpcrt4 -lole32 -lodbc32 -limagehlp -lcrypt32
