@@ -1,8 +1,7 @@
 LIBS=\
 	$(DBUS)/libdbus-1.a \
 	$(OPENSSL)/libssl.a $(OPENSSL)/libcrypto.a \
-	$(ZLIB)/libz.a \
-	$(XPLC)/libxplc-cxx.a $(XPLC)/libxplc.a -ldl \
+	$(ZLIB)/libz.a -ldl \
 	/usr/lib/libodbc.a -lpthread
 LDFLAGS=-g
 

@@ -7,7 +7,6 @@ CXXFLAGS+=\
 	-I$(W32API)/include
 LIBS=\
 	-L$(DBUS) -ldbus-1 \
-	-L$(XPLC) -lxplc-cxx -lxplc \
 	-L$(OPENSSL) -lssl -lcrypto \
 	-L$(ZLIB) -lz -L$(W32API)/lib \
 	-limagehlp \

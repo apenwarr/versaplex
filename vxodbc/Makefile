@@ -7,14 +7,13 @@ $(error Please run the "configure" or "configure-mingw32" script in ..)
 endif
 
 WVPORTS=../wv/wvports
-XPLC=$(WVPORTS)/xplc/build/xplc
 OPENSSL=$(WVPORTS)/openssl/build/openssl
 DBUS=$(WVPORTS)/dbus/build/dbus/dbus/.libs
 BOOST=$(WVPORTS)/boost/build/boost
 ZLIB=$(WVPORTS)/zlib/build/zlib
 CXXFLAGS+=-w \
 	-DUNICODE_SUPPORT -DODBCVER=0x0351 \
-	-I$(WVSTREAMS)/include -I$(XPLC)/include -I$(BOOST)
+	-I$(WVSTREAMS)/include -I$(BOOST)
 
 OBJS=\
 	bind.o \
