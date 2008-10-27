@@ -63,6 +63,72 @@ internal static class VxDb {
     }
 
 
+    internal static string query_parser(string query)
+    {
+	string ret = query;
+
+	try {
+	    VxSqlTokenizer tokenizer = new VxSqlTokenizer(query);
+	    List<VxSqlToken> tokens = tokenizer.getlist();
+
+	    VxSqlToken first = tokens.First();
+	    tokens.RemoveAt(0);
+	    VxSqlToken second = tokens.First();
+	    tokens.RemoveAt(0);
+
+	    if (first.IsUnquotedAndLowerCaseEq("list"))
+	    {
+		if (second.IsUnquotedAndLowerCaseEq("tables"))
+		    ret = "exec sp_tables";
+		else if (second.IsUnquotedAndLowerCaseEq("columns"))
+		    ret = String.Format("exec sp_columns @table_name='{0}'",
+			VxSqlTokenizer.form_query(tokens));
+		else if (second.IsKeyWordEq("all"))
+		{
+		    VxSqlToken third = tokens.First();
+		    if (third.IsKeyWordEq("table"))
+			ret = "select distinct cast(Name as varchar(max)) Name"
+			    + " from sysobjects "
+			    + " where objectproperty(id,'IsTable')=1 "
+			    + " and xtype='U' "
+			    + " order by Name ";
+		    else
+			// Format: list all {view|trigger|procedure|scalarfunction|tablefunction}
+			// Returns: a list of all of whatever
+			// Note:  the parameter we pass in can be case insensitive
+			ret = String.Format(
+			    "select distinct "
+			    + " cast (object_name(id) as varchar(256)) Name "
+			    + " from syscomments "
+			    + " where objectproperty(id,'Is{0}') = 1 "
+			    + " order by Name ", third);
+		}
+	    }
+	    else if (first.IsUnquotedAndLowerCaseEq("get") &&
+			second.IsUnquotedAndLowerCaseEq("object"))
+	    {
+		VxSqlToken third = tokens.First();
+		tokens.RemoveAt(0);
+		VxSqlToken fourth = tokens.First();
+
+		// Format: 
+		// get object {view|trigger|procedure|scalarfunction|tablefunction} name
+		// Returns: the "source code" to the object
+		ret   = String.Format(
+		    "select cast(text as varchar(max)) text "
+		    + "from syscomments "
+		    + "where objectproperty(id, 'Is{0}') = 1 "
+		    + "and object_name(id) = '{1}' "
+		    + "order by number, colid ",
+		    third, fourth);
+	    }
+	}
+	catch {}
+	
+	return ret;
+    }
+
+
     internal static void ExecChunkRecordset(WvDbus conn, 
 					    WvDbusMsg call, out WvDbusMsg reply)
     {
@@ -78,45 +144,8 @@ internal static class VxDb {
         
 	var it = call.iter();
 
-        string query = it.pop();
-	string iquery = query.ToLower().Trim();
+	string query = query_parser(it.pop());
 	reply = null;
-        // XXX this is fishy, really... whitespace fucks it up.
-
-        if (iquery.StartsWith("list tables"))
-            query = "exec sp_tables";
-        else if (iquery.StartsWith("list columns "))
-            query = String.Format("exec sp_columns @table_name='{0}'",
-                    query.Substring(13));
-        else if (iquery.StartsWith("list all table") &&
-                iquery.StartsWith("list all tablefunction") == false)
-            query = "select distinct cast(Name as varchar(max)) Name"
-                + " from sysobjects "
-                + " where objectproperty(id,'IsTable')=1 "
-                + " and xtype='U' "
-                + " order by Name ";
-        else if (iquery.StartsWith("list all"))
-            // Format: list all {view|trigger|procedure|scalarfunction|tablefunction}
-            // Returns: a list of all of whatever
-            query = String.Format(
-                    "select distinct "
-                    + " cast (object_name(id) as varchar(256)) Name "
-                    + " from syscomments "
-                    + " where objectproperty(id,'Is{0}') = 1 "
-                    + " order by Name ",
-                    query.Split(' ')[2].Trim());
-        else if (iquery.StartsWith("get object"))
-            // Format: 
-            // get object {view|trigger|procedure|scalarfunction|tablefunction} name
-            // Returns: the "source code" to the object
-            query = String.Format(
-                    "select cast(text as varchar(max)) text "
-                    + "from syscomments "
-                    + "where objectproperty(id, 'Is{0}') = 1 "
-                    + "and object_name(id) = '{1}' "
-                    + "order by number, colid ",
-                    query.Split(' ')[2].Trim(), 
-                    query.Split(' ')[3].Trim());
 
         log.print(WvLog.L.Debug3, "ExecChunkRecordset {0}\n", query);
 
@@ -270,42 +299,7 @@ internal static class VxDb {
             out VxColumnInfo[] colinfo, out object[][] data,
             out byte[][] nullity)
     {
-        // XXX this is fishy
-
-        if (query.ToLower().StartsWith("list tables"))
-            query = "exec sp_tables";
-        else if (query.ToLower().StartsWith("list columns "))
-            query = String.Format("exec sp_columns @table_name='{0}'",
-                    query.Substring(13));
-        else if (query.ToLower().StartsWith("list all table") &&
-                query.ToLower().StartsWith("list all tablefunction") == false)
-            query = "select distinct cast(Name as varchar(max)) Name"
-                + " from sysobjects "
-                + " where objectproperty(id,'IsTable')=1 "
-                + " and xtype='U' "
-                + " order by Name ";
-        else if (query.ToLower().StartsWith("list all"))
-            // Format: list all {view|trigger|procedure|scalarfunction|tablefunction}
-            // Returns: a list of all of whatever
-            query = String.Format(
-                    "select distinct "
-                    + " cast (object_name(id) as varchar(256)) Name "
-                    + " from syscomments "
-                    + " where objectproperty(id,'Is{0}') = 1 "
-                    + " order by Name ",
-                    query.Split(' ')[2].Trim());
-        else if (query.ToLower().StartsWith("get object"))
-            // Format: 
-            // get object {view|trigger|procedure|scalarfunction|tablefunction} name
-            // Returns: the "source code" to the object
-            query = String.Format(
-                    "select cast(text as varchar(max)) text "
-                    + "from syscomments "
-                    + "where objectproperty(id, 'Is{0}') = 1 "
-                    + "and object_name(id) = '{1}' "
-                    + "order by number, colid ",
-                    query.Split(' ')[2].Trim(), 
-                    query.Split(' ')[3].Trim());
+	query = query_parser(query);
 
         log.print(WvLog.L.Debug3, "ExecRecordset {0}\n", query);
 
