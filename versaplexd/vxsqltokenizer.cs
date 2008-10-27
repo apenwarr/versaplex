@@ -7,20 +7,27 @@ public class VxSqlToken
     public enum TokenType { None, Unquoted, SingleQuoted, DoubleQuoted,
     				Delimited, LParen, RParen, Comma, Semicolon,
 				Keyword, DelimitedComment, Comment,
-				Relop, Equals, Not, Bitop, Addop, Multop,
+				Relop, Not, Bitop, Addop, Multop,
 				Numeric, Scientific, Period, ERROR_UNKNOWN };
     public TokenType type;
     public string name;
+    public string leading_space;
+    public string trailing_space;
 
-    public VxSqlToken(TokenType t, string n)
+    public VxSqlToken(TokenType t, string n, string l)
     {
 	type = t;
 	name = n;
+	leading_space = l;
+	trailing_space = "";
     }
 
-    public bool IsUnquotedAndLowerCaseEq(string eq)
+    public bool NotQuotedAndLowercaseEq(string eq)
     {
-	return type == TokenType.Unquoted && name.ToLower() == eq.ToLower();
+	return type != TokenType.SingleQuoted && type != TokenType.DoubleQuoted
+		&& type != TokenType.Delimited && type != TokenType.Comment
+		&& type != TokenType.DelimitedComment
+		&& name.ToLower() == eq.ToLower();
     }
 
     public bool IsKeyWordEq(string key)
@@ -30,15 +37,25 @@ public class VxSqlToken
 
     public override string ToString()
     {
+	string cool = name;
 	if (type == TokenType.SingleQuoted)
-	    return String.Format("'{0}'", name);
-	if (type == TokenType.DoubleQuoted || type == TokenType.Delimited)
-	    return String.Format("[{0}]", name);
-	if (type == TokenType.DelimitedComment || type == TokenType.Comment)
-	    return String.Format("/* {0} */", name);
-	if (type == TokenType.Keyword)
-	    return name.ToUpper();
-	return name;
+	    cool = String.Format("'{0}'", name);
+	else if (type == TokenType.DoubleQuoted)
+	    cool = String.Format("\"{0}\"", name);
+	else if (type == TokenType.Delimited)
+	    cool = String.Format("[{0}]", name);
+	else if (type == TokenType.DelimitedComment)
+	    cool = String.Format("/*{0}*/", name);
+	else if (type == TokenType.Comment)
+	    cool = String.Format("--{0}", name);
+	//if (type == TokenType.Keyword)
+	//    return name.ToUpper();
+	return leading_space + cool + trailing_space;
+    }
+
+    public static implicit operator string(VxSqlToken t)
+    {
+	return t.ToString();
     }
 }
 
@@ -106,19 +123,23 @@ public class VxSqlTokenizer
     };
 
     private List<VxSqlToken> tokens;
+    private VxSqlToken last;
 
     string cur;
+    string curspace;
     VxSqlToken.TokenType curstate;
 
     private void reset_state()
     {
 	cur = "";
+	curspace = "";
 	curstate = VxSqlToken.TokenType.None;
     }
 
     private void save_and_reset_state()
     {
-	tokens.Add(new VxSqlToken(curstate, cur));
+	last = new VxSqlToken(curstate, cur, curspace);
+	tokens.Add(last);
 	reset_state();
     }
 
@@ -178,8 +199,9 @@ public class VxSqlTokenizer
 	    }
     }
 
-    public VxSqlTokenizer(string query)
+    public void tokenize(string query)
     {
+	last = null;
 	tokens = new List<VxSqlToken>();
 	string q = query.Trim();
 
@@ -243,6 +265,8 @@ public class VxSqlTokenizer
 		    curstate = VxSqlToken.TokenType.ERROR_UNKNOWN;
 		    save_and_reset_state();
 		}
+		else //whitespace
+		    curspace += c;
 		break;
 	    case VxSqlToken.TokenType.Unquoted:
 		cur += c;
@@ -257,7 +281,6 @@ public class VxSqlTokenizer
 		{
 		    if (peek == '\'')
 		    {
-			//FIXME:  Single single-quote, or two of them?
 			cur += "''";
 			++i;
 		    }
@@ -272,19 +295,11 @@ public class VxSqlTokenizer
 		{
 		    if (peek == '"')
 		    {
-			cur += "\"";
+			cur += "\"\"";
 			++i;
 		    }
 		    else
-		    {
-			//Double-quotes and square brackets are identical in
-			//T-Sql syntax, except that square brackets don't
-			//require escaping of double-quotes.  So, for brevity
-			//and cleanliness, treat double-quoted identifiers as
-			//being encapsulated in square brackets
-			curstate = VxSqlToken.TokenType.Delimited;
 			save_and_reset_state();
-		    }
 		}
 		else
 		    cur += c;
@@ -296,7 +311,15 @@ public class VxSqlTokenizer
 		    cur += c;
 		break;
 	    case VxSqlToken.TokenType.Comment:
-		cur += c;
+		// NOTE:  In T-Sql, a 'GO' command within a comment generates an
+		// error, but our tokenizer doesn't need to care about this.
+		if (c == '\n')
+		{
+		    save_and_reset_state();
+		    curspace += c;
+		}
+		else
+		    cur += c;
 		break;
 	    case VxSqlToken.TokenType.DelimitedComment:
 		// NOTE:  In T-Sql, a 'GO' command within a comment generates an
@@ -304,8 +327,6 @@ public class VxSqlTokenizer
 		if (c == '*' && peek == '/')
 		{
 		    ++i;
-		    // For sanity, we'll have only a single 'comment' token
-		    curstate = VxSqlToken.TokenType.Comment;
 		    save_and_reset_state();
 		}
 		else
@@ -349,10 +370,20 @@ public class VxSqlTokenizer
 
 	if (curstate != VxSqlToken.TokenType.None)
 	    save_and_reset_state();
+	if (curspace != "")
+	{
+	    if (last != null)
+		last.trailing_space = curspace;
+	    else
+	    {
+		last = new VxSqlToken(VxSqlToken.TokenType.None, "", curspace);
+		tokens.Add(last);
+	    }
+	}
 
 /*
 	Console.WriteLine("GOT A REQUEST FROM VERSAPLEX:");
-	Console.WriteLine("Original Query: {0}", rawquery);
+	Console.WriteLine("Original Query: {0}", query);
 	Console.WriteLine("Broken down:");
 	foreach (VxSqlToken t in tokens)
 	{
@@ -361,18 +392,18 @@ public class VxSqlTokenizer
 */
     }
 
-    public List<VxSqlToken> getlist()
+    public VxSqlTokenizer(string query)
     {
-	return tokens;
+	tokenize(query);
     }
 
-    public static string form_query(List<VxSqlToken> toks)
+    public VxSqlTokenizer()
     {
-	string ret = "";
-	foreach (VxSqlToken token in toks)
-	    ret += token + " ";
-	
-	return ret;
+    }
+
+    public List<VxSqlToken> gettokens()
+    {
+	return tokens;
     }
 
     private static bool isalpha(char c)
@@ -409,7 +440,7 @@ public class Maintenance
     {
 	VxSqlTokenizer me = new VxSqlTokenizer("create table : [zoo] (foo varchar(20), zoo int); insert into [zoo] values (\"fuckhat\", .e); select zoo.foo from [zoo] where zoo ! <> 2");
 
-	foreach (VxSqlToken t in me.getlist())
+	foreach (VxSqlToken t in me.gettokens())
 	{
 	    Console.WriteLine("VxSqlToken: {0}: {1}", t.type.ToString(), t.name);
 	}

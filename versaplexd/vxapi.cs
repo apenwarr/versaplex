@@ -65,67 +65,83 @@ internal static class VxDb {
 
     internal static string query_parser(string query)
     {
-	string ret = query;
+	VxSqlTokenizer tokenizer = new VxSqlTokenizer(query);
+	VxSqlToken[] tokens = tokenizer.gettokens().ToArray();
+	List<VxSqlToken> result = new List<VxSqlToken>();
 
-	try {
-	    VxSqlTokenizer tokenizer = new VxSqlTokenizer(query);
-	    List<VxSqlToken> tokens = tokenizer.getlist();
-
-	    VxSqlToken first = tokens.First();
-	    tokens.RemoveAt(0);
-	    VxSqlToken second = tokens.First();
-	    tokens.RemoveAt(0);
-
-	    if (first.IsUnquotedAndLowerCaseEq("list"))
+	for (int i = 0; i < tokens.Length; ++i)
+	{
+	    VxSqlToken tok = tokens[i];
+	    VxSqlTokenizer ret = new VxSqlTokenizer();
+	    
+	    if (tok.NotQuotedAndLowercaseEq("list") && i < tokens.Length - 1)
 	    {
-		if (second.IsUnquotedAndLowerCaseEq("tables"))
-		    ret = "exec sp_tables";
-		else if (second.IsUnquotedAndLowerCaseEq("columns"))
-		    ret = String.Format("exec sp_columns @table_name='{0}'",
-			VxSqlTokenizer.form_query(tokens));
-		else if (second.IsKeyWordEq("all"))
+		VxSqlToken next_tok = tokens[i + 1];
+		if (next_tok.NotQuotedAndLowercaseEq("tables"))
 		{
-		    VxSqlToken third = tokens.First();
-		    if (third.IsKeyWordEq("table"))
-			ret = "select distinct cast(Name as varchar(max)) Name"
+		    ++i;
+		    ret.tokenize("exec sp_tables;");
+		}
+		else if (next_tok.NotQuotedAndLowercaseEq("columns")
+			&& i < tokens.Length - 2)
+		{
+		    i += 2;
+		    ret.tokenize("exec sp_columns @table_name='" + 
+				    tokens[i + 2] + "';");
+		}
+		else if (next_tok.NotQuotedAndLowercaseEq("all")
+			&& i < tokens.Length - 2)
+		{
+		    i += 2;
+		    VxSqlToken nextnext_tok = tokens[i + 2];
+		    if (nextnext_tok.NotQuotedAndLowercaseEq("table"))
+		    {
+			ret.tokenize(
+			    "select distinct cast(Name as varchar(max)) Name"
 			    + " from sysobjects "
 			    + " where objectproperty(id,'IsTable')=1 "
 			    + " and xtype='U' "
-			    + " order by Name ";
+			    + " order by Name;");
+		    }
 		    else
+		    {
 			// Format: list all {view|trigger|procedure|scalarfunction|tablefunction}
 			// Returns: a list of all of whatever
 			// Note:  the parameter we pass in can be case insensitive
-			ret = String.Format(
+			ret.tokenize(String.Format(
 			    "select distinct "
 			    + " cast (object_name(id) as varchar(256)) Name "
 			    + " from syscomments "
 			    + " where objectproperty(id,'Is{0}') = 1 "
-			    + " order by Name ", third);
+			    + " order by Name;", nextnext_tok));
+		    }
 		}
 	    }
-	    else if (first.IsUnquotedAndLowerCaseEq("get") &&
-			second.IsUnquotedAndLowerCaseEq("object"))
+	    else if (tok.NotQuotedAndLowercaseEq("get") &&
+			i < tokens.Length - 3 &&
+			tokens[i + 1].NotQuotedAndLowercaseEq("object"))
 	    {
-		VxSqlToken third = tokens.First();
-		tokens.RemoveAt(0);
-		VxSqlToken fourth = tokens.First();
-
+		i += 3;
 		// Format: 
 		// get object {view|trigger|procedure|scalarfunction|tablefunction} name
 		// Returns: the "source code" to the object
-		ret   = String.Format(
+		ret.tokenize(String.Format(
 		    "select cast(text as varchar(max)) text "
 		    + "from syscomments "
 		    + "where objectproperty(id, 'Is{0}') = 1 "
 		    + "and object_name(id) = '{1}' "
-		    + "order by number, colid ",
-		    third, fourth);
+		    + "order by number, colid;",
+		    tokens[i + 2], tokens[i + 3]));
 	    }
+
+	    if (ret.gettokens() != null)
+		foreach (VxSqlToken t in ret.gettokens())
+		    result.Add(t);
+	    else
+		result.Add(tok);
 	}
-	catch {}
 	
-	return ret;
+	return result.Join("");
     }
 
 
