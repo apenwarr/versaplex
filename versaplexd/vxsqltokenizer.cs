@@ -149,7 +149,7 @@ public class VxSqlTokenizer
 	case '-':
 	    return VxSqlToken.TokenType.Addop;
 	case '=':
-	    return VxSqlToken.TokenType.Equals;
+	    return VxSqlToken.TokenType.Relop;
 	case '>':
 	    return VxSqlToken.TokenType.Relop;
 	case '<':
@@ -235,15 +235,6 @@ public class VxSqlTokenizer
 		{
 		    cur += c;
 		    curstate = singletoken_state;
-
-		    // account for '<=', '>=' and '<>'
-		    if (curstate == VxSqlToken.TokenType.Relop &&
-			(peek == '=' || (c == '<' && peek == '>')))
-		    {
-		        ++i;
-			cur += peek;
-		    }
-
 		    save_and_reset_state();
 		}
 		else if (!isspace(c))
