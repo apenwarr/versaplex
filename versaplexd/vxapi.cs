@@ -74,46 +74,55 @@ internal static class VxDb {
 	    VxSqlToken tok = tokens[i];
 	    VxSqlTokenizer ret = new VxSqlTokenizer();
 	    
-	    if (tok.NotQuotedAndLowercaseEq("list") && i < tokens.Length - 1)
+	    if (i < tokens.Length - 1)
 	    {
 		VxSqlToken next_tok = tokens[i + 1];
-		if (next_tok.NotQuotedAndLowercaseEq("tables"))
+		if (tok.IsKeywordEq("use") && next_tok.IsIdentifier())
 		{
+		    // Drop "use x" statements completely
 		    ++i;
-		    ret.tokenize("exec sp_tables;");
+		    ret.tokenize(";");
 		}
-		else if (next_tok.NotQuotedAndLowercaseEq("columns")
-			&& i < tokens.Length - 2)
+		else if (tok.NotQuotedAndLowercaseEq("list"))
 		{
-		    i += 2;
-		    ret.tokenize("exec sp_columns @table_name='" + 
-				    tokens[i + 2] + "';");
-		}
-		else if (next_tok.NotQuotedAndLowercaseEq("all")
-			&& i < tokens.Length - 2)
-		{
-		    i += 2;
-		    VxSqlToken nextnext_tok = tokens[i + 2];
-		    if (nextnext_tok.NotQuotedAndLowercaseEq("table"))
+		    if (next_tok.NotQuotedAndLowercaseEq("tables"))
 		    {
-			ret.tokenize(
+			++i;
+			ret.tokenize("exec sp_tables;");
+		    }
+		    else if (next_tok.NotQuotedAndLowercaseEq("columns")
+				&& i < tokens.Length - 2)
+		    {
+			i += 2;
+			ret.tokenize("exec sp_columns @table_name='" + 
+					tokens[i + 2] + "';");
+		    }
+		    else if (next_tok.NotQuotedAndLowercaseEq("all")
+				&& i < tokens.Length - 2)
+		    {
+			i += 2;
+			VxSqlToken nextnext_tok = tokens[i + 2];
+			if (nextnext_tok.NotQuotedAndLowercaseEq("table"))
+			{
+			    ret.tokenize(
 			    "select distinct cast(Name as varchar(max)) Name"
 			    + " from sysobjects "
 			    + " where objectproperty(id,'IsTable')=1 "
 			    + " and xtype='U' "
 			    + " order by Name;");
-		    }
-		    else
-		    {
-			// Format: list all {view|trigger|procedure|scalarfunction|tablefunction}
-			// Returns: a list of all of whatever
-			// Note:  the parameter we pass in can be case insensitive
-			ret.tokenize(String.Format(
+			}
+			else
+			{
+			    // Format: list all {view|trigger|procedure|scalarfunction|tablefunction}
+			    // Returns: a list of all of whatever
+			    // Note:  the parameter we pass in can be case insensitive
+			    ret.tokenize(String.Format(
 			    "select distinct "
 			    + " cast (object_name(id) as varchar(256)) Name "
 			    + " from syscomments "
 			    + " where objectproperty(id,'Is{0}') = 1 "
 			    + " order by Name;", nextnext_tok));
+			}
 		    }
 		}
 	    }
@@ -140,7 +149,7 @@ internal static class VxDb {
 	    else
 		result.Add(tok);
 	}
-	
+
 	return result.Join("");
     }
 
