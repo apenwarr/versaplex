@@ -30,9 +30,15 @@ public class VxSqlToken
 		&& name.ToLower() == eq.ToLower();
     }
 
-    public bool IsKeyWordEq(string key)
+    public bool IsKeywordEq(string key)
     {
 	return type == TokenType.Keyword && key.ToUpper() == name.ToUpper();
+    }
+
+    public bool IsIdentifier()
+    {
+    	return type == TokenType.DoubleQuoted || type == TokenType.Delimited ||
+		type == TokenType.Unquoted;
     }
 
     public override string ToString()
