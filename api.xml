@@ -37,10 +37,26 @@
 
 		Signals are called "ChunkRecordsetSig".  See below.
 
-		Returns a string just so that you feel good knowing
-		you got some data.
+		The final bit of data (< 1 MB trailing) will be sent
+		via the response to this message.  After the response,
+		you know there's no more data coming.
 	    -->
-            <arg name="pat_on_the_back" type="s" direction="out"/>
+            <arg name="colinfo" type="a(issnny)" direction="out"/>
+            <!-- Returned data is:
+                int32 column size
+                string column name
+                string column type
+                int16 numeric precision
+                int16 numeric scale
+                uint8 nullability
+                    - a bitfield, with only one bit currently defined,
+                      0x1 = is nullable
+            -->
+            <arg name="data" type="v" direction="out"/>
+            <!-- row-major order; the variant's signature is an array type
+                 of the form a(...) where ... are the columns -->
+            <arg name="nullity" type="aay" direction="out"/>
+            <!-- 0 for not null, 1 for null -->
 	</method>
 	<signal name="ChunkRecordsetSig">
 	    <arg name="colinfo" type="a(issnny)"/>
