@@ -199,11 +199,10 @@ public class VxSqlTokenizer
 	    }
     }
 
-    public void tokenize(string query)
+    public void tokenize(string q)
     {
 	last = null;
 	tokens = new List<VxSqlToken>();
-	string q = query.Trim();
 
 	reset_state();
 
@@ -383,7 +382,7 @@ public class VxSqlTokenizer
 
 /*
 	Console.WriteLine("GOT A REQUEST FROM VERSAPLEX:");
-	Console.WriteLine("Original Query: {0}", query);
+	Console.WriteLine("Original Query: {0}", q);
 	Console.WriteLine("Broken down:");
 	foreach (VxSqlToken t in tokens)
 	{
@@ -438,12 +437,12 @@ public class Maintenance
 {
     public static void Main(string[] args)
     {
-	VxSqlTokenizer me = new VxSqlTokenizer("create table : [zoo] (foo varchar(20), zoo int); insert into [zoo] values (\"fuckhat\", .e); select zoo.foo from [zoo] where zoo ! <> 2");
+	VxSqlTokenizer me = new VxSqlTokenizer();
+	me.tokenize("create procedure Func1 as select 'Hello, world, this is Func1!'\n");
 
 	foreach (VxSqlToken t in me.gettokens())
 	{
-	    Console.WriteLine("VxSqlToken: {0}: {1}", t.type.ToString(), t.name);
+	    Console.WriteLine("VxSqlToken: {0}: {1}", t.type, t);
 	}
     }
-}
-*/
+} */
