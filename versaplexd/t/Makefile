@@ -54,7 +54,7 @@ TESTS=dbisanity.t.pass \
     versaplex.t.pass vxsanity.t.pass \
     verifydata.t.pass schemamatic.t.pass putschema.t.pass \
     vxexecchunkrecordset.t.pass vxschemachecksums.t.pass vxdiskschema.t.pass \
-    vxschema.t.pass storedprocedure.t.pass
+    vxschema.t.pass storedprocedure.t.pass vxsqltokenizer.t.pass
 TESTEXES=$(patsubst %.pass,%.exe,$(TESTS))
 
 default: test
@@ -112,6 +112,9 @@ vxschema.t.exe: vxschema.t.cs.E \
 vxdiskschema.t.exe: vxdiskschema.t.cs.E \
 	$(VX_SOURCES) $(SCHEMAMATIC_SOURCES) \
 	../wv.dll ../wvdbus-sharp.dll
+
+vxsqltokenizer.t.exe: vxsqltokenizer.t.cs.E \
+	../vxsqltokenizer.cs ../wv.dll
 
 %.o: %.cc
 	$(CXX) $(CXXFLAGS) -c -o $@ $< 
