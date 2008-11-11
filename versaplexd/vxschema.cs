@@ -46,8 +46,17 @@ internal class VxSchemaElement : IComparable
         get { return type + "/" + name; }
     }
 
-    public VxSchemaElement(string newtype, string newname, string newtext,
-            bool newencrypted)
+    public static VxSchemaElement create(string type, string name,
+					 string text, bool encrypted)
+    {
+	if (type == "Table")
+	    return new VxSchemaTable(name, text);
+	else
+	    return new VxSchemaElement(type, name, text, false);
+    }
+    
+    protected VxSchemaElement(string newtype, string newname,
+			      string newtext, bool newencrypted)
     {
         _type = newtype;
         _name = newname;
@@ -55,21 +64,15 @@ internal class VxSchemaElement : IComparable
         _text = newtext;
     }
 
-    public VxSchemaElement(VxSchemaElement copy)
+    public static VxSchemaElement create(VxSchemaElement copy)
     {
-        _type = copy.type;
-        _name = copy.name;
-        _text = copy.text;
-        _encrypted = copy.encrypted;
+	return create(copy.type, copy.name, copy.text, copy.encrypted);
     }
 
-    public VxSchemaElement(IEnumerable<WvAutoCast> _elem)
+    public static VxSchemaElement create(IEnumerable<WvAutoCast> _elem)
     {
 	var elem = _elem.GetEnumerator();
-        _type = elem.pop();
-        _name = elem.pop();
-        _text = elem.pop();
-        _encrypted = elem.pop() > 0;
+	return create(elem.pop(), elem.pop(), elem.pop(), elem.pop() > 0);
     }
 
     public void Write(WvDbusWriter writer)
@@ -568,16 +571,14 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
     public VxSchema(VxSchema copy)
     {
         foreach (KeyValuePair<string,VxSchemaElement> p in copy)
-            this.Add(p.Key, new VxSchemaElement(p.Value));
+            this.Add(p.Key, VxSchemaElement.create(p.Value));
     }
 
     public VxSchema(IEnumerable<WvAutoCast> sch)
     {
 	foreach (var row in sch)
 	{
-            VxSchemaElement elem = new VxSchemaElement(row);
-            if (elem.type == "Table")
-                elem = new VxSchemaTable(elem);
+            VxSchemaElement elem = VxSchemaElement.create(row);
             Add(elem.GetKey(), elem);
 	}
     }
@@ -604,13 +605,13 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
                     (char)p.Value + " " + p.Key + "'");
             if (p.Value == VxDiffType.Remove)
             {
-                VxSchemaElement elem = new VxSchemaElement(this[p.Key]);
+                VxSchemaElement elem = VxSchemaElement.create(this[p.Key]);
                 elem.text = "";
                 diffschema[p.Key] = elem;
             }
             else if (p.Value == VxDiffType.Add || p.Value == VxDiffType.Change)
             {
-                diffschema[p.Key] = new VxSchemaElement(this[p.Key]);
+                diffschema[p.Key] = VxSchemaElement.create(this[p.Key]);
             }
         }
         return diffschema;
@@ -622,12 +623,7 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
         if (this.ContainsKey(key))
             this[key].text += text;
         else
-        {
-            if (type == "Table")
-                this.Add(key, new VxSchemaTable(name, text));
-            else
-                this.Add(key, new VxSchemaElement(type, name, text, encrypted));
-        }
+	    this.Add(key, VxSchemaElement.create(type, name, text, encrypted));
     }
 
     public static string GetKey(string type, string name, bool encrypted)

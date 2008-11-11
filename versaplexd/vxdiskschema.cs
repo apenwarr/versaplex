@@ -245,7 +245,7 @@ internal class VxDiskSchema : ISchemaBackend
 
         // Read the body
         string body = utf8.GetString(bytes, ii, bytes.Length - ii);
-        elem = new VxSchemaElement(type, name, body, false);
+	elem = VxSchemaElement.create(type, name, body, false);
 
         // Parse the header line
         char[] space = {' '};
