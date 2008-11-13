@@ -50,7 +50,7 @@ namespace Wv
             else if (v is Boolean)
                 return intify().ToString();
 	    else if (v is IEnumerable<WvAutoCast>)
-		return "[" + this.Join(",") + "]";
+		return "[" + this.join(",") + "]";
 	    else
 		return v.ToString();
 	}

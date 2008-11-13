@@ -88,7 +88,7 @@ class DbusTest
 
 	    var a2 = i.pop().ToArray();
 	    WVPASSEQ(a2.Length, 3);
-	    WVPASSEQ(a2[2].autocast().Join(""), "aaaaa");
+	    WVPASSEQ(a2[2].autocast().join(""), "aaaaa");
 	}
     }
 

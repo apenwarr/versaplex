@@ -150,7 +150,7 @@ internal static class VxDb {
 		result.Add(tok);
 	}
 
-	return result.Join("");
+	return result.join("");
     }
 
 

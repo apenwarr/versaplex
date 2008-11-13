@@ -321,7 +321,7 @@ namespace Wv
 	    {
 		if (signature.ne())
 		    throw new WvDbusError(wv.fmt("{0}: {1}", 
-						 err, iter().Join(",")));
+						 err, iter().join(",")));
 		else
 		    throw new WvDbusError(err + ": Unknown error");
 	    }

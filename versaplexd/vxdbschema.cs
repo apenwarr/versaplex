@@ -686,7 +686,7 @@ internal class VxDbSchema : ISchemaBackend
 
             string errmsg = wv.fmt("Refusing to drop columns ([{0}]) " + 
                     "when the destructive option is not set.", 
-                    colstrs.Join("], ["));
+                    colstrs.join("], ["));
             errs.Add(key, new VxSchemaError(key, errmsg, -1));
             goto done;
         }
@@ -1166,7 +1166,7 @@ internal class VxDbSchema : ISchemaBackend
         bool countonly, List<string> names)
     {
         string name_q = names.Count > 0 
-            ? " and object_name(id) in ('" + names.Join("','") + "')"
+            ? " and object_name(id) in ('" + names.join("','") + "')"
             : "";
 
         string textcol = encrypted > 0 ? "ctext" : "text";
@@ -1214,7 +1214,7 @@ internal class VxDbSchema : ISchemaBackend
     {
         string tabnames = (names.Count > 0) ? 
             "and (object_name(i.object_id) in ('" + 
-                names.Join("','") + "'))"
+                names.join("','") + "'))"
             : "";
 
         string query = @"
@@ -1240,7 +1240,7 @@ internal class VxDbSchema : ISchemaBackend
           @" order by i.name, i.object_id, ic.index_column_id";
 
         log.print("Adding index information for {0}\n", 
-            names.Count > 0 ? names.Join(",") : "all tables");
+            names.Count > 0 ? names.join(",") : "all tables");
 
         WvSqlRow[] data = DbiSelect(query).ToArray();
 
@@ -1280,7 +1280,7 @@ internal class VxDbSchema : ISchemaBackend
                 {
                     table = (VxSchemaTable)schema[tabkey];
                     log.print("Found table, idxtype={0}, cols={1}\n",
-                        idxtype, cols.Join(","));
+                        idxtype, cols.join(","));
 
                     if (idxprimary != 0)
                         table.AddPrimaryKey(idxname, idxtype, cols.ToArray());
@@ -1304,7 +1304,7 @@ internal class VxDbSchema : ISchemaBackend
         int start = count * 4000;
 
         string namestr = (names.Count > 0) ? 
-            "and xsc.name in ('" + names.Join("','") + "')"
+            "and xsc.name in ('" + names.join("','") + "')"
             : "";
 
         string query = @"select sch.name owner,
@@ -1408,7 +1408,7 @@ internal class VxDbSchema : ISchemaBackend
     void RetrieveTableSchema(VxSchema schema, List<string> names)
     {
         string tablenames = (names.Count > 0 
-            ? "and t.name in ('" + names.Join("','") + "')"
+            ? "and t.name in ('" + names.join("','") + "')"
             : "");
 
         string query = @"select t.name tabname,
@@ -1555,7 +1555,7 @@ internal class VxDbSchema : ISchemaBackend
                 }
 
                 prefix = String.Format("INSERT INTO {0} ({1}) VALUES (", 
-                    tablename, cols.Join(","));
+                    tablename, cols.join(","));
 
                 did_preamble = true;
             }
@@ -1588,7 +1588,7 @@ internal class VxDbSchema : ISchemaBackend
 
                 colnum++;
             }
-            result.Append(prefix + values.Join(",") + ");\n");
+            result.Append(prefix + values.join(",") + ");\n");
         }
 
         if (has_ident)
@@ -1615,7 +1615,7 @@ internal class VxDbSchema : ISchemaBackend
 	log.print("text size: {0}\n", text.Length);
 	if (text.Length > 50000)
 	{
-	    string[] parts = text.Split("\nINSERT ");
+	    string[] parts = text.split("\nINSERT ");
 	    log.print("Split into {0} parts.\n", parts.Length);
 	    
 	    log.print("Part 1...\n");

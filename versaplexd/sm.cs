@@ -457,7 +457,7 @@ public static class SchemamaticCli
                     varname, type, spname, 
                     pascaltypes.Count > 1 ? "overload; " : ""));
             }
-            return l.Join("\n    ");
+            return l.join("\n    ");
         }
 
         public string GetDecl()
@@ -562,7 +562,7 @@ public static class SchemamaticCli
             // Factory function that produces builder objects
             iface.Add(wv.fmt("function {0}\n"
                 + "       ({1}): _T{0};\n",
-                elem.name, decls.Join(";\n        ")));
+                elem.name, decls.join(";\n        ")));
 
             // Actual implementation of the factory function
             impl.Add(wv.fmt(
@@ -573,8 +573,8 @@ public static class SchemamaticCli
                 + "        {3};\n"
                 + "end;\n\n",
                 classname, elem.name, 
-                impls.Join(";\n        "),
-                ctors.Join("\n        ")
+                impls.join(";\n        "),
+                ctors.join("\n        ")
                 ));
 
             var memberdecls = new List<string>();
@@ -588,10 +588,10 @@ public static class SchemamaticCli
             // Declaration for per-procedure builder class
             types.Add("_T" + elem.name + " = class(TPwDataCmd)\n"
                 + "  private\n"
-                + "    " + memberdecls.Join("\n    ") + "\n"
+                + "    " + memberdecls.join("\n    ") + "\n"
                 + "  public\n"
                 + "    function MakeRawSql: string; override;\n"
-                + "    " + methoddecls.Join("\n    ") + "\n"
+                + "    " + methoddecls.join("\n    ") + "\n"
                 + "  end;\n"
                 );
 
@@ -613,8 +613,8 @@ public static class SchemamaticCli
                 + "       [{2}]);\n"
                 + "end;\n\n",
                 elem.name, 
-                argstrs.Join( ",\n        "), 
-                argcalls.Join(",\n        ")));
+                argstrs.join( ",\n        "), 
+                argcalls.join(",\n        ")));
 
             foreach (PascalArg parg in pargs)
                 setters.Add(parg.GetSetters());
@@ -651,19 +651,19 @@ public static class SchemamaticCli
             + "\n"
             + "{$M+}\n"
             + "type\n"
-            + "  " + types.Join("\n  ")
+            + "  " + types.join("\n  ")
             + "  \n"
             + "  " + classname + " = class(TObject)\n"
             + "  private\n"
             + "    fDb: TPwDatabase;\n"
-            + "    " + globalfields.Join("\n    ") + "\n"
+            + "    " + globalfields.join("\n    ") + "\n"
             + "  published\n"
             + "    property db: TPwDatabase  read fDb write fDb;\n"
-            + "    " + globalprops.Join("\n    ") + "\n"
+            + "    " + globalprops.join("\n    ") + "\n"
             + "  public\n"
             + "    constructor Create; overload;\n"
             + "    constructor Create(db: TPwDatabase); overload;\n"
-            + "    " + iface.Join("    ")
+            + "    " + iface.join("    ")
             + "  end;\n\n");
 
         sb.Append("implementation\n"
@@ -678,10 +678,10 @@ public static class SchemamaticCli
             + "    self.db := db;\n"
             + "end;\n"
             + "\n"
-            + impl.Join("")
+            + impl.join("")
             );
 
-        sb.Append(setters.Join(""));
+        sb.Append(setters.join(""));
 
         sb.Append("\n\nend.\n");
 

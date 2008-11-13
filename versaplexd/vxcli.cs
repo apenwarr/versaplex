@@ -177,10 +177,10 @@ public static class VxCli
 			    from c in result.columns
 			    select c.name.ToUpper();
 			Console.Write(wv.fmt("{0}\n\n",
-					     colnames.Join(",")));
+					     colnames.join(",")));
 			
 			foreach (var row in result)
-			    Console.Write(wv.fmt("{0}\n", row.Join(",")));
+			    Console.Write(wv.fmt("{0}\n", row.join(",")));
 		    }
 		}
 		catch (DbException e)

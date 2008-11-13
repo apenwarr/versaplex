@@ -376,7 +376,7 @@ internal class VxSchemaTable : VxSchemaElement,
 
         return wv.fmt(
             "CREATE {0}{1}INDEX [{2}] ON [{3}] \n\t({4});",
-            unique, clustered, idxname, this.name, idxcols.Join(", "));
+            unique, clustered, idxname, this.name, idxcols.join(", "));
     }
 
     public string PrimaryKeyToSql(VxSchemaTableElement elem)
@@ -392,7 +392,7 @@ internal class VxSchemaTable : VxSchemaElement,
         return wv.fmt(
             "ALTER TABLE [{0}] ADD CONSTRAINT [{1}] PRIMARY KEY{2}\n" +
             "\t({3});\n\n", 
-            this.name, idxname, clustered, idxcols.Join(", "));
+            this.name, idxname, clustered, idxcols.join(", "));
     }
 
     public override string ToSql()
@@ -423,7 +423,7 @@ internal class VxSchemaTable : VxSchemaElement,
             throw new VxBadSchemaException("No columns in schema.");
 
         string table = String.Format("CREATE TABLE [{0}] (\n\t{1});\n\n{2}{3}\n",
-            name, cols.Join(",\n\t"), pkey, indexes.Join("\n"));
+            name, cols.join(",\n\t"), pkey, indexes.join("\n"));
         return table;
     }
 
@@ -471,7 +471,7 @@ internal class VxSchemaTable : VxSchemaElement,
     {
         WvLog log = new WvLog("AddIndex", WvLog.L.Debug4);
         log.print("Adding index on {0}, name={1}, unique={2}, clustered={3},\n", 
-            columns.Join(","), name, unique, clustered);
+            columns.join(","), name, unique, clustered);
         var elem = new VxSchemaTableElement("index");
 
         foreach (string col in columns)
@@ -488,7 +488,7 @@ internal class VxSchemaTable : VxSchemaElement,
     {
         WvLog log = new WvLog("AddPrimaryKey", WvLog.L.Debug4);
         log.print("Adding primary key '{0}' on {1}, clustered={2}\n", 
-            name, columns.Join(","), clustered);
+            name, columns.join(","), clustered);
         var elem = new VxSchemaTableElement("primary-key");
 
         if (name.ne() && name != GetDefaultPKName())

@@ -60,7 +60,7 @@ namespace Wv
 		l.Add(HttpUtility.UrlEncode(k)
 		      + "="
 		      + HttpUtility.UrlEncode(this[k]));
-	    string data = l.Join("&");
+	    string data = l.join("&");
 	    
 	    try
 	    {

@@ -70,7 +70,7 @@ internal class VxSchemaChecksum
         List<string> l = new List<string>();
         foreach (ulong sum in checksums)
             l.Add("0x" + sum.ToString("x8"));
-        return l.Join(" ");
+        return l.join(" ");
     }
 
     // Write the checksum values to DBus

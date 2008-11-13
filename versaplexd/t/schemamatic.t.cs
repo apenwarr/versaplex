@@ -30,7 +30,7 @@ class SchemamaticTests : SchemamaticTester
     VxSchemaError VxPutSchema(string type, string name, string text, 
         VxPutOpts opts)
     {
-        VxSchemaElement elem = new VxSchemaElement(type, name, text, false);
+        VxSchemaElement elem = VxSchemaElement.create(type, name, text, false);
         VxSchema schema = new VxSchema(elem);
         VxSchemaErrors errs = VxPutSchema(schema, opts);
         if (errs == null || errs.Count == 0)
@@ -518,7 +518,7 @@ class SchemamaticTests : SchemamaticTester
         foreach (string ins in inserts)
             WVASSERT(VxExec(ins));
 
-        WVPASSEQ(dbus.GetSchemaData("Tab1", 0, ""), inserts.Join(""));
+        WVPASSEQ(dbus.GetSchemaData("Tab1", 0, ""), inserts.join(""));
 
         VxExec("drop table Tab1");
 
@@ -536,8 +536,8 @@ class SchemamaticTests : SchemamaticTester
 
         WVPASSEQ(dbus.GetSchemaData("Tab1", 0, ""), "");
 
-        dbus.PutSchemaData("Tab1", inserts.Join(""), 0);
-        WVPASSEQ(dbus.GetSchemaData("Tab1", 0, ""), inserts.Join(""));
+        dbus.PutSchemaData("Tab1", inserts.join(""), 0);
+        WVPASSEQ(dbus.GetSchemaData("Tab1", 0, ""), inserts.join(""));
 
         WVPASSEQ(dbus.GetSchemaData("Tab1", 0, "f1 = 11"), 
             "INSERT INTO Tab1 ([f1],[f2],[f3]) VALUES (11,11.3400,'Hi11');\n");
