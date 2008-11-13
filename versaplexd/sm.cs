@@ -45,13 +45,15 @@ public static class SchemamaticCli
 
 	int code = 0;
         foreach (var p in errs)
+	{
             foreach (var err in p.Value)
             {
                 Console.WriteLine("{0} applying {1}: {2} ({3})", 
                     err.level, err.key, err.msg, err.errnum);
                 code = 1;
             }
-	
+	}
+       
 	return code;
     }
 
@@ -64,12 +66,14 @@ public static class SchemamaticCli
 
 	int code = 0;
         foreach (var p in errs)
+	{
             foreach (var err in p.Value)
             {
                 Console.WriteLine("{0} applying {1}: {2} ({3})", 
                     err.level, err.key, err.msg, err.errnum);
                 code = 1;
             }
+	}
 	
 	return code;
     }
@@ -320,7 +324,7 @@ public static class SchemamaticCli
         Array.Sort(files);
         foreach (string file in files)
         {
-            string data = File.ReadAllText(file, System.Text.Encoding.UTF8);
+            string data = File.ReadAllText(file, Encoding.UTF8);
             ParsePath(file, out seqnum, out tablename);
 
             if (tablename == "ZAP")
@@ -501,7 +505,7 @@ public static class SchemamaticCli
     {
         if (!classname.StartsWith("T"))
         {
-            System.Console.Error.Write("Classname must start with T.\n");
+            Console.Error.Write("Classname must start with T.\n");
             return;
         }
         // Replace leading 'T' with a 'u'
@@ -686,7 +690,7 @@ public static class SchemamaticCli
         sb.Append("\n\nend.\n");
 
         // FIXME: Write file
-        System.Console.Write(sb.ToString());
+        Console.Write(sb.ToString());
     }
 
     private static ISchemaBackend GetBackend(string moniker)
@@ -704,6 +708,22 @@ public static class SchemamaticCli
             wv.printerr("schemamatic: {0}\n", e.Message);
             return 99;
         }
+    }
+    
+    public static int pascalgen_Main(List<string> extra,
+				     Dictionary<string,string> global_syms)
+    {
+	if (extra.Count != 3)
+	{
+	    ShowHelp();
+	    return 98;
+	}
+	
+	string classname = extra[1];
+	string dir       = extra[2];
+	
+	do_pascalgen(classname, dir, global_syms);
+	return 0;
     }
     
     public static int _Main(string[] args)
@@ -729,38 +749,71 @@ public static class SchemamaticCli
 
 	WvLog.maxlevel = (WvLog.L)verbose;
 	
-        if (extra.Count != 3)
-        {
-            ShowHelp();
-            return 98;
-        }
-
-	string cmd     = extra[0];
-	string moniker = extra[1];
-        string dir     = extra[2];
-
-	if (cmd == "pascalgen")
-        {
-            string classname = extra[1];
-	    do_pascalgen(classname, dir, global_syms);
-        }
-	else
+	if (extra.Count < 1)
 	{
-	    using (var backend = GetBackend(moniker))
+            ShowHelp();
+            return 97;
+	}
+	
+	string cmd = extra[0];
+	if (cmd == "pascalgen")
+	    return pascalgen_Main(extra, global_syms);
+	
+	WvIni bookmarks = new WvIni(
+		    wv.PathCombine(wv.getenv("HOME"), ".wvdbi.ini"));
+	
+	string moniker = extra.Count > 1 
+	    ? extra[1] : bookmarks.get("Defaults", "url", null);
+        string dir     = extra.Count > 2 ? extra[2] : ".";
+	
+	if (moniker.e())
+	{
+	    ShowHelp();
+	    return 96;
+	}
+	
+	// look up a bookmark if it exists, else use the provided name as a
+	// moniker
+	moniker = bookmarks.get("Bookmarks", moniker, moniker);
+
+	// provide a default username/password if they weren't provided
+	// FIXME: are there URLs that should have a blank username/password?
+	WvUrl url = new WvUrl(moniker);
+	if (url.user.e())
+	    url.user = bookmarks.get("Defaults", "user");
+	if (url.password.e())
+	    url.password = bookmarks.get("Defaults", "password");
+	    
+	using (var backend = GetBackend(url.ToString()))
+	{
+	    bookmarks.set("Defaults", "url", moniker);
+	    bookmarks.maybeset("Defaults", "user", url.user);
+	    bookmarks.maybeset("Defaults", "password", url.password);
+	    
+	    string p = url.path.StartsWith("/") 
+		? url.path.Substring(1) : url.path;
+	    bookmarks.set("Bookmarks", p, moniker);
+	    
+	    try {
+		bookmarks.save();
+	    } catch (IOException) {
+		// not a big deal if we can't save our bookmarks.
+	    }
+	    
+	    if (cmd == "remote")
+		return 0; // just saved the bookmark, so we're done
+	    else if (cmd == "pull")
+		do_pull(backend, dir, opts);
+	    else if (cmd == "push")
+		do_push(backend, dir, opts);
+	    else if (cmd == "dpull")
+		do_dpull(backend, dir, opts);
+	    else if (cmd == "dpush")
+		do_dpush(backend, dir, opts);
+	    else
 	    {
-		if (cmd == "pull")
-		    do_pull(backend, dir, opts);
-		else if (cmd == "push")
-		    do_push(backend, dir, opts);
-		else if (cmd == "dpull")
-		    do_dpull(backend, dir, opts);
-		else if (cmd == "dpush")
-		    do_dpush(backend, dir, opts);
-		else
-		{
-		    Console.Error.WriteLine("\nUnknown command '{0}'\n", cmd);
-		    ShowHelp();
-		}
+		Console.Error.WriteLine("\nUnknown command '{0}'\n", cmd);
+		ShowHelp();
 	    }
 	}
 	

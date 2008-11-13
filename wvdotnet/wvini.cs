@@ -79,6 +79,12 @@ namespace Wv
 	    this[section][key] = val;
 	}
 	
+	public void maybeset(string section, string key, string val)
+	{
+	    if (get(section, key) == null)
+		set(section, key, val);
+	}
+	
 	public void save(string filename)
 	{
 	    using (StreamWriter w = File.CreateText(filename))
