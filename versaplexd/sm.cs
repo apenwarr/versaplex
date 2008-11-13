@@ -501,7 +501,7 @@ public static class SchemamaticCli
     }
 
     static void do_pascalgen(string classname, string dir, 
-        Dictionary<string,string> global_syms)
+        Dictionary<string,string> global_syms, string outfile)
     {
         if (!classname.StartsWith("T"))
         {
@@ -689,8 +689,16 @@ public static class SchemamaticCli
 
         sb.Append("\n\nend.\n");
 
-        // FIXME: Write file
-        Console.Write(sb.ToString());
+	if (outfile.e())
+	    Console.Write(sb.ToString());
+	else
+	{
+	    using (var f = new FileStream(outfile,
+			  FileMode.Create, FileAccess.Write))
+	    {
+		f.write(sb.ToUTF8());
+	    }
+	}
     }
 
     private static ISchemaBackend GetBackend(string moniker)
@@ -711,7 +719,8 @@ public static class SchemamaticCli
     }
     
     public static int pascalgen_Main(List<string> extra,
-				     Dictionary<string,string> global_syms)
+				     Dictionary<string,string> global_syms,
+				     string outfile)
     {
 	if (extra.Count != 3)
 	{
@@ -722,7 +731,7 @@ public static class SchemamaticCli
 	string classname = extra[1];
 	string dir       = extra[2];
 	
-	do_pascalgen(classname, dir, global_syms);
+	do_pascalgen(classname, dir, global_syms, outfile);
 	return 0;
     }
     
@@ -732,6 +741,7 @@ public static class SchemamaticCli
 	VxCopyOpts opts = VxCopyOpts.Verbose;
     
 	int verbose = (int)WvLog.L.Info;
+	string outfile = null;
         var global_syms = new Dictionary<string,string>();
         var extra = new OptionSet()
             .Add("n|dry-run", delegate(string v) { opts |= VxCopyOpts.DryRun; } )
@@ -745,6 +755,7 @@ public static class SchemamaticCli
                         foreach (var sym in v.Split(splitchars, splitopts))
                             global_syms.Add(sym.ToLower(), null); 
                 } )
+	    .Add("o|output-file=", delegate(string v) { outfile = v; })
             .Parse(args);
 
 	WvLog.maxlevel = (WvLog.L)verbose;
@@ -757,7 +768,7 @@ public static class SchemamaticCli
 	
 	string cmd = extra[0];
 	if (cmd == "pascalgen")
-	    return pascalgen_Main(extra, global_syms);
+	    return pascalgen_Main(extra, global_syms, outfile);
 	
 	WvIni bookmarks = new WvIni(
 		    wv.PathCombine(wv.getenv("HOME"), ".wvdbi.ini"));
