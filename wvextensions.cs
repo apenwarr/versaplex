@@ -124,12 +124,12 @@ namespace Wv.Extensions
 	    return (T)null;
 	}
 
-        public static string Join<T>(this IEnumerable<T> list, string sep)
+        public static string join<T>(this IEnumerable<T> list, string sep)
         {
             return String.Join(sep, list.ToStringArray());
         }
 
-        public static string Join<T>(this IEnumerable<string> list, string sep)
+        public static string join<T>(this IEnumerable<string> list, string sep)
         {
             return String.Join(sep, list.ToArray());
         }
@@ -137,7 +137,7 @@ namespace Wv.Extensions
         // Note: it would be nice to take "params string[] splitwords" here,
         // but Mono 1.2 apparently has a bug where that won't get picked up
         // properly.
-	public static string[] Split(this string s, string splitword)
+	public static string[] split(this string s, string splitword)
 	{
 	    return s.Split(new string[] {splitword}, StringSplitOptions.None);
 	}

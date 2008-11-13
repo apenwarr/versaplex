@@ -331,7 +331,7 @@ namespace Wv
             return retval.ToString();
         }
 
-        // Extend Path.Combine to work on more than two path elements.
+        /// Extend Path.Combine to work on more than two path elements.
         public static string PathCombine(string first, params string[] rest)
         {
             string combined = first;
@@ -339,7 +339,7 @@ namespace Wv
                 combined = Path.Combine(combined, elem);
             return combined;
         }
-
+	
 	public static bool IsMono()
 	{
 	    return Type.GetType("Mono.Runtime") != null;
