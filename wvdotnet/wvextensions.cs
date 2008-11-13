@@ -142,6 +142,22 @@ namespace Wv.Extensions
 	    return s.Split(new string[] {splitword}, StringSplitOptions.None);
 	}
 	
+	public static string[] split(this string s, string splitword, int max)
+	{
+	    return s.Split(new string[] {splitword}, max,
+			   StringSplitOptions.None);
+	}
+	
+	public static string[] split(this string s, char[] splitchars)
+	{
+	    return s.Split(splitchars, StringSplitOptions.None);
+	}
+	
+	public static string[] split(this string s, char[] splitchars, int max)
+	{
+	    return s.Split(splitchars, max, StringSplitOptions.None);
+	}
+	
 	public static string shorten(this string s, int maxlen)
 	{
 	    if (s.Length <= maxlen)

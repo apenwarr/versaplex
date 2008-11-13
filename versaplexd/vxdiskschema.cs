@@ -100,7 +100,7 @@ internal class VxDiskSchema : ISchemaBackend
             log.print("Removing {0}\n", fullpath);
             if (File.Exists(fullpath))
                 File.Delete(fullpath);
-            if (key.StartsWith("Index"))
+            if (key.StartsWith("Index/"))
             {
                 string type, name;
                 VxSchema.ParseKey(key, out type, out name);
@@ -108,7 +108,7 @@ internal class VxDiskSchema : ISchemaBackend
                     continue;
 
                 // If it was the last index for a table, remove the empty dir.
-                string[] split = name.Split('/');
+                string[] split = wv.PathSplit(name);
                 if (split.Length > 0)
                 {
                     string table = split[0];
@@ -296,7 +296,7 @@ internal class VxDiskSchema : ISchemaBackend
     private static void AddFromFile(string path, string type, string name, 
         VxSchema schema, VxSchemaChecksums sums)
     {
-        string key = wv.PathCombine(type, name);
+        string key = wv.fmt("{0}/{1}", type, name);
 
         // schema/sums.Add would throw an exception in this situation anyway, 
         // but it's nice to provide a more helpful error message.
@@ -319,8 +319,7 @@ internal class VxDiskSchema : ISchemaBackend
         bool isbackup)
     {
         // Make some kind of attempt to run on Windows.  
-        string filename = (exportdir + "/" + elem.key).Replace( 
-            '/', Path.DirectorySeparatorChar);
+        string filename = wv.PathJoin(exportdir, elem.type, elem.name);
 
         // Make directories
         Directory.CreateDirectory(Path.GetDirectoryName(filename));

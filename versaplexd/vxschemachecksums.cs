@@ -231,10 +231,9 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
         return String.Format("a({0})", VxSchemaChecksum.GetDbusSignature());
     }
 
-    private static char[] slash = new char[] {'/'};
     public static void ParseKey(string key, out string type, out string name)
     {
-        string[] parts = key.Split(slash, 2);
+        string[] parts = key.split("/", 2);
         if (parts.Length != 2)
         {
             type = name = null;

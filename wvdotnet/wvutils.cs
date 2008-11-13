@@ -10,6 +10,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Web;
+using Wv.Extensions;
 
 namespace Wv
 {
@@ -340,6 +341,21 @@ namespace Wv
             return combined;
         }
 	
+	/// An alias for PathCombine that follows the Split/Join convention
+        public static string PathJoin(string first, params string[] rest)
+        {
+	    return PathCombine(first, rest);
+        }
+	
+	public static string[] PathSplit(string path)
+	{
+	    return path.split(new char[] {
+		Path.DirectorySeparatorChar,
+		Path.AltDirectorySeparatorChar,
+		'/'
+	    });
+	}
+
 	public static bool IsMono()
 	{
 	    return Type.GetType("Mono.Runtime") != null;
