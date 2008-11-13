@@ -55,6 +55,14 @@ internal class VxDbSchema : ISchemaBackend
         dbi.execute("set quoted_identifier off");
         dbi.execute("set ansi_nulls on");
     }
+    
+    public void Dispose()
+    {
+	using (dbi)
+	{
+	    dbi = null;
+	}
+    }
 
     //
     // The ISchema interface

@@ -24,7 +24,7 @@ public static class SchemamaticCli
   pascalgen usage:
     sm [--verbose] [--global-syms=<syms>] pascalgen <classname> <dir>
 
-  --dry-run: lists the files that would be changed but doesn't modify them.
+  --dry-run/-n: lists the files that would be changed but doesn't modify them.
   --force/-f: performs potentially destructive database update operations.
   --verbose/-v: Increase the verbosity of the log output.  Can be specified 
         multiple times.
@@ -35,7 +35,7 @@ public static class SchemamaticCli
 	return 99;
     }
 
-    static int DoExport(ISchemaBackend remote, string dir, VxCopyOpts opts)
+    static int do_pull(ISchemaBackend remote, string dir, VxCopyOpts opts)
     {
         log.print("Pulling schema.\n");
         VxDiskSchema disk = new VxDiskSchema(dir);
@@ -55,7 +55,7 @@ public static class SchemamaticCli
 	return code;
     }
 
-    static int DoApply(ISchemaBackend remote, string dir, VxCopyOpts opts)
+    static int do_push(ISchemaBackend remote, string dir, VxCopyOpts opts)
     {
         log.print("Pushing schema.\n");
         VxDiskSchema disk = new VxDiskSchema(dir);
@@ -190,7 +190,7 @@ public static class SchemamaticCli
         return commands;
     }
 
-    static int DoGetData(ISchemaBackend remote, string dir,
+    static int do_dpull(ISchemaBackend remote, string dir,
 			 VxCopyOpts opts)
     {
         log.print("Pulling data.\n");
@@ -344,7 +344,7 @@ public static class SchemamaticCli
 	return 0;
     }
 
-    static int DoApplyData(ISchemaBackend remote, string dir, VxCopyOpts opts)
+    static int do_dpush(ISchemaBackend remote, string dir, VxCopyOpts opts)
     {
         log.print("Pushing data.\n");
 	
@@ -496,7 +496,7 @@ public static class SchemamaticCli
         }
     }
 
-    static void DoPascalGen(string classname, string dir, 
+    static void do_pascalgen(string classname, string dir, 
         Dictionary<string,string> global_syms)
     {
         if (!classname.StartsWith("T"))
@@ -695,7 +695,18 @@ public static class SchemamaticCli
         return VxSchema.create(moniker);
     }
 
-    public static void Main(string[] args)
+    public static int Main(string[] args)
+    {
+        try {
+            return _Main(args);
+        }
+        catch (Exception e) {
+            wv.printerr("schemamatic: {0}\n", e.Message);
+            return 99;
+        }
+    }
+    
+    public static int _Main(string[] args)
     {
 	// command line options
 	VxCopyOpts opts = VxCopyOpts.Verbose;
@@ -703,7 +714,7 @@ public static class SchemamaticCli
 	int verbose = (int)WvLog.L.Info;
         var global_syms = new Dictionary<string,string>();
         var extra = new OptionSet()
-            .Add("dry-run", delegate(string v) { opts |= VxCopyOpts.DryRun; } )
+            .Add("n|dry-run", delegate(string v) { opts |= VxCopyOpts.DryRun; } )
             .Add("f|force", delegate(string v) { opts |= VxCopyOpts.Destructive; } )
             .Add("v|verbose", delegate(string v) { verbose++; } )
             .Add("g|global-sym=", delegate(string v) 
@@ -721,30 +732,38 @@ public static class SchemamaticCli
         if (extra.Count != 3)
         {
             ShowHelp();
-            return;
+            return 98;
         }
 
 	string cmd     = extra[0];
 	string moniker = extra[1];
         string dir     = extra[2];
 
-	if (cmd == "pull")
-	    DoExport(GetBackend(moniker), dir, opts);
-	else if (cmd == "push")
-	    DoApply(GetBackend(moniker), dir, opts);
-	else if (cmd == "dpull")
-	    DoGetData(GetBackend(moniker), dir, opts);
-	else if (cmd == "dpush")
-	    DoApplyData(GetBackend(moniker), dir, opts);
-	else if (cmd == "pascalgen")
+	if (cmd == "pascalgen")
         {
             string classname = extra[1];
-	    DoPascalGen(classname, dir, global_syms);
+	    do_pascalgen(classname, dir, global_syms);
         }
 	else
 	{
-	    Console.Error.WriteLine("\nUnknown command '{0}'\n", cmd);
-	    ShowHelp();
+	    using (var backend = GetBackend(moniker))
+	    {
+		if (cmd == "pull")
+		    do_pull(backend, dir, opts);
+		else if (cmd == "push")
+		    do_push(backend, dir, opts);
+		else if (cmd == "dpull")
+		    do_dpull(backend, dir, opts);
+		else if (cmd == "dpush")
+		    do_dpush(backend, dir, opts);
+		else
+		{
+		    Console.Error.WriteLine("\nUnknown command '{0}'\n", cmd);
+		    ShowHelp();
+		}
+	    }
 	}
+	
+	return 0;
     }
 }

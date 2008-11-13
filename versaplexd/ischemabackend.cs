@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 
 // An interface to a Schemamatic schema backend.
-internal interface ISchemaBackend  
+internal interface ISchemaBackend : IDisposable
 {
     // Update the backing store with all current elements.
     // If an element's text is empty, it will be deleted.

@@ -37,6 +37,14 @@ internal class VxDbusSchema : ISchemaBackend
         bus = _bus;
     }
     
+    public void Dispose()
+    {
+	using (bus)
+	{
+	    bus = null;
+	}
+    }
+    
     static WvDbusMsg methodcall(string method, string signature)
     {
         return new WvDbusCall("vx.versaplexd", "/db", 

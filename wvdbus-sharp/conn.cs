@@ -41,7 +41,7 @@ namespace Wv
         AlreadyRunning, // connection already owns the given name
     }
 
-    public class WvDbus
+    public class WvDbus : IDisposable
     {
 	static readonly string DBusName = "org.freedesktop.DBus";
 	static readonly string DBusPath = "/org/freedesktop/DBus";
@@ -72,6 +72,14 @@ namespace Wv
 	    auth.Run();
 	    
             unique_name = CallDBusMethod("Hello");
+	}
+	
+	public void Dispose()
+	{
+	    using (stream)
+	    {
+		stream = null;
+	    }
 	}
 
 	static WvBufStream make_stream(string address)

@@ -26,6 +26,10 @@ internal class VxDiskSchema : ISchemaBackend
         exportdir = _exportdir;
     }
 
+    public void Dispose()
+    {
+    }
+
     //
     // The ISchemaBackend interface
     //
