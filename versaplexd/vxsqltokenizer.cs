@@ -158,27 +158,19 @@ public class VxSqlTokenizer
 	case ')':
 	    return VxSqlToken.TokenType.RParen;
 	case '&':
-	    return VxSqlToken.TokenType.Bitop;
 	case '|':
-	    return VxSqlToken.TokenType.Bitop;
 	case '^':
-	    return VxSqlToken.TokenType.Bitop;
 	case '~':
 	    return VxSqlToken.TokenType.Bitop;
 	case '*':
-	    return VxSqlToken.TokenType.Multop;
 	case '/':
-	    return VxSqlToken.TokenType.Multop;
 	case '%':
 	    return VxSqlToken.TokenType.Multop;
 	case '+':
-	    return VxSqlToken.TokenType.Addop;
 	case '-':
 	    return VxSqlToken.TokenType.Addop;
 	case '=':
-	    return VxSqlToken.TokenType.Relop;
 	case '>':
-	    return VxSqlToken.TokenType.Relop;
 	case '<':
 	    return VxSqlToken.TokenType.Relop;
 	case '!':
