@@ -52,7 +52,7 @@ internal class VxSchemaElement : IComparable
 	if (type == "Table")
 	    return new VxSchemaTable(name, text);
 	else
-	    return new VxSchemaElement(type, name, text, false);
+	    return new VxSchemaElement(type, name, text, encrypted);
     }
     
     protected VxSchemaElement(string newtype, string newname,
