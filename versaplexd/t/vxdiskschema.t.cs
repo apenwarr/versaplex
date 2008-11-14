@@ -444,15 +444,14 @@ class DiskSchemaTests : SchemamaticTester
             VxSchemaChecksums fromdisk = backend.GetChecksums();
 
             foreach (KeyValuePair<string, VxSchemaChecksum> p in sums)
-            {
-                WVPASSEQ(p.Value.GetSumString(), fromdisk[p.Key].GetSumString());
-            }
+                WVPASSEQ(p.Value.GetSumString(), 
+			 fromdisk[p.Key].GetSumString());
             WVPASSEQ(sums.Count, fromdisk.Count);
 
             // Test that changing a file invalidates its checksums, and that
             // we skip directories named "DATA"
             using (StreamWriter sw = File.AppendText(
-                wv.PathCombine(tmpdir, "Table", "Tab1")))
+			     wv.PathCombine(tmpdir, "Table", "Tab1")))
             {
                 sw.WriteLine("Ooga Booga");
             }

@@ -49,10 +49,15 @@ internal class VxSchemaElement : IComparable
     public static VxSchemaElement create(string type, string name,
 					 string text, bool encrypted)
     {
-	if (type == "Table")
-	    return new VxSchemaTable(name, text);
-	else
-	    return new VxSchemaElement(type, name, text, encrypted);
+	try {
+	    if (type == "Table")
+		return new VxSchemaTable(name, text);
+	} catch (ArgumentException e) { 
+	    // if the table data is invalid, just ignore it.
+	    // We'll fall through and load a VxSchemaElement instead.
+	}
+	
+	return new VxSchemaElement(type, name, text, encrypted);
     }
     
     protected VxSchemaElement(string newtype, string newname,
@@ -283,7 +288,8 @@ internal class VxSchemaTable : VxSchemaElement,
                 string typeseparator = ": ";
                 int index = line.IndexOf(typeseparator);
                 if (index < 0)
-                    throw new ArgumentException("Malformed line: " + line);
+                    throw new ArgumentException
+		       (wv.fmt("Malformed line in {0}: {1}", key, line));
                 string type = line.Remove(index);
                 string rest = line.Substring(index + typeseparator.Length);
 
