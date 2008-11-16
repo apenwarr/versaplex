@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
-using System.Linq;
+using Wv.FakeLinq;
 using Wv;
 using Wv.Extensions;
 using Wv.NDesk.Options;

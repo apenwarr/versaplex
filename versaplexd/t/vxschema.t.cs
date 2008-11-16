@@ -2,7 +2,7 @@
 // Test VxSchema data structures and relatives.
 
 using System;
-using System.Linq;
+using Wv.FakeLinq;
 using System.Text;
 using System.Collections.Generic;
 using Wv;

@@ -1,7 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
+using Wv.FakeLinq;
 using Wv.Extensions;
 
 namespace Wv

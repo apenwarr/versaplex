@@ -4,7 +4,7 @@ using System;
 using System.Data.SqlClient;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
+using Wv.FakeLinq;
 using System.Text;
 using Wv;
 using Wv.Test;

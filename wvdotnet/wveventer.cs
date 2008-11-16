@@ -2,7 +2,7 @@ using System;
 using System.Net.Sockets;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
+using Wv.FakeLinq;
 using System.Threading;
 
 public interface IWvEventer

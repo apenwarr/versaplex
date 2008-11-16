@@ -119,7 +119,7 @@ using System.Text.RegularExpressions;
 
 
 #if LINQ
-using System.Linq;
+using Wv.FakeLinq;
 #endif
 
 #if TEST
@@ -609,7 +609,7 @@ namespace Wv.NDesk.Options {
 #if TEST
 namespace Tests.NDesk.Options {
 
-	using System.Linq;
+	using Wv.FakeLinq;
 
 	class FooConverter : TypeConverter {
 		public override bool CanConvertFrom (ITypeDescriptorContext context, Type sourceType)

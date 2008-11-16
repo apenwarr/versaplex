@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.IO;
-using System.Linq;
+using Wv.FakeLinq;
 using Wv.Mono.Terminal;
 using Wv;
 using Wv.Extensions;

@@ -1,6 +1,6 @@
 using System;
 using System.Text;
-using System.Linq;
+using Wv.FakeLinq;
 
 namespace Wv
 {

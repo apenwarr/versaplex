@@ -2,7 +2,7 @@
 // Test the VxSchemaChecksums and VxSchemaChecksum classes
 
 using System;
-using System.Linq;
+using Wv.FakeLinq;
 using System.Collections.Generic;
 using Wv;
 using Wv.Test;

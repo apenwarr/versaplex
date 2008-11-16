@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using System.Linq;
+using Wv.FakeLinq;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 using Wv;
@@ -113,7 +113,7 @@ internal class VxSchemaChecksum
 
     public override int GetHashCode() 
     {
-        ulong xor = checksums.Aggregate((cur, next) => cur ^ next);
+        ulong xor = checksums.Aggregate((ulong cur, ulong next) => cur ^ next);
         return ((int)xor ^ (int)(xor>>32));
     }
 

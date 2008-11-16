@@ -1,7 +1,7 @@
 #include "wvtest.cs.h"
 
 using System;
-using System.Linq;
+using Wv.FakeLinq;
 using Wv;
 using Wv.Test;
 

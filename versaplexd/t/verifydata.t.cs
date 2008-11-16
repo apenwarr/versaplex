@@ -3,7 +3,7 @@
 using System;
 using System.Data.SqlClient;
 using System.Data.SqlTypes;
-using System.Linq;
+using Wv.FakeLinq;
 using Wv.Test;
 using Wv;
 

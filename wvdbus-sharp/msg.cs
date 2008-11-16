@@ -5,7 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
+using Wv.FakeLinq;
 using Mono;
 using Wv.Extensions;
 
