@@ -1,0 +1,13 @@
+!!SCHEMAMATIC 9184a56880b0ec0de680d992426095b3 0x12a11249 
+create procedure DemoAdd
+    @LastName varchar(80),
+    @FirstName varchar(80),
+    @Puppies integer
+as
+
+insert into DemoTable
+        (LastName, FirstName, Puppies)
+    values
+        (@LastName, @FirstName, @Puppies)
+
+select @@IDENTITY

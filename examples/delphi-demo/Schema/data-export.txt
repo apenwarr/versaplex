@@ -1,0 +1,2 @@
+00000 zap *
+00100 export DemoTable
