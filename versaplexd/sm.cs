@@ -654,13 +654,13 @@ public static class SchemamaticCli
         }
 
         sb.Append("interface\n\n"
-            + "uses uPwTemp, uPwData, Db;\n"
+            + "uses Classes, uPwData;\n"
             + "\n"
             + "{$M+}\n"
             + "type\n"
             + "  " + types.join("\n  ")
             + "  \n"
-            + "  " + classname + " = class(TObject)\n"
+            + "  " + classname + " = class(TComponent)\n"
             + "  private\n"
             + "    fDb: TPwDatabase;\n"
             + "    " + globalfields.join("\n    ") + "\n"
@@ -668,20 +668,15 @@ public static class SchemamaticCli
             + "    property db: TPwDatabase  read fDb write fDb;\n"
             + "    " + globalprops.join("\n    ") + "\n"
             + "  public\n"
-            + "    constructor Create; overload;\n"
-            + "    constructor Create(db: TPwDatabase); overload;\n"
+            + "    constructor Create(db: TPwDatabase); reintroduce;\n"
             + "    " + iface.join("    ")
             + "  end;\n\n");
 
         sb.Append("implementation\n"
             + "\n"
-            + "constructor " + classname + ".Create;\n"
-            + "begin\n"
-            + "    self.db := nil;\n"
-            + "end;\n"
-            + "\n"
             + "constructor " + classname + ".Create(db: TPwDatabase);\n"
             + "begin\n"
+	    + "    inherited Create(db);\n"
             + "    self.db := db;\n"
             + "end;\n"
             + "\n"
