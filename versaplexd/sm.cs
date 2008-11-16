@@ -508,6 +508,9 @@ public static class SchemamaticCli
             Console.Error.Write("Classname must start with T.\n");
             return;
         }
+	
+	Console.Error.Write("Generating Pascal file...\n");
+	
         // Replace leading 'T' with a 'u'
         string unitname = "u" + classname.Remove(0, 1);
 
@@ -693,12 +696,15 @@ public static class SchemamaticCli
 	    Console.Write(sb.ToString());
 	else
 	{
+	    Console.Error.Write("Writing file: {0}\n", outfile);
 	    using (var f = new FileStream(outfile,
 			  FileMode.Create, FileAccess.Write))
 	    {
 		f.write(sb.ToUTF8());
 	    }
 	}
+	
+	Console.Error.Write("Done.\n");
     }
 
     private static ISchemaBackend GetBackend(string moniker)
