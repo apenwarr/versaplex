@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using Wv.Extensions;
+using Wv.FakeLinq;
 
 namespace Wv
 {
@@ -15,9 +16,9 @@ namespace Wv
 	int write(WvBytes b);
 	bool flush(int msec_timeout);
 	
-	event Action onreadable;
-	event Action onwritable;
-	event Action onclose;
+	event WvAction onreadable;
+	event WvAction onwritable;
+	event WvAction onclose;
 	
 	void close();
 	void noread();
@@ -48,7 +49,7 @@ namespace Wv
 	}
 
 	bool is_readable = false, is_writable = false;
-	event Action _onreadable, _onwritable, _onclose;
+	event WvAction _onreadable, _onwritable, _onclose;
 	
 	protected bool can_onreadable { get { return _onreadable != null; } }
 	protected bool can_onwritable { get { return _onwritable != null; } }
@@ -91,15 +92,15 @@ namespace Wv
 	    ev.addpending(pw_obj, do_writable);
 	}
 	
-	public virtual event Action onreadable { 
+	public virtual event WvAction onreadable { 
 	    add    { _onreadable += value; if (is_readable) post_readable(); }
 	    remove { _onreadable -= value; }
 	}
-	public virtual event Action onwritable { 
+	public virtual event WvAction onwritable { 
 	    add    { _onwritable += value; if (is_writable) post_writable(); }
 	    remove { _onwritable -= value; }
 	}
-	public virtual event Action onclose { 
+	public virtual event WvAction onclose { 
 	    add    { _onclose += value; }
 	    remove { _onclose -= value; }
 	}
@@ -351,13 +352,13 @@ namespace Wv
 	// we *have* a callback, and then only once.  Otherwise the stream
 	// might start listening for read when we don't have any readable
 	// handlers, resulting in it spinning forever.
-	public override event Action onreadable {
+	public override event WvAction onreadable {
 	    add { if (!can_onreadable) inner.onreadable += do_readable;
 		  base.onreadable += value; }
 	    remove { base.onreadable -= value;
 		     if (!can_onreadable) inner.onreadable -= do_readable; }
 	}
-	public override event Action onwritable {
+	public override event WvAction onwritable {
 	    add { if (!can_onwritable) inner.onwritable += do_writable;
 		  base.onwritable += value; }
 	    remove { base.onwritable -= value;

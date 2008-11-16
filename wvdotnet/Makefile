@@ -12,6 +12,8 @@ servtest.exe: PKGS += /r:System.ServiceProcess /r:System.Configuration.Install
 
 streamtest.exe servtest.exe httpservtest.exe htmlgentest.exe: wv.dll
 
+wvextensionattr.dll: wvextensionattr.cs
+
 wv.dll: assemblyinfo.cs \
 	wvutils.cs wvtest.cs wvdata.cs wvmoniker.cs wvurl.cs \
 	wvfakelinq.cs \
@@ -20,7 +22,8 @@ wv.dll: assemblyinfo.cs \
 	wvstream.cs wvstreamstream.cs wvsockstream.cs \
 	wvloopback.cs wvlog.cs wvhexdump.cs \
 	wvextensions.cs wvweb.cs wvhtml.cs wvhttpserver.cs \
-	ndesk-options.cs mono-getline.cs
+	ndesk-options.cs mono-getline.cs \
+	test.dll
 
 test: tests t/test
 

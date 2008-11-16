@@ -9,30 +9,30 @@ public interface IWvEventer
 {
     void runonce(int msec_timeout);
     void runonce();
-    void onreadable(Socket s, Action a);
-    void onwritable(Socket s, Action a);
-    void addpending(Object cookie, Action a);
+    void onreadable(Socket s, WvAction a);
+    void onwritable(Socket s, WvAction a);
+    void addpending(Object cookie, WvAction a);
     void delpending(Object cookie);
-    void addtimeout(Object cookie, DateTime t, Action a);
+    void addtimeout(Object cookie, DateTime t, WvAction a);
     void deltimeout(Object cookie);
 }
 
 public class WvEventer : IWvEventer
 {
     // CAREFUL! The 'pending' structure might be accessed from other threads!
-    Dictionary<object, Action> 
-	pending = new Dictionary<object, Action>();
+    Dictionary<object, WvAction> 
+	pending = new Dictionary<object, WvAction>();
     
-    Dictionary<Socket, Action> 
-	r = new Dictionary<Socket, Action>(),
-        w = new Dictionary<Socket, Action>();
+    Dictionary<Socket, WvAction> 
+	r = new Dictionary<Socket, WvAction>(),
+        w = new Dictionary<Socket, WvAction>();
     
     class TimeAction
     {
 	public DateTime t;
-	public Action a;
+	public WvAction a;
 	
-	public TimeAction(DateTime t, Action a)
+	public TimeAction(DateTime t, WvAction a)
 	{
 	    this.t = t;
 	    this.a = a;
@@ -45,7 +45,7 @@ public class WvEventer : IWvEventer
     {
     }
     
-    public void onreadable(Socket s, Action a)
+    public void onreadable(Socket s, WvAction a)
     {
 	if (s == null) return;
 	r.Remove(s);
@@ -53,7 +53,7 @@ public class WvEventer : IWvEventer
 	    r.Add(s, a);
     }
     
-    public void onwritable(Socket s, Action a)
+    public void onwritable(Socket s, WvAction a)
     {
 	if (s == null) return;
 	w.Remove(s);
@@ -61,7 +61,7 @@ public class WvEventer : IWvEventer
 	    w.Add(s, a);
     }
     
-    public void addtimeout(Object cookie, DateTime t, Action a)
+    public void addtimeout(Object cookie, DateTime t, WvAction a)
     {
 	ta.Remove(cookie);
 	if (a != null)
@@ -71,8 +71,8 @@ public class WvEventer : IWvEventer
     // NOTE: 
     // This is the only kind of event you can enqueue from a thread other
     // than the one doing runonce()!
-    // It will run your Action in the runonce() thread on the next pass.
-    public void addpending(Object cookie, Action a)
+    // It will run your WvAction in the runonce() thread on the next pass.
+    public void addpending(Object cookie, WvAction a)
     {
 	lock(pending)
 	{
@@ -154,14 +154,14 @@ public class WvEventer : IWvEventer
 	    }
 	}
 	
-	Action[] nowpending;
+	WvAction[] nowpending;
 	lock(pending)
 	{
 	    nowpending = pending.Values.ToArray();
 	    pending.Clear();
 	}
 	// Console.WriteLine("NowPending: {0}", nowpending.Length);
-	foreach (Action a in nowpending)
+	foreach (WvAction a in nowpending)
 	    a();
     }
 }

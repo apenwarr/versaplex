@@ -29,18 +29,18 @@ namespace Wv.Extensions
     
     public static class WvContExtensions
     {
-	public static Action ToAction(this IEnumerator ie)
+	public static WvAction ToAction(this IEnumerator ie)
 	{
-	    return new Action(delegate() {
+	    return new WvAction(delegate() {
 		ie.MoveNext();
 	    });
 	}
 
-	public static Action ToAction(this IEnumerable aie)
+	public static WvAction ToAction(this IEnumerable aie)
 	{
 	    bool must_reset = false;
 	    IEnumerator ie = aie.GetEnumerator();
-	    return new Action(delegate() {
+	    return new WvAction(delegate() {
 		if (must_reset)
 		    ie = aie.GetEnumerator();
 		must_reset = !ie.MoveNext();
@@ -102,7 +102,7 @@ namespace Wv.Extensions
 	}
 	
 	public static IEnumerable<T2> map<T1,T2>(this IEnumerable<T1> list,
-					  Func<T1,T2> f)
+					  WvFunc<T1,T2> f)
 	{
 	    foreach (T1 t in list)
 		yield return f(t);

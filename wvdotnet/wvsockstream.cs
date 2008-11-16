@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Sockets;
 using Mono.Unix;
 using Wv;
+using Wv.FakeLinq;
 
 namespace Wv
 {
@@ -109,14 +110,14 @@ namespace Wv
 	    }
 	}
 	
-	public override event Action onreadable {
+	public override event WvAction onreadable {
 	    add { base.onreadable += value;
 		  if (ok) ev.onreadable(sock, do_readable); }
 	    remove { base.onreadable -= value;
 		     if (!can_onreadable) ev.onreadable(sock, null); }
 	}
 
-	public override event Action onwritable {
+	public override event WvAction onwritable {
 	    add { base.onwritable += value;
 		  if (ok) ev.onwritable(sock, do_writable); }
 	    remove { base.onwritable -= value;

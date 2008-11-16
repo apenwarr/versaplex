@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.Serialization;
 using Wv;
+using Wv.FakeLinq;
 
 // We put this in wvtest.cs since wvtest.cs should be able to compile all
 // by itself, without relying on any other parts of wvdotnet.  On the other
@@ -13,13 +14,20 @@ namespace Wv
     {
 	public static IEnumerable<Type> find_types(Type attrtype)
 	{
+	    Console.WriteLine("Looking for type: {0}", attrtype.ToString());
 	    foreach (Assembly a in AppDomain.CurrentDomain.GetAssemblies())
 	    {
+		Console.WriteLine("Checking Assembly: {0}", a.ToString());
 		foreach (Type t in a.GetTypes())
 		{
-		    if (!t.IsDefined(attrtype, false))
+		    Console.WriteLine("Checking Type: {0}", t.ToString());
+		    if (t.ToString() == "Wv.WvReflection")
 			continue;
-		    
+		    bool d = t.IsDefined(attrtype, false);
+		    Console.WriteLine("Checked");
+		    if (!d)
+			continue;
+
 		    yield return t;
 		}
 	    }
@@ -46,9 +54,9 @@ namespace Wv.Test
 	struct TestInfo
 	{
 	    public string name;
-	    public Action cb;
+	    public WvAction cb;
 	    
-	    public TestInfo(string name, Action cb)
+	    public TestInfo(string name, WvAction cb)
 	        { this.name = name; this.cb = cb; }
 	}
         List<TestInfo> tests = new List<TestInfo>();
@@ -81,7 +89,7 @@ namespace Wv.Test
 	    }
 	}
 
-        public void RegisterTest(string name, Action tc)
+        public void RegisterTest(string name, WvAction tc)
         {
             tests.Add(new TestInfo(name, tc));
         }

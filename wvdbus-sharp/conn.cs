@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using Wv.Extensions;
+using Wv.FakeLinq;
 
 namespace Wv
 {
@@ -124,7 +125,7 @@ namespace Wv
 	    return reply;
 	}
 
-	public uint send(WvDbusMsg msg, Action<WvDbusMsg> replyaction)
+	public uint send(WvDbusMsg msg, WvAction<WvDbusMsg> replyaction)
 	{
 	    msg.ReplyExpected = true;
 	    msg.serial = send(msg);
@@ -247,7 +248,7 @@ namespace Wv
 
 	    if (msg.rserial.HasValue)
 	    {
-		Action<WvDbusMsg> raction 
+		WvAction<WvDbusMsg> raction 
 		    = rserial_to_action.tryget(msg.rserial.Value);
 		if (raction != null)
 		{
@@ -286,8 +287,8 @@ namespace Wv
 	    }
 	}
 
-	Dictionary<uint,Action<WvDbusMsg>> rserial_to_action
-	    = new Dictionary<uint,Action<WvDbusMsg>>();
+	Dictionary<uint,WvAction<WvDbusMsg>> rserial_to_action
+	    = new Dictionary<uint,WvAction<WvDbusMsg>>();
 
 	// Standard D-Bus monikers:
 	//   unix:path=whatever,guid=whatever
@@ -482,7 +483,7 @@ namespace Wv
 	}
 	
 	public static uint send(this WvDbusMsg msg, WvDbus conn,
-				Action<WvDbusMsg> replyaction)
+				WvAction<WvDbusMsg> replyaction)
 	{
 	    return conn.send(msg, replyaction);
 	}

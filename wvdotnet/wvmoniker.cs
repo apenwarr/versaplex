@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Wv;
+using Wv.FakeLinq;
 using Wv.Extensions;
 
 namespace Wv
@@ -43,15 +44,15 @@ namespace Wv
     {
 	static List<WvMoniker<T>> registry = new List<WvMoniker<T>>();
 	string prefix;
-	Func<string,object,T> func;
+	WvFunc<string,object,T> func;
 	
 	public static WvMoniker<T>
-	    register(string prefix, Func<string,object,T> func)
+	    register(string prefix, WvFunc<string,object,T> func)
 	{
 	    return new WvMoniker<T>(prefix, func);
 	}
 	
-        public WvMoniker(string prefix, Func<string,object,T> func)
+        public WvMoniker(string prefix, WvFunc<string,object,T> func)
 	{
 	    this.prefix = prefix;
 	    this.func = func;

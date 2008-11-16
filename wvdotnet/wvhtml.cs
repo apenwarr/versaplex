@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Web;
 using Wv;
+using Wv.FakeLinq;
 using Wv.Extensions;
 
 namespace Wv
@@ -75,7 +76,7 @@ namespace Wv
 
 	    foreach (object _o in content)
 	    {
-		Action<object> handler;
+		WvAction<object> handler;
 
 		// Okay, this is a little funny.  The inner part of this loop
 		// can call itself recursively :)  It's a nice way to handle

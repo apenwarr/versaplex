@@ -307,9 +307,9 @@ namespace Wv.NDesk.Options {
 		}
 
 		class ActionOption : Option {
-			Action<string, OptionContext> action;
+		        WvAction<string, OptionContext> action;
 
-			public ActionOption (string prototype, string description, Action<string, OptionContext> action)
+			public ActionOption (string prototype, string description, WvAction<string, OptionContext> action)
 				: base (prototype, description)
 			{
 				if (action == null)
@@ -341,49 +341,49 @@ namespace Wv.NDesk.Options {
 			return this;
 		}
 
-		public OptionSet Add (string options, Action<string> action)
+		public OptionSet Add (string options, WvAction<string> action)
 		{
 			return Add (options, null, action);
 		}
 
-		public OptionSet Add (string options, Action<string, OptionContext> action)
+		public OptionSet Add (string options, WvAction<string, OptionContext> action)
 		{
 			return Add (options, null, action);
 		}
 
-		public OptionSet Add (string options, string description, Action<string> action)
+		public OptionSet Add (string options, string description, WvAction<string> action)
 		{
 			if (action == null)
 				throw new ArgumentNullException ("action");
 			return Add (options, description, (v,c) => {action (v);});
 		}
 
-		public OptionSet Add (string options, string description, Action<string, OptionContext> action)
+		public OptionSet Add (string options, string description, WvAction<string, OptionContext> action)
 		{
 			Option p = new ActionOption (options, description, action);
 			base.Add (p);
 			return this;
 		}
 
-		public OptionSet Add<T> (string options, Action<T> action)
+		public OptionSet Add<T> (string options, WvAction<T> action)
 		{
 			return Add (options, null, action);
 		}
 
-		public OptionSet Add<T> (string options, Action<T, OptionContext> action)
+		public OptionSet Add<T> (string options, WvAction<T, OptionContext> action)
 		{
 			return Add (options, null, action);
 		}
 
-		public OptionSet Add<T> (string options, string description, Action<T> action)
+		public OptionSet Add<T> (string options, string description, WvAction<T> action)
 		{
 			return Add (options, description, (T v, OptionContext c) => {action (v);});
 		}
 
-		public OptionSet Add<T> (string options, string description, Action<T, OptionContext> action)
+		public OptionSet Add<T> (string options, string description, WvAction<T, OptionContext> action)
 		{
 			TypeConverter conv = TypeDescriptor.GetConverter (typeof(T));
-			Action<string, OptionContext> a = delegate (string s, OptionContext c) {
+			WvAction<string, OptionContext> a = delegate (string s, OptionContext c) {
 				T t = default(T);
 				try {
 					if (s != null)
@@ -646,7 +646,7 @@ namespace Tests.NDesk.Options {
 	class Test {
 		public static void Main (string[] args)
 		{
-			var tests = new Dictionary<string, Action> () {
+			var tests = new Dictionary<string, WvAction> () {
 				{ "boolean",      () => CheckBoolean () },
 				{ "bundling",     () => CheckOptionBundling () },
 				{ "context",      () => CheckOptionContext () },
@@ -857,7 +857,7 @@ namespace Tests.NDesk.Options {
 					p, v => { v.Add ("foo", (Action<string, OptionContext>) null); });
 		}
 
-		static void AssertException<T> (Type exception, string message, T a, Action<T> action)
+		static void AssertException<T> (Type exception, string message, T a, WvAction<T> action)
 		{
 			Type actualType = null;
 			string stack = null;

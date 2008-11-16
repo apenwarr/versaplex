@@ -4,10 +4,19 @@ using System.Collections.Generic;
 
 namespace Wv.FakeLinq
 {
+    public delegate void WvAction();
+    public delegate void WvAction<T1>(T1 t1);
+    public delegate void WvAction<T1,T2>(T1 t1, T2 t2);
+    public delegate void WvAction<T1,T2,T3>(T1 t1, T2 t2, T3 t3);
+    public delegate R WvFunc<R>();
+    public delegate R WvFunc<T1,R>(T1 t1);
+    public delegate R WvFunc<T1,T2,R>(T1 t1, T2 t2);
+    public delegate R WvFunc<T1,T2,T3,R>(T1 t1, T2 t2, T3 t3);
+    
     public static class WvFakeLinq
     {
 	public static IEnumerable<T> Where<T>(this IEnumerable<T> ie,
-					      Func<T,bool> f)
+					      WvFunc<T,bool> f)
 	{
 	    foreach (T t in ie)
 		if (f(t))
@@ -32,14 +41,14 @@ namespace Wv.FakeLinq
 	}
 	
 	public static IEnumerable<U> Select<T,U>(this IEnumerable<T> ie,
-						 Func<T,U> f)
+						 WvFunc<T,U> f)
 	{
 	    foreach (T t in ie)
 		yield return f(t);
 	}
 	
 	public static U Aggregate<T,U>(this IEnumerable<T> ie,
-			       Func<U,T,U> f)
+			       WvFunc<U,T,U> f)
 	{
 	    U x = default(U);
 	    foreach (T t in ie)
