@@ -1352,7 +1352,16 @@ RETCODE SQL_API PGAPI_Tables
     VxStatement st(stmt);
     VxResultSet rs;
     st.reinit();
-    rs.runquery(st.dbus(), "ExecChunkRecordset", "LIST TABLES");
+    // The conditions in the 'if' statement here satisfy what the ODBC spec
+    // claims is the way to get catalog information from your database; list
+    // '%' (wildcard) for your table qualifier (ie. catalog name), and leave
+    // all pertinent table name/owner parameters null.
+    if (cbTableOwner == 0 &&
+	cbTableName == 0 &&
+	cbTableQualifier == 1 && szTableQualifier[0] == '%')
+	rs.return_versaplex_db();
+    else
+	rs.runquery(st.dbus(), "ExecChunkRecordset", "LIST TABLES");
     st.set_result(rs);
     stmt->catalog_result = TRUE;
 
