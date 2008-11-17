@@ -99,3 +99,32 @@ void VxResultSet::runquery(WvDBusConn &conn, const char *func,
     if (signal_returns[reply_serial])
 	signal_returns.erase(reply_serial);
 }
+
+void VxResultSet::return_versaplex_db()
+{
+    // Allocate space for the column info data... see below.
+    // const int my_cols = 5;
+    const int my_cols = 1;
+    QR_set_num_fields(res, my_cols);
+    maxcol = my_cols - 1;
+
+    // Column info... the names and types of the columns here were stolen from
+    // tracing the result of a 'list tables' call to the server.
+    set_field_info(0, "TABLE_QUALIFIER", 1043, 128);
+    //FIXME:  The below 4 are commented out, because StarQuery happens to work
+    //        with only one return column.  Will other applications that also
+    //        expect some kind of standard reply to what catalogs are available?
+    //set_field_info(1, "TABLE_OWNER", 1043, 128);
+    //set_field_info(2, "TABLE_NAME", 1043, 128);
+    //set_field_info(3, "TABLE_TYPE", 1043, 32);
+    //set_field_info(4, "REMARKS", 1043, 254);
+
+    // set up fake data, just one row, with the TABLE_QUALIFIER being
+    // a fake '__VERSAPLEX' database, and the rest of the columns being null.
+    TupleField *tuple = QR_AddNew(res);
+
+    set_tuplefield_string(&tuple[0], "__VERSAPLEX");
+    //FIXME:  See above.
+    //for (int i = 1; i < my_cols; ++i)
+    //	set_tuplefield_string(&tuple[i], NULL);
+}

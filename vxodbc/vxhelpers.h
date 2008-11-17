@@ -77,6 +77,7 @@ public:
     }
 
     void runquery(WvDBusConn &conn, const char *func, const char *query);
+    void return_versaplex_db();
     void process_msg(WvDBusMsg &msg);
 };
 
