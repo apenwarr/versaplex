@@ -1168,17 +1168,17 @@ int CC_discard_marked_objects(ConnectionClass * conn)
     return 1;
 }
 
-// VX_CLEANUP: This can obviously be simplified away.
 const char *CurrCat(const ConnectionClass * conn)
 {
-	return NULL;
+    extern int exepgm;
+    static const char *const ourdb = "__VERSAPLEX";
+
+    return exepgm == 2 /* MS Query */ ? 0 : ourdb;
 }
 
 const char *CurrCatString(const ConnectionClass * conn)
 {
     const char *cat = CurrCat(conn);
 
-    if (!cat)
-	cat = NULL_STRING;
-    return cat;
+    return cat ? cat : NULL_STRING;
 }
