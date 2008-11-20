@@ -170,11 +170,8 @@ internal static class VxDb {
 	var it = call.iter();
 
 	string query = query_parser(it.pop());
-	reply = null;
 
         log.print(WvLog.L.Debug3, "ExecChunkRecordset {0}\n", query);
-
-	string sender = call.sender;
 
         try
 	{
@@ -291,7 +288,7 @@ internal static class VxDb {
 				  "(1 MB reached; {0} rows)\n",
 				  rows.Count);
 			
-			SendChunkRecordSignal(conn, call, sender, colinfo,
+			SendChunkRecordSignal(conn, call, call.sender, colinfo,
 					      rows.ToArray(),
 					      rownulls.ToArray());
 			
