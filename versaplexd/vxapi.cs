@@ -80,28 +80,28 @@ internal static class VxDb {
 		if (tok.IsKeywordEq("use") && next_tok.IsIdentifier())
 		{
 		    // Drop "use x" statements completely
-		    ++i;
 		    ret.tokenize(";");
+		    ++i;
 		}
 		else if (tok.NotQuotedAndLowercaseEq("list"))
 		{
 		    if (next_tok.NotQuotedAndLowercaseEq("tables"))
 		    {
-			++i;
 			ret.tokenize("exec sp_tables;");
+			++i;
 		    }
 		    else if (next_tok.NotQuotedAndLowercaseEq("columns")
 				&& i < tokens.Length - 2)
 		    {
-			i += 2;
 			ret.tokenize("exec sp_columns @table_name='" + 
-					tokens[i + 2] + "';");
+					tokens[i + 2].name + "';");
+			i += 2;
 		    }
 		    else if (next_tok.NotQuotedAndLowercaseEq("all")
 				&& i < tokens.Length - 2)
 		    {
-			i += 2;
 			VxSqlToken nextnext_tok = tokens[i + 2];
+			i += 2;
 			if (nextnext_tok.NotQuotedAndLowercaseEq("table"))
 			{
 			    ret.tokenize(
@@ -121,7 +121,7 @@ internal static class VxDb {
 			    + " cast (object_name(id) as varchar(256)) Name "
 			    + " from syscomments "
 			    + " where objectproperty(id,'Is{0}') = 1 "
-			    + " order by Name;", nextnext_tok));
+			    + " order by Name;", nextnext_tok.name));
 			}
 		    }
 		}
@@ -130,7 +130,6 @@ internal static class VxDb {
 			i < tokens.Length - 3 &&
 			tokens[i + 1].NotQuotedAndLowercaseEq("object"))
 	    {
-		i += 3;
 		// Format: 
 		// get object {view|trigger|procedure|scalarfunction|tablefunction} name
 		// Returns: the "source code" to the object
@@ -140,7 +139,8 @@ internal static class VxDb {
 		    + "where objectproperty(id, 'Is{0}') = 1 "
 		    + "and object_name(id) = '{1}' "
 		    + "order by number, colid;",
-		    tokens[i + 2], tokens[i + 3]));
+		    tokens[i + 2].name, tokens[i + 3].name));
+		i += 3;
 	    }
 
 	    if (ret.gettokens() != null)
