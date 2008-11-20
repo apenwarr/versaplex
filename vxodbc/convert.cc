@@ -632,6 +632,7 @@ copy_and_convert_field(StatementClass * stmt, OID field_type,
 			"%.4d-%.2d-%.2d %.2d:%.2d:%.2d", std_time.y,
 			std_time.m, std_time.d, std_time.hh,
 			std_time.mm, std_time.ss);
+		len = strlen(rgbValueBindRow);
             }
 	    break;
 
