@@ -257,6 +257,8 @@ PGAPI_DescribeCol(HSTMT hstmt,
     default:
 	*pfSqlType = SQL_VARCHAR;
 	*pcbColDef = QR_get_fieldsize(res, icol);
+	if (*pcbColDef < 4)
+	    *pcbColDef = 4;
 	*pibScale = 1;
 	break;
     }
