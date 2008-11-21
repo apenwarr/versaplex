@@ -175,19 +175,20 @@ internal static class VxDb {
 
         try
 	{
+	    List<object[]> rows = new List<object[]>();
+	    List<byte[]> rownulls = new List<byte[]>();
+	    VxColumnInfo[] colinfo;
+		
+	    // Our size here is just an approximation.
+	    int cursize = 0;
+		
 	    // FIXME:  Sadly, this is stupidly similar to ExecRecordset.
 	    // Anything we can do here to identify commonalities?
             using (var dbi = VxSqlPool.create(connid))
             using (WvSqlRows resultset = dbi.select(query))
 	    {
-		List<object[]> rows = new List<object[]>();
-		List<byte[]> rownulls = new List<byte[]>();
-		
-		// Our size here is just an approximation.
-		int cursize = 0;
-		
 		var columns = resultset.columns.ToArray();
-		VxColumnInfo[] colinfo  = ProcessSchema(columns);
+		colinfo = ProcessSchema(columns);
 		int ncols = columns.Count();
 		
 		foreach (WvSqlRow cur_row in resultset)
@@ -297,21 +298,21 @@ internal static class VxDb {
 			cursize = 0;
 		    }
 		} // row iterator
-
-		// OK, we're down to either one more packet or no more data
-		// Package that up in the 'reply' to this message, saving some
-		// data being sent.
-		if (cursize > 0)
-		    log.print(WvLog.L.Debug4, "(Remaining data; {0} rows)\n",
-			      rows.Count);
-
-		// Create reply, either with or with no data
-		WvDbusWriter replywriter =
-		    VxDbusRouter.PrepareRecordsetWriter(colinfo,
-							       rows.ToArray(),
-							    rownulls.ToArray());
-		reply = call.reply("a(issnny)vaay").write(replywriter);
 	    } // using
+
+	    // OK, we're down to either one more packet or no more data
+	    // Package that up in the 'reply' to this message, saving some
+	    // data being sent.
+	    if (cursize > 0)
+		log.print(WvLog.L.Debug4, "(Remaining data; {0} rows)\n",
+			  rows.Count);
+
+	    // Create reply, either with or with no data
+	    WvDbusWriter replywriter =
+	        VxDbusRouter.PrepareRecordsetWriter(colinfo,
+					            rows.ToArray(),
+						    rownulls.ToArray());
+	    reply = call.reply("a(issnny)vaay").write(replywriter);
         } catch (DbException e) {
             throw new VxSqlException(e.Message, e);
         }
