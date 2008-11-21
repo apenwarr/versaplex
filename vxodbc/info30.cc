@@ -245,6 +245,12 @@ PGAPI_GetInfo30(HDBC hdbc, SQLUSMALLINT fInfoType, PTR rgbInfoValue,
 	if (PG_VERSION_GT(conn, 7.2))
 	    value = 64;
 	break;
+    case SQL_MAX_SCHEMA_NAME_LEN:
+    case SQL_MAX_TABLE_NAME_LEN:
+    case SQL_MAX_COLUMN_NAME_LEN:
+	len = 2;
+	value = 128;
+	break;
     case SQL_MAX_ROW_SIZE_INCLUDES_LONG:
 	len = 0;
 	p = "Y";

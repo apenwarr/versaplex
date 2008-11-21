@@ -322,13 +322,6 @@ RETCODE SQL_API
 	value = 0;
 	break;
 
-    case SQL_MAX_COLUMN_NAME_LEN:	/* ODBC 1.0 */
-	// TODO: Look into MAX_COLUMN_LEN - is it sensible?
-	CC_set_error(conn, CONN_NOT_IMPLEMENTED_ERROR,
-		     "SQL_MAX_COLUMN_NAME_LEN not yet implemented.", NULL);
-	return SQL_ERROR;
-	break;
-
     case SQL_MAX_COLUMNS_IN_GROUP_BY:	/* ODBC 2.0 */
 	len = 2;
 	value = 0;
@@ -358,17 +351,18 @@ RETCODE SQL_API
 	len = 2;
 	value = MAX_CURSOR_LEN;
 	break;
+	
+    case SQL_MAX_SCHEMA_NAME_LEN:
+    case SQL_MAX_TABLE_NAME_LEN:
+    case SQL_MAX_COLUMN_NAME_LEN:
+	len = 2;
+	value = 128;
+	break;
 
     case SQL_MAX_INDEX_SIZE:	/* ODBC 2.0 */
 	len = 4;
 	value = 0;
 	break;
-
-    case SQL_MAX_OWNER_NAME_LEN:	/* ODBC 1.0 */
-	// TODO: Look into MAX_SCHEMA_LEN - is it sensible?
-	CC_set_error(conn, CONN_NOT_IMPLEMENTED_ERROR,
-		     "SQL_MAX_OWNER_NAME_LEN not yet implemented.", NULL);
-	return SQL_ERROR;
 
     case SQL_MAX_PROCEDURE_NAME_LEN:	/* ODBC 1.0 */
 	len = 2;
@@ -409,12 +403,6 @@ RETCODE SQL_API
 	len = 4;
 	value = CC_get_max_query_len(conn);
 	break;
-
-    case SQL_MAX_TABLE_NAME_LEN:	/* ODBC 1.0 */
-	// TODO: Look into MAX_TABLE_LEN - is it sensible?
-	CC_set_error(conn, CONN_NOT_IMPLEMENTED_ERROR,
-		     "SQL_MAX_TABLE_NAME_LEN not yet implemented.", NULL);
-	return SQL_ERROR;
 
     case SQL_MAX_TABLES_IN_SELECT:	/* ODBC 2.0 */
 	len = 2;
