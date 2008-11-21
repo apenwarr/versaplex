@@ -1365,7 +1365,7 @@ RETCODE SQL_API PGAPI_Columns(HSTMT hstmt, const SQLCHAR FAR * szTableQualifier,
     VxResultSet rs;
     st.reinit();
     rs.runquery(st.dbus(), "ExecChunkRecordset",
-		WvString("LIST COLUMNS %s", (const char *)szTableName));
+		WvString("LIST COLUMNS [%s]", (const char *)szTableName));
     st.set_result(rs);
     stmt->catalog_result = TRUE;
     return st.retcode();
