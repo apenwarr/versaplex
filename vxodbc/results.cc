@@ -225,20 +225,55 @@ PGAPI_DescribeCol(HSTMT hstmt,
 	mylog("not enough columns in result!\n");
 	return SQL_ERROR;
     }
-    mylog("working: %p %d\n", pcbColName, (int)cbColNameMax);
-    mylog("hiya! %p\n", QR_get_fieldname(res, icol));
-    // strncpy((char *)pcbColName, QR_get_fieldname(res, icol), cbColNameMax);
-    strncpy((char *)szColName, "foo", cbColNameMax);
-    mylog("still ok!\n");
-    *pcbColName = strlen((char *)pcbColName);
-    assert(*szColName > 0);
-    *pfSqlType = SQL_VARCHAR;
-    mylog("still ok! 2\n");
-    *pcbColDef = 20;
-    *pibScale = 1;
-    mylog("still ok! 3\n");
+    
+    strncpy((char *)szColName, QR_get_fieldname(res, icol), cbColNameMax);
+    *pcbColName = strlen((char *)szColName);
+    
+    int ft = QR_get_field_type(res, icol);
+    mylog("ppp: ft: %d\n", ft);
+    switch (ft)
+    {
+    case PG_TYPE_BOOL:
+	*pfSqlType = SQL_BIT;
+	*pcbColDef = 1;
+	*pibScale = 0;
+	break;
+    case PG_TYPE_CHAR:
+	*pfSqlType = SQL_TINYINT;
+	*pcbColDef = 3;
+	*pibScale = 0;
+	break;
+    case PG_TYPE_INT4:
+	*pfSqlType = SQL_INTEGER;
+	*pcbColDef = pgtype_column_size(stmt, ft, icol, 10);
+	*pibScale = 0;
+	break;
+    case PG_TYPE_NUMERIC:
+	*pfSqlType = SQL_DECIMAL;
+	*pcbColDef = 19;//pgtype_column_size(stmt, ft, icol, 10);
+	*pibScale = 4;//pgtype_decimal_digits(stmt, ft, icol);
+	break;
+    case PG_TYPE_FLOAT8:
+	*pfSqlType = SQL_DOUBLE;
+	*pcbColDef = pgtype_column_size(stmt, ft, icol, 10);
+	*pibScale = pgtype_precision(stmt, ft, icol, 10);
+	break;
+    case VX_TYPE_DATETIME:
+	*pfSqlType = SQL_VARCHAR;
+	*pcbColDef = 19;
+	*pibScale = 1;
+	break;
+    default:
+	*pfSqlType = SQL_VARCHAR;
+	*pcbColDef = QR_get_fieldsize(res, icol);
+	if (*pcbColDef < 4)
+	    *pcbColDef = 4;
+	*pibScale = 1;
+	break;
+    }
+    
     *pfNullable = 1;
-    mylog("done\n");
+    
     return SQL_SUCCESS;
 }
 
@@ -654,6 +689,9 @@ PGAPI_ColAttributes(HSTMT hstmt,
 		 && NAME_IS_NULL(fi->
 				 column_alias)) ? SQL_UNNAMED :
 	    SQL_NAMED;
+	break;
+    case 1211:
+	value = 0;
 	break;
     case 1212:			/* SQL_CA_SS_COLUMN_KEY ? */
 	SC_set_error(stmt, STMT_OPTION_NOT_FOR_THE_DRIVER,
