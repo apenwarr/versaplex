@@ -227,7 +227,7 @@ PGAPI_DescribeCol(HSTMT hstmt,
     }
     
     strncpy((char *)szColName, QR_get_fieldname(res, icol), cbColNameMax);
-    *pcbColName = strlen((char *)pcbColName);
+    *pcbColName = strlen((char *)szColName);
     
     int ft = QR_get_field_type(res, icol);
     mylog("ppp: ft: %d\n", ft);
