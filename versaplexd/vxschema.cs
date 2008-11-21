@@ -52,7 +52,7 @@ internal class VxSchemaElement : IComparable
 	try {
 	    if (type == "Table")
 		return new VxSchemaTable(name, text);
-	} catch (ArgumentException e) { 
+	} catch (ArgumentException) { 
 	    // if the table data is invalid, just ignore it.
 	    // We'll fall through and load a VxSchemaElement instead.
 	}

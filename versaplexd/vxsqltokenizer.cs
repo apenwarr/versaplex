@@ -1,6 +1,6 @@
-
 using System;
 using System.Collections.Generic;
+using Wv;
 
 public class VxSqlToken
 {
@@ -387,6 +387,11 @@ public class VxSqlTokenizer
 	    Console.WriteLine("Token: {0}: {1}", t.type.ToString(), t.name);
 	}
 */
+    }
+    
+    public void tokenize(string fmt, params object[] args)
+    {
+	tokenize(wv.fmt(fmt, args));
     }
 
     public VxSqlTokenizer(string query)

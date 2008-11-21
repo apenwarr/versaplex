@@ -93,8 +93,18 @@ internal static class VxDb {
 		    else if (next_tok.NotQuotedAndLowercaseEq("columns")
 				&& i < tokens.Length - 2)
 		    {
-			ret.tokenize("exec sp_columns @table_name='" + 
-					tokens[i + 2].name + "';");
+			string tabname = tokens[i + 2].name;
+			var sb = new StringBuilder(tabname.Length*2);
+			for (int b = 0; b < tabname.Length; b++)
+			{
+			    if (tabname[b] == '\\' && b < tabname.Length-1)
+				sb.Append(new char[] 
+				      { '[', tabname[++b], ']' });
+			    else
+				sb.Append(tabname[b]);
+			}
+			ret.tokenize("exec sp_columns @table_name='{0}';",
+				     sb);
 			i += 2;
 		    }
 		    else if (next_tok.NotQuotedAndLowercaseEq("all")
