@@ -57,14 +57,13 @@ void wvlog_open()
 
     if (wvlog_isset())
     {
-	WvLog::LogLevel pri = WvLog::Info;
-	if (log_level)
-	{
-	    if (log_level >= (int)WvLog::NUM_LOGLEVELS)
-		pri = WvLog::Debug5;
-	    else if (log_level >= (int)WvLog::Info)
-		pri = (WvLog::LogLevel)log_level;
-	}
+	WvLog::LogLevel pri;
+	if (log_level >= (int)WvLog::NUM_LOGLEVELS)
+	    pri = WvLog::Debug5;
+	else if (log_level >= 1)
+	    pri = (WvLog::LogLevel)log_level;
+	else
+	    pri = WvLog::Info;
 
 	IWvStream *s = wvcreate<IWvStream>(log_moniker);
 	assert(s);
@@ -74,8 +73,8 @@ void wvlog_open()
     }
     else // We want this to also capture (and eliminate) DBus messages.
 	rcv = new WvNullRcv();
-	
-    (*wvlog)(WvLog::Info, "Log initialized.\n");
+
+    (*wvlog)(WvLog::Notice, "Log initialized. (log_level=%s)\n", log_level);
 }
 
 
