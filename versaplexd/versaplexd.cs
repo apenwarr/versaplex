@@ -17,7 +17,7 @@ public static class VersaMain
     public static bool want_to_die = false;
     
     public static WvDbus conn;
-    static Queue<Action> action_queue = new Queue<Action>();
+    static List<Action> action_queue = new List<Action>();
 
     static bool WvDbusMsgReady(WvDbus conn, WvDbusMsg msg)
     {
@@ -31,7 +31,7 @@ public static class VersaMain
 	case Wv.Dbus.MType.MethodCall:
 	    if (msg.ifc == "vx.db")
 	    {
-		action_queue.Enqueue(() => {
+		action_queue.Add(() => {
 		    WvDbusMsg reply;
 		    if (msgrouter.route(conn, msg, out reply))
 		    {
@@ -192,7 +192,9 @@ public static class VersaMain
 	    while (action_queue.Count > 0)
 	    {
 		log.print(WvLog.L.Debug2, "Action queue.\n");
-		action_queue.Dequeue()();
+		Action temp = action_queue.First();
+		action_queue.RemoveAt(0);
+		temp();
 		log.print(WvLog.L.Debug2, "Action queue element done.\n");
 	    }
 	}
