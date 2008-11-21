@@ -249,9 +249,9 @@ PGAPI_DescribeCol(HSTMT hstmt,
 	*pibScale = 0;
 	break;
     case PG_TYPE_NUMERIC:
-	*pfSqlType = SQL_NUMERIC;
-	*pcbColDef = pgtype_column_size(stmt, ft, icol, 10);
-	*pibScale = pgtype_decimal_digits(stmt, ft, icol);
+	*pfSqlType = SQL_DECIMAL;
+	*pcbColDef = 19;//pgtype_column_size(stmt, ft, icol, 10);
+	*pibScale = 4;//pgtype_decimal_digits(stmt, ft, icol);
 	break;
     case PG_TYPE_FLOAT8:
 	*pfSqlType = SQL_DOUBLE;
@@ -689,6 +689,9 @@ PGAPI_ColAttributes(HSTMT hstmt,
 		 && NAME_IS_NULL(fi->
 				 column_alias)) ? SQL_UNNAMED :
 	    SQL_NAMED;
+	break;
+    case 1211:
+	value = 0;
 	break;
     case 1212:			/* SQL_CA_SS_COLUMN_KEY ? */
 	SC_set_error(stmt, STMT_OPTION_NOT_FOR_THE_DRIVER,
