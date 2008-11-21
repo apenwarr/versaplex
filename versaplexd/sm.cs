@@ -264,7 +264,7 @@ public static class SchemamaticCli
                             if (type == "Table")
                                 todelete.Add(name);
                         }
-                        todelete.Sort();
+                        todelete.Sort(StringComparer.Ordinal);
                         foreach (string name in todelete)
                             data.Append(wv.fmt("DELETE FROM [{0}]\n", name));
                     }
