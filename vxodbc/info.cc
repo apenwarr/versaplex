@@ -232,19 +232,15 @@ RETCODE SQL_API
 	break;
 
     case SQL_DRIVER_NAME:	/* ODBC 1.0 */
-	p = DRIVER_FILE_NAME;
+	p = "SQLSRV32.DLL";
 	break;
 
     case SQL_DRIVER_ODBC_VER:
-	i_odbcver = conn->driver_version;
-	snprintf(odbcver, sizeof(odbcver), "%02x.%02x", i_odbcver / 256,
-		 i_odbcver % 256);
-	/* p = DRIVER_ODBC_VER; */
-	p = odbcver;
+	p = "03.52";
 	break;
 
     case SQL_DRIVER_VER:	/* ODBC 1.0 */
-	p = VXODBCDRIVERVERSION;
+	p = "03.85.1132";
 	break;
 
     case SQL_EXPRESSIONS_IN_ORDERBY:	/* ODBC 1.0 */
