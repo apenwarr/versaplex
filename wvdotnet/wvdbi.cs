@@ -145,9 +145,8 @@ namespace Wv
 	}
 	
 	public override WvSqlRows select(string sql, params object[] args)
-	{
-	    return new WvSqlRows_IDataReader(prepare(sql, args)
-					       .ExecuteReader());
+	{	
+	    return new WvSqlRows_IDataReader(prepare(sql, args));
 	}
 	
 	public override int execute(string sql, params object[] args)
