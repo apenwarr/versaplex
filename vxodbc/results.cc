@@ -233,10 +233,20 @@ PGAPI_DescribeCol(HSTMT hstmt,
     mylog("ppp: ft: %d\n", ft);
     switch (ft)
     {
+    case PG_TYPE_BOOL:
+	*pfSqlType = SQL_BIT;
+	*pcbColDef = 1;
+	*pibScale = 0;
+	break;
+    case PG_TYPE_CHAR:
+	*pfSqlType = SQL_TINYINT;
+	*pcbColDef = 3;
+	*pibScale = 0;
+	break;
     case PG_TYPE_INT4:
 	*pfSqlType = SQL_INTEGER;
 	*pcbColDef = pgtype_column_size(stmt, ft, icol, 10);
-	*pibScale = 1;
+	*pibScale = 0;
 	break;
     case PG_TYPE_NUMERIC:
 	*pfSqlType = SQL_NUMERIC;
