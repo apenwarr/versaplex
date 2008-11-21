@@ -444,11 +444,14 @@ namespace Wv
     {
 	IDataReader reader;
 	WvColInfo[] schema;
+	IDbCommand cmd;
 	
-	public WvSqlRows_IDataReader(IDataReader reader)
+	public WvSqlRows_IDataReader(IDbCommand cmd)
 	{
-	    wv.assert(reader != null);
-	    this.reader = reader;
+	    wv.assert(cmd != null);
+	    this.cmd = cmd;
+	    this.reader = cmd.ExecuteReader();
+	    wv.assert(this.reader != null);
 	    var st = reader.GetSchemaTable();
 	    if (st != null)
 		this.schema = WvColInfo.FromDataTable(st).ToArray();
@@ -461,6 +464,9 @@ namespace Wv
 	    if (reader != null)
 		reader.Dispose();
 	    reader = null;
+	    if (cmd != null)
+		cmd.Dispose();
+	    cmd = null;
 	    
 	    base.Dispose();
 	}
@@ -508,6 +514,11 @@ namespace Wv
 		
 		yield return new WvSqlRow(oa, schema);
 	    }
+	}
+
+	public void Cancel()
+	{
+	    cmd.Cancel();
 	}
     }
 }
