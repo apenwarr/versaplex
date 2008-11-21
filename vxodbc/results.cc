@@ -236,19 +236,18 @@ PGAPI_DescribeCol(HSTMT hstmt,
     case PG_TYPE_INT4:
 	*pfSqlType = SQL_INTEGER;
 	*pcbColDef = pgtype_column_size(stmt, ft, icol, 10);
-//	*pcbColDef = QR_get_fieldsize(res, icol);
 	*pibScale = 1;
 	break;
-/*    case PG_TYPE_NUMERIC:
+    case PG_TYPE_NUMERIC:
 	*pfSqlType = SQL_NUMERIC;
 	*pcbColDef = pgtype_column_size(stmt, ft, icol, 10);
-	*pibScale = pgtype_precision(stmt, ft, icol, 10);
+	*pibScale = pgtype_decimal_digits(stmt, ft, icol);
 	break;
     case PG_TYPE_FLOAT8:
 	*pfSqlType = SQL_DOUBLE;
 	*pcbColDef = pgtype_column_size(stmt, ft, icol, 10);
 	*pibScale = pgtype_precision(stmt, ft, icol, 10);
-	break;*/
+	break;
     case VX_TYPE_DATETIME:
 	*pfSqlType = SQL_VARCHAR;
 	*pcbColDef = 19;

@@ -674,9 +674,10 @@ PGAPI_SetDescField(SQLHDESC DescriptorHandle,
     RETCODE ret = SQL_SUCCESS;
     DescriptorClass *desc = (DescriptorClass *) DescriptorHandle;
 
-    mylog("PGAPI_SetDescField not yet implemented");
-    DC_set_error(desc, DESC_INTERNAL_ERROR, "Error not implemented");
-    return SQL_ERROR;
+    mylog("PGAPI_SetDescField not yet implemented (Rec=%d, Field=%d)\n",
+	  (int)RecNumber, (int)FieldIdentifier);
+    //DC_set_error(desc, DESC_INTERNAL_ERROR, "Error not implemented");
+    return SQL_SUCCESS;
 }
 
 /*	SQLSet(Param/Scroll/Stmt)Option -> SQLSetStmtAttr */
