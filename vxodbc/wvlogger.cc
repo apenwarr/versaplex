@@ -15,6 +15,7 @@ static WvLogRcv *rcv = NULL;
 int log_level = 0;
 static WvString log_moniker;
 
+WV_LINK_TO(WvConStream);
 WV_LINK_TO(WvTCPConn);
 WV_LINK_TO(WvSSLStream);
 WV_LINK_TO(WvGzipStream);
@@ -67,13 +68,14 @@ void wvlog_open()
 
 	IWvStream *s = wvcreate<IWvStream>(log_moniker);
 	assert(s);
-	WvIStreamList::globallist.append(s, false, "VxODBC logger");
 	rcv = new WvLogStream(s, pri);
     	if (!wvlog)
 	    wvlog = new WvLog(getpid(), WvLog::Debug);
     }
     else // We want this to also capture (and eliminate) DBus messages.
 	rcv = new WvNullRcv();
+	
+    (*wvlog)(WvLog::Info, "Log initialized.\n");
 }
 
 
@@ -90,6 +92,7 @@ void wvlog_print(const char *file, int line, const char *s)
 
 void wvlog_close()
 {
+    if (wvlog) (*wvlog)(WvLog::Info, "Log closing.\n");
     if (wvlog) delete wvlog;
     if (rcv) delete rcv;
     wvlog = NULL;
