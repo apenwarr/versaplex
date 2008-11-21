@@ -33,7 +33,7 @@ struct pstring wvlog_get_moniker()
 
 int wvlog_isset()
 {
-    return !log_moniker.isnull() && *(log_moniker.cstr());
+    return !!log_moniker;
 }
 
 class WvNullRcv : public WvLogRcv
@@ -54,7 +54,7 @@ void wvlog_open()
     else  // This will only be true once; when we first call this function
 	setup_console_crash();
 #endif
-
+    
     if (wvlog_isset())
     {
 	WvLog::LogLevel pri;
@@ -70,11 +70,12 @@ void wvlog_open()
 	rcv = new WvLogStream(s, pri);
     	if (!wvlog)
 	    wvlog = new WvLog(getpid(), WvLog::Debug);
+
+	(*wvlog)(WvLog::Notice, "Log initialized. (log_level=%s)\n",
+		 log_level);
     }
     else // We want this to also capture (and eliminate) DBus messages.
 	rcv = new WvNullRcv();
-
-    (*wvlog)(WvLog::Notice, "Log initialized. (log_level=%s)\n", log_level);
 }
 
 
