@@ -1,4 +1,5 @@
 #include "vxhelpers.h"
+#include "wvistreamlist.h"
 #include <list>
 
 static std::map<unsigned int, VxResultSet *> signal_returns;
@@ -87,6 +88,8 @@ void VxResultSet::runquery(WvDBusConn &conn, const char *func,
 	callbacked_conns[&conn] = true;
     }
     process_colinfo = true;
+    while (WvIStreamList::globallist.select(0))
+	WvIStreamList::globallist.callback();
     WvDBusMsg reply = conn.send_and_wait(msg, 50000,
     			wv::bind(&update_sigrets, _1, this));
 
