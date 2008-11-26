@@ -20,7 +20,7 @@
 #include <assert.h>
 
 #include "pgapifunc.h"
-
+#include <wvstring.h>
 
 
 RETCODE SQL_API PGAPI_RowCount(HSTMT hstmt, SQLLEN FAR * pcrow)
@@ -89,9 +89,9 @@ static BOOL SC_pre_execute_ok(StatementClass * stmt, BOOL build_fi,
     if (!QR_command_maybe_successful(result) || num_fields < 0)
     {
 	/* no query has been executed on this statement */
-	SC_set_error(stmt, STMT_EXEC_ERROR,
-		     "No query has been executed with that handle",
-		     func);
+	WvString e("Statement error (PORES) #%s, num_fields=%s",
+		   result->rstatus, num_fields);
+	SC_set_error(stmt, STMT_EXEC_ERROR, e, func);
 	exec_ok = FALSE;
     } else if (col_idx >= 0 && col_idx < num_fields)
     {

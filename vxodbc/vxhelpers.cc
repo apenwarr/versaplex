@@ -1,4 +1,5 @@
 #include "vxhelpers.h"
+#include "wvistreamlist.h"
 #include <list>
 
 static std::map<unsigned int, VxResultSet *> signal_returns;
@@ -75,7 +76,7 @@ void VxResultSet::process_msg(WvDBusMsg &msg)
     }
 }
     
-void VxResultSet::runquery(WvDBusConn &conn, const char *func,
+void VxResultSet::_runquery(WvDBusConn &conn, const char *func,
 			    const char *query)
 {
     WvDBusMsg msg("vx.versaplexd", "/db", "vx.db", func);
@@ -87,6 +88,8 @@ void VxResultSet::runquery(WvDBusConn &conn, const char *func,
 	callbacked_conns[&conn] = true;
     }
     process_colinfo = true;
+    while (WvIStreamList::globallist.select(0))
+	WvIStreamList::globallist.callback();
     WvDBusMsg reply = conn.send_and_wait(msg, 50000,
     			wv::bind(&update_sigrets, _1, this));
 
@@ -98,6 +101,22 @@ void VxResultSet::runquery(WvDBusConn &conn, const char *func,
     uint32_t reply_serial = reply.get_replyserial();
     if (signal_returns[reply_serial])
 	signal_returns.erase(reply_serial);
+}
+
+void VxStatement::runquery(VxResultSet &rs,
+			   const char *func, const char *query)
+{
+    if (dbus().isok())
+	rs._runquery(dbus(), func, query);
+    if (!dbus().isok())
+    {
+	ConnectionClass *conn = SC_get_conn(stmt);
+	ConnInfo *ci = &conn->connInfo;
+	mylog("DBus connection died!  Reconnecting to %s\n",
+	      ci->dbus_moniker);
+	conn->dbus = new WvDBusConn(ci->dbus_moniker);
+	rs._runquery(dbus(), func, query);
+    }
 }
 
 void VxResultSet::return_versaplex_db()

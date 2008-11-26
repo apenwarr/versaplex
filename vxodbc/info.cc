@@ -1345,7 +1345,7 @@ RETCODE SQL_API PGAPI_Tables
 	cbTableQualifier == 1 && szTableQualifier[0] == '%')
 	rs.return_versaplex_db();
     else
-	rs.runquery(st.dbus(), "ExecChunkRecordset", "LIST TABLES");
+	st.runquery(rs, "ExecChunkRecordset", "LIST TABLES");
     st.set_result(rs);
     stmt->catalog_result = TRUE;
     return st.retcode();
@@ -1364,7 +1364,7 @@ RETCODE SQL_API PGAPI_Columns(HSTMT hstmt, const SQLCHAR FAR * szTableQualifier,
     VxStatement st(stmt);
     VxResultSet rs;
     st.reinit();
-    rs.runquery(st.dbus(), "ExecChunkRecordset",
+    st.runquery(rs, "ExecChunkRecordset",
 		WvString("LIST COLUMNS [%s]", (const char *)szTableName));
     st.set_result(rs);
     stmt->catalog_result = TRUE;
@@ -2343,7 +2343,7 @@ RETCODE SQL_API PGAPI_PrimaryKeys(HSTMT hstmt, const SQLCHAR FAR * szTableQualif
     VxStatement st(stmt);
     VxResultSet rs;
     st.reinit();
-    rs.runquery(st.dbus(), "ExecChunkRecordset",
+    st.runquery(rs, "ExecChunkRecordset",
 		WvString("sp_primary_keys_rowset '%s'",
 			 (const char *)szTableName));
     st.set_result(rs);

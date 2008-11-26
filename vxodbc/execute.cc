@@ -166,7 +166,7 @@ PGAPI_ExecDirect_Vx(HSTMT hstmt,
     VxStatement st(stmt);
     VxResultSet rs;
     st.reinit();
-    rs.runquery(st.dbus(), "ExecChunkRecordset", (const char *)szSqlStr);
+    st.runquery(rs, "ExecChunkRecordset", (const char *)szSqlStr);
     st.set_result(rs);
     stmt->statement = strdup((const char *)szSqlStr);
     stmt->catalog_result = FALSE;
@@ -185,7 +185,7 @@ RETCODE SQL_API PGAPI_Execute_Vx(HSTMT hstmt, UWORD flag)
 
     VxStatement st(stmt);
     VxResultSet rs;
-    rs.runquery(st.dbus(), "ExecChunkRecordset", stmt->statement);
+    st.runquery(rs, "ExecChunkRecordset", stmt->statement);
     st.set_result(rs);
 
 cleanup:

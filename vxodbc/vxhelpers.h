@@ -76,7 +76,7 @@ public:
 	return maxcol+1;
     }
 
-    void runquery(WvDBusConn &conn, const char *func, const char *query);
+    void _runquery(WvDBusConn &conn, const char *func, const char *query);
     void return_versaplex_db();
     void process_msg(WvDBusMsg &msg);
 };
@@ -148,10 +148,12 @@ public:
     
     WvDBusConn &dbus()
     {
-	WvDBusConn *db = SC_get_conn(stmt)->dbus;
-	assert(db);
-	return *db;
+	ConnectionClass *conn = SC_get_conn(stmt);
+	assert(conn->dbus);
+	return *conn->dbus;
     }
+    
+    void runquery(VxResultSet &rs, const char *func, const char *query);
 };
 
 #endif // __VXHELPERS_H
