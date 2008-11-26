@@ -7,6 +7,20 @@ using Wv;
 using Wv.Extensions;
 using Wv.NDesk.Options;
 
+public class VxActionTriple
+{
+    public VxActionTriple(WvDbus _conn, uint _serial, Action _action)
+    {
+	this.conn = _conn;
+	this.serial = _serial;
+	this.action = _action;
+    }
+
+    public WvDbus conn;
+    public uint serial;
+    public Action action;
+}
+
 public static class VersaMain
 {
     static WvLog log = new WvLog("Versaplex");
