@@ -301,12 +301,16 @@ class SchemamaticTests : SchemamaticTester
     [Test, Category("Schemamatic"), Category("GetSchema")]
     public void TestGetTableSchema()
     {
-        try { VxExec("drop table Table1"); } catch { }
+        VxExecSilent("drop table Table1");
+	VxExecSilent("sp_addtype @typename='schemamatic_test_money', " +
+		     "    @phystype='money'");
+	
         // Name the primary key PK_Table1 to test that GetSchema properly
         // omits the default name.
         string query = "CREATE TABLE [Table1] (\n\t" + 
             "[f1] [int]  NOT NULL,\n\t" +
             "[f2] [money]  NULL,\n\t" + 
+	    "[f2x] [schemamatic_test_money]  NULL,\n\t" +
             "[f3] [varchar] (80) NOT NULL,\n\t" +
             "[f4] [varchar] (max) DEFAULT 'Default Value' NULL,\n\t" + 
             "[f5] [decimal] (3,2),\n\t" + 
@@ -317,8 +321,10 @@ class SchemamaticTests : SchemamaticTester
         VxSchema schema = dbus.Get();
         WVASSERT(schema.Count >= 1);
 
-        string tab1schema = "column: name=f1,type=int,null=0\n" + 
+        string tab1schema = 
+	    "column: name=f1,type=int,null=0\n" + 
             "column: name=f2,type=money,null=1\n" + 
+	    "column: name=f2x,type=schemamatic_test_money,null=1\n" +
             "column: name=f3,type=varchar,null=0,length=80\n" + 
             "column: name=f4,type=varchar,null=1,length=max,default='Default Value'\n" + 
             "column: name=f5,type=decimal,null=1,precision=3,scale=2\n" + 

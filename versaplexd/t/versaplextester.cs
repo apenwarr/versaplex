@@ -125,6 +125,19 @@ public class VersaplexTester: IDisposable
 	reply.check("a(issnny)vaay");
 	return true;
     }
+    
+    internal bool VxExecSilent(string query)
+    {
+	try
+	{
+	    return VxExec(query);
+	}
+	catch (Exception e)
+	{
+	    Console.WriteLine("    Exception: {0}", e.Message);
+	    return true;
+	}
+    }
 
     internal bool VxScalar(string query, out object result)
     {

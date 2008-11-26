@@ -120,10 +120,10 @@ WVTEST_MAIN("Data conversion")
     // rendered into its component bytes.  The important thing is that it
     // only represents the first 8 bytes.
     Test(v, "TIMESTAMP", "abcdefghi", SQL_C_BINARY, 
-	//[ y 9 7 , y 9 8 , y 9 9 , y 1 0 0 , y 1 0 1 ,
-	"5B7939372C7939382C7939392C793130302C793130312C"
-	//y 1 0 2 , y 1 0 3 , y 1 0 4 ]
-	"793130322C793130332C793130345D");
+	//[ 9 7 , 9 8 , 9 9 , 1 0 0 , 1 0 1 ,
+	"5B39372C39382C39392C3130302C3130312C"
+	//1 0 2 , 1 0 3 , 1 0 4 ]
+	"3130322C3130332C3130345D");
 
 #ifdef VXODBC_SUPPORTS_CONVERTING_DATETIME_TO_BINARY
     t.cols.clear();

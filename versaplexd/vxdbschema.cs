@@ -1047,6 +1047,7 @@ internal class VxDbSchema : ISchemaBackend
               from sysobjects t
               join syscolumns c on t.id = c.id 
               join systypes typ on c.xtype = typ.xtype
+			           and c.xusertype = typ.xusertype
               left join syscomments def on def.id = c.cdefault
               where t.xtype = 'U'
                 and typ.name <> 'sysname'
@@ -1424,6 +1425,7 @@ internal class VxDbSchema : ISchemaBackend
 	  from sysobjects t
 	  join syscolumns c on t.id = c.id 
 	  join systypes typ on c.xtype = typ.xtype
+			       and c.xusertype = typ.xusertype
 	  left join syscomments def on def.id = c.cdefault
 	  where t.xtype = 'U'
 	    and typ.name <> 'sysname' " + 

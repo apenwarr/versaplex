@@ -36,6 +36,7 @@ RETCODE SQL_API SQLColumnsW(HSTMT StatementHandle,
     scName = ucs2_to_utf8(SchemaName, NameLength2, &nmlen2, lower_id);
     tbName = ucs2_to_utf8(TableName, NameLength3, &nmlen3, lower_id);
     clName = ucs2_to_utf8(ColumnName, NameLength4, &nmlen4, lower_id);
+    mylog("Params: '%s' '%s' '%s' '%s'\n", ctName, scName, tbName, clName);
     ENTER_STMT_CS(stmt);
     SC_clear_error(stmt);
     StartRollbackState(stmt);
