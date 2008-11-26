@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using SCG = System.Collections.Generic;
 using System.Linq;
 using Wv.Extensions;
+using System.Threading;
 
 namespace Wv
 {
@@ -440,17 +441,36 @@ namespace Wv
 	}
     }
     
-    class WvSqlRows_IDataReader : WvSqlRows, IEnumerable<WvSqlRow>
+    public class WvSqlRows_IDataReader : WvSqlRows, IEnumerable<WvSqlRow>
     {
 	IDataReader reader;
 	WvColInfo[] schema;
-	IDbCommand cmd;
+
+	// FIXME:  This design obviously won't work for multiple simultaneous
+	// DB accesses.
+	public static Mutex cmdmutex = new Mutex();
+	static IDbCommand _curcmd = null;
+
+	public static IDbCommand curcmd {
+	    get {
+		//XXX:  Make sure to grab the mutex when doing this!
+		return _curcmd;
+	    }
+	    set {
+		// Just in case you forget to grab the mutex
+		//cmdmutex.WaitOne();
+		_curcmd = value;
+		//cmdmutex.ReleaseMutex();
+	    }
+    	}
 	
 	public WvSqlRows_IDataReader(IDbCommand cmd)
 	{
 	    wv.assert(cmd != null);
-	    this.cmd = cmd;
+	    cmdmutex.WaitOne();
+	    curcmd = cmd;
 	    this.reader = cmd.ExecuteReader();
+	    cmdmutex.ReleaseMutex();
 	    wv.assert(this.reader != null);
 	    var st = reader.GetSchemaTable();
 	    if (st != null)
@@ -464,9 +484,14 @@ namespace Wv
 	    if (reader != null)
 		reader.Dispose();
 	    reader = null;
-	    if (cmd != null)
-		cmd.Dispose();
-	    cmd = null;
+
+	    //Assume this is called every time one of these objects dies?
+	    //Fucking garbage collection.
+	    cmdmutex.WaitOne();
+	    if (curcmd != null)
+		curcmd.Dispose();
+	    curcmd = null;
+	    cmdmutex.ReleaseMutex();
 	    
 	    base.Dispose();
 	}
@@ -516,9 +541,16 @@ namespace Wv
 	    }
 	}
 
-	public void Cancel()
+	public static void Cancel()
 	{
-	    cmd.Cancel();
+	    //FIXME:  Obviously needs changing in the long run, since curcmd is
+	    //a static variable at this point.  It shouldn't be static, and
+	    //Cancel should be an abstract method of WvSqlRows which we
+	    //implement per-instance.
+	    cmdmutex.WaitOne();
+	    curcmd.Cancel();
+	    curcmd = null;
+	    cmdmutex.ReleaseMutex();
 	}
     }
 }
