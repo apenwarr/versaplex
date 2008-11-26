@@ -480,9 +480,6 @@ namespace Wv
 		reader.Dispose();
 	    reader = null;
 
-	    //Assume this is called every time one of these objects dies?
-	    //... also, assume that they execute serially?  That's probably
-	    //a dangerous assumption, but it seems to work.  XXX
 	    lock (cmdmutex)
 	    {
 		if (curcmd != null)
