@@ -76,7 +76,7 @@ void VxResultSet::process_msg(WvDBusMsg &msg)
     }
 }
     
-void VxResultSet::runquery(WvDBusConn &conn, const char *func,
+void VxResultSet::_runquery(WvDBusConn &conn, const char *func,
 			    const char *query)
 {
     WvDBusMsg msg("vx.versaplexd", "/db", "vx.db", func);
@@ -101,6 +101,22 @@ void VxResultSet::runquery(WvDBusConn &conn, const char *func,
     uint32_t reply_serial = reply.get_replyserial();
     if (signal_returns[reply_serial])
 	signal_returns.erase(reply_serial);
+}
+
+void VxStatement::runquery(VxResultSet &rs,
+			   const char *func, const char *query)
+{
+    if (dbus().isok())
+	rs._runquery(dbus(), func, query);
+    if (!dbus().isok())
+    {
+	ConnectionClass *conn = SC_get_conn(stmt);
+	ConnInfo *ci = &conn->connInfo;
+	mylog("DBus connection died!  Reconnecting to %s\n",
+	      ci->dbus_moniker);
+	conn->dbus = new WvDBusConn(ci->dbus_moniker);
+	rs._runquery(dbus(), func, query);
+    }
 }
 
 void VxResultSet::return_versaplex_db()
