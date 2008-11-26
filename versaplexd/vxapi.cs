@@ -823,6 +823,7 @@ public class VxDbusRouter
         // FIXME: Add vx.db.toomuchdata error
         WvDbusWriter writer = new WvDbusWriter();
 
+	//FIXME:  No exception catching?
         using (var dbi = VxSqlPool.create(clientid))
         {
             VxDbSchema backend = new VxDbSchema(dbi);
@@ -963,6 +964,7 @@ public class VxDbusRouter
 
         WvDbusWriter writer = new WvDbusWriter();
 
+	//FIXME:  No exception catching?
         using (var dbi = VxSqlPool.create(clientid))
         {
             VxDbSchema backend = new VxDbSchema(dbi);
