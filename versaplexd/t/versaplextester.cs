@@ -104,7 +104,7 @@ public class VersaplexTester: IDisposable
 	return dbi.select(query);
     }
     
-    WvDbusMsg methodcall(string method, string signature)
+    protected WvDbusMsg methodcall(string method, string signature)
     {
         return new WvDbusCall("vx.versaplexd", "/db", 
 			      "vx.db", method, signature);
