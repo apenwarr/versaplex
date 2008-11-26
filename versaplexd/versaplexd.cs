@@ -9,15 +9,15 @@ using Wv.NDesk.Options;
 
 public class VxActionTriple
 {
-    public VxActionTriple(WvDbus _conn, uint _serial, Action _action)
+    public VxActionTriple(WvDbus _conn, WvDbusMsg _src, Action _action)
     {
 	this.conn = _conn;
-	this.serial = _serial;
+	this.src = _src;
 	this.action = _action;
     }
 
     public WvDbus conn;
-    public uint serial;
+    public WvDbusMsg src;
     public Action action;
 }
 
@@ -74,7 +74,7 @@ public static class VersaMain
 	    lock (action_mutex)
 	    {
 		if (curaction != null && curaction.conn == conn &&
-		    curaction.serial == tokill)
+		    curaction.src.serial == tokill)
 		{
 		    log.print(WvLog.L.Debug4,
 				"CancelQuery: killing current action!\n");
@@ -89,11 +89,16 @@ public static class VersaMain
 			    
 		    //Traverse the action queue, killing stuff
 		    foreach (VxActionTriple t in action_queue)
-			if (t.conn == conn && t.serial == tokill)
+			if (t.conn == conn && t.src.serial == tokill)
 			{
 			    log.print(WvLog.L.Debug4,
 					"CancelQuery: found culprit, killing.\n");
-			    action_queue.Remove(t);
+			    //action_queue.Remove(t);
+			    //FIXME:  What message should we really put here?
+			    t.action = () => {
+			    	conn.send(t.src.err_reply("vx.db.sqlerror",
+					    "This message got canceled"));
+			    };
 			    break;
 			}
 		}
@@ -110,7 +115,7 @@ public static class VersaMain
 
 	//FIXME:  It's not clear whether for just add operations, in conjuction
 	//with RemoveAt(0) going on in the otherthread, we need a mutex.
-	action_queue.Add(new VxActionTriple(conn, msg.serial, perform));
+	action_queue.Add(new VxActionTriple(conn, msg, perform));
     }
 
     static bool WvDbusMsgReady(WvDbus conn, WvDbusMsg msg)
@@ -132,7 +137,7 @@ public static class VersaMain
 		    //FIXME:  It's not clear whether for just add operations,
 		    //in conjuction with RemoveAt(0) going on in the other
 		    //thread, we need a mutex.
-		    action_queue.Add(new VxActionTriple(conn, msg.serial,
+		    action_queue.Add(new VxActionTriple(conn, msg,
 		    () => {
 			WvDbusMsg reply;
 			if (msgrouter.route(conn, msg, out reply))
