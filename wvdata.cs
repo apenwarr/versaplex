@@ -452,32 +452,20 @@ namespace Wv
 
 	// FIXME:  This design obviously won't work for multiple simultaneous
 	// DB accesses.
-	public static Mutex cmdmutex = new Mutex();
-	static IDbCommand _curcmd = null;
+	public static Object cmdmutex = new Object();
+	static IDbCommand curcmd = null;
 
-	public static IDbCommand curcmd {
-	    get {
-		//XXX:  Make sure to grab the mutex when doing this!
-		return _curcmd;
-	    }
-	    set {
-		// Just in case you forget to grab the mutex
-		//cmdmutex.WaitOne();
-		_curcmd = value;
-		//cmdmutex.ReleaseMutex();
-	    }
-    	}
-	
 	static readonly decimal smallmoneymax =  214748.3647m;
 	static readonly decimal smallmoneymin = -214748.3648m;
 	
 	public WvSqlRows_IDataReader(IDbCommand cmd)
 	{
 	    wv.assert(cmd != null);
-	    cmdmutex.WaitOne();
-	    curcmd = cmd;
-	    this.reader = cmd.ExecuteReader();
-	    cmdmutex.ReleaseMutex();
+	    lock (cmdmutex)
+	    {
+		curcmd = cmd;
+		this.reader = cmd.ExecuteReader();
+	    }
 	    wv.assert(this.reader != null);
 	    var st = reader.GetSchemaTable();
 	    if (st != null)
@@ -493,12 +481,14 @@ namespace Wv
 	    reader = null;
 
 	    //Assume this is called every time one of these objects dies?
-	    //Fucking garbage collection.
-	    cmdmutex.WaitOne();
-	    if (curcmd != null)
-		curcmd.Dispose();
-	    curcmd = null;
-	    cmdmutex.ReleaseMutex();
+	    //... also, assume that they execute serially?  That's probably
+	    //a dangerous assumption, but it seems to work.  XXX
+	    lock (cmdmutex)
+	    {
+		if (curcmd != null)
+		    curcmd.Dispose();
+		curcmd = null;
+	    }
 	    
 	    base.Dispose();
 	}
@@ -617,10 +607,12 @@ namespace Wv
 	    //a static variable at this point.  It shouldn't be static, and
 	    //Cancel should be an abstract method of WvSqlRows which we
 	    //implement per-instance.
-	    cmdmutex.WaitOne();
-	    curcmd.Cancel();
-	    curcmd = null;
-	    cmdmutex.ReleaseMutex();
+	    lock (cmdmutex)
+	    {
+		if (curcmd != null)
+		   curcmd.Cancel();
+		curcmd = null;
+	    }
 	}
     }
 }
