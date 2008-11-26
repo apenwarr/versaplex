@@ -31,7 +31,87 @@ public static class VersaMain
     public static bool want_to_die = false;
     
     public static WvDbus conn;
-    static List<Action> action_queue = new List<Action>();
+    static List<VxActionTriple> action_queue = new List<VxActionTriple>();
+
+    static Object action_mutex = new Object();
+    static VxActionTriple curaction = null;
+
+    private static void HandleCancelQuery(WvDbus conn, WvDbusMsg msg)
+    {
+	log.print(WvLog.L.Debug4, "Received CancelQuery request\n");
+	//FIXME:  Should I be in yet another thread?
+	Action perform = null;
+	if (msg.signature != "u" && msg.signature != "s")
+	{
+	    //accept 's' signatures for Perl DBus, which is stupid and can't
+	    //send me 'u' parameters, even though the api accepts them.
+	    log.print(WvLog.L.Debug4, "CancelQuery:  bad signature {0}\n",
+			msg.signature);
+	    perform = () => {
+		conn.send(msg.err_reply(
+			    "org.freedesktop.DBus.Error.UnknownMethod",
+			    "No overload of {0} has signature '{1}'",
+			    "CancelQuery", msg.signature));
+	    };
+	}
+	else
+	{
+	    var it = msg.iter();
+	    uint tokill;
+	    if (msg.signature == "s")
+	    {
+		log.print(WvLog.L.Debug4,
+			    "CancelQuery: converting arg from string\n");
+		string temps = it.pop();
+		tokill = Convert.ToUInt32(temps);
+	    }
+	    else
+		tokill = it.pop();
+
+	    log.print(WvLog.L.Debug4,
+			"CancelQuery: try killing msg id {0}\n", tokill);
+
+	    lock (action_mutex)
+	    {
+		if (curaction != null && curaction.conn == conn &&
+		    curaction.serial == tokill)
+		{
+		    log.print(WvLog.L.Debug4,
+				"CancelQuery: killing current action!\n");
+			    
+		    WvSqlRows_IDataReader.Cancel();
+		    curaction = null;
+		}
+		else
+		{
+		    log.print(WvLog.L.Debug4,
+				"CancelQuery: traversing action queue...\n");
+			    
+		    //Traverse the action queue, killing stuff
+		    foreach (VxActionTriple t in action_queue)
+			if (t.conn == conn && t.serial == tokill)
+			{
+			    log.print(WvLog.L.Debug4,
+					"CancelQuery: found culprit, killing.\n");
+			    action_queue.Remove(t);
+			    break;
+			}
+		}
+	    }
+
+	    //Pointless return to make Perl happy.
+	    perform = () => {
+		WvDbusWriter writer = new WvDbusWriter();
+		writer.Write("Cancel");
+		conn.send(msg.reply("s").write(writer));
+	    };
+	    log.print(WvLog.L.Debug4, "CancelQuery:  complete\n");
+	}
+
+	//FIXME:  It's not clear whether for just add operations, in conjuction
+	//with RemoveAt(0) going on in the otherthread, we need a mutex.
+	action_queue.Add(new VxActionTriple(conn, msg.serial, perform));
+    }
 
     static bool WvDbusMsgReady(WvDbus conn, WvDbusMsg msg)
     {
@@ -45,20 +125,29 @@ public static class VersaMain
 	case Wv.Dbus.MType.MethodCall:
 	    if (msg.ifc == "vx.db")
 	    {
-		action_queue.Add(() => {
-		    WvDbusMsg reply;
-		    if (msgrouter.route(conn, msg, out reply))
-		    {
-			if (reply == null) {
-			    // FIXME: Do something if this happens, maybe?
-			    log.print("Empty reply from RouteWvDbusMsg\n");
-			} else {
-			    // XXX: Should this be done further down rather than
-			    // passing the reply out here?
-			    conn.send(reply);
+		if (msg.path == "/db" && msg.method == "CancelQuery")
+		    HandleCancelQuery(conn, msg);
+		else //not 'CancelQuery'
+		{
+		    //FIXME:  It's not clear whether for just add operations,
+		    //in conjuction with RemoveAt(0) going on in the other
+		    //thread, we need a mutex.
+		    action_queue.Add(new VxActionTriple(conn, msg.serial,
+		    () => {
+			WvDbusMsg reply;
+			if (msgrouter.route(conn, msg, out reply))
+			{
+			    if (reply == null) {
+				// FIXME: Do something if this happens, maybe?
+				log.print("Empty reply from RouteWvDbusMsg\n");
+			    } else {
+				// XXX: Should this be done further down rather
+				// than passing the reply out here?
+				conn.send(reply);
+			    }
 			}
-		    }
-		});
+		    }));
+		}
 		return true;
 	    }
 	    return false;
@@ -206,9 +295,16 @@ public static class VersaMain
 	    while (action_queue.Count > 0)
 	    {
 		log.print(WvLog.L.Debug2, "Action queue.\n");
-		Action temp = action_queue.First();
-		action_queue.RemoveAt(0);
-		temp();
+		lock (action_mutex)
+		{
+		    curaction = action_queue.First();
+		    action_queue.RemoveAt(0);
+		}
+		curaction.action();
+		lock (action_mutex)
+		{
+		    curaction = null;
+		}
 		log.print(WvLog.L.Debug2, "Action queue element done.\n");
 	    }
 	}
