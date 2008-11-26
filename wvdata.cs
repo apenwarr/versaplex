@@ -464,8 +464,8 @@ namespace Wv
 	    lock (cmdmutex)
 	    {
 		curcmd = cmd;
-		this.reader = cmd.ExecuteReader();
 	    }
+	    this.reader = cmd.ExecuteReader();
 	    wv.assert(this.reader != null);
 	    var st = reader.GetSchemaTable();
 	    if (st != null)
