@@ -73,8 +73,24 @@ internal static class VxDb {
 	{
 	    VxSqlToken tok = tokens[i];
 	    VxSqlTokenizer ret = new VxSqlTokenizer();
-	    
-	    if (i < tokens.Length - 1)
+
+	    if (tok.NotQuotedAndLowercaseEq("get") &&
+		i < tokens.Length - 3 &&
+		tokens[i + 1].NotQuotedAndLowercaseEq("object"))
+	    {
+		// Format: 
+		// get object {view|trigger|procedure|scalarfunction|tablefunction} name
+		// Returns: the "source code" to the object
+		ret.tokenize(String.Format(
+		    "select cast(text as varchar(max)) text "
+		    + "from syscomments "
+		    + "where objectproperty(id, 'Is{0}') = 1 "
+		    + "and object_name(id) = '{1}' "
+		    + "order by number, colid;",
+		    tokens[i + 2].name, tokens[i + 3].name));
+		i += 3;
+	    }
+	    else if (i < tokens.Length - 1)
 	    {
 		VxSqlToken next_tok = tokens[i + 1];
 		if (tok.IsKeywordEq("use") && next_tok.IsIdentifier())
@@ -135,22 +151,6 @@ internal static class VxDb {
 			}
 		    }
 		}
-	    }
-	    else if (tok.NotQuotedAndLowercaseEq("get") &&
-			i < tokens.Length - 3 &&
-			tokens[i + 1].NotQuotedAndLowercaseEq("object"))
-	    {
-		// Format: 
-		// get object {view|trigger|procedure|scalarfunction|tablefunction} name
-		// Returns: the "source code" to the object
-		ret.tokenize(String.Format(
-		    "select cast(text as varchar(max)) text "
-		    + "from syscomments "
-		    + "where objectproperty(id, 'Is{0}') = 1 "
-		    + "and object_name(id) = '{1}' "
-		    + "order by number, colid;",
-		    tokens[i + 2].name, tokens[i + 3].name));
-		i += 3;
 	    }
 
 	    if (ret.gettokens() != null)
