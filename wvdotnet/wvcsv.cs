@@ -40,9 +40,10 @@ namespace Wv
         //returns the next line parsed into an ArrayList
         public ArrayList GetLine()
         {
-            int lengthBefore = 0;
             char lastChar;
+            string field = "";
             string tmp = "";
+            string temp;
             asarray = new ArrayList();
             
             while (pos < astext.Length)
@@ -60,38 +61,49 @@ namespace Wv
                 if (astext[pos] == '"')
                 {
                     pos++;
-                    while ((pos < astext.Length) && ((lastChar!='"') &&
-                                     ( (astext[pos]!=',') || (astext[pos]!='\n') ) ))
+                    lastChar = '"';
+                    while (pos < astext.Length)
                     {
-                        tmp += astext[pos];
+                        if ((lastChar=='"') && ((astext[pos]==',') || 
+                                                (astext[pos]=='\n')) )
+                        {
+                            if (field.EndsWith("\""))
+                            {
+                                tmp = field.Substring(0,field.Length-1);
+                                temp = tmp.Replace("\"\"","");
+                                if (((tmp.Length - temp.Length) %2 == 0) && 
+                                    (!temp.EndsWith("\"")))
+                                {
+                                    field = tmp;
+                                    break;
+                                }
+                            }
+                        }
+                             
+                        field += astext[pos];
                         lastChar = astext[pos];
                         pos++;
                     }
                     
-                    if (tmp.EndsWith("\""))
-                        tmp = tmp.Substring(0,tmp.Length-1);
-                        
-                    lengthBefore = tmp.Length;
-                    tmp = tmp.Replace("\"\"","\"");
-                    if (((lengthBefore-tmp.Length)/2) != 0)
-                        Console.WriteLine("Warning: unescaped double-quotes found " +
-                                          "near position {0}", pos);
+                    if ((pos==astext.Length) && (astext[pos-1]!='\n') && 
+                                                field.EndsWith("\""))
+                        field = field.Substring(0,field.Length-1);
                     
-                    asarray.Add(tmp);
+                    asarray.Add(field.Replace("\"\"","\""));
                 }
                 else
                 {
                     while ((pos < astext.Length) && (astext[pos]!=',') && 
                                                     (astext[pos]!='\n'))
                     {
-                        tmp += astext[pos];
+                        field += astext[pos];
                         pos++;
                     }
 
-                    if (String.IsNullOrEmpty(tmp))
+                    if (String.IsNullOrEmpty(field))
                         asarray.Add(null);
                     else
-                        asarray.Add(tmp.Replace("\"\"","\""));
+                        asarray.Add(field.Replace("\"\"","\""));
 
                 }
                 if ((pos < astext.Length) && (astext[pos]=='\n'))
@@ -100,9 +112,10 @@ namespace Wv
                     return asarray;
                 }
                     
-                tmp = "";
+                field = "";
                 pos++;
             }
+
             
             return asarray;
         }
