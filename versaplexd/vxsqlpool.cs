@@ -42,6 +42,41 @@ public static class VxSqlPool
 	return username;
     }
 
+    static Dictionary<string, bool> userpermissions =
+    	new Dictionary<string, bool>();
+
+    public static bool is_allowed_unrestricted_queries(string connid)
+    {
+    	bool is_allowed;
+	if (!userpermissions.TryGetValue(connid, out is_allowed))
+	{
+	    string is_maybe_allowed = inifile.get("Security Level", connid);
+
+	    // If we found *nothing* perhaps we should evaluate a judgement
+	    // on security, see if '*' has values... assuming we're  not
+	    // already looking for '*''s security.
+	    if (is_maybe_allowed == null)
+	    {
+		is_allowed = false;
+		if (connid != "*")
+		{
+		    is_maybe_allowed = inifile.get("Security Level", "*");
+
+		    //FIXME:  Numeric or boolean scheme?
+		    is_allowed = !(is_maybe_allowed == null ||
+				    is_maybe_allowed == "0" ||
+				    is_maybe_allowed == "false");
+		}
+	    }
+	    else
+		is_allowed = !(is_maybe_allowed == "0" ||
+				is_maybe_allowed == "false");
+
+	    userpermissions[connid] = is_allowed;
+	}
+	return is_allowed;
+    }
+
     public static WvDbi create(string connid)
     {
 	try
