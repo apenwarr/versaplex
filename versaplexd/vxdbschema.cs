@@ -7,6 +7,7 @@ using System.Data.SqlClient;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.IO;
 using Wv;
 using Wv.Extensions;
 
@@ -1500,6 +1501,14 @@ internal class VxDbSchema : ISchemaBackend
 
         AddIndexesToTables(schema, names);
     }
+    
+    public bool RequiresQuotes(string text)
+    {
+        return ((text.IndexOf(" ") >= 0) || 
+                (text.IndexOf(",") >= 0) ||
+                (text.IndexOf("\n") >= 0) || 
+                (text.IndexOf("\"") >= 0) );
+    }    
 
     // Returns a blob of text that can be used with PutSchemaData to fill 
     // the given table.
@@ -1550,12 +1559,10 @@ internal class VxDbSchema : ISchemaBackend
                 for (int ii = 0; ii < columns.Length; ii++)
                 {
                     WvColInfo col = columns[ii];
-                    cols.Add("[" + col.name + "]");
+                    cols.Add('"' + col.name + '"');
                     types[ii] = col.type;
                 }
-
-                prefix = String.Format("INSERT INTO {0} ({1}) VALUES (", 
-                    tablename, cols.join(","));
+                result.Append(cols.join(",")+"\n");
 
                 did_preamble = true;
             }
@@ -1565,7 +1572,7 @@ internal class VxDbSchema : ISchemaBackend
             foreach (WvAutoCast elem in row)
             {
                 if (elem.IsNull)
-                    values.Add("NULL");
+                    values.Add("");
                 else if (types[colnum] == typeof(System.String) || 
                     types[colnum] == typeof(System.DateTime))
                 {
@@ -1580,15 +1587,19 @@ internal class VxDbSchema : ISchemaBackend
                         str = (string)elem;
 
                     // Double-quote chars for SQL safety
-                    string esc = str.Replace("'", "''");
-                    values.Add("'" + esc + "'");
+                    string esc = str.Replace("\"", "\"\"");
+                    esc = str.Replace("'", "''");
+                    if (RequiresQuotes(esc))
+                        values.Add('"' + esc + '"');
+                    else
+                        values.Add(esc);
                 }
                 else
                     values.Add(elem);
 
                 colnum++;
             }
-            result.Append(prefix + values.join(",") + ");\n");
+            result.Append(prefix + values.join(",") + "\n");
         }
 
         if (has_ident)
@@ -1596,6 +1607,145 @@ internal class VxDbSchema : ISchemaBackend
             return "SET IDENTITY_INSERT [" + tablename + "] ON;\n" + 
                 result.ToString() + 
                 "SET IDENTITY_INSERT [" + tablename + "] OFF;\n";
+        }
+        return result.ToString();
+    }
+    
+    public string GetColType(string colname, List<KeyValuePair<string,string>> coltypes)
+    {
+        foreach (var col in coltypes)
+            if (col.Key == colname)
+                return col.Value;
+        return "";
+    }
+    
+    public string Csv2Inserts(string tablename, string csvtext)
+    {
+        StringBuilder result = new StringBuilder();
+        WvCsv csvhandler = new WvCsv(csvtext);
+        ArrayList asarray, columns;
+        string sql;
+        string prefix = "";
+        bool has_ident = false;
+        List<string> tab_names = new List<string>();
+
+	WvIni bookmarks = new WvIni(
+		    wv.PathCombine(wv.getenv("HOME"), ".wvdbi.ini"));
+
+	string moniker = bookmarks.get("Defaults", "url", null);
+        
+        WvUrl url = new WvUrl(moniker);
+	if (url.user.e())
+	    url.user = bookmarks.get("Defaults", "user");
+	if (url.password.e())
+	    url.password = bookmarks.get("Defaults", "password");
+	    
+        VxSchema schema = new VxSchema();
+        tab_names.Add(tablename);
+        RetrieveTableSchema(schema, tab_names);
+        string ident_seed;
+        string ident_incr;
+        string coltype;
+        List<KeyValuePair<string,string>> coltypes = new List<KeyValuePair<string,string>>();
+        columns = csvhandler.GetLine(); //columns' names
+        string[] columns_array = (string[])columns.ToArray(Type.GetType("System.String"));
+        
+        foreach (KeyValuePair<string,VxSchemaElement> p in schema)
+        {
+            if (p.Value is VxSchemaTable)
+            {
+                foreach (VxSchemaTableElement te in ((VxSchemaTable)p.Value))
+                {
+                    if (columns_array.Contains(te.GetParam("name")))
+                    {
+                        coltypes.Add(new KeyValuePair<string,string>(te.GetParam("name"),te.GetParam("type")));
+                        ident_seed = te.GetParam("identity_seed");
+                        ident_incr = te.GetParam("identity_incr");
+                        
+                        if (ident_seed.ne() && ident_incr.ne())
+                            has_ident = true;
+                    }
+                }
+            }
+        }
+        
+        if (has_ident)
+            result.Append("SET IDENTITY_INSERT [" + tablename + "] ON;\n");
+        
+        prefix = "INSERT INTO " + tablename + " ([" + String.Join("],[",columns_array)+"]) VALUES (";
+        if (!csvhandler.hasMore())
+            return "";
+        
+        while (csvhandler.hasMore())
+        {
+            sql = "";
+            asarray = csvhandler.GetLine();
+            if (asarray.Count < columns_array.Length)
+                return "";
+                
+            for (int i=0;i<asarray.Count;i++)
+            {
+                sql += (i==0 ? prefix : ",");
+
+                coltype = GetColType(columns_array[i],coltypes);
+                if (asarray[i]!=null)
+                    if ((coltype == "varchar") ||
+                        (coltype == "datetime") ||
+                        (coltype == "char") ||
+                        (coltype == "image") )
+                        sql += "'"+ asarray[i].ToString() + "'";
+                    else
+                        sql += asarray[i].ToString();
+                else
+                    sql += "NULL";
+            }
+
+            result.Append(sql + ");\n");
+        }
+        
+        if (has_ident)
+            result.Append("SET IDENTITY_INSERT [" + tablename + "] OFF;\n");
+        
+        return result.ToString();
+    }
+    
+    //If there is CSV anywhere, make it SQL statements
+    public string Normalize(string text)
+    {
+        TextReader txt = new StringReader(text);
+        StringBuilder result = new StringBuilder();
+        string line = "";
+        string csvtext = "";
+        string tmp = "";
+        string tablename = "";
+        
+        while ((line = txt.ReadLine()) != null)
+        {
+            if (line.StartsWith("-- SCHEMAMATIC "))
+                log.print("-- SCHEMAMATIC found");
+            else if (line.StartsWith("TABLE "))
+            {
+                csvtext = "";
+                tablename = line.Substring(6).Trim();
+                
+                //gotta get the CSV part only
+                while (!String.IsNullOrEmpty(line = txt.ReadLine()))
+                    csvtext += line + "\n";
+                
+                //Will return CSV part as INSERTs
+                tmp = Csv2Inserts(tablename,csvtext);
+                result.Append(tmp);
+            }
+            else
+            {
+                if (line.Trim() != "GO")
+                    result.Append(line+"\n");
+                // avoid going back to the loop above and through the 
+                // comparisons, since it will be back here
+                while (!String.IsNullOrEmpty(line = txt.ReadLine()))
+                    if (line.Trim() != "GO")
+                        result.Append(line+"\n");
+            }
         }
         return result.ToString();
     }
@@ -1611,6 +1761,8 @@ internal class VxDbSchema : ISchemaBackend
         // don't do anything fancy but still run the query.
         if (tablename.ne())
             DbiExec(String.Format("DELETE FROM [{0}]", tablename));
+
+        text = Normalize(text);
 	
 	log.print("text size: {0}\n", text.Length);
 	if (text.Length > 50000)
@@ -1641,7 +1793,7 @@ internal class VxDbSchema : ISchemaBackend
 	    }
 	}
 	else
-	    DbiExec(text);
+	    if (!String.IsNullOrEmpty(text))
+                DbiExec(text);
     }
 }
-
