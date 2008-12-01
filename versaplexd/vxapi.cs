@@ -563,7 +563,7 @@ public class VxDbusRouter
         // For now, the client ID is just the username of the Unix UID that
         // DBus has associated with the connection.
         string username;
-	var conn = VersaMain.conn;
+	var conn = Versaplexd.conn;
         if (!usernames.TryGetValue(sender, out username))
         {
 	    try
@@ -650,7 +650,7 @@ public class VxDbusRouter
         WvDbusWriter writer = new WvDbusWriter();
 	writer.Write("Quit");
         reply = call.reply("s").write(writer);
-	VersaMain.want_to_die = true;
+	Versaplexd.want_to_die = true;
     }
 
     static void CallExecScalar(WvDbus conn,

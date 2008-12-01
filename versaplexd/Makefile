@@ -12,7 +12,7 @@ tests: all t/all
 
 t/all: all
 
-versaplexd.exe: versaplexd.cs \
+versaplexd.exe: versaplexd.cs main.cs \
     ischemabackend.cs \
     vxapi.cs vxsqltokenizer.cs \
     vxcolumninfo.cs vxdbusdatetime.cs vxdbschema.cs \

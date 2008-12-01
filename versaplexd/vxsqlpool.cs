@@ -1,16 +1,21 @@
+using System;
 using System.Data.Common;
 using System.Collections;
 using System.Collections.Generic;
-using System;
+using System.IO;
 using Wv;
+using Wv.Extensions;
 
 public static class VxSqlPool
 {
     private static WvIni inifile;
 
-    public static void SetIniFile(string filepath)
+    public static void SetIniFile(string path)
     {
-	inifile = new WvIni(filepath);
+	if (path.e() || !File.Exists(path))
+	    throw new Exception
+	        (wv.fmt("Could not find config file '{0}'", path));
+	inifile = new WvIni(path);
     }
 
     private static string find_connection_moniker(string connid)
