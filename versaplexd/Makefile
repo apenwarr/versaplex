@@ -4,7 +4,7 @@ include ../monorules.mk
 
 all: versaplexd sm vxcli
 
-PKGS += /unsafe /r:System.Data
+PKGS += /r:System.Data
 
 test: all t/test
 	
