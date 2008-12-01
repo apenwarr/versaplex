@@ -174,6 +174,7 @@ public static class Versaplexd
 	    thread_ready.Set();
 	    while (!want_to_die)
 		dbusserver.runonce();
+	    log.print("DBus thread ending.\n");
 	}
     }
     
@@ -191,7 +192,10 @@ public static class Versaplexd
     {
 	want_to_die = true;
 	if (dbusserver_thread != null)
+	{
+	    log.print("Waiting for DBus thread.\n");
 	    dbusserver_thread.Join();
+	}
     }
     
     public static int Go(string cfgfile, string bus, string[] listeners)
@@ -248,7 +252,14 @@ public static class Versaplexd
 	while (!want_to_die)
 	{
 	    log.print(WvLog.L.Debug2, "Event loop.\n");
-	    WvStream.runonce(-1);
+	    
+	    // We can't wait infinitely here, because someone in another
+	    // thread might set want_to_die.
+	    // (FIXME: in that case it's lame that we might ignore it for
+	    //  a timeout.  We should have a loopback stream of some sort
+	    //  instead...)
+	    WvStream.runonce(1000);
+	    
 	    while (action_queue.Count > 0)
 	    {
 		log.print(WvLog.L.Debug2, "Action queue.\n");

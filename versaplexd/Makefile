@@ -24,6 +24,8 @@ versaplexd.exe versaplexd-svc.exe: versaplexd.cs \
     
 versaplexd.exe: main.cs
 versaplexd-svc.exe: versaplexd-svc.cs
+versaplexd-svc.exe: \
+	PKGS+=/r:System.Configuration.Install /r:System.ServiceProcess
     
 sm.exe: \
     ischemabackend.cs storedprocedure.cs \
