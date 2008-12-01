@@ -8,10 +8,11 @@ public static class VersaMain
 {
     static void ShowHelp()
     {
-	Console.Error.WriteLine
+	wv.printerr
 	    ("Usage: versaplexd [-v] [-b dbus-moniker]\n" +
 	     "                  [-l listen-moniker]\n" +
-	     "                  [-c config-file]");
+	     "                  [-c config-file]\n" +
+	     "                  [-p port]\n");
 	Environment.Exit(1);
     }
     
@@ -32,6 +33,11 @@ public static class VersaMain
 		     delegate(string v) { cfgfile = v; })
 		.Add("l=|listen=",
 		     delegate(string v) { listeners.Add(v); })
+		.Add("p=|port=",
+		     delegate(string v) {
+			 bus = "tcp:host=127.0.0.1,port=" + v;
+			 listeners.Add("tcp:0.0.0.0:" + v);
+		     })
 		.Add("?|h|help",
 		     delegate(string v) { ShowHelp(); })
 		.Parse(args);
