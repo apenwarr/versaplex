@@ -1611,12 +1611,36 @@ internal class VxDbSchema : ISchemaBackend
         return result.ToString();
     }
     
-    public string GetColType(string colname, List<KeyValuePair<string,string>> coltypes)
+    public string GetColType(string colname, 
+                             List<KeyValuePair<string,string>> coltypes)
     {
         foreach (var col in coltypes)
             if (col.Key == colname)
                 return col.Value;
         return "";
+    }
+    
+    public string bin2hex(byte [] data)
+    {
+        string result = "";
+        foreach (Byte c in data)
+            result += Convert.ToInt32(c).ToString("X").PadLeft(2,'0');
+
+        return result;
+    }
+    
+    public string base64Encode(string data)
+    {
+        try
+        {
+            byte[] encData_byte = new byte[data.Length];
+            encData_byte = System.Text.Encoding.UTF8.GetBytes(data);    
+            return Convert.ToBase64String(encData_byte);
+        }
+        catch(Exception e)
+        {
+            throw new Exception("Error in base64Encode" + e.Message);
+        }
     }
     
     public string Csv2Inserts(string tablename, string csvtext)
@@ -1628,27 +1652,17 @@ internal class VxDbSchema : ISchemaBackend
         string prefix = "";
         bool has_ident = false;
         List<string> tab_names = new List<string>();
-
-	WvIni bookmarks = new WvIni(
-		    wv.PathCombine(wv.getenv("HOME"), ".wvdbi.ini"));
-
-	string moniker = bookmarks.get("Defaults", "url", null);
-        
-        WvUrl url = new WvUrl(moniker);
-	if (url.user.e())
-	    url.user = bookmarks.get("Defaults", "user");
-	if (url.password.e())
-	    url.password = bookmarks.get("Defaults", "password");
-	    
+        List<KeyValuePair<string,string>> coltypes = 
+                                  new List<KeyValuePair<string,string>>();
         VxSchema schema = new VxSchema();
+        string ident_seed, ident_incr, coltype;
+        
         tab_names.Add(tablename);
         RetrieveTableSchema(schema, tab_names);
-        string ident_seed;
-        string ident_incr;
-        string coltype;
-        List<KeyValuePair<string,string>> coltypes = new List<KeyValuePair<string,string>>();
+
         columns = csvhandler.GetLine(); //columns' names
-        string[] columns_array = (string[])columns.ToArray(Type.GetType("System.String"));
+        string[] columns_array = (string[])columns.ToArray(
+                                             Type.GetType("System.String"));
         
         foreach (KeyValuePair<string,VxSchemaElement> p in schema)
         {
@@ -1658,7 +1672,10 @@ internal class VxDbSchema : ISchemaBackend
                 {
                     if (columns_array.Contains(te.GetParam("name")))
                     {
-                        coltypes.Add(new KeyValuePair<string,string>(te.GetParam("name"),te.GetParam("type")));
+                        coltypes.Add(new KeyValuePair<string,string>(
+                                      te.GetParam("name"),
+                                      te.GetParam("type")));
+                                      
                         ident_seed = te.GetParam("identity_seed");
                         ident_incr = te.GetParam("identity_incr");
                         
@@ -1672,7 +1689,9 @@ internal class VxDbSchema : ISchemaBackend
         if (has_ident)
             result.Append("SET IDENTITY_INSERT [" + tablename + "] ON;\n");
         
-        prefix = "INSERT INTO " + tablename + " ([" + String.Join("],[",columns_array)+"]) VALUES (";
+        prefix = "INSERT INTO " + tablename + " ([" + 
+                          String.Join("],[",columns_array)+"]) VALUES (";
+
         if (!csvhandler.hasMore())
             return "";
         
@@ -1693,7 +1712,12 @@ internal class VxDbSchema : ISchemaBackend
                         (coltype == "datetime") ||
                         (coltype == "char") ||
                         (coltype == "image") )
-                        sql += "'"+ asarray[i].ToString() + "'";
+                        if (coltype == "image")
+                            sql += "0x"+bin2hex(System.Convert.FromBase64String(
+                                                asarray[i].ToString()
+                                                          .Replace("\n","")));
+                        else
+                            sql += "'"+ asarray[i].ToString() + "'";
                     else
                         sql += asarray[i].ToString();
                 else
