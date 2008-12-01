@@ -9,6 +9,36 @@ using Wv;
 using Wv.NDesk.Options;
 using Wv.Extensions;
 
+
+[RunInstaller(true)]
+public class VersaServiceInstaller : Installer
+{
+    public static bool auth = false;
+    ServiceProcessInstaller spi;
+    ServiceInstaller si; 
+
+    public VersaServiceInstaller()
+    {
+	spi = new ServiceProcessInstaller(); 
+	si = new ServiceInstaller(); 
+
+	// if auth, leave these alone and the ServiceInstaller should prompt
+	// for authorization.
+	if (!auth)
+	{
+	    spi.Account = ServiceAccount.LocalSystem; 
+	    spi.Password = null;
+	    spi.Username = null;
+	}
+
+	si.ServiceName = "Versaplex";
+	si.StartType = ServiceStartMode.Automatic;
+	
+	Installers.AddRange(new Installer[] { si, spi });
+    }
+}
+
+
 public class VersaService : ServiceBase
 {
     WvLog log = new WvLog("versaplexd-svc", WvLog.L.Info);
@@ -57,7 +87,8 @@ public static class VersaMain
     {
 	wv.printerr("Usage: versaplexd-svc <-i | -u>\n" +
 		    "        -i: install as a Windows service\n" +
-		    "        -u: uninstall Windows service\n");
+		    "        -u: uninstall Windows service\n" +
+		    "        -A: prompt for account/password info\n");
 	Environment.Exit(1);
     }
     
@@ -108,6 +139,8 @@ public static class VersaMain
 		     delegate(string v) { install = true; })
 		.Add("u|uninstall", 
 		     delegate(string v) { uninstall = true; })
+		.Add("A|authorize",
+		     delegate(string v) { VersaServiceInstaller.auth = true; })
 		.Add("?|h|help",
 		     delegate(string v) { ShowHelp(); })
 		.Parse(args);
