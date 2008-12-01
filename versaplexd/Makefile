@@ -2,7 +2,7 @@ WVDOTNET=../wvdotnet
 include ../rules.mk
 include ../monorules.mk
 
-all: versaplexd sm vxcli
+all: versaplexd versaplexd-svc sm vxcli
 
 PKGS += /r:System.Data
 
@@ -12,7 +12,7 @@ tests: all t/all
 
 t/all: all
 
-versaplexd.exe: versaplexd.cs main.cs \
+versaplexd.exe versaplexd-svc.exe: versaplexd.cs \
     ischemabackend.cs \
     vxapi.cs vxsqltokenizer.cs \
     vxcolumninfo.cs vxdbusdatetime.cs vxdbschema.cs \
@@ -21,7 +21,10 @@ versaplexd.exe: versaplexd.cs main.cs \
     vxsqlpool.cs wvdbusserver.cs \
     ../wvdbus-sharp/wvdbus-sharp.dll \
     ../wvdotnet/wv.dll
-
+    
+versaplexd.exe: main.cs
+versaplexd-svc.exe: versaplexd-svc.cs
+    
 sm.exe: \
     ischemabackend.cs storedprocedure.cs \
     vxexceptions.cs \
