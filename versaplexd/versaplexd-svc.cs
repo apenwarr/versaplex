@@ -132,6 +132,7 @@ public static class VersaMain
 	    {
 		inst.Install(state);
 		inst.Commit(state);
+		(new ServiceController("Versaplex")).Start();
 	    }
 	    catch
 	    {
