@@ -218,7 +218,8 @@ internal static class VxDb {
 		if (t.IsKeywordEq("transaction") ||
 		    t.IsKeywordEq("distributed"))
 		{
-		    if (!have_command)
+		    //access_restrictions == 2 => no non-select
+		    if (!have_command && access_restrictions < 2)
 			have_command = true;
 		    else
 			throw new VxSqlException(exception_txt);
@@ -268,7 +269,9 @@ internal static class VxDb {
 
 	    if (IsSimpleCommand(t))
 	    {
-		if (!have_command)
+		//access_restrictions == 2 => no non-select
+		if (!have_command && (access_restrictions < 2 ||
+					t.IsKeywordEq("select")))
 		{
 		    // No command yet?  Now we have one. Flag a few
 		    have_command = true;
