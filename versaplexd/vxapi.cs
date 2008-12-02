@@ -222,7 +222,7 @@ internal static class VxDb {
 		    if (!have_command && access_restrictions < 2)
 			have_command = true;
 		    else
-			throw new VxSqlException(exception_txt);
+			throw new VxSecurityException(exception_txt);
 		}
 	    }
 
@@ -295,7 +295,7 @@ internal static class VxDb {
 			t.IsKeywordEq("set"))
 		    have_altertable = false;
 		else if (!t.IsKeywordEq("select"))
-		    throw new VxSqlException(exception_txt);
+		    throw new VxSecurityException(exception_txt);
 	    }
 	}
 end:
