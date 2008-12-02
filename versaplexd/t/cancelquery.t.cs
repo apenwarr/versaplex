@@ -34,16 +34,14 @@ class CancelQueryTests : VersaplexTester
     [Test, Category("CancelQuery")]
     public void SimpleTest()
     {
-	try { VxExec("DROP TABLE test1;"); } catch {}
-
-	try {
-	    VxExec("CREATE TABLE test1 (numcol int, stupid VARCHAR(40))");
-	    Exec("INSERT INTO test1 VALUES (1, 'Luke is awesome')");
-	} catch {}
+	VxExecSilent("DROP TABLE test1;");
+	
+	VxExecSilent("CREATE TABLE test1 (numcol int, stupid VARCHAR(40))");
+	Exec("INSERT INTO test1 VALUES (1, 'Luke is awesome')");
 
 	//Frivolous crap to fill up the action_queue
-	WvDbusMsg call = setup_msg("ExecChunkRecordset", "s", "select 1");
-	bus.send(call, (r) => {;});
+	WvDbusMsg call = setup_msg("ExecChunkRecordset", "s",
+				   "WAITFOR DELAY '00:00:01'");
 	bus.send(call, (r) => {;});
 
 	//What we're really worried about here.
@@ -53,7 +51,7 @@ class CancelQueryTests : VersaplexTester
 
 	call = setup_msg("CancelQuery", "u", send_id);
 
-	WvDbusMsg rep = bus.send_and_wait(call);
+	bus.send_and_wait(call);
 
 	try {
 	    VxColumnInfo[] colinfo1;
