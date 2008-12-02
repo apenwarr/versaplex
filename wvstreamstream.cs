@@ -98,6 +98,7 @@ namespace Wv
 		inner.BeginWrite(b.bytes, b.start, b.len,
 				 delegate(IAsyncResult ar) {
 				     inner.EndWrite(ar);
+				     inner.Flush();
 				     post_writable();
 				 },
 				 null);
@@ -127,16 +128,57 @@ namespace Wv
     
     public class _WvFile : WvStreamStream
     {
-        public _WvFile(string filename)
-	    : base(new FileStream(filename, FileMode.Open, FileAccess.Read))
+	static FileStream openstream(string filename, string modestring)
+	{
+	    FileMode mode;
+	    FileAccess access;
+	    bool truncate = false;
+	    
+	    if (modestring.Length == 0)
+		throw new ArgumentException
+		  ("WvFile: modestring cannot be empty", "modestring");
+	    
+	    char first = modestring[0];
+	    bool plus = (modestring.Length > 1 && modestring[1] == '+');
+		
+	    switch (first)
+	    {
+	    case 'r':
+		mode = FileMode.Open;
+		access = plus ? FileAccess.ReadWrite : FileAccess.Read;
+		break;
+	    case 'w':
+		mode = FileMode.OpenOrCreate;
+		access = plus ? FileAccess.ReadWrite : FileAccess.Write;
+		truncate = true;
+		break;
+	    case 'a':
+		mode = FileMode.Append;
+		access = plus ? FileAccess.ReadWrite : FileAccess.Write;
+		break;
+	    default:
+		throw new ArgumentException
+		    (wv.fmt("WvFile: modestring '{0}' must start " +
+			    "with r, w, or a", modestring),
+		     "modestring");
+	    }
+	    
+	    var f = new FileStream(filename, mode, access, FileShare.ReadWrite);
+	    if (truncate)
+		f.SetLength(0);
+	    return f;
+	}
+	
+        public _WvFile(string filename, string modestring)
+	    : base(openstream(filename, modestring))
 	{
 	}
     }
     
     public class WvFile : WvInBufStream
     {
-	public WvFile(string filename)
-	    : base(new _WvFile(filename))
+	public WvFile(string filename, string modestring)
+	    : base(new _WvFile(filename, modestring))
 	{
 	}
     }

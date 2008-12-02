@@ -5,25 +5,22 @@ using Wv.Extensions;
 
 namespace Wv
 {
-    public class WvLogConsole
+    public abstract class WvLogRcv
     {
-	Stream outstr = Console.OpenStandardError();
 	string open_header = null;
 	byte[] nl = "\n".ToUTF8();
 	
-	void w(WvBytes b)
-	{
-	    outstr.Write(b.bytes, b.start, b.len);
-	}
+	protected abstract void w(WvBytes b);
 	
 	void w(string s)
 	{
 	    w(s.ToUTF8());
 	}
 	
+	// note: outbuf is always completely empty when we return
 	public void writelines(string header, WvBuf outbuf)
 	{
-	    // finish previous partial line, if necessary
+	    // force ending of previous partial line, if necessary
 	    if (outbuf.used > 0 
 		&& open_header != null && open_header != header)
 	    {
@@ -31,6 +28,7 @@ namespace Wv
 		open_header = null;
 	    }
 	    
+	    // zero or more full lines (terminated by newlines)
 	    int i;
 	    while ((i = outbuf.strchr('\n')) > 0)
 	    {
@@ -40,7 +38,7 @@ namespace Wv
 		open_header = null;
 	    }
 	    
-	    // ending partial line
+	    // end-of-buffer partial line (ie. no newline terminator yet)
 	    if (outbuf.used > 0)
 	    {
 		if (open_header == null)
@@ -48,6 +46,39 @@ namespace Wv
 		w(outbuf.get(outbuf.used));
 		open_header = header;
 	    }
+	}
+    }
+    
+    public class WvLogConsole : WvLogRcv
+    {
+	Stream outstr = Console.OpenStandardError();
+	
+	protected override void w(WvBytes b)
+	{
+	    outstr.Write(b.bytes, b.start, b.len);
+	}
+    }
+    
+    public class WvLogStream : WvLogRcv
+    {
+	WvStream outstr;
+	
+	public WvLogStream(WvStream outstr)
+	{
+	    this.outstr = outstr;
+	}
+	
+	protected override void w(WvBytes b)
+	{
+	    outstr.write(b);
+	}
+    }
+    
+    public class WvLogFile : WvLogStream
+    {
+	public WvLogFile(string filename, string filemode)
+	    : base(new WvFile(filename, filemode))
+	{
 	}
     }
     
@@ -71,7 +102,7 @@ namespace Wv
 	    get { return _maxlevel; }
 	    set { _maxlevel = value; }
 	}
-	static WvLogConsole recv = new WvLogConsole();
+	public static WvLogRcv recv = new WvLogConsole();
 	
 	string name;
 	L level;
