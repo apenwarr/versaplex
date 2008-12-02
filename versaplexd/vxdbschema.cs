@@ -1584,7 +1584,7 @@ internal class VxDbSchema : ISchemaBackend
                     if (types[colnum] == typeof(System.DateTime))
                     {
                         str = ((DateTime)elem).ToString(
-                            "yyyy-MM-dd HH:mm:ss.fff");
+                            "yyyy-MM-dd HH:mm:ss");
                     }
                     else
                         str = (string)elem;
