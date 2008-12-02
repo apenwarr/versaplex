@@ -11,18 +11,18 @@
 ; * = testdb
 
 [Security Level]
-; Maps a user to a particular security level.  Currently, only levels 0 (or
-; false) and 1 (or true) are supported.  Setting a user at level 0 prevents
-; them from running more than one non-select query (and if the command starts
-; with a select statement, no other queries except select will be accepted).
-; 0 is the default setting for every user.
-; NOTE:  Setting a security setting for the user running unit tests to 0 *will*
-; cause unit test failures.
-; NOTE2:  Setting * to 1 means that any user not explicitly set to 0 will have
-; a permission level of 1.  You've been warned.
+; Maps a user to a particular security level.  Currently, only levels 0
+; (totally unrestricted), 1 (allowed only a single non-select query), and 2
+; (allowed only select queries) are supported.  2 is the default setting for
+; every user.
+; NOTE:  Setting a security setting for the user running unit tests to anything
+; higher than 0 *will* cause unit test failures.
+; NOTE2:  Setting user '*' to some value other than 2 means that any user not
+; explicitly assigned a value will inherit that a permission level.  You've been
+; warned.
 ;
-; evil_pmccurdy = false
-; * = 1
+; evil_pmccurdy = 2
+; * = 0
 
 [Cert Map]
 ; Maps a certificate fingerprint (get_fingerprint() in WvX509) to a username,
