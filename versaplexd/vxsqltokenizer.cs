@@ -22,6 +22,12 @@ public class VxSqlToken
 	trailing_space = "";
     }
 
+    public bool IsValidIdentifier()
+    {
+    	return type == TokenType.DoubleQuoted || type == TokenType.Unquoted
+		|| type == TokenType.Delimited;
+    }
+
     public bool NotQuotedAndLowercaseEq(string eq)
     {
 	return type != TokenType.SingleQuoted && type != TokenType.DoubleQuoted
@@ -30,15 +36,25 @@ public class VxSqlToken
 		&& name.ToLower() == eq.ToLower();
     }
 
+    public bool IsKeyword()
+    {
+    	return type == TokenType.Keyword;
+    }
+
     public bool IsKeywordEq(string key)
     {
-	return type == TokenType.Keyword && key.ToUpper() == name.ToUpper();
+	return IsKeyword() && key.ToUpper() == name.ToUpper();
     }
 
     public bool IsIdentifier()
     {
     	return type == TokenType.DoubleQuoted || type == TokenType.Delimited ||
 		type == TokenType.Unquoted;
+    }
+
+    public bool IsComment()
+    {
+    	return type == TokenType.Comment || type == TokenType.DelimitedComment;
     }
 
     public override string ToString()

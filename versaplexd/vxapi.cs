@@ -62,8 +62,35 @@ internal static class VxDb {
 	    .send(conn);
     }
 
+    static string[] simple_commands = {
+		"alter", "checkpoint", "close", "commit",
+		"create", "dbcc", "deallocate",
+		"declare", "delete", "drop",
+		"dump", "exec", "execute",
+		"fetch", "grant", "insert", "kill",
+		"load", "open", "print",
+		"raiserror", "readtext", "reconfigure",
+		"revoke", "rollback", "save",
+		"select", "set", "setuser",
+		"shutdown", "truncate", "update",
+		"use", "waitfor", "while",
+		"writetext",
+	};
 
-    internal static string query_parser(string query)
+    private static bool IsSimpleCommand(VxSqlToken t)
+    {
+	if (!t.IsKeyword())
+	    return false;
+
+	foreach (string s in simple_commands)
+	    if (t.name.ToLower() == s)
+		return true;
+
+	return false;
+    }
+
+
+    internal static string query_parser(string query, bool unrestricted)
     {
 	VxSqlTokenizer tokenizer = new VxSqlTokenizer(query);
 	VxSqlToken[] tokens = tokenizer.gettokens().ToArray();
@@ -73,8 +100,24 @@ internal static class VxDb {
 	{
 	    VxSqlToken tok = tokens[i];
 	    VxSqlTokenizer ret = new VxSqlTokenizer();
-	    
-	    if (i < tokens.Length - 1)
+
+	    if (tok.NotQuotedAndLowercaseEq("get") &&
+		i < tokens.Length - 3 &&
+		tokens[i + 1].NotQuotedAndLowercaseEq("object"))
+	    {
+		// Format: 
+		// get object {view|trigger|procedure|scalarfunction|tablefunction} name
+		// Returns: the "source code" to the object
+		ret.tokenize(String.Format(
+		    "select cast(text as varchar(max)) text "
+		    + "from syscomments "
+		    + "where objectproperty(id, 'Is{0}') = 1 "
+		    + "and object_name(id) = '{1}' "
+		    + "order by number, colid;",
+		    tokens[i + 2].name, tokens[i + 3].name));
+		i += 3;
+	    }
+	    else if (i < tokens.Length - 1)
 	    {
 		VxSqlToken next_tok = tokens[i + 1];
 		if (tok.IsKeywordEq("use") && next_tok.IsIdentifier())
@@ -136,22 +179,6 @@ internal static class VxDb {
 		    }
 		}
 	    }
-	    else if (tok.NotQuotedAndLowercaseEq("get") &&
-			i < tokens.Length - 3 &&
-			tokens[i + 1].NotQuotedAndLowercaseEq("object"))
-	    {
-		// Format: 
-		// get object {view|trigger|procedure|scalarfunction|tablefunction} name
-		// Returns: the "source code" to the object
-		ret.tokenize(String.Format(
-		    "select cast(text as varchar(max)) text "
-		    + "from syscomments "
-		    + "where objectproperty(id, 'Is{0}') = 1 "
-		    + "and object_name(id) = '{1}' "
-		    + "order by number, colid;",
-		    tokens[i + 2].name, tokens[i + 3].name));
-		i += 3;
-	    }
 
 	    if (ret.gettokens() != null)
 		foreach (VxSqlToken t in ret.gettokens())
@@ -160,6 +187,115 @@ internal static class VxDb {
 		result.Add(tok);
 	}
 
+	if (unrestricted)
+	    goto end;
+
+	// see below for what these all do
+	bool have_command = false;
+	bool have_begin = false;
+	bool have_insert = false;
+	bool have_update = false;
+	bool insert_valid_for_exec = true;
+	bool have_alter = false;
+	bool have_alterdb = false;
+	bool have_altertable = false;
+	bool altertable_valid_for_set = true;
+
+	string exception_txt = "Nice try, sneaking multiple requests in there!";
+
+	foreach (VxSqlToken t in result)
+	{
+	    // skip comments
+	    if (t.IsComment())
+		continue;
+
+	    if (have_begin)
+	    {
+		// Need to identify if a 'begin' is a 'begin...end' block
+		// (which we'll basically skip over), or an actual command
+		// ('begin transaction' or 'begin distributed transaction').
+		have_begin = false;
+		if (t.IsKeywordEq("transaction") ||
+		    t.IsKeywordEq("distributed"))
+		{
+		    if (!have_command)
+			have_command = true;
+		    else
+			throw new VxSqlException(exception_txt);
+		}
+	    }
+
+	    if (t.IsKeywordEq("begin"))
+	    {
+		have_begin = true;
+		continue;
+	    }
+
+	    //FIXME:  Does this heuristic suck?
+	    //Have to take care of "INSERT INTO x.y (a, "b", [c]) EXEC foo"
+	    //If we notice anything other than valid column identifiers and
+	    //table names, or the word 'into', commas, periods, or parentheses,
+	    //we ban a following 'EXEC', otherwise we allow it
+	    if (have_insert && !(t.IsKeywordEq("into") ||
+		    t.IsValidIdentifier() ||
+		    t.type == VxSqlToken.TokenType.Comma ||
+		    t.type == VxSqlToken.TokenType.Period ||
+		    t.type == VxSqlToken.TokenType.LParen ||
+		    t.type == VxSqlToken.TokenType.RParen ||
+		    t.IsKeywordEq("exec")))
+		insert_valid_for_exec = false;
+
+	    if (have_alter)
+	    {
+		have_alter = false;
+		if (t.IsKeywordEq("database"))
+		{
+		    have_alterdb = true;
+		    continue;
+		}
+		else if (t.IsKeywordEq("table"))
+		{
+		    have_altertable = true;
+		    continue;
+		}
+	    }
+
+	    //If we have "ALTER TABLE x.y", it's OK to have the word 'set' right
+	    //afterwards.  otherwise, it's not OK.
+	    if (have_altertable && !(t.IsValidIdentifier() ||
+				    t.IsKeywordEq("set")))
+		altertable_valid_for_set = false;
+
+	    if (IsSimpleCommand(t))
+	    {
+		if (!have_command)
+		{
+		    // No command yet?  Now we have one. Flag a few
+		    have_command = true;
+		    if (t.IsKeywordEq("insert"))
+			have_insert = true;
+		    else if (t.IsKeywordEq("update"))
+			have_update = true;
+		    else if (t.IsKeywordEq("alter"))
+			have_alter = true;
+		}
+		else if (have_update && t.IsKeywordEq("set"))
+		    //'SET' is OK as part of "UPDATE x SET y"
+		    have_update = false;
+		else if (have_alterdb && t.IsKeywordEq("set"))
+		    //'SET' is OK as part of "ALTER DATABASE x SET y"
+		    have_alterdb = false;
+		else if (have_insert && insert_valid_for_exec &&
+			(t.IsKeywordEq("exec") || t.IsKeywordEq("execute")))
+		    have_insert = false;  //Insert's exec just finished here
+		else if (have_altertable && altertable_valid_for_set &&
+			t.IsKeywordEq("set"))
+		    have_altertable = false;
+		else if (!t.IsKeywordEq("select"))
+		    throw new VxSqlException(exception_txt);
+	    }
+	}
+end:
 	return result.join("");
     }
 
@@ -179,7 +315,8 @@ internal static class VxDb {
         
 	var it = call.iter();
 
-	string query = query_parser(it.pop());
+	string query = query_parser(it.pop(),
+			    VxSqlPool.is_allowed_unrestricted_queries(connid));
 
         log.print(WvLog.L.Debug3, "ExecChunkRecordset {0}\n", query);
 
@@ -332,7 +469,8 @@ internal static class VxDb {
             out VxColumnInfo[] colinfo, out object[][] data,
             out byte[][] nullity)
     {
-	query = query_parser(query);
+	query = query_parser(query,
+			    VxSqlPool.is_allowed_unrestricted_queries(connid));
 
         log.print(WvLog.L.Debug3, "ExecRecordset {0}\n", query);
 
