@@ -1537,7 +1537,10 @@ internal class VxDbSchema : ISchemaBackend
         string query = "SELECT * FROM " + tablename;
 
         if (where != null && where.Length > 0)
-            query += " WHERE " + where;
+            if (where.ToLower().StartsWith("select "))
+                query = where;
+            else
+                query += " WHERE " + where;
 
         bool did_preamble = false;
         string prefix = "";
