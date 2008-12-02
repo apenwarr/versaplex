@@ -139,7 +139,7 @@ public class WvStreamTests
     
     [Test] public void filestream()
     {
-	using (WvFile f = new WvFile("testfile.txt"))
+	using (WvFile f = new WvFile("testfile.txt", "r"))
 	{
 	    f.onreadable += checker(f).ToAction();
 	    while (f.ok)
@@ -155,7 +155,7 @@ public class WvStreamTests
 	    }
 	}
 	
-	using (WvFile f = new WvFile("testfile.txt"))
+	using (WvFile f = new WvFile("testfile.txt", "r"))
 	{
 	    int rcount = 0;
 	    f.onreadable += delegate() {
