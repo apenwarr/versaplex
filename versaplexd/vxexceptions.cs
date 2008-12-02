@@ -147,3 +147,15 @@ class VxConfigException : VxRequestException {
     {
     }
 }
+
+class VxSecurityException : VxRequestException {
+    public VxSecurityException()
+	: base("vx.db.securityerror")
+    {
+    }
+
+    public VxSecurityException(string msg)
+	: base("vx.db.securityerror", msg)
+    {
+    }
+}
