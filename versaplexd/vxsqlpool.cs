@@ -47,39 +47,40 @@ public static class VxSqlPool
 	return username;
     }
 
-    static Dictionary<string, bool> userpermissions =
-    	new Dictionary<string, bool>();
+    static Dictionary<string, int> userpermissions =
+    	new Dictionary<string, int>();
 
-    public static bool is_allowed_unrestricted_queries(string connid)
+    public static int access_restrictions(string connid)
     {
-    	bool is_allowed;
-	if (!userpermissions.TryGetValue(connid, out is_allowed))
+    	int security_level;
+	if (!userpermissions.TryGetValue(connid, out security_level))
 	{
-	    string is_maybe_allowed = inifile.get("Security Level", connid);
+	    string iniseclevel = inifile.get("Security Level", connid);
 
 	    // If we found *nothing* perhaps we should evaluate a judgement
 	    // on security, see if '*' has values... assuming we're  not
 	    // already looking for '*''s security.
-	    if (is_maybe_allowed == null)
+	    if (iniseclevel == null)
 	    {
-		is_allowed = false;
+		security_level = 2;
 		if (connid != "*")
 		{
-		    is_maybe_allowed = inifile.get("Security Level", "*");
+		    iniseclevel = inifile.get("Security Level", "*");
 
-		    //FIXME:  Numeric or boolean scheme?
-		    is_allowed = !(is_maybe_allowed == null ||
-				    is_maybe_allowed == "0" ||
-				    is_maybe_allowed == "false");
+		    if (iniseclevel != null &&
+			(iniseclevel == "0" ||
+			iniseclevel == "1"))
+			security_level = Convert.ToInt32(iniseclevel);
 		}
 	    }
 	    else
-		is_allowed = !(is_maybe_allowed == "0" ||
-				is_maybe_allowed == "false");
+		security_level = !(iniseclevel == "0" ||
+		    iniseclevel == "1") ? 2 :
+			Convert.ToInt32(iniseclevel);
 
-	    userpermissions[connid] = is_allowed;
+	    userpermissions[connid] = security_level;
 	}
-	return is_allowed;
+	return security_level;
     }
 
     public static WvDbi create(string connid)

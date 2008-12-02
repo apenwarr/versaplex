@@ -90,7 +90,7 @@ internal static class VxDb {
     }
 
 
-    internal static string query_parser(string query, bool unrestricted)
+    internal static string query_parser(string query, int access_restrictions)
     {
 	VxSqlTokenizer tokenizer = new VxSqlTokenizer(query);
 	VxSqlToken[] tokens = tokenizer.gettokens().ToArray();
@@ -187,7 +187,7 @@ internal static class VxDb {
 		result.Add(tok);
 	}
 
-	if (unrestricted)
+	if (access_restrictions == 0) //no restrictions
 	    goto end;
 
 	// see below for what these all do
@@ -316,7 +316,7 @@ end:
 	var it = call.iter();
 
 	string query = query_parser(it.pop(),
-			    VxSqlPool.is_allowed_unrestricted_queries(connid));
+			    VxSqlPool.access_restrictions(connid));
 
         log.print(WvLog.L.Debug3, "ExecChunkRecordset {0}\n", query);
 
@@ -489,7 +489,7 @@ end:
             out byte[][] nullity)
     {
 	query = query_parser(query,
-			    VxSqlPool.is_allowed_unrestricted_queries(connid));
+			    VxSqlPool.access_restrictions(connid));
 
         log.print(WvLog.L.Debug3, "ExecRecordset {0}\n", query);
 
