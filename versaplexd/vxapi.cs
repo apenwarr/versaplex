@@ -201,7 +201,7 @@ internal static class VxDb {
 	bool have_altertable = false;
 	bool altertable_valid_for_set = true;
 
-	string exception_txt = "Nice try, sneaking multiple requests in there!";
+	string exception_txt = "Insufficient security permissions for this type of query.";
 
 	foreach (VxSqlToken t in result)
 	{
