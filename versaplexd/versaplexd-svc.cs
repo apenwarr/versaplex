@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Configuration.Install;
+using System.IO;
 using System.ServiceProcess;
 using System.Threading;
 using Wv;
@@ -32,6 +33,7 @@ public class VersaServiceInstaller : Installer
 	}
 
 	si.ServiceName = "Versaplex";
+	si.Description = "Provides a secure connection to SQL Server";
 	si.StartType = ServiceStartMode.Automatic;
 	
 	Installers.AddRange(new Installer[] { si, spi });
@@ -46,14 +48,24 @@ public class VersaService : ServiceBase
     
     public VersaService()
     {
+	WvLog.recv = new WvLogFile(wv.PathJoin(VersaMain.mydir,
+					       "versaplex.log"),
+				   "a");
 	log.print("Initializing.\n");
     }
     
     void go()
     {
-	Versaplexd.Go("versaplexd.ini",
-		      "tcp:host=127.0.0.1,port=5561",
-		      new string[] { "tcp:0.0.0.0:5561" });
+	try
+	{
+	    Versaplexd.Go(VersaMain.config_path,
+			  "tcp:host=127.0.0.1,port=5561",
+			  new string[] { "tcp:0.0.0.0:5561" });
+	}
+	catch (Exception e)
+	{
+	    log.print(WvLog.L.Error, "Exception: {0}\n", e.Message);
+	}
     }
     
     protected override void OnStart(string[] args)
@@ -120,6 +132,7 @@ public static class VersaMain
 	    {
 		inst.Install(state);
 		inst.Commit(state);
+		(new ServiceController("Versaplex")).Start();
 	    }
 	    catch
 	    {
@@ -128,6 +141,11 @@ public static class VersaMain
 	    }
 	}
     }
+
+    internal static string mydir 
+	= Path.GetDirectoryName(typeof(VersaMain).Assembly.Location);
+    internal static string config_path 
+	= wv.PathJoin(mydir, "versaplexd.ini");
     
     public static int Main(string[] args)
     {
@@ -146,7 +164,13 @@ public static class VersaMain
 		.Parse(args);
 	    
 	    if (install)
+	    {
+		
+		if (!File.Exists(config_path))
+		    throw new Exception(wv.fmt("Config file missing: {0}",
+					       config_path));
 		Install();
+	    }
 	    else if (uninstall)
 		Uninstall();
 	    else
