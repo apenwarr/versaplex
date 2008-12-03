@@ -141,7 +141,8 @@ internal class VxDbusSchema : ISchemaBackend
 	return null;
     }
     
-    public string GetSchemaData(string tablename, int seqnum, string where)
+    public string GetSchemaData(string tablename, int seqnum, string where,
+                                Dictionary<string,string> replaces, List<string> skipfields)
     {
         WvDbusMsg call = methodcall("GetSchemaData", "ss");
 

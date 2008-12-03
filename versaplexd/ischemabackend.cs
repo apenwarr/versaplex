@@ -25,7 +25,10 @@ internal interface ISchemaBackend : IDisposable
     // processing, and is used to locate the file on disk.
     // "where" is the body of a SQL "WHERE" clause, to limit the data 
     // returned by the database, if applicable.
-    string GetSchemaData(string tablename, int seqnum, string where);
+    // "replaces" is the list of replacements to be made on a field
+    // "skipfields" is the list of fields to skip during export
+    string GetSchemaData(string tablename, int seqnum, string where,
+                         Dictionary<string,string> replaces, List<string> skipfields);
 
     // Delete all rows from the given table and replace them with the given
     // data.  text is an opaque hunk of text returned from GetSchemaData.

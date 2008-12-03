@@ -958,7 +958,7 @@ public class VxDbusRouter
         using (var dbi = VxSqlPool.create(clientid))
         {
             VxDbSchema backend = new VxDbSchema(dbi);
-            string schemadata = backend.GetSchemaData(tablename, 0, where);
+            string schemadata = backend.GetSchemaData(tablename, 0, where, null, null);
             writer.Write(schemadata);
         }
 

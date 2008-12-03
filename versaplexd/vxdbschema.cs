@@ -336,20 +336,20 @@ internal class VxDbSchema : ISchemaBackend
     }
 
     // Translate SqlExceptions from dbi.select into VxSqlExceptions.
-    private IEnumerable<WvSqlRow> DbiSelect(string query, 
+    private WvSqlRows DbiSelect(string query, 
         params object[] bound_vars)
     {
         log.print(WvLog.L.Debug5, "DbiSelect({0}...)\n", query.shorten(60));
         try
         {
-            return dbi.select(query, bound_vars).ToArray();
+            return dbi.select(query, bound_vars);
         }
         catch (DbException e)
         {
             throw new VxSqlException(e.Message, e);
         }
     }
-
+    
     private static string GetDropCommand(string type, string name)
     {
         if (type.EndsWith("Function"))
@@ -1311,7 +1311,7 @@ internal class VxDbSchema : ISchemaBackend
         string query = @"select sch.name owner,
            xsc.name sch, 
            cast(substring(
-                 cast(XML_Schema_Namespace(sch.name,xsc.name) as varchar(max)), 
+                 cast(XML_Schema_Namespace(sch.name,xsc.name) as varchar(max)),
                  " + start + @", 4000) 
             as varchar(4000)) contents
           from sys.xml_schema_collections xsc 
@@ -1507,32 +1507,26 @@ internal class VxDbSchema : ISchemaBackend
         return ((text.IndexOf(" ") >= 0) || 
                 (text.IndexOf(",") >= 0) ||
                 (text.IndexOf("\n") >= 0) || 
-                (text.IndexOf("\"") >= 0) );
+                (text.IndexOf("\"") >= 0) ||
+                (text.Length == 0) );
     }    
 
     // Returns a blob of text that can be used with PutSchemaData to fill 
     // the given table.
-    public string GetSchemaData(string tablename, int seqnum, string where)
+    public string GetSchemaData(string tablename, int seqnum, string where, 
+                                Dictionary<string,string> replaces,
+                                List<string> skipfields)
     {
         log.print("GetSchemaData({0},{1},{2})\n", tablename, seqnum, where);
-
-        string ident_query = @"select 
-            columnproperty(t.id, c.name, 'IsIdentity') isident
-	  from sysobjects t
-	  join syscolumns c on t.id = c.id 
-	  where t.xtype = 'U'
-            and t.name = '" + tablename + "'";
-
-        bool has_ident = false;
-        foreach (WvSqlRow row in dbi.select(ident_query))
-        {
-            int isident = row[0];
-            if (isident > 0)
-            {
-                has_ident = true;
-                break;
-            }
-        }
+        
+        if (replaces == null)
+            replaces = new Dictionary<string,string>();
+        if (skipfields == null)
+            skipfields = new List<string>();
+            
+        int[] fieldstoskip = new int[skipfields.Count];
+        for (int i=0; i < skipfields.Count; i++)
+            fieldstoskip[i] = -1;
 
         string query = "SELECT * FROM " + tablename;
 
@@ -1542,38 +1536,59 @@ internal class VxDbSchema : ISchemaBackend
             else
                 query += " WHERE " + where;
 
-        bool did_preamble = false;
-        string prefix = "";
         System.Type[] types = null;
 
-        StringBuilder result = new StringBuilder();
+        string colsstr;
+        List<string> result = new List<string>();
         List<string> values = new List<string>();
+        List<string> cols = new List<string>();
+        List<string> allcols = new List<string>();
 
-        foreach (WvSqlRow row in DbiSelect(query))
+        WvSqlRows rows = DbiSelect(query);
+        types = new System.Type[rows.columns.Count()];
+
+        int ii = 0;
+        foreach (WvColInfo col in rows.columns)
         {
-            if (!did_preamble)
+            allcols.Add(col.name.ToLower());
+            if (skipfields.Contains(col.name.ToLower()))
+                fieldstoskip[skipfields.IndexOf(col.name.ToLower())] = ii;
+            else if (skipfields.Contains(
+                                 tablename.ToLower()+"."+col.name.ToLower()))
+                fieldstoskip[skipfields.IndexOf(
+                            tablename.ToLower()+"."+col.name.ToLower())] = ii;
+            else
             {
-                // Read the column name and type information for the query.
-                // We only need to do this once.
-                List<string> cols = new List<string>();
-                types = new System.Type[row.Length];
-
-		WvColInfo[] columns = row.columns.ToArray();
-                for (int ii = 0; ii < columns.Length; ii++)
-                {
-                    WvColInfo col = columns[ii];
-                    cols.Add('"' + col.name + '"');
-                    types[ii] = col.type;
-                }
-                result.Append(cols.join(",")+"\n");
-
-                did_preamble = true;
+                cols.Add(col.name);
+                types[ii] = col.type;
             }
+            ii++;
+        }
+        
+        colsstr = "\"" + cols.join("\",\"") + "\"\n";
 
+        // Read the column name and type information for the query.
+        foreach (WvSqlRow row in rows)
+        {
             values.Clear();
             int colnum = 0;
-            foreach (WvAutoCast elem in row)
+            foreach (WvAutoCast _elem in row)
             {
+                WvAutoCast elem = _elem;
+                if (Array.IndexOf(fieldstoskip,colnum)>=0)
+                {
+                    colnum++;
+                    continue;
+                }
+                
+                if (replaces.ContainsKey(allcols[colnum]))
+                    elem = new WvAutoCast(replaces[allcols[colnum]]);
+                    
+                if (replaces.ContainsKey(
+                                    tablename.ToLower()+"."+allcols[colnum]))
+                    elem = new WvAutoCast(replaces[
+                                    tablename.ToLower()+"."+allcols[colnum]]);
+                
                 if (elem.IsNull)
                     values.Add("");
                 else if (types[colnum] == typeof(System.String) || 
@@ -1582,10 +1597,7 @@ internal class VxDbSchema : ISchemaBackend
                     string str;
                     // The default formatting is locale-dependent, and stupid.
                     if (types[colnum] == typeof(System.DateTime))
-                    {
-                        str = ((DateTime)elem).ToString(
-                            "yyyy-MM-dd HH:mm:ss");
-                    }
+                        str = ((DateTime)elem).ToString("yyyy-MM-dd HH:mm:ss");
                     else
                         str = (string)elem;
 
@@ -1597,21 +1609,36 @@ internal class VxDbSchema : ISchemaBackend
                     else
                         values.Add(esc);
                 }
+                else if (types[colnum] == typeof(System.Byte[]))
+                {
+                    string temp = System.Convert.ToBase64String(elem);
+                    string tmp = "";
+                    while (temp.Length > 0)
+                    {
+                        if (temp.Length > 75)
+                        {
+                            tmp += temp.Substring(0,76) + "\n";
+                            temp = temp.Substring(76);
+                        }
+                        else
+                        {
+                            tmp += temp + "\n";
+                            break;
+                        }
+                    }
+                    values.Add("\""+tmp+"\"");
+                }
                 else
                     values.Add(elem);
 
                 colnum++;
             }
-            result.Append(prefix + values.join(",") + "\n");
+            result.Add(values.join(",") + "\n");
         }
 
-        if (has_ident)
-        {
-            return "SET IDENTITY_INSERT [" + tablename + "] ON;\n" + 
-                result.ToString() + 
-                "SET IDENTITY_INSERT [" + tablename + "] OFF;\n";
-        }
-        return result.ToString();
+        result.Sort(StringComparer.Ordinal);
+
+        return colsstr+result.join("");
     }
     
     public string GetColType(string colname, 
@@ -1798,6 +1825,7 @@ internal class VxDbSchema : ISchemaBackend
 	    log.print("Split into {0} parts.\n", parts.Length);
 	    
 	    log.print("Part 1...\n");
+	    
 	    DbiExec(parts[0]);
 	    
 	    int count = 1;
