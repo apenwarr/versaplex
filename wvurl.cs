@@ -103,7 +103,7 @@ namespace Wv
 	}
 	
 	
-	public override string ToString()
+	public string ToString(bool show_password)
 	{
 	    var sb = new StringBuilder(200);
 	    
@@ -113,15 +113,14 @@ namespace Wv
 	    {
 		sb.Append("//");
 		
-		if (user != null || password != null)
+		if (user != null || (password != null && show_password))
 		{
 		    if (user != null)
 			sb.Append(user);
-		    if (password != null)
+		    if (password != null && show_password)
 			sb.AppendFormat(":{0}", password);
-		    
-		    if (host != null || port != 0)
-			sb.Append("@");
+
+		    sb.Append("@");
 		}
 		
 		if (host != null)
@@ -135,6 +134,12 @@ namespace Wv
 	    
 	    sb.Append(path);
 	    return sb.ToString();
+	}
+	
+	
+	public override string ToString()
+	{
+	    return ToString(false);
 	}
     }
 }
