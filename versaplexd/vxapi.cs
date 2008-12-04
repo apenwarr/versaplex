@@ -1124,11 +1124,13 @@ public class VxDbusRouter
 
         WvDbusWriter writer = new WvDbusWriter();
 
-	//FIXME:  No exception catching?
+	// FIXME: No exception catching?
+	// FIXME: Should receive the replace/skip parameters via dbus
         using (var dbi = VxSqlPool.create(clientid))
         {
             VxDbSchema backend = new VxDbSchema(dbi);
-            string schemadata = backend.GetSchemaData(tablename, 0, where, null, null);
+            string schemadata = backend.GetSchemaData(tablename, 0, where,
+						      null, null);
             writer.Write(schemadata);
         }
 

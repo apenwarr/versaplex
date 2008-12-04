@@ -121,7 +121,8 @@ class DiskSchemaTests : SchemamaticTester
             WVPASS(File.Exists(fullpath));
             WVPASSEQ(File.ReadAllText(fullpath), contents);
 
-            WVPASSEQ(backend.GetSchemaData("TestTable", 10100, ""), contents);
+            WVPASSEQ(backend.GetSchemaData("TestTable", 10100, "", null, null),
+		     contents);
         }
         finally
         {
