@@ -257,7 +257,16 @@ namespace Wv
 	    }
 	    
 	    log.print("MSSQL create: '{0}'\n", real);
-	    opendb(new SqlConnection(real));
+	    
+	    try
+	    {
+		opendb(new SqlConnection(real));
+	    }
+	    catch
+	    {
+		try { Dispose(); } catch {}
+		throw;
+	    }
 	}
 	
 	protected override IDbCommand prepare(string sql, params object[] args)
