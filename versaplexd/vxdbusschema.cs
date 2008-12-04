@@ -16,6 +16,8 @@ internal class VxDbusSchema : ISchemaBackend
     {
 	WvMoniker<ISchemaBackend>.register("vx",
 		  (string m, object o) => new VxDbusSchema(m));
+	WvMoniker<ISchemaBackend>.register("vx",
+		  (string m, object o) => new VxDbusSchema(m));
     }
 	
     public VxDbusSchema()
@@ -23,12 +25,15 @@ internal class VxDbusSchema : ISchemaBackend
     {
     }
 
-    public VxDbusSchema(string bus_moniker)
+    public VxDbusSchema(string busurl)
     {
-	if (bus_moniker.e())
+	WvUrl url = new WvUrl(busurl);
+	
+	if (url.host.e() || url.host == "session")
 	    bus = WvDbus.session_bus;
 	else
-	    bus = new WvDbus(bus_moniker);
+	    bus = new WvDbus(wv.fmt("tcp:host={0},port={1}",
+				    url.host, url.port));
     }
 
     // If you've already got a Bus you'd like to use.
