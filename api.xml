@@ -84,6 +84,12 @@
             <arg name="nullity" type="aay" direction="out"/>
 	</method>
 
+	<method name="CancelQuery">
+            <arg name="kill_msg_id" type="u" direction="in"/>
+            <arg name="pointless_return" type="s" direction="out"/>
+	    <!-- just returns "Cancel" so that you're happy -->
+	</method>
+
         <!-- Any of these can throw:
              vx.db.sqlerror - SQL statement error (text
                      parameter will include actual error)
@@ -102,9 +108,6 @@
         <!-- Future:
              - Transaction support
              - Execute particular procedures, not just SQL
-             - Ability to stream results as signals rather than in a single
-               message (allows interleaving results and larger sized result
-               sets)
         -->
     </interface>
 </node>

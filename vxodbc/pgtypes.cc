@@ -1141,6 +1141,7 @@ Int2 pgtype_money(StatementClass * stmt, OID type)
     switch (type)
     {
     case PG_TYPE_MONEY:
+    case PG_TYPE_NUMERIC:
 	return TRUE;
     default:
 	return FALSE;

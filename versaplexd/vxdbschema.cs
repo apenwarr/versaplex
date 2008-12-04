@@ -1,3 +1,8 @@
+/*
+ * Versaplex:
+ *   Copyright (C)2007-2008 Versabanq Innovations Inc. and contributors.
+ *       See the included file named LICENSE for license information.
+ */
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -7,6 +12,7 @@ using System.Data.SqlClient;
 using Wv.FakeLinq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.IO;
 using Wv;
 using Wv.Extensions;
 
@@ -335,20 +341,20 @@ internal class VxDbSchema : ISchemaBackend
     }
 
     // Translate SqlExceptions from dbi.select into VxSqlExceptions.
-    private IEnumerable<WvSqlRow> DbiSelect(string query, 
+    private WvSqlRows DbiSelect(string query, 
         params object[] bound_vars)
     {
         log.print(WvLog.L.Debug5, "DbiSelect({0}...)\n", query.shorten(60));
         try
         {
-            return dbi.select(query, bound_vars).ToArray();
+            return dbi.select(query, bound_vars);
         }
         catch (DbException e)
         {
             throw new VxSqlException(e.Message, e);
         }
     }
-
+    
     private static string GetDropCommand(string type, string name)
     {
         if (type.EndsWith("Function"))
@@ -1047,6 +1053,7 @@ internal class VxDbSchema : ISchemaBackend
               from sysobjects t
               join syscolumns c on t.id = c.id 
               join systypes typ on c.xtype = typ.xtype
+			           and c.xusertype = typ.xusertype
               left join syscomments def on def.id = c.cdefault
               where t.xtype = 'U'
                 and typ.name <> 'sysname'
@@ -1310,7 +1317,7 @@ internal class VxDbSchema : ISchemaBackend
         string query = @"select sch.name owner,
            xsc.name sch, 
            cast(substring(
-                 cast(XML_Schema_Namespace(sch.name,xsc.name) as varchar(max)), 
+                 cast(XML_Schema_Namespace(sch.name,xsc.name) as varchar(max)),
                  " + start + @", 4000) 
             as varchar(4000)) contents
           from sys.xml_schema_collections xsc 
@@ -1424,6 +1431,7 @@ internal class VxDbSchema : ISchemaBackend
 	  from sysobjects t
 	  join syscolumns c on t.id = c.id 
 	  join systypes typ on c.xtype = typ.xtype
+			       and c.xusertype = typ.xusertype
 	  left join syscomments def on def.id = c.cdefault
 	  where t.xtype = 'U'
 	    and typ.name <> 'sysname' " + 
@@ -1500,102 +1508,305 @@ internal class VxDbSchema : ISchemaBackend
 
         AddIndexesToTables(schema, names);
     }
+    
+    public bool RequiresQuotes(string text)
+    {
+        return ((text.IndexOf(" ") >= 0) || 
+                (text.IndexOf(",") >= 0) ||
+                (text.IndexOf("\n") >= 0) || 
+                (text.IndexOf("\"") >= 0) ||
+                (text.Length == 0) );
+    }    
 
     // Returns a blob of text that can be used with PutSchemaData to fill 
     // the given table.
-    public string GetSchemaData(string tablename, int seqnum, string where)
+    public string GetSchemaData(string tablename, int seqnum, string where, 
+                                Dictionary<string,string> replaces,
+                                List<string> skipfields)
     {
         log.print("GetSchemaData({0},{1},{2})\n", tablename, seqnum, where);
-
-        string ident_query = @"select 
-            columnproperty(t.id, c.name, 'IsIdentity') isident
-	  from sysobjects t
-	  join syscolumns c on t.id = c.id 
-	  where t.xtype = 'U'
-            and t.name = '" + tablename + "'";
-
-        bool has_ident = false;
-        foreach (WvSqlRow row in dbi.select(ident_query))
-        {
-            int isident = row[0];
-            if (isident > 0)
-            {
-                has_ident = true;
-                break;
-            }
-        }
+        
+        if (replaces == null)
+            replaces = new Dictionary<string,string>();
+        if (skipfields == null)
+            skipfields = new List<string>();
+            
+        int[] fieldstoskip = new int[skipfields.Count];
+        for (int i=0; i < skipfields.Count; i++)
+            fieldstoskip[i] = -1;
 
         string query = "SELECT * FROM " + tablename;
 
         if (where != null && where.Length > 0)
-            query += " WHERE " + where;
+            if (where.ToLower().StartsWith("select "))
+                query = where;
+            else
+                query += " WHERE " + where;
 
-        bool did_preamble = false;
-        string prefix = "";
         System.Type[] types = null;
 
-        StringBuilder result = new StringBuilder();
+        string colsstr;
+        List<string> result = new List<string>();
         List<string> values = new List<string>();
+        List<string> cols = new List<string>();
+        List<string> allcols = new List<string>();
 
-        foreach (WvSqlRow row in DbiSelect(query))
+        WvSqlRows rows = DbiSelect(query);
+        types = new System.Type[rows.columns.Count()];
+
+        int ii = 0;
+        foreach (WvColInfo col in rows.columns)
         {
-            if (!did_preamble)
+            allcols.Add(col.name.ToLower());
+            if (skipfields.Contains(col.name.ToLower()))
+                fieldstoskip[skipfields.IndexOf(col.name.ToLower())] = ii;
+            else if (skipfields.Contains(
+                                 tablename.ToLower()+"."+col.name.ToLower()))
+                fieldstoskip[skipfields.IndexOf(
+                            tablename.ToLower()+"."+col.name.ToLower())] = ii;
+            else
             {
-                // Read the column name and type information for the query.
-                // We only need to do this once.
-                List<string> cols = new List<string>();
-                types = new System.Type[row.Length];
-
-		WvColInfo[] columns = row.columns.ToArray();
-                for (int ii = 0; ii < columns.Length; ii++)
-                {
-                    WvColInfo col = columns[ii];
-                    cols.Add("[" + col.name + "]");
-                    types[ii] = col.type;
-                }
-
-                prefix = String.Format("INSERT INTO {0} ({1}) VALUES (", 
-                    tablename, cols.join(","));
-
-                did_preamble = true;
+                cols.Add(col.name);
+                types[ii] = col.type;
             }
+            ii++;
+        }
+        
+        colsstr = "\"" + cols.join("\",\"") + "\"\n";
 
+        // Read the column name and type information for the query.
+        foreach (WvSqlRow row in rows)
+        {
             values.Clear();
             int colnum = 0;
-            foreach (WvAutoCast elem in row)
+            foreach (WvAutoCast _elem in row)
             {
+                WvAutoCast elem = _elem;
+                if (Array.IndexOf(fieldstoskip,colnum)>=0)
+                {
+                    colnum++;
+                    continue;
+                }
+                
+                if (replaces.ContainsKey(allcols[colnum]))
+                    elem = new WvAutoCast(replaces[allcols[colnum]]);
+                    
+                if (replaces.ContainsKey(
+                                    tablename.ToLower()+"."+allcols[colnum]))
+                    elem = new WvAutoCast(replaces[
+                                    tablename.ToLower()+"."+allcols[colnum]]);
+                
                 if (elem.IsNull)
-                    values.Add("NULL");
+                    values.Add("");
                 else if (types[colnum] == typeof(System.String) || 
                     types[colnum] == typeof(System.DateTime))
                 {
                     string str;
                     // The default formatting is locale-dependent, and stupid.
                     if (types[colnum] == typeof(System.DateTime))
-                    {
-                        str = ((DateTime)elem).ToString(
-                            "yyyy-MM-dd HH:mm:ss.fff");
-                    }
+                        str = ((DateTime)elem).ToString("yyyy-MM-dd HH:mm:ss");
                     else
                         str = (string)elem;
 
                     // Double-quote chars for SQL safety
-                    string esc = str.Replace("'", "''");
-                    values.Add("'" + esc + "'");
+                    string esc = str.Replace("\"", "\"\"");
+                    esc = str.Replace("'", "''");
+                    if (RequiresQuotes(esc))
+                        values.Add('"' + esc + '"');
+                    else
+                        values.Add(esc);
+                }
+                else if (types[colnum] == typeof(System.Byte[]))
+                {
+                    string temp = System.Convert.ToBase64String(elem);
+                    string tmp = "";
+                    while (temp.Length > 0)
+                    {
+                        if (temp.Length > 75)
+                        {
+                            tmp += temp.Substring(0,76) + "\n";
+                            temp = temp.Substring(76);
+                        }
+                        else
+                        {
+                            tmp += temp + "\n";
+                            break;
+                        }
+                    }
+                    values.Add("\""+tmp+"\"");
                 }
                 else
                     values.Add(elem);
 
                 colnum++;
             }
-            result.Append(prefix + values.join(",") + ");\n");
+            result.Add(values.join(",") + "\n");
         }
 
-        if (has_ident)
+        result.Sort(StringComparer.Ordinal);
+
+        return colsstr+result.join("");
+    }
+    
+    public string GetColType(string colname, 
+                             List<KeyValuePair<string,string>> coltypes)
+    {
+        foreach (var col in coltypes)
+            if (col.Key == colname)
+                return col.Value;
+        return "";
+    }
+    
+    public string bin2hex(byte [] data)
+    {
+        string result = "";
+        foreach (Byte c in data)
+            result += Convert.ToInt32(c).ToString("X").PadLeft(2,'0');
+
+        return result;
+    }
+    
+    public string base64Encode(string data)
+    {
+        try
         {
-            return "SET IDENTITY_INSERT [" + tablename + "] ON;\n" + 
-                result.ToString() + 
-                "SET IDENTITY_INSERT [" + tablename + "] OFF;\n";
+            byte[] encData_byte = new byte[data.Length];
+            encData_byte = System.Text.Encoding.UTF8.GetBytes(data);    
+            return Convert.ToBase64String(encData_byte);
+        }
+        catch(Exception e)
+        {
+            throw new Exception("Error in base64Encode" + e.Message);
+        }
+    }
+    
+    public string Csv2Inserts(string tablename, string csvtext)
+    {
+        StringBuilder result = new StringBuilder();
+        WvCsv csvhandler = new WvCsv(csvtext);
+        ArrayList asarray, columns;
+        string sql;
+        string prefix = "";
+        bool has_ident = false;
+        List<string> tab_names = new List<string>();
+        List<KeyValuePair<string,string>> coltypes = 
+                                  new List<KeyValuePair<string,string>>();
+        VxSchema schema = new VxSchema();
+        string ident_seed, ident_incr, coltype;
+        
+        tab_names.Add(tablename);
+        RetrieveTableSchema(schema, tab_names);
+
+        columns = csvhandler.GetLine(); //columns' names
+        string[] columns_array = (string[])columns.ToArray(
+                                             Type.GetType("System.String"));
+        
+        foreach (KeyValuePair<string,VxSchemaElement> p in schema)
+        {
+            if (p.Value is VxSchemaTable)
+            {
+                foreach (VxSchemaTableElement te in ((VxSchemaTable)p.Value))
+                {
+                    if (columns_array.Contains(te.GetParam("name")))
+                    {
+                        coltypes.Add(new KeyValuePair<string,string>(
+                                      te.GetParam("name"),
+                                      te.GetParam("type")));
+                                      
+                        ident_seed = te.GetParam("identity_seed");
+                        ident_incr = te.GetParam("identity_incr");
+                        
+                        if (ident_seed.ne() && ident_incr.ne())
+                            has_ident = true;
+                    }
+                }
+            }
+        }
+        
+        if (has_ident)
+            result.Append("SET IDENTITY_INSERT [" + tablename + "] ON;\n");
+        
+        prefix = "INSERT INTO " + tablename + " ([" + 
+                          String.Join("],[",columns_array)+"]) VALUES (";
+
+        if (!csvhandler.hasMore())
+            return "";
+        
+        while (csvhandler.hasMore())
+        {
+            sql = "";
+            asarray = csvhandler.GetLine();
+            if (asarray.Count < columns_array.Length)
+                return "";
+                
+            for (int i=0;i<asarray.Count;i++)
+            {
+                sql += (i==0 ? prefix : ",");
+
+                coltype = GetColType(columns_array[i],coltypes);
+                if (asarray[i]!=null)
+                    if ((coltype == "varchar") ||
+                        (coltype == "datetime") ||
+                        (coltype == "char") ||
+                        (coltype == "image") )
+                        if (coltype == "image")
+                            sql += "0x"+bin2hex(System.Convert.FromBase64String(
+                                                asarray[i].ToString()
+                                                          .Replace("\n","")));
+                        else
+                            sql += "'"+ asarray[i].ToString() + "'";
+                    else
+                        sql += asarray[i].ToString();
+                else
+                    sql += "NULL";
+            }
+
+            result.Append(sql + ");\n");
+        }
+        
+        if (has_ident)
+            result.Append("SET IDENTITY_INSERT [" + tablename + "] OFF;\n");
+        
+        return result.ToString();
+    }
+    
+    //If there is CSV anywhere, make it SQL statements
+    public string Normalize(string text)
+    {
+        TextReader txt = new StringReader(text);
+        StringBuilder result = new StringBuilder();
+        string line = "";
+        string csvtext = "";
+        string tmp = "";
+        string tablename = "";
+        
+        while ((line = txt.ReadLine()) != null)
+        {
+            if (line.StartsWith("-- SCHEMAMATIC "))
+                log.print("-- SCHEMAMATIC found");
+            else if (line.StartsWith("TABLE "))
+            {
+                csvtext = "";
+                tablename = line.Substring(6).Trim();
+                
+                //gotta get the CSV part only
+                while (!String.IsNullOrEmpty(line = txt.ReadLine()))
+                    csvtext += line + "\n";
+                
+                //Will return CSV part as INSERTs
+                tmp = Csv2Inserts(tablename,csvtext);
+                result.Append(tmp);
+            }
+            else
+            {
+                if (line.Trim() != "GO")
+                    result.Append(line+"\n");
+                // avoid going back to the loop above and through the 
+                // comparisons, since it will be back here
+                while (!String.IsNullOrEmpty(line = txt.ReadLine()))
+                    if (line.Trim() != "GO")
+                        result.Append(line+"\n");
+            }
         }
         return result.ToString();
     }
@@ -1611,6 +1822,8 @@ internal class VxDbSchema : ISchemaBackend
         // don't do anything fancy but still run the query.
         if (tablename.ne())
             DbiExec(String.Format("DELETE FROM [{0}]", tablename));
+
+        text = Normalize(text);
 	
 	log.print("text size: {0}\n", text.Length);
 	if (text.Length > 50000)
@@ -1619,6 +1832,7 @@ internal class VxDbSchema : ISchemaBackend
 	    log.print("Split into {0} parts.\n", parts.Length);
 	    
 	    log.print("Part 1...\n");
+	    
 	    DbiExec(parts[0]);
 	    
 	    int count = 1;
@@ -1641,7 +1855,7 @@ internal class VxDbSchema : ISchemaBackend
 	    }
 	}
 	else
-	    DbiExec(text);
+	    if (!String.IsNullOrEmpty(text))
+                DbiExec(text);
     }
 }
-

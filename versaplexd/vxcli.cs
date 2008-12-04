@@ -1,3 +1,8 @@
+/*
+ * Versaplex:
+ *   Copyright (C)2007-2008 Versabanq Innovations Inc. and contributors.
+ *       See the included file named LICENSE for license information.
+ */
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -35,12 +40,18 @@ namespace Wv
 	public static void wvmoniker_register()
 	{
 	    WvMoniker<WvDbi>.register("vx",
-		 (string m, object o) => new WvDbi_Versaplex());
+		 (string m, object o) => new WvDbi_Versaplex(m));
 	}
 	
-	public WvDbi_Versaplex()
+	public WvDbi_Versaplex(string busurl)
 	{
-	    bus = WvDbus.session_bus;
+	    WvUrl url = new WvUrl(busurl);
+	    
+	    if (url.host.e() || url.host == "session")
+		bus = WvDbus.session_bus;
+	    else
+		bus = new WvDbus(wv.fmt("tcp:host={0},port={1}",
+				    url.host, url.port));
 	}
 	
 	public override WvSqlRows select(string sql, params object[] args)

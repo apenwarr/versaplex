@@ -1,5 +1,11 @@
+/*
+ * Versaplex:
+ *   Copyright (C)2007-2008 Versabanq Innovations Inc. and contributors.
+ *       See the included file named LICENSE for license information.
+ */
 using System;
 using System.Data;
+using System.Data.Common;
 using System.Data.SqlTypes;
 using System.Data.SqlClient;
 using System.Collections;
@@ -7,6 +13,7 @@ using System.Collections.Generic;
 using SCG = System.Collections.Generic;
 using Wv.FakeLinq;
 using Wv.Extensions;
+using System.Threading;
 
 namespace Wv
 {
@@ -206,6 +213,7 @@ namespace Wv
 
 	public static implicit operator Decimal(WvAutoCast o)
 	{
+	    decimal d;
 	    if (o.v is Decimal)
 		return (Decimal)o.v;
 	    else if (o.v is UInt64)
@@ -214,8 +222,10 @@ namespace Wv
 		return new Decimal(o.intify());
 	    else if (o.v is double || o.v is float)
 		return new Decimal((double)o);
+	    else if (o.v is string && Decimal.TryParse((string)o.v, out d))
+		return d;
 	    else
-		return Decimal.MinValue;
+		return 0;
 	}
 	
 	public static implicit operator SqlDecimal(WvAutoCast o)
@@ -440,15 +450,28 @@ namespace Wv
 	}
     }
     
-    class WvSqlRows_IDataReader : WvSqlRows, IEnumerable<WvSqlRow>
+    public class WvSqlRows_IDataReader : WvSqlRows, IEnumerable<WvSqlRow>
     {
 	IDataReader reader;
 	WvColInfo[] schema;
+
+	// FIXME:  This design obviously won't work for multiple simultaneous
+	// DB accesses.
+	public static Object cmdmutex = new Object();
+	static IDbCommand curcmd = null;
+
+	static readonly decimal smallmoneymax =  214748.3647m;
+	static readonly decimal smallmoneymin = -214748.3648m;
 	
-	public WvSqlRows_IDataReader(IDataReader reader)
+	public WvSqlRows_IDataReader(IDbCommand cmd)
 	{
-	    wv.assert(reader != null);
-	    this.reader = reader;
+	    wv.assert(cmd != null);
+	    lock (cmdmutex)
+	    {
+		curcmd = cmd;
+	    }
+	    this.reader = cmd.ExecuteReader();
+	    wv.assert(this.reader != null);
 	    var st = reader.GetSchemaTable();
 	    if (st != null)
 		this.schema = WvColInfo.FromDataTable(st).ToArray();
@@ -461,13 +484,96 @@ namespace Wv
 	    if (reader != null)
 		reader.Dispose();
 	    reader = null;
+
+	    lock (cmdmutex)
+	    {
+		if (curcmd != null)
+		    curcmd.Dispose();
+		curcmd = null;
+	    }
 	    
 	    base.Dispose();
 	}
 	
 	public override IEnumerable<WvColInfo> columns
 	    { get { return schema; } }
-
+	
+	// This function exists solely to work around bugs in mono's
+	// Decimal and SqlDecimal data types.  (Tested in mono 1.9.1.0.)
+	// 
+	// This function shouldn't be used at all unless there was an
+	// unexpected conversion error in the first place in GetValues().
+	// 
+	// (Tested with mono 1.9.1.0; failing unit tests are in
+	//  versaplex: verifydata.t.cs/VerifyDecimal, VerifyMoney, VerifyChar)
+	object fixdecimal(IDataRecord rec, int col)
+	{
+	    if (rec is SqlDataReader)
+	    {
+		SqlDataReader r = (SqlDataReader)rec;
+		
+		try
+		{
+		    // mono gets an OverflowException when trying to use
+		    // GetDecimal() on a very large decimal(38,38) field.
+		    // But GetSqlDecimal works... in that particular case.
+		    SqlDecimal sd = r.GetSqlDecimal(col);
+		    try
+		    {
+			return (decimal)sd;
+		    }
+		    catch (OverflowException)
+		    {
+			// Unfortunately, if the SqlDecimal is actually really
+			// huge, it won't fit at all in the (decimal) type
+			// and we get an exception.  We'll have to just
+			// return it in the only type that works, a string.
+			return sd.ToString();
+		    }
+		}
+		catch (OverflowException)
+		{
+		    // fall through to plain GetDecimal
+		}
+		catch (InvalidCastException)
+		{
+		    // fall through to plain GetDecimal
+		}
+	    }
+	    
+	    // Mono doesn't crash when doing GetDecimal on reasonably-sized
+	    // *negative* numbers, but it has another bug: it turns them
+	    // into a huge number > MaxValue instead.  Unfortunately,
+	    // MaxValue depends on the size of the decimal data type in
+	    // use, so we have to check that before anything else.
+	    // 
+	    // Hopefully this translation is always harmless, since we
+	    // only kick it in when the returned value is larger than the
+	    // supposedly largest possible value of the provided data type.
+	    decimal d = rec.GetDecimal(col);
+	    decimal dmin, dmax;
+	    switch (schema[col].size)
+	    {
+	    case 4:
+		dmin = smallmoneymin;
+		dmax = smallmoneymax;
+		break;
+	    case 8:
+		dmin = (decimal)SqlMoney.MinValue;
+		dmax = (decimal)SqlMoney.MaxValue;
+		break;
+	    default:
+		dmin = Decimal.MinValue;
+		dmax = Decimal.MaxValue;
+		break;
+	    }
+	    
+	    if (d > dmax)
+		return dmin*2 + d;
+	    else
+		return d;
+	}
+	
 	public override IEnumerator<WvSqlRow> GetEnumerator()
 	{
 	    int max = reader.FieldCount;
@@ -476,37 +582,38 @@ namespace Wv
 	    while (reader.Read())
 	    {
 		object[] oa = new object[max];
-		try
+		
+		// This ought to be enough, but in mono, unfortunately isn't.
+		// To make testing more consistent, we'll disable it and do
+		// it the slow way on *all* systems, not just if wv.IsMono().
+		// Ugh.
+		//reader.GetValues(oa);
+		    
+		// The slow way.
+		for (int i = 0; i < max; i++)
 		{
-		    reader.GetValues(oa);
-		}
-		catch (OverflowException)
-		{
-		    // This garbage is here because mono gets an
-		    // OverflowException when trying to use GetDecimal() on
-		    // a very large decimal(38,38) field.  But GetSqlDecimal
-		    // works.  Sadly, GetValues() seems to do some kind of
-		    // GetDecimal-like thing internally, so we have to do this
-		    // hack if there's ever a decode error.
-		    // (Tested with mono 1.9.1.0; failing unit test is
-		    //  versaplex: verifydata.t.cs/VerifyDecimal)
-		    for (int i = 0; i < max; i++)
-		    {
-			if (!reader.IsDBNull(i) 
-			      && reader.GetFieldType(i) == typeof(Decimal))
-			{
-			    if (reader is SqlDataReader)
-				oa[i] = ((SqlDataReader)reader)
-				    .GetSqlDecimal(i).ToString();
-			    else
-				oa[i] = reader.GetDecimal(i).ToString();
-			}
-			else
-			    oa[i] = reader.GetValue(i);
-		    }
+		    if (!reader.IsDBNull(i) 
+			&& reader.GetFieldType(i) == typeof(Decimal))
+			oa[i] = fixdecimal(reader, i);
+		    else
+			oa[i] = reader.GetValue(i);
 		}
 		
 		yield return new WvSqlRow(oa, schema);
+	    }
+	}
+
+	public static void Cancel()
+	{
+	    //FIXME:  Obviously needs changing in the long run, since curcmd is
+	    //a static variable at this point.  It shouldn't be static, and
+	    //Cancel should be an abstract method of WvSqlRows which we
+	    //implement per-instance.
+	    lock (cmdmutex)
+	    {
+		if (curcmd != null)
+		   curcmd.Cancel();
+		curcmd = null;
 	    }
 	}
     }

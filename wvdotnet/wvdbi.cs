@@ -1,3 +1,8 @@
+/*
+ * Versaplex:
+ *   Copyright (C)2007-2008 Versabanq Innovations Inc. and contributors.
+ *       See the included file named LICENSE for license information.
+ */
 using System;
 using System.Data;
 using System.Data.Common;
@@ -145,9 +150,8 @@ namespace Wv
 	}
 	
 	public override WvSqlRows select(string sql, params object[] args)
-	{
-	    return new WvSqlRows_IDataReader(prepare(sql, args)
-					       .ExecuteReader());
+	{	
+	    return new WvSqlRows_IDataReader(prepare(sql, args));
 	}
 	
 	public override int execute(string sql, params object[] args)
@@ -258,7 +262,16 @@ namespace Wv
 	    }
 	    
 	    log.print("MSSQL create: '{0}'\n", real);
-	    opendb(new SqlConnection(real));
+	    
+	    try
+	    {
+		opendb(new SqlConnection(real));
+	    }
+	    catch
+	    {
+		try { Dispose(); } catch {}
+		throw;
+	    }
 	}
 	
 	protected override IDbCommand prepare(string sql, params object[] args)

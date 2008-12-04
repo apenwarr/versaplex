@@ -1,3 +1,8 @@
+/*
+ * Versaplex:
+ *   Copyright (C)2007-2008 Versabanq Innovations Inc. and contributors.
+ *       See the included file named LICENSE for license information.
+ */
 #include "wvtest.cs.h"
 // Test the Schemamatic functions that live in the Versaplex daemon.
 
@@ -301,12 +306,16 @@ class SchemamaticTests : SchemamaticTester
     [Test, Category("Schemamatic"), Category("GetSchema")]
     public void TestGetTableSchema()
     {
-        try { VxExec("drop table Table1"); } catch { }
+        VxExecSilent("drop table Table1");
+	VxExecSilent("sp_addtype @typename='schemamatic_test_money', " +
+		     "    @phystype='money'");
+	
         // Name the primary key PK_Table1 to test that GetSchema properly
         // omits the default name.
         string query = "CREATE TABLE [Table1] (\n\t" + 
             "[f1] [int]  NOT NULL,\n\t" +
             "[f2] [money]  NULL,\n\t" + 
+	    "[f2x] [schemamatic_test_money]  NULL,\n\t" +
             "[f3] [varchar] (80) NOT NULL,\n\t" +
             "[f4] [varchar] (max) DEFAULT 'Default Value' NULL,\n\t" + 
             "[f5] [decimal] (3,2),\n\t" + 
@@ -317,8 +326,10 @@ class SchemamaticTests : SchemamaticTester
         VxSchema schema = dbus.Get();
         WVASSERT(schema.Count >= 1);
 
-        string tab1schema = "column: name=f1,type=int,null=0\n" + 
+        string tab1schema = 
+	    "column: name=f1,type=int,null=0\n" + 
             "column: name=f2,type=money,null=1\n" + 
+	    "column: name=f2x,type=schemamatic_test_money,null=1\n" +
             "column: name=f3,type=varchar,null=0,length=80\n" + 
             "column: name=f4,type=varchar,null=1,length=max,default='Default Value'\n" + 
             "column: name=f5,type=decimal,null=1,precision=3,scale=2\n" + 
@@ -501,29 +512,51 @@ class SchemamaticTests : SchemamaticTester
 
         WVPASSEQ(VxPutSchema("Table", "Tab1", sc.tab1sch, VxPutOpts.None), null);
 
-        List<string> inserts = new List<string>();
-        for (int ii = 0; ii < 22; ii++)
-        {
-            inserts.Add(String.Format("INSERT INTO Tab1 ([f1],[f2],[f3]) " + 
-                "VALUES ({0},{1},'{2}');\n", 
-                ii, ii + ".3400", "Hi" + ii));
-        }
+        var inserts = new List<string>();
+	var    rows = new List<string>();
+	
+	// headings
+	string heading = "\"f1\",\"f2\",\"f3\"";
+	rows.Add(heading);
+	
+        for (int ii = 21; ii >= 0; ii--)
+            inserts.Add(wv.fmt("INSERT INTO Tab1 ([f1],[f2],[f3]) " + 
+			       "VALUES ({0},{1},'{2}');", 
+			       ii, ii + ".3400", "Hi" + ii));
 
+	// The rows will come back sorted alphabetically.
+	int[] order = new int[] { 0, 1, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+		2, 20, 21, 3, 4, 5, 6, 7, 8, 9 };
+        foreach (int ii in order)
+	    rows.Add(wv.fmt("{0},{1},{2}",
+			    ii, ii + ".3400", "Hi" + ii));
+	
+/*        inserts.Add("INSERT INTO Tab1 ([f1],[f2],[f3]) " +
+            "VALUES (9501,123.4567," + 
+            "'This string''s good for \"testing\" escaping, isn''t it?');");*/
         inserts.Add("INSERT INTO Tab1 ([f1],[f2],[f3]) " +
-            "VALUES (101,123.4567," + 
-            "'This string''s good for \"testing\" escaping, isn''t it?');\n");
-        inserts.Add("INSERT INTO Tab1 ([f1],[f2],[f3]) " +
-            "VALUES (100,234.5678,NULL);\n");
+            "VALUES (9500,234.5678,NULL);");
+	rows.Add("9500,234.5678,");
+/*	rows.Add("9501,123.4567," +
+	  "\"This string''s good for \\\"testing\\\" escaping, isn't it?\"");*/
+	
+	// terminating blank
+	rows.Add("");
 
         foreach (string ins in inserts)
             WVASSERT(VxExec(ins));
 
-        WVPASSEQ(dbus.GetSchemaData("Tab1", 0, ""), inserts.join(""));
+	string[] newrows 
+	    = dbus.GetSchemaData("Tab1", 0, "", null, null).split("\n");
+	WVPASSEQ(newrows.Length, rows.Count);
+	
+	for (int i = 0; i < newrows.Length; i++)
+	    WVPASSEQ(newrows[i], rows[i]);
 
         VxExec("drop table Tab1");
 
         try {
-            WVEXCEPT(dbus.GetSchemaData("Tab1", 0, ""));
+            WVEXCEPT(dbus.GetSchemaData("Tab1", 0, "", null, null));
 	} catch (Wv.Test.WvAssertionFailure e) {
 	    throw e;
 	} catch (System.Exception e) {
@@ -534,13 +567,14 @@ class SchemamaticTests : SchemamaticTester
 
         WVPASSEQ(VxPutSchema("Table", "Tab1", sc.tab1sch, VxPutOpts.None), null);
 
-        WVPASSEQ(dbus.GetSchemaData("Tab1", 0, ""), "");
+        WVPASSEQ(dbus.GetSchemaData("Tab1", 0, "", null, null), heading + "\n");
 
         dbus.PutSchemaData("Tab1", inserts.join(""), 0);
-        WVPASSEQ(dbus.GetSchemaData("Tab1", 0, ""), inserts.join(""));
+        WVPASSEQ(dbus.GetSchemaData("Tab1", 0, "", null, null),
+		 rows.join("\n"));
 
-        WVPASSEQ(dbus.GetSchemaData("Tab1", 0, "f1 = 11"), 
-            "INSERT INTO Tab1 ([f1],[f2],[f3]) VALUES (11,11.3400,'Hi11');\n");
+        WVPASSEQ(dbus.GetSchemaData("Tab1", 0, "f1 = 11", null, null), 
+            heading + "\n11,11.3400,Hi11\n");
 
         sc.Cleanup();
     }

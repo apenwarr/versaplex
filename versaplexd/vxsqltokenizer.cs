@@ -1,6 +1,11 @@
-
+/*
+ * Versaplex:
+ *   Copyright (C)2007-2008 Versabanq Innovations Inc. and contributors.
+ *       See the included file named LICENSE for license information.
+ */
 using System;
 using System.Collections.Generic;
+using Wv;
 
 public class VxSqlToken
 {
@@ -22,6 +27,12 @@ public class VxSqlToken
 	trailing_space = "";
     }
 
+    public bool IsValidIdentifier()
+    {
+    	return type == TokenType.DoubleQuoted || type == TokenType.Unquoted
+		|| type == TokenType.Delimited;
+    }
+
     public bool NotQuotedAndLowercaseEq(string eq)
     {
 	return type != TokenType.SingleQuoted && type != TokenType.DoubleQuoted
@@ -30,15 +41,25 @@ public class VxSqlToken
 		&& name.ToLower() == eq.ToLower();
     }
 
+    public bool IsKeyword()
+    {
+    	return type == TokenType.Keyword;
+    }
+
     public bool IsKeywordEq(string key)
     {
-	return type == TokenType.Keyword && key.ToUpper() == name.ToUpper();
+	return IsKeyword() && key.ToUpper() == name.ToUpper();
     }
 
     public bool IsIdentifier()
     {
     	return type == TokenType.DoubleQuoted || type == TokenType.Delimited ||
 		type == TokenType.Unquoted;
+    }
+
+    public bool IsComment()
+    {
+    	return type == TokenType.Comment || type == TokenType.DelimitedComment;
     }
 
     public override string ToString()
@@ -387,6 +408,11 @@ public class VxSqlTokenizer
 	    Console.WriteLine("Token: {0}: {1}", t.type.ToString(), t.name);
 	}
 */
+    }
+    
+    public void tokenize(string fmt, params object[] args)
+    {
+	tokenize(wv.fmt(fmt, args));
     }
 
     public VxSqlTokenizer(string query)

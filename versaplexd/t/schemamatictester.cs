@@ -1,3 +1,8 @@
+/*
+ * Versaplex:
+ *   Copyright (C)2007-2008 Versabanq Innovations Inc. and contributors.
+ *       See the included file named LICENSE for license information.
+ */
 #include "wvtest.cs.h"
 // A VersaplexTester that has some utility functions useful for Schemamatic.
 
@@ -91,14 +96,15 @@ class SchemamaticTester : VersaplexTester
 
         public void Cleanup()
         {
-            try { t.VxExec("drop view View1"); } catch { }
-            try { t.VxExec("drop trigger Trig1"); } catch { }
-            try { t.VxExec("drop table Tab1"); } catch { }
-            try { t.VxExec("drop table Tab2"); } catch { }
-            try { t.VxExec("drop xml schema collection TestSchema"); } catch { }
-            try { t.VxExec("drop procedure Func1"); } catch { }
-            try { t.VxExec("drop function Func2"); } catch { }
-            try { t.VxExec("drop function TabFunc1"); } catch { }
+            t.VxExecSilent("drop view View1");
+            t.VxExecSilent("drop trigger Trig1");
+            t.VxExecSilent("drop table Tab1");
+            t.VxExecSilent("drop table Tab2");
+            t.VxExecSilent("drop xml schema collection TestSchema");
+            t.VxExecSilent("drop procedure Func1");
+            t.VxExecSilent("drop procedure Func2");
+            t.VxExecSilent("drop function Func2");
+            t.VxExecSilent("drop function TabFunc1");
         }
     }
 

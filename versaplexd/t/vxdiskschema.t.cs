@@ -1,3 +1,8 @@
+/*
+ * Versaplex:
+ *   Copyright (C)2007-2008 Versabanq Innovations Inc. and contributors.
+ *       See the included file named LICENSE for license information.
+ */
 #include "wvtest.cs.h"
 // Test the VxDiskSchema backend
 
@@ -121,7 +126,8 @@ class DiskSchemaTests : SchemamaticTester
             WVPASS(File.Exists(fullpath));
             WVPASSEQ(File.ReadAllText(fullpath), contents);
 
-            WVPASSEQ(backend.GetSchemaData("TestTable", 10100, ""), contents);
+            WVPASSEQ(backend.GetSchemaData("TestTable", 10100, "", null, null),
+		     contents);
         }
         finally
         {

@@ -1,3 +1,8 @@
+/*
+ * Versaplex:
+ *   Copyright (C)2007-2008 Versabanq Innovations Inc. and contributors.
+ *       See the included file named LICENSE for license information.
+ */
 #include "wvtest.cs.h"
 
 using System;
@@ -183,8 +188,9 @@ class VerifyData : VersaplexTester
     {
     	if (data.GetType() == typeof(Int64))
 	    return (long)data;
-        return data.GetType() == typeof(Decimal) ? 
-            (int)(Decimal)data : (int)data;
+        if (data.GetType() == typeof(Decimal))
+	    return (long)(Decimal)data;
+	return (int)data;
     }
 
     [Test, Category("Data")]
@@ -214,10 +220,6 @@ class VerifyData : VersaplexTester
 
         WVASSERT(lipsum_text.Length >= sizes[sizes.Length-1]);
 
-        // FIXME: For any values past the first 4 in each of these arrays,
-        // dbus-sharp chokes with a "Read length mismatch" exception.  It's
-        // probably related to the packets being longer than usual.  See
-        // GoogleCode bug #1.
         for (int i=0; i < types.Length; i++) {
             for (int j=0; j < sizes.Length && sizes[j] <= typemax[i]; j++) {
                 if (sizeparam[i]) {
@@ -652,8 +654,7 @@ class VerifyData : VersaplexTester
         // Cast the return type because Mono doesn't properly handle negative
         // money amounts
         // Bug filed with Mono.
-	using (var result = Reader("SELECT CAST(m as decimal(20,4)),"
-                    + "CAST(sm as decimal(20,4)) "
+	using (var result = Reader("SELECT m, sm "
                     + "FROM #test1 ORDER BY roworder"))
 	{
 	    var rows = result.ToArray();

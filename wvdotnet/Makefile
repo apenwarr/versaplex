@@ -22,6 +22,7 @@ wv.dll: assemblyinfo.cs \
 	wvstream.cs wvstreamstream.cs wvsockstream.cs \
 	wvloopback.cs wvlog.cs wvhexdump.cs \
 	wvextensions.cs wvweb.cs wvhtml.cs wvhttpserver.cs \
+	wvcsv.cs \
 	ndesk-options.cs mono-getline.cs \
 	test.dll
 

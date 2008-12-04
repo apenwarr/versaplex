@@ -15,6 +15,7 @@ static WvLogRcv *rcv = NULL;
 int log_level = 0;
 static WvString log_moniker;
 
+WV_LINK_TO(WvConStream);
 WV_LINK_TO(WvTCPConn);
 WV_LINK_TO(WvSSLStream);
 WV_LINK_TO(WvGzipStream);
@@ -32,7 +33,7 @@ struct pstring wvlog_get_moniker()
 
 int wvlog_isset()
 {
-    return !log_moniker.isnull() && *(log_moniker.cstr());
+    return !!log_moniker;
 }
 
 class WvNullRcv : public WvLogRcv
@@ -53,24 +54,25 @@ void wvlog_open()
     else  // This will only be true once; when we first call this function
 	setup_console_crash();
 #endif
-
+    
     if (wvlog_isset())
     {
-	WvLog::LogLevel pri = WvLog::Info;
-	if (log_level)
-	{
-	    if (log_level >= (int)WvLog::NUM_LOGLEVELS)
-		pri = WvLog::Debug5;
-	    else if (log_level >= (int)WvLog::Info)
-		pri = (WvLog::LogLevel)log_level;
-	}
+	WvLog::LogLevel pri;
+	if (log_level >= (int)WvLog::NUM_LOGLEVELS)
+	    pri = WvLog::Debug5;
+	else if (log_level >= 1)
+	    pri = (WvLog::LogLevel)log_level;
+	else
+	    pri = WvLog::Info;
 
 	IWvStream *s = wvcreate<IWvStream>(log_moniker);
 	assert(s);
-	WvIStreamList::globallist.append(s, false, "VxODBC logger");
 	rcv = new WvLogStream(s, pri);
     	if (!wvlog)
 	    wvlog = new WvLog(getpid(), WvLog::Debug);
+
+	(*wvlog)(WvLog::Notice, "Log initialized. (log_level=%s)\n",
+		 log_level);
     }
     else // We want this to also capture (and eliminate) DBus messages.
 	rcv = new WvNullRcv();
@@ -90,6 +92,7 @@ void wvlog_print(const char *file, int line, const char *s)
 
 void wvlog_close()
 {
+    if (wvlog) (*wvlog)(WvLog::Info, "Log closing.\n");
     if (wvlog) delete wvlog;
     if (rcv) delete rcv;
     wvlog = NULL;

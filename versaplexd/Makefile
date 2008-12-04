@@ -2,9 +2,9 @@ WVDOTNET=../wvdotnet
 include ../rules.mk
 include ../monorules.mk
 
-all: versaplexd sm vxcli
+all: versaplexd versaplexd-svc sm vxcli
 
-PKGS += /unsafe /r:System.Data
+PKGS += /r:System.Data
 
 test: all t/test
 	
@@ -12,7 +12,7 @@ tests: all t/all
 
 t/all: all
 
-versaplexd.exe: versaplexd.cs \
+versaplexd.exe versaplexd-svc.exe: versaplexd.cs \
     ischemabackend.cs \
     vxapi.cs vxsqltokenizer.cs \
     vxcolumninfo.cs vxdbusdatetime.cs vxdbschema.cs \
@@ -21,7 +21,12 @@ versaplexd.exe: versaplexd.cs \
     vxsqlpool.cs wvdbusserver.cs \
     ../wvdbus-sharp/wvdbus-sharp.dll \
     ../wvdotnet/wv.dll
-
+    
+versaplexd.exe: main.cs
+versaplexd-svc.exe: versaplexd-svc.cs
+versaplexd-svc.exe: \
+	PKGS+=/r:System.Configuration.Install /r:System.ServiceProcess
+    
 sm.exe: \
     ischemabackend.cs storedprocedure.cs \
     vxexceptions.cs \

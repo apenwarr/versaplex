@@ -1,4 +1,5 @@
 #include "vxhelpers.h"
+#include "wvistreamlist.h"
 #include <list>
 
 static std::map<unsigned int, VxResultSet *> signal_returns;
@@ -75,7 +76,7 @@ void VxResultSet::process_msg(WvDBusMsg &msg)
     }
 }
     
-void VxResultSet::runquery(WvDBusConn &conn, const char *func,
+void VxResultSet::_runquery(WvDBusConn &conn, const char *func,
 			    const char *query)
 {
     WvDBusMsg msg("vx.versaplexd", "/db", "vx.db", func);
@@ -87,6 +88,8 @@ void VxResultSet::runquery(WvDBusConn &conn, const char *func,
 	callbacked_conns[&conn] = true;
     }
     process_colinfo = true;
+    while (WvIStreamList::globallist.select(0))
+	WvIStreamList::globallist.callback();
     WvDBusMsg reply = conn.send_and_wait(msg, 50000,
     			wv::bind(&update_sigrets, _1, this));
 
@@ -98,4 +101,49 @@ void VxResultSet::runquery(WvDBusConn &conn, const char *func,
     uint32_t reply_serial = reply.get_replyserial();
     if (signal_returns[reply_serial])
 	signal_returns.erase(reply_serial);
+}
+
+void VxStatement::runquery(VxResultSet &rs,
+			   const char *func, const char *query)
+{
+    if (dbus().isok())
+	rs._runquery(dbus(), func, query);
+    if (!dbus().isok())
+    {
+	ConnectionClass *conn = SC_get_conn(stmt);
+	ConnInfo *ci = &conn->connInfo;
+	mylog("DBus connection died!  Reconnecting to %s\n",
+	      ci->dbus_moniker);
+	conn->dbus = new WvDBusConn(ci->dbus_moniker);
+	rs._runquery(dbus(), func, query);
+    }
+}
+
+void VxResultSet::return_versaplex_db()
+{
+    // Allocate space for the column info data... see below.
+    // const int my_cols = 5;
+    const int my_cols = 1;
+    QR_set_num_fields(res, my_cols);
+    maxcol = my_cols - 1;
+
+    // Column info... the names and types of the columns here were stolen from
+    // tracing the result of a 'list tables' call to the server.
+    set_field_info(0, "TABLE_QUALIFIER", 1043, 128);
+    //FIXME:  The below 4 are commented out, because StarQuery happens to work
+    //        with only one return column.  Will other applications that also
+    //        expect some kind of standard reply to what catalogs are available?
+    //set_field_info(1, "TABLE_OWNER", 1043, 128);
+    //set_field_info(2, "TABLE_NAME", 1043, 128);
+    //set_field_info(3, "TABLE_TYPE", 1043, 32);
+    //set_field_info(4, "REMARKS", 1043, 254);
+
+    // set up fake data, just one row, with the TABLE_QUALIFIER being
+    // a fake '__VERSAPLEX' database, and the rest of the columns being null.
+    TupleField *tuple = QR_AddNew(res);
+
+    set_tuplefield_string(&tuple[0], "__VERSAPLEX");
+    //FIXME:  See above.
+    //for (int i = 1; i < my_cols; ++i)
+    //	set_tuplefield_string(&tuple[i], NULL);
 }

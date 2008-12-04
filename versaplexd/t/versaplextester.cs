@@ -1,3 +1,8 @@
+/*
+ * Versaplex:
+ *   Copyright (C)2007-2008 Versabanq Innovations Inc. and contributors.
+ *       See the included file named LICENSE for license information.
+ */
 #include "wvtest.cs.h"
 
 using System;
@@ -104,7 +109,7 @@ public class VersaplexTester: IDisposable
 	return dbi.select(query);
     }
     
-    WvDbusMsg methodcall(string method, string signature)
+    protected WvDbusMsg methodcall(string method, string signature)
     {
         return new WvDbusCall("vx.versaplexd", "/db", 
 			      "vx.db", method, signature);
@@ -124,6 +129,19 @@ public class VersaplexTester: IDisposable
         WvDbusMsg reply = bus.send_and_wait(call);
 	reply.check("a(issnny)vaay");
 	return true;
+    }
+    
+    internal bool VxExecSilent(string query)
+    {
+	try
+	{
+	    return VxExec(query);
+	}
+	catch (Exception e)
+	{
+	    Console.WriteLine("    Exception: {0}", e.Message);
+	    return true;
+	}
     }
 
     internal bool VxScalar(string query, out object result)

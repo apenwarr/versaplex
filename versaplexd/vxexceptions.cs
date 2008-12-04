@@ -1,3 +1,8 @@
+/*
+ * Versaplex:
+ *   Copyright (C)2007-2008 Versabanq Innovations Inc. and contributors.
+ *       See the included file named LICENSE for license information.
+ */
 using System;
 using System.Data.Common;
 using System.Data.SqlClient;
@@ -144,6 +149,18 @@ class VxConfigException : VxRequestException {
 
     public VxConfigException(string msg, Exception inner)
         : base("vx.db.configerror", msg, inner)
+    {
+    }
+}
+
+class VxSecurityException : VxRequestException {
+    public VxSecurityException()
+	: base("vx.db.securityerror")
+    {
+    }
+
+    public VxSecurityException(string msg)
+	: base("vx.db.securityerror", msg)
     {
     }
 }

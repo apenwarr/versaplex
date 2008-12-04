@@ -1,4 +1,10 @@
+/*
+ * Versaplex:
+ *   Copyright (C)2007-2008 Versabanq Innovations Inc. and contributors.
+ *       See the included file named LICENSE for license information.
+ */
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -123,7 +129,7 @@ public static class SchemamaticCli
         if (newcmd.pri < 0)
             return null;
 
-        newcmd.cmd = parts[1];
+        newcmd.cmd = parts[1].ToLower();
         if (newcmd.cmd == "export")
         {
             // You can say "12345 export foo" or "12345 export foo where bar"
@@ -211,6 +217,41 @@ public static class SchemamaticCli
 
         log.print("Reading export commands.\n");
         string[] cmd_strings = File.ReadAllLines(cmdfile);
+        
+        Dictionary<string,string> replaces = new Dictionary<string,string>();
+        List<string> skipfields = new List<string>();
+        string tablefield, replacewith;
+        int i = 0;
+        foreach (string s in cmd_strings)
+        {
+            if (s.StartsWith("replace "))
+            {
+                //take replace off
+                replacewith = s.Substring(8);
+                
+                //take table.fieldname
+                tablefield = replacewith.Substring(0,
+                                    s.IndexOf(" with ")-8).Trim().ToLower();
+                
+                //take the value
+                replacewith = replacewith.Substring(
+                                    replacewith.IndexOf(" with ")+6).Trim();
+                if (replacewith.ToLower() == "null")
+                    replaces.Add(tablefield,null);
+                else
+                    replaces.Add(tablefield,
+                               replacewith.Substring(1,replacewith.Length-2));
+                
+                cmd_strings[i] = "";
+            }
+            else if (s.StartsWith("skipfield "))
+            {
+                skipfields.Add(s.Substring(10).Trim().ToLower());
+                cmd_strings[i] = "";
+            }
+                
+            i++;
+        }
 
         log.print("Parsing commands.\n");
         IEnumerable<Command> commands = ParseCommands(cmd_strings);
@@ -244,8 +285,9 @@ public static class SchemamaticCli
             StringBuilder data = new StringBuilder();
             if (cmd.cmd == "export")
             {
-                data.Append(wv.fmt("DELETE FROM [{0}];\n", cmd.table));
-                data.Append(remote.GetSchemaData(cmd.table, cmd.pri, cmd.where));
+                data.Append(wv.fmt("TABLE {0}\n", cmd.table));
+                data.Append(remote.GetSchemaData(cmd.table, cmd.pri, cmd.where,
+                                                 replaces, skipfields));
             }
             else if (cmd.cmd == "zap")
             {
@@ -264,7 +306,7 @@ public static class SchemamaticCli
                             if (type == "Table")
                                 todelete.Add(name);
                         }
-                        todelete.Sort();
+                        todelete.Sort(StringComparer.Ordinal);
                         foreach (string name in todelete)
                             data.Append(wv.fmt("DELETE FROM [{0}]\n", name));
                     }
@@ -702,10 +744,10 @@ public static class SchemamaticCli
 	Console.Error.Write("Done.\n");
     }
 
-    private static ISchemaBackend GetBackend(string moniker)
+    private static ISchemaBackend GetBackend(WvUrl url)
     {
-        log.print("Connecting to '{0}'\n", moniker);
-        return VxSchema.create(moniker);
+        log.print("Connecting to '{0}'\n", url);
+        return VxSchema.create(url.ToString(true));
     }
 
     public static int Main(string[] args)
@@ -796,15 +838,15 @@ public static class SchemamaticCli
 	if (url.password.e())
 	    url.password = bookmarks.get("Defaults", "password");
 	    
-	using (var backend = GetBackend(url.ToString()))
+	using (var backend = GetBackend(url))
 	{
-	    bookmarks.set("Defaults", "url", moniker);
+	    bookmarks.set("Defaults", "url", url.ToString(true));
 	    bookmarks.maybeset("Defaults", "user", url.user);
 	    bookmarks.maybeset("Defaults", "password", url.password);
 	    
 	    string p = url.path.StartsWith("/") 
 		? url.path.Substring(1) : url.path;
-	    bookmarks.set("Bookmarks", p, moniker);
+	    bookmarks.set("Bookmarks", p, url.ToString(true));
 	    
 	    try {
 		bookmarks.save();

@@ -1,3 +1,8 @@
+/*
+ * Versaplex:
+ *   Copyright (C)2007-2008 Versabanq Innovations Inc. and contributors.
+ *       See the included file named LICENSE for license information.
+ */
 #include "wvtest.cs.h"
 using System;
 using System.Collections.Generic;
@@ -140,7 +145,7 @@ public class WvStreamTests
     
     [Test] public void filestream()
     {
-	using (WvFile f = new WvFile("testfile.txt"))
+	using (WvFile f = new WvFile("testfile.txt", "r"))
 	{
 	    f.onreadable += checker(f).ToAction();
 	    while (f.ok)
@@ -156,7 +161,7 @@ public class WvStreamTests
 	    }
 	}
 	
-	using (WvFile f = new WvFile("testfile.txt"))
+	using (WvFile f = new WvFile("testfile.txt", "r"))
 	{
 	    int rcount = 0;
 	    f.onreadable += delegate() {

@@ -138,6 +138,8 @@ DllMain(HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
 		_splitpath(pathname, NULL, NULL, fname, NULL);
 		if (stricmp(fname, "msaccess") == 0)
 		    exepgm = 1;
+		else if (strnicmp(fname, "msqry", 5) == 0)
+		    exepgm = 2;
 	    }
 	    osversion.dwOSVersionInfoSize = sizeof(osversion);
 	    if (GetVersionEx(&osversion))
