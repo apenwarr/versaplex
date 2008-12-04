@@ -28,7 +28,8 @@ internal interface ISchemaBackend : IDisposable
     // "replaces" is the list of replacements to be made on a field
     // "skipfields" is the list of fields to skip during export
     string GetSchemaData(string tablename, int seqnum, string where,
-                         Dictionary<string,string> replaces, List<string> skipfields);
+                         Dictionary<string,string> replaces,
+			 List<string> skipfields);
 
     // Delete all rows from the given table and replace them with the given
     // data.  text is an opaque hunk of text returned from GetSchemaData.
