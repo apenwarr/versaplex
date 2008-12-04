@@ -90,7 +90,7 @@ internal static class VxDb {
     }
 
 
-    internal static string query_parser(string query, bool unrestricted)
+    internal static string query_parser(string query, int access_restrictions)
     {
 	VxSqlTokenizer tokenizer = new VxSqlTokenizer(query);
 	VxSqlToken[] tokens = tokenizer.gettokens().ToArray();
@@ -187,7 +187,7 @@ internal static class VxDb {
 		result.Add(tok);
 	}
 
-	if (unrestricted)
+	if (access_restrictions == 0) //no restrictions
 	    goto end;
 
 	// see below for what these all do
@@ -201,7 +201,7 @@ internal static class VxDb {
 	bool have_altertable = false;
 	bool altertable_valid_for_set = true;
 
-	string exception_txt = "Nice try, sneaking multiple requests in there!";
+	string exception_txt = "Insufficient security permissions for this type of query.";
 
 	foreach (VxSqlToken t in result)
 	{
@@ -218,10 +218,11 @@ internal static class VxDb {
 		if (t.IsKeywordEq("transaction") ||
 		    t.IsKeywordEq("distributed"))
 		{
-		    if (!have_command)
+		    //access_restrictions == 2 => no non-select
+		    if (!have_command && access_restrictions < 2)
 			have_command = true;
 		    else
-			throw new VxSqlException(exception_txt);
+			throw new VxSecurityException(exception_txt);
 		}
 	    }
 
@@ -268,7 +269,9 @@ internal static class VxDb {
 
 	    if (IsSimpleCommand(t))
 	    {
-		if (!have_command)
+		//access_restrictions == 2 => no non-select
+		if (!have_command && (access_restrictions < 2 ||
+					t.IsKeywordEq("select")))
 		{
 		    // No command yet?  Now we have one. Flag a few
 		    have_command = true;
@@ -292,7 +295,7 @@ internal static class VxDb {
 			t.IsKeywordEq("set"))
 		    have_altertable = false;
 		else if (!t.IsKeywordEq("select"))
-		    throw new VxSqlException(exception_txt);
+		    throw new VxSecurityException(exception_txt);
 	    }
 	}
 end:
@@ -316,153 +319,172 @@ end:
 	var it = call.iter();
 
 	string query = query_parser(it.pop(),
-			    VxSqlPool.is_allowed_unrestricted_queries(connid));
+			    VxSqlPool.access_restrictions(connid));
 
         log.print(WvLog.L.Debug3, "ExecChunkRecordset {0}\n", query);
 
-        try
+	//Times we tried going through this loop to completion
+	int numtries = 0;
+
+	while (true)
 	{
-	    List<object[]> rows = new List<object[]>();
-	    List<byte[]> rownulls = new List<byte[]>();
-	    VxColumnInfo[] colinfo;
-		
-	    // Our size here is just an approximation.
-	    int cursize = 0;
-		
-	    // FIXME:  Sadly, this is stupidly similar to ExecRecordset.
-	    // Anything we can do here to identify commonalities?
-            using (var dbi = VxSqlPool.create(connid))
-            using (WvSqlRows resultset = dbi.select(query))
+	    try
 	    {
-		var columns = resultset.columns.ToArray();
-		colinfo = ProcessSchema(columns);
-		int ncols = columns.Count();
+		List<object[]> rows = new List<object[]>();
+		List<byte[]> rownulls = new List<byte[]>();
+		VxColumnInfo[] colinfo;
 		
-		foreach (WvSqlRow cur_row in resultset)
+		// Our size here is just an approximation.
+		int cursize = 0;
+		
+		// FIXME:  Sadly, this is stupidly similar to ExecRecordset.
+		// Anything we can do here to identify commonalities?
+		using (var dbi = VxSqlPool.create(connid))
+		using (WvSqlRows resultset = dbi.select(query))
 		{
-		    object[] row = new object[ncols];
-		    byte[] rownull = new byte[ncols];
-		    cursize += rownull.Length;
-		    
-		    for (int i = 0; i < ncols; i++) 
+		    var columns = resultset.columns.ToArray();
+		    colinfo = ProcessSchema(columns);
+		    int ncols = columns.Count();
+		
+		    foreach (WvSqlRow cur_row in resultset)
 		    {
-			WvAutoCast cval = cur_row[i];
-			bool isnull = cval.IsNull;
-			
-			row[i] = null;
-			
-			rownull[i] = isnull ? (byte)1 : (byte)0;
-			
-			switch (colinfo[i].VxColumnType) 
+			object[] row = new object[ncols];
+			byte[] rownull = new byte[ncols];
+			cursize += rownull.Length;
+		    
+			for (int i = 0; i < ncols; i++) 
 			{
-                            case VxColumnType.Int64:
-                                row[i] = !isnull ?
-                                    (Int64)cval : new Int64();
-				cursize += sizeof(Int64);
-                                break;
-                            case VxColumnType.Int32:
-                                row[i] = !isnull ?
-                                    (Int32)cval : new Int32();
-				cursize += sizeof(Int32);
-                                break;
-                            case VxColumnType.Int16:
-                                row[i] = !isnull ?
-                                    (Int16)cval : new Int16();
-				cursize += sizeof(Int16);
-                                break;
-                            case VxColumnType.UInt8:
-                                row[i] = !isnull ?
-                                    (Byte)cval : new Byte();
-				cursize += sizeof(Byte);
-                                break;
-                            case VxColumnType.Bool:
-                                row[i] = !isnull ?
-                                    (bool)cval : new Boolean();
-				cursize += sizeof(Boolean);
-                                break;
-                            case VxColumnType.Double:
-                                // Might return a Single or Double
-                                // FIXME: Check if getting a single causes this
-                                // to croak
-                                row[i] = !isnull ?
-                                    (double)cval : (double)0.0;
-				cursize += sizeof(double);
-                                break;
-                            case VxColumnType.Uuid:
-				//FIXME:  Do I work?
-                                row[i] = !isnull ?
-                                    (string)cval : "";
-				cursize += !isnull ?
-				    ((string)cval).Length * sizeof(Char) : 0;
-                                break;
-                            case VxColumnType.Binary:
-                                {
-                                    if (isnull) 
-                                    {
-                                        row[i] = new byte[0];
-                                        break;
-                                    }
+			    WvAutoCast cval = cur_row[i];
+			    bool isnull = cval.IsNull;
 
-				    row[i] = (byte[])cval;
-				    cursize += ((byte[])cval).Length;
-                                    break;
-                                }
-                            case VxColumnType.String:
-                                row[i] = !isnull ? (string)cval : "";
-				cursize += !isnull ?
-				    ((string)cval).Length * sizeof(Char) : 0;
-                                break;
-                            case VxColumnType.DateTime:
-                                row[i] = !isnull ?
-                                    new VxDbusDateTime((DateTime)cval) :
-                                    new VxDbusDateTime();
-				cursize += System.Runtime.InteropServices.Marshal.SizeOf((VxDbusDateTime)row[i]);
-                                break;
-                            case VxColumnType.Decimal:
-                                row[i] = !isnull ?
-                                    ((Decimal)cval).ToString() : "";
-				cursize += ((string)(row[i])).Length *
-					    sizeof(Char);
-                                break;
+			    row[i] = null;
+
+			    rownull[i] = isnull ? (byte)1 : (byte)0;
+			
+			    switch (colinfo[i].VxColumnType) 
+			    {
+				case VxColumnType.Int64:
+				    row[i] = !isnull ?
+					(Int64)cval : new Int64();
+				    cursize += sizeof(Int64);
+				    break;
+				case VxColumnType.Int32:
+				    row[i] = !isnull ?
+					(Int32)cval : new Int32();
+				    cursize += sizeof(Int32);
+				    break;
+				case VxColumnType.Int16:
+				    row[i] = !isnull ?
+					(Int16)cval : new Int16();
+				    cursize += sizeof(Int16);
+				    break;
+				case VxColumnType.UInt8:
+				    row[i] = !isnull ?
+					(Byte)cval : new Byte();
+				    cursize += sizeof(Byte);
+				    break;
+				case VxColumnType.Bool:
+				    row[i] = !isnull ?
+					(bool)cval : new Boolean();
+				    cursize += sizeof(Boolean);
+				    break;
+				case VxColumnType.Double:
+				    // Might return a Single or Double
+				    // FIXME: Check if getting a single causes
+				    // this to croak
+				    row[i] = !isnull ?
+					(double)cval : (double)0.0;
+				    cursize += sizeof(double);
+				    break;
+				case VxColumnType.Uuid:
+				    //FIXME:  Do I work?
+				    row[i] = !isnull ?
+					(string)cval : "";
+				    cursize += !isnull ?
+					((string)cval).Length * sizeof(Char):0;
+				    break;
+				case VxColumnType.Binary:
+				    {
+					if (isnull) 
+					{
+					    row[i] = new byte[0];
+					    break;
+					}
+
+					row[i] = (byte[])cval;
+					cursize += ((byte[])cval).Length;
+					break;
+				    }
+				case VxColumnType.String:
+				    row[i] = !isnull ? (string)cval : "";
+				    cursize += !isnull ?
+					((string)cval).Length * sizeof(Char):0;
+				    break;
+				case VxColumnType.DateTime:
+				    row[i] = !isnull ?
+					new VxDbusDateTime((DateTime)cval) :
+					new VxDbusDateTime();
+				    cursize += System.Runtime.InteropServices.Marshal.SizeOf((VxDbusDateTime)row[i]);
+				    break;
+				case VxColumnType.Decimal:
+				    row[i] = !isnull ?
+					((Decimal)cval).ToString() : "";
+				    cursize += ((string)(row[i])).Length *
+						sizeof(Char);
+				    break;
+			    }
+			} // column iterator
+		    
+			rows.Add(row);
+			rownulls.Add(rownull);
+
+			if (cursize >= 1024*1024) //approx 1 MB
+			{
+			    log.print(WvLog.L.Debug4,
+				    "(1 MB reached; {0} rows)\n",
+				    rows.Count);
+
+
+			    SendChunkRecordSignal(conn, call, call.sender,
+						  colinfo, rows.ToArray(),
+						  rownulls.ToArray());
+			
+			    rows = new List<object[]>();
+			    rownulls = new List<byte[]>();
+			    cursize = 0;
 			}
-		    } // column iterator
-		    
-		    rows.Add(row);
-		    rownulls.Add(rownull);
-		    
-		    if (cursize >= 1024*1024) //approx 1 MB
-		    {
-			log.print(WvLog.L.Debug4,
-				  "(1 MB reached; {0} rows)\n",
-				  rows.Count);
-			
-			SendChunkRecordSignal(conn, call, call.sender, colinfo,
-					      rows.ToArray(),
-					      rownulls.ToArray());
-			
-			rows = new List<object[]>();
-			rownulls = new List<byte[]>();
-			cursize = 0;
-		    }
-		} // row iterator
-	    } // using
+		    } // row iterator
+		} // using
 
-	    // OK, we're down to either one more packet or no more data
-	    // Package that up in the 'reply' to this message, saving some
-	    // data being sent.
-	    if (cursize > 0)
-		log.print(WvLog.L.Debug4, "(Remaining data; {0} rows)\n",
-			  rows.Count);
+		// OK, we're down to either one more packet or no more data
+		// Package that up in the 'reply' to this message, saving some
+		// data being sent.
+		if (cursize > 0)
+		    log.print(WvLog.L.Debug4, "(Remaining data; {0} rows)\n",
+			    rows.Count);
 
-	    // Create reply, either with or with no data
-	    WvDbusWriter replywriter =
-	        VxDbusRouter.PrepareRecordsetWriter(colinfo,
-					            rows.ToArray(),
-						    rownulls.ToArray());
-	    reply = call.reply("a(issnny)vaay").write(replywriter);
-        } catch (DbException e) {
-            throw new VxSqlException(e.Message, e);
-        }
+		// Create reply, either with or with no data
+		WvDbusWriter replywriter =
+		    VxDbusRouter.PrepareRecordsetWriter(colinfo,
+							rows.ToArray(),
+							rownulls.ToArray());
+		reply = call.reply("a(issnny)vaay").write(replywriter);
+		break;
+	    } catch (DbException e) {
+		throw new VxSqlException(e.Message, e);
+	    } catch (VxConfigException e)
+	    {
+		if (e.Message.StartsWith("Connect: A network-related or instance-specific error")
+		    && ++numtries <= 1)  //only one retry
+		{
+		    log.print(WvLog.L.Debug4,
+			"Can't connect to DB, fishy..., attempting to reconnect... (attempt #{0})\n",
+			numtries);
+		}
+		else
+		    throw e;  //rethrow
+	    }
+	} //while
     }
 
     internal static void ExecRecordset(string connid, string query,
@@ -470,7 +492,7 @@ end:
             out byte[][] nullity)
     {
 	query = query_parser(query,
-			    VxSqlPool.is_allowed_unrestricted_queries(connid));
+			    VxSqlPool.access_restrictions(connid));
 
         log.print(WvLog.L.Debug3, "ExecRecordset {0}\n", query);
 
