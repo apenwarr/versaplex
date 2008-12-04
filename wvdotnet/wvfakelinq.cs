@@ -15,6 +15,14 @@ namespace Wv.FakeLinq
     
     public static class WvFakeLinq
     {
+	public static bool Contains(this IEnumerable ie, object o)
+	{
+	    foreach (object t in ie)
+		if (t == o)
+		    return true;
+	    return false;
+	}
+	
 	public static IEnumerable<T> Where<T>(this IEnumerable<T> ie,
 					      WvFunc<T,bool> f)
 	{
