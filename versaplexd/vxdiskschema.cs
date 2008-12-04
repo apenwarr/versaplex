@@ -129,7 +129,8 @@ internal class VxDiskSchema : ISchemaBackend
     }
 
     // Note: we ignore the "where" clause and just return everything.
-    public string GetSchemaData(string tablename, int seqnum, string where)
+    public string GetSchemaData(string tablename, int seqnum, string where,
+                                Dictionary<string,string> replaces, List<string> skipfields)
     {
         string datadir = Path.Combine(exportdir, "DATA");
         string filename = wv.fmt("{0}-{1}.sql", seqnum, tablename);

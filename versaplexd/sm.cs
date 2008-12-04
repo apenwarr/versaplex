@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -211,6 +212,41 @@ public static class SchemamaticCli
 
         log.print("Reading export commands.\n");
         string[] cmd_strings = File.ReadAllLines(cmdfile);
+        
+        Dictionary<string,string> replaces = new Dictionary<string,string>();
+        List<string> skipfields = new List<string>();
+        string tablefield, replacewith;
+        int i = 0;
+        foreach (string s in cmd_strings)
+        {
+            if (s.StartsWith("replace "))
+            {
+                //take replace off
+                replacewith = s.Substring(8);
+                
+                //take table.fieldname
+                tablefield = replacewith.Substring(0,
+                                    s.IndexOf(" with ")-8).Trim().ToLower();
+                
+                //take the value
+                replacewith = replacewith.Substring(
+                                    replacewith.IndexOf(" with ")+6).Trim();
+                if (replacewith.ToLower() == "null")
+                    replaces.Add(tablefield,null);
+                else
+                    replaces.Add(tablefield,
+                               replacewith.Substring(1,replacewith.Length-2));
+                
+                cmd_strings[i] = "";
+            }
+            else if (s.StartsWith("skipfield "))
+            {
+                skipfields.Add(s.Substring(10).Trim().ToLower());
+                cmd_strings[i] = "";
+            }
+                
+            i++;
+        }
 
         log.print("Parsing commands.\n");
         IEnumerable<Command> commands = ParseCommands(cmd_strings);
@@ -244,8 +280,9 @@ public static class SchemamaticCli
             StringBuilder data = new StringBuilder();
             if (cmd.cmd == "export")
             {
-                data.Append(wv.fmt("DELETE FROM [{0}];\n", cmd.table));
-                data.Append(remote.GetSchemaData(cmd.table, cmd.pri, cmd.where));
+                data.Append(wv.fmt("TABLE {0}\n", cmd.table));
+                data.Append(remote.GetSchemaData(cmd.table, cmd.pri, cmd.where,
+                                                 replaces, skipfields));
             }
             else if (cmd.cmd == "zap")
             {
