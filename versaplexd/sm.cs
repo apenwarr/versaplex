@@ -124,7 +124,7 @@ public static class SchemamaticCli
         if (newcmd.pri < 0)
             return null;
 
-        newcmd.cmd = parts[1];
+        newcmd.cmd = parts[1].ToLower();
         if (newcmd.cmd == "export")
         {
             // You can say "12345 export foo" or "12345 export foo where bar"
