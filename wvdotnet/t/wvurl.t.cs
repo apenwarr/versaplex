@@ -36,7 +36,8 @@ public class WvUrlTests
 	WVPASSEQ(u.ToString(), "http:");
 	
 	u = new WvUrl("http://user:pass@host:57/path/to/stuff");
-	WVPASSEQ(u.ToString(), "http://user:pass@host:57/path/to/stuff");
+	WVPASSEQ(u.ToString(), "http://user@host:57/path/to/stuff");
+	WVPASSEQ(u.ToString(true), "http://user:pass@host:57/path/to/stuff");
 	WVPASSEQ(u.method, "http");
 	WVPASSEQ(u.user, "user");
 	WVPASSEQ(u.password, "pass");
@@ -55,7 +56,8 @@ public class WvUrlTests
 	WVPASSEQ(u.path, "/path/to/stuff");
 	
 	u = new WvUrl(@"\\ser:9@1:23\path\to\stuff");
-	WVPASSEQ(u.ToString(), "file://ser:9@1:23/path/to/stuff");
+	WVPASSEQ(u.ToString(), "file://ser@1:23/path/to/stuff");
+	WVPASSEQ(u.ToString(true), "file://ser:9@1:23/path/to/stuff");
 	WVPASSEQ(u.method, "file");
 	WVPASSEQ(u.user, "ser");
 	WVPASSEQ(u.password, "9");
@@ -73,6 +75,7 @@ public class WvUrlTests
 	WVPASSEQ(u.path, "");
 	
 	u = new WvUrl("://:47@:");
-	WVPASSEQ(u.ToString(), "://:47");
+	WVPASSEQ(u.ToString(), "://");
+	WVPASSEQ(u.ToString(true), "://:47@");
     }
 }

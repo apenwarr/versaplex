@@ -738,10 +738,10 @@ public static class SchemamaticCli
 	}
     }
 
-    private static ISchemaBackend GetBackend(string moniker)
+    private static ISchemaBackend GetBackend(WvUrl url)
     {
-        log.print("Connecting to '{0}'\n", moniker);
-        return VxSchema.create(moniker);
+        log.print("Connecting to '{0}'\n", url);
+        return VxSchema.create(url.ToString(true));
     }
 
     public static int Main(string[] args)
@@ -832,15 +832,15 @@ public static class SchemamaticCli
 	if (url.password.e())
 	    url.password = bookmarks.get("Defaults", "password");
 	    
-	using (var backend = GetBackend(url.ToString()))
+	using (var backend = GetBackend(url))
 	{
-	    bookmarks.set("Defaults", "url", moniker);
+	    bookmarks.set("Defaults", "url", url.ToString(true));
 	    bookmarks.maybeset("Defaults", "user", url.user);
 	    bookmarks.maybeset("Defaults", "password", url.password);
 	    
 	    string p = url.path.StartsWith("/") 
 		? url.path.Substring(1) : url.path;
-	    bookmarks.set("Bookmarks", p, moniker);
+	    bookmarks.set("Bookmarks", p, url.ToString(true));
 	    
 	    try {
 		bookmarks.save();
