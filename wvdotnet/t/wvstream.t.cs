@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Wv.Test;
 using Wv;
 using Wv.Extensions;
+using Wv.FakeLinq;
 
 [TestFixture]
 public class WvStreamTests
@@ -46,7 +47,7 @@ public class WvStreamTests
 	    WVPASSEQ(l.read(5).FromUTF8(), "bonk\n");
 	    WVPASSEQ(l.read(2).FromUTF8(), "wo");
 	    string got = null, got2 = null;
-	    Action d = delegate() {
+	    WvAction d = delegate() {
 		Console.WriteLine("onreadable!");
 		got = l.read(4096).FromUTF8();
 		got2 = l.read(4096).FromUTF8();
