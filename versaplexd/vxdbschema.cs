@@ -1504,7 +1504,7 @@ internal class VxDbSchema : ISchemaBackend
         AddIndexesToTables(schema, names);
     }
     
-    public bool RequiresQuotes(string text)
+    public static bool RequiresQuotes(string text)
     {
         return ((text.IndexOf(" ") >= 0) || 
                 (text.IndexOf(",") >= 0) ||
@@ -1643,15 +1643,6 @@ internal class VxDbSchema : ISchemaBackend
         return colsstr+result.join("");
     }
     
-    public string GetColType(string colname, 
-                             List<KeyValuePair<string,string>> coltypes)
-    {
-        foreach (var col in coltypes)
-            if (col.Key == colname)
-                return col.Value;
-        return "";
-    }
-    
     public string bin2hex(byte [] data)
     {
         string result = "";
@@ -1684,8 +1675,7 @@ internal class VxDbSchema : ISchemaBackend
         string prefix = "";
         bool has_ident = false;
         List<string> tab_names = new List<string>();
-        List<KeyValuePair<string,string>> coltypes = 
-                                  new List<KeyValuePair<string,string>>();
+        Dictionary <string,string> coltypes = new Dictionary<string,string>();
         VxSchema schema = new VxSchema();
         string ident_seed, ident_incr, coltype;
         
@@ -1704,9 +1694,7 @@ internal class VxDbSchema : ISchemaBackend
                 {
                     if (columns_array.Contains(te.GetParam("name")))
                     {
-                        coltypes.Add(new KeyValuePair<string,string>(
-                                      te.GetParam("name"),
-                                      te.GetParam("type")));
+                        coltypes.Add(te.GetParam("name"),te.GetParam("type"));
                                       
                         ident_seed = te.GetParam("identity_seed");
                         ident_incr = te.GetParam("identity_incr");
@@ -1737,8 +1725,10 @@ internal class VxDbSchema : ISchemaBackend
             for (int i=0;i<asarray.Count;i++)
             {
                 sql += (i==0 ? prefix : ",");
+                coltype = "";
+                if (coltypes[columns_array[i]] != null)
+                    coltype = coltypes[columns_array[i]];
 
-                coltype = GetColType(columns_array[i],coltypes);
                 if (asarray[i]!=null)
                     if ((coltype == "varchar") ||
                         (coltype == "datetime") ||
