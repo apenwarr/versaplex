@@ -1503,15 +1503,6 @@ internal class VxDbSchema : ISchemaBackend
 
         AddIndexesToTables(schema, names);
     }
-    
-    public static bool RequiresQuotes(string text)
-    {
-        return ((text.IndexOf(" ") >= 0) || 
-                (text.IndexOf(",") >= 0) ||
-                (text.IndexOf("\n") >= 0) || 
-                (text.IndexOf("\"") >= 0) ||
-                (text.Length == 0) );
-    }    
 
     // Returns a blob of text that can be used with PutSchemaData to fill 
     // the given table.
@@ -1542,7 +1533,7 @@ internal class VxDbSchema : ISchemaBackend
 
         string colsstr;
         List<string> result = new List<string>();
-        List<string> values = new List<string>();
+        ArrayList values = new ArrayList();
         List<string> cols = new List<string>();
         List<string> allcols = new List<string>();
 
@@ -1592,7 +1583,7 @@ internal class VxDbSchema : ISchemaBackend
                                     tablename.ToLower()+"."+allcols[colnum]]);
                 
                 if (elem.IsNull)
-                    values.Add("");
+                    values.Add(null);
                 else if (types[colnum] == typeof(System.String) || 
                     types[colnum] == typeof(System.DateTime))
                 {
@@ -1603,13 +1594,7 @@ internal class VxDbSchema : ISchemaBackend
                     else
                         str = (string)elem;
 
-                    // Double-quote chars for SQL safety
-                    string esc = str.Replace("\"", "\"\"");
-                    esc = str.Replace("'", "''");
-                    if (RequiresQuotes(esc))
-                        values.Add('"' + esc + '"');
-                    else
-                        values.Add(esc);
+                    values.Add(str);
                 }
                 else if (types[colnum] == typeof(System.Byte[]))
                 {
@@ -1628,14 +1613,14 @@ internal class VxDbSchema : ISchemaBackend
                             break;
                         }
                     }
-                    values.Add("\""+tmp+"\"");
+                    values.Add(tmp);
                 }
                 else
-                    values.Add(elem);
+                    values.Add((string)elem);
 
                 colnum++;
             }
-            result.Add(values.join(",") + "\n");
+            result.Add(WvCsv.GetCsvLine(values) + "\n");
         }
 
         result.Sort(StringComparer.Ordinal);

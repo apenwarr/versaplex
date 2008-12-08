@@ -351,7 +351,7 @@ internal class VxDiskSchema : ISchemaBackend
                     if (esc.IndexOf("''") < 0)
                         esc = esc.Replace("'", "''");
                         
-                    if (VxDbSchema.RequiresQuotes(esc))
+                    if (WvCsv.RequiresQuotes(esc))
                         values.Add('"' + esc + '"');
                     else
                         values.Add(esc);
