@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Security.Cryptography;
 using Wv;
@@ -13,7 +14,9 @@ internal class VxDiskSchema : ISchemaBackend
 {
     static WvLog log = new WvLog("VxDiskSchema", WvLog.L.Debug2);
 
-    private string exportdir;
+    string exportdir;
+    Dictionary<string,string> replaces;
+    List<string> skipfields;
 
     public static void wvmoniker_register()
     {
@@ -153,9 +156,302 @@ internal class VxDiskSchema : ISchemaBackend
     // Non-ISchemaBackend methods
     //
     
+    // Extracts the table name and priority out of a path.  E.g. for 
+    // "/foo/12345-bar.sql", returns "12345" and "bar" as the priority and 
+    // table name.  Returns -1/null if the parse fails.
+    public static void ParsePath(string pathname, out int seqnum, 
+        out string tablename)
+    {
+        FileInfo info = new FileInfo(pathname);
+        seqnum = -1;
+        tablename = null;
+
+        int dashidx = info.Name.IndexOf('-');
+        if (dashidx < 0)
+            return;
+
+        string pristr = info.Name.Remove(dashidx);
+        string rest = info.Name.Substring(dashidx + 1);
+        int pri = wv.atoi(pristr);
+
+        if (pri < 0)
+            return;
+
+        if (info.Extension.ToLower() == ".sql")
+            rest = rest.Remove(rest.ToLower().LastIndexOf(".sql"));
+        else
+            return;
+
+        seqnum = pri;
+        tablename = rest;
+
+        return;
+    }
+    
+    void ReadRules()
+    {
+        string cmdfile = Path.Combine(exportdir, "data-export.txt");
+        if (File.Exists(cmdfile))
+        {
+            string[] cmd_strings = File.ReadAllLines(cmdfile);
+            
+            replaces = new Dictionary<string,string>();
+            skipfields = new List<string>();
+            string tablefield, replacewith;
+
+            foreach (string s in cmd_strings)
+            {
+                if (s.StartsWith("replace "))
+                {
+                    //take replace off
+                    replacewith = s.Substring(8);
+                    
+                    //take table.fieldname
+                    tablefield = replacewith.Substring(0,
+                                        s.IndexOf(" with ")-8).Trim().ToLower();
+                    
+                    //take the value
+                    replacewith = replacewith.Substring(
+                                        replacewith.IndexOf(" with ")+6).Trim();
+                    if (replacewith.ToLower() == "null")
+                        replaces.Add(tablefield,null);
+                    else
+                        replaces.Add(tablefield,
+                                 replacewith.Substring(1,replacewith.Length-2));
+                }
+                else if (s.StartsWith("skipfield "))
+                    skipfields.Add(s.Substring(10).Trim().ToLower());
+            }                
+
+        }
+    }
+    
+    public Dictionary<string,string> GetReplaceRules()
+    {
+        if (replaces == null)
+            ReadRules();
+
+        return replaces;
+    }
+    
+    public List<string> GetFieldsToSkip()
+    {
+        if (skipfields == null)
+            ReadRules();
+            
+        return skipfields;
+    }
+
+    public string CsvFix(string tablename, string csvtext)
+    {
+        List<string> result = new List<string>();
+        WvCsv csvhandler = new WvCsv(csvtext);
+        string coltype, colsstr;
+        List<string> values = new List<string>();
+        List<string> cols = new List<string>();
+        List<string> allcols = new List<string>();
+        int[] fieldstoskip = new int[skipfields.Count];
+        
+        for (int i=0; i < skipfields.Count; i++)
+            fieldstoskip[i] = -1;
+
+        Dictionary<string,string> coltypes = new Dictionary<string,string>();
+        VxDiskSchema disk = new VxDiskSchema(exportdir);
+        VxSchema schema = disk.Get(null);
+        
+        Console.WriteLine("Fixing data of table ["+tablename+"]");
+        string[] csvcolumns = (string[])csvhandler.GetLine()
+                                        .ToArray(Type.GetType("System.String"));
+        for (int i=0; i<csvcolumns.Length; i++)
+            csvcolumns[i] = csvcolumns[i].ToLower();
+
+        int ii = 0;
+        foreach (KeyValuePair<string,VxSchemaElement> p in schema)
+        {
+            if (!(p.Value is VxSchemaTable))
+                continue;
+                
+            if (((VxSchemaTable)p.Value).name.ToLower() != tablename.ToLower())
+                continue;
+
+            foreach (VxSchemaTableElement te in ((VxSchemaTable)p.Value))
+            {
+                if (te.GetElemType() != "column")
+                    continue;
+                    
+                if (csvcolumns.Contains(te.GetParam("name").ToLower()))
+                    coltypes.Add(te.GetParam("name").ToLower(),
+                                 te.GetParam("type"));
+        
+                allcols.Add(te.GetParam("name").ToLower());
+                if (csvcolumns.Contains(te.GetParam("name").ToLower()))
+                {
+                    if (skipfields.Contains(te.GetParam("name").ToLower()))
+                        fieldstoskip[skipfields.IndexOf(
+                                    te.GetParam("name").ToLower())] = ii;
+                    else if (skipfields.Contains(
+                                    tablename.ToLower()+"."+
+                                    te.GetParam("name").ToLower()))
+                        fieldstoskip[skipfields.IndexOf(
+                                    tablename.ToLower()+"."+
+                                    te.GetParam("name").ToLower())] = ii;
+                    else
+                        cols.Add(te.GetParam("name"));
+                }
+
+                ii++;
+            }
+        }
+        colsstr = "\"" + cols.join("\",\"") + "\"\n";
+        
+        if (!csvhandler.hasMore())
+            return colsstr;
+        
+        while (csvhandler.hasMore())
+        {
+            string[] asarray = (string[])csvhandler.GetLine()
+                                       .ToArray(Type.GetType("System.String"));
+
+            if (asarray.Length != csvcolumns.Length)
+                return "";
+                
+            values.Clear();
+            
+            for (int i=0;i<asarray.Length;i++)
+            {
+                if (Array.IndexOf(fieldstoskip,i)>=0)
+                    continue;
+
+                if (replaces.ContainsKey(csvcolumns[i]))
+                    asarray[i] = replaces[csvcolumns[i]];
+                    
+                if (replaces.ContainsKey(tablename.ToLower() + "." +
+                                         csvcolumns[i]))
+                    asarray[i] = replaces[tablename.ToLower() + "." +
+                                          csvcolumns[i]].ToLower();
+
+                if (coltypes.ContainsKey(csvcolumns[i]) && 
+                    (coltypes[csvcolumns[i]] != null))
+                    coltype = coltypes[csvcolumns[i]];
+                else
+                    coltype = "";
+                    
+                if (asarray[i] == null)
+                    values.Add("");
+                else if ((coltype == "varchar") ||
+                         (coltype == "datetime") ||
+                         (coltype == "char") ||
+                         (coltype == "nchar") ||
+                         (coltype == "text"))
+                {
+                    // Double-quote chars for SQL safety
+                    string esc = asarray[i].Replace("\"", "\"\"");
+                    
+                    //indication that single quotes are already doubled
+                    if (esc.IndexOf("''") < 0)
+                        esc = esc.Replace("'", "''");
+                        
+                    if (VxDbSchema.RequiresQuotes(esc))
+                        values.Add('"' + esc + '"');
+                    else
+                        values.Add(esc);
+                }
+                else if (coltype == "image")
+                {
+                    string temp = asarray[i].Replace("\n","");
+                    string tmp = "";
+                    while (temp.Length > 0)
+                    {
+                        if (temp.Length > 75)
+                        {
+                            tmp += temp.Substring(0,76) + "\n";
+                            temp = temp.Substring(76);
+                        }
+                        else
+                        {
+                            tmp += temp + "\n";
+                            break;
+                        }
+                    }
+                    values.Add("\""+tmp+"\"");
+                }
+                else
+                    values.Add(asarray[i]);
+            }
+            result.Add(values.join(",") + "\n");
+        }
+
+        result.Sort(StringComparer.Ordinal);
+
+        return colsstr+result.join("");
+    }
+
+    //If there is CSV anywhere, make it SQL statements
+    public string Normalize(string text)
+    {
+        TextReader txt = new StringReader(text);
+        StringBuilder result = new StringBuilder();
+        string line = "";
+        string csvtext = "";
+        string tablename = "";
+        
+        while ((line = txt.ReadLine()) != null)
+        {
+            if (line.StartsWith("TABLE "))
+            {
+                csvtext = "";
+                tablename = line.Substring(6).Replace(",","").Trim();
+                
+                //gotta get the CSV part only
+                while (!String.IsNullOrEmpty(line = txt.ReadLine()))
+                    csvtext += line + "\n";
+                
+                result.Append("TABLE "+tablename+"\n");
+                //Will return CSV part as INSERTs
+                result.Append(CsvFix(tablename,csvtext));
+            }
+            else
+                result.Append(line+"\n");
+        }
+        return result.ToString();
+    }
+    
+    public int FixSchemaData(Dictionary<string,string> replaces, 
+                                List<string> skipfields)
+    {
+        string datadir = Path.Combine(exportdir, "DATA");
+        if (!Directory.Exists(datadir))
+            return 5; // nothing to do
+
+	var tmpfiles = 
+	    from f in Directory.GetFiles(datadir)
+	    where !f.EndsWith("~")
+	    select f;
+	    
+        String[] files = tmpfiles.ToArray();
+
+        int seqnum;
+        string tablename;
+
+        Array.Sort(files);
+        foreach (string file in files)
+        {
+            string data = File.ReadAllText(file, Encoding.UTF8);
+            ParsePath(file, out seqnum, out tablename);
+
+            if (tablename == "ZAP")
+                tablename = "";
+
+            log.print("Fixing data from {0}\n", file);
+            File.WriteAllBytes(file, Normalize(data).ToUTF8());
+        }
+	
+	return 0;
+    }
+    
     // Retrieves both the schema and its checksums from exportdir, and puts
     // them into the parameters.
-    private void ReadExportedDir(VxSchema schema, VxSchemaChecksums sums)
+    void ReadExportedDir(VxSchema schema, VxSchemaChecksums sums)
     {
         DirectoryInfo exportdirinfo = new DirectoryInfo(exportdir);
         if (exportdirinfo.Exists)
@@ -199,7 +495,7 @@ internal class VxDiskSchema : ISchemaBackend
     // Static methods
 
     // We want to ignore hidden files, and backup files left by editors.
-    private static bool IsFileNameUseful(string filename)
+    static bool IsFileNameUseful(string filename)
     {
         return !filename.StartsWith(".") && !filename.EndsWith("~");
     }
@@ -220,7 +516,7 @@ internal class VxDiskSchema : ISchemaBackend
     // Returns a new VxSchemaChecksum object containing the checksum.
     // Returns true if the file passes its MD5 validation.  
     // If it returns false, elem and sum may be set to null.  
-    private static bool ReadSchemaFile(string filename, string type, 
+    static bool ReadSchemaFile(string filename, string type, 
         string name, out VxSchemaElement elem, out VxSchemaChecksum sum)
     {
         elem = null;
@@ -294,7 +590,7 @@ internal class VxDiskSchema : ISchemaBackend
     // into the container objects.
     // Throws an ArgumentException if the schema or sums already contains the
     // given key.
-    private static void AddFromFile(string path, string type, string name, 
+    static void AddFromFile(string path, string type, string name, 
         VxSchema schema, VxSchemaChecksums sums)
     {
         string key = wv.fmt("{0}/{1}", type, name);
@@ -316,7 +612,7 @@ internal class VxDiskSchema : ISchemaBackend
             sums.Add(key, sum);
     }
 
-    private void ExportToDisk(VxSchemaElement elem, VxSchemaChecksum sum, 
+    void ExportToDisk(VxSchemaElement elem, VxSchemaChecksum sum, 
         bool isbackup)
     {
         // Make some kind of attempt to run on Windows.  
@@ -341,4 +637,3 @@ internal class VxDiskSchema : ISchemaBackend
     }
 
 }
-

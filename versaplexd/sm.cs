@@ -320,49 +320,17 @@ public static class SchemamaticCli
 	return 0;
     }
 
-    // Extracts the table name and priority out of a path.  E.g. for 
-    // "/foo/12345-bar.sql", returns "12345" and "bar" as the priority and 
-    // table name.  Returns -1/null if the parse fails.
-    static void ParsePath(string pathname, out int seqnum, 
-        out string tablename)
-    {
-        FileInfo info = new FileInfo(pathname);
-        seqnum = -1;
-        tablename = null;
-
-        int dashidx = info.Name.IndexOf('-');
-        if (dashidx < 0)
-            return;
-
-        string pristr = info.Name.Remove(dashidx);
-        string rest = info.Name.Substring(dashidx + 1);
-        int pri = wv.atoi(pristr);
-
-        if (pri < 0)
-            return;
-
-        if (info.Extension.ToLower() == ".sql")
-            rest = rest.Remove(rest.ToLower().LastIndexOf(".sql"));
-        else
-            return;
-
-        seqnum = pri;
-        tablename = rest;
-
-        return;
-    }
-
     static int ApplyFiles(string[] files, ISchemaBackend remote,
 			  VxCopyOpts opts)
     {
-        int seqnum;
-        string tablename;
+        int seqnum = 0;
+        string tablename = "";
 
         Array.Sort(files);
         foreach (string file in files)
         {
             string data = File.ReadAllText(file, Encoding.UTF8);
-            ParsePath(file, out seqnum, out tablename);
+            VxDiskSchema.ParsePath(file, out seqnum, out tablename);
 
             if (tablename == "ZAP")
                 tablename = "";
@@ -813,6 +781,16 @@ public static class SchemamaticCli
 	string moniker = extra.Count > 1 
 	    ? extra[1] : bookmarks.get("Defaults", "url", null);
         string dir     = extra.Count > 2 ? extra[2] : ".";
+	
+	if (cmd == "dfix")
+        {
+            VxDiskSchema disk = new VxDiskSchema(dir);
+            bool consider_rules = true;
+            if (consider_rules)
+                return disk.FixSchemaData(disk.GetReplaceRules(),disk.GetFieldsToSkip());
+            else
+                return disk.FixSchemaData(null,null);
+        }
 	
 	if (moniker.e())
 	{
