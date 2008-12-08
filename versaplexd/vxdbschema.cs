@@ -1652,20 +1652,6 @@ internal class VxDbSchema : ISchemaBackend
         return result;
     }
     
-    public string base64Encode(string data)
-    {
-        try
-        {
-            byte[] encData_byte = new byte[data.Length];
-            encData_byte = System.Text.Encoding.UTF8.GetBytes(data);    
-            return Convert.ToBase64String(encData_byte);
-        }
-        catch(Exception e)
-        {
-            throw new Exception("Error in base64Encode" + e.Message);
-        }
-    }
-    
     public string Csv2Inserts(string tablename, string csvtext)
     {
         StringBuilder result = new StringBuilder();
