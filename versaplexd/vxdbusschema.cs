@@ -142,7 +142,8 @@ internal class VxDbusSchema : ISchemaBackend
     }
     
     public string GetSchemaData(string tablename, int seqnum, string where,
-                                Dictionary<string,string> replaces, List<string> skipfields)
+                                Dictionary<string,string> replaces, 
+                                List<string> skipfields)
     {
         WvDbusMsg call = methodcall("GetSchemaData", "ss");
 
@@ -174,5 +175,3 @@ internal class VxDbusSchema : ISchemaBackend
 	reply.check("");
     }
 }
-
-

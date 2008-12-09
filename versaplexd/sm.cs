@@ -787,7 +787,8 @@ public static class SchemamaticCli
             VxDiskSchema disk = new VxDiskSchema(dir);
             bool consider_rules = true;
             if (consider_rules)
-                return disk.FixSchemaData(disk.GetReplaceRules(),disk.GetFieldsToSkip());
+                return disk.FixSchemaData(disk.GetReplaceRules(),
+                                          disk.GetFieldsToSkip());
             else
                 return disk.FixSchemaData(null,null);
         }
