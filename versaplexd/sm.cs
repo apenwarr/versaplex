@@ -1,3 +1,8 @@
+/*
+ * Versaplex:
+ *   Copyright (C)2007-2008 Versabanq Innovations Inc. and contributors.
+ *       See the included file named LICENSE for license information.
+ */
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -124,7 +129,7 @@ public static class SchemamaticCli
         if (newcmd.pri < 0)
             return null;
 
-        newcmd.cmd = parts[1];
+        newcmd.cmd = parts[1].ToLower();
         if (newcmd.cmd == "export")
         {
             // You can say "12345 export foo" or "12345 export foo where bar"
@@ -513,6 +518,9 @@ public static class SchemamaticCli
             Console.Error.Write("Classname must start with T.\n");
             return;
         }
+	
+	Console.Error.Write("Generating Pascal file...\n");
+	
         // Replace leading 'T' with a 'u'
         string unitname = "u" + classname.Remove(0, 1);
 
@@ -656,13 +664,13 @@ public static class SchemamaticCli
         }
 
         sb.Append("interface\n\n"
-            + "uses uPwTemp, uPwData, Db;\n"
+            + "uses Classes, uPwData;\n"
             + "\n"
             + "{$M+}\n"
             + "type\n"
             + "  " + types.join("\n  ")
             + "  \n"
-            + "  " + classname + " = class(TObject)\n"
+            + "  " + classname + " = class(TComponent)\n"
             + "  private\n"
             + "    fDb: TPwDatabase;\n"
             + "    " + globalfields.join("\n    ") + "\n"
@@ -670,20 +678,15 @@ public static class SchemamaticCli
             + "    property db: TPwDatabase  read fDb write fDb;\n"
             + "    " + globalprops.join("\n    ") + "\n"
             + "  public\n"
-            + "    constructor Create; overload;\n"
-            + "    constructor Create(db: TPwDatabase); overload;\n"
+            + "    constructor Create(db: TPwDatabase); reintroduce;\n"
             + "    " + iface.join("    ")
             + "  end;\n\n");
 
         sb.Append("implementation\n"
             + "\n"
-            + "constructor " + classname + ".Create;\n"
-            + "begin\n"
-            + "    self.db := nil;\n"
-            + "end;\n"
-            + "\n"
             + "constructor " + classname + ".Create(db: TPwDatabase);\n"
             + "begin\n"
+	    + "    inherited Create(db);\n"
             + "    self.db := db;\n"
             + "end;\n"
             + "\n"
@@ -698,18 +701,21 @@ public static class SchemamaticCli
 	    Console.Write(sb.ToString());
 	else
 	{
+	    Console.Error.Write("Writing file: {0}\n", outfile);
 	    using (var f = new FileStream(outfile,
 			  FileMode.Create, FileAccess.Write))
 	    {
 		f.write(sb.ToUTF8());
 	    }
 	}
+	
+	Console.Error.Write("Done.\n");
     }
 
-    private static ISchemaBackend GetBackend(string moniker)
+    private static ISchemaBackend GetBackend(WvUrl url)
     {
-        log.print("Connecting to '{0}'\n", moniker);
-        return VxSchema.create(moniker);
+        log.print("Connecting to '{0}'\n", url);
+        return VxSchema.create(url.ToString(true));
     }
 
     public static int Main(string[] args)
@@ -811,15 +817,15 @@ public static class SchemamaticCli
 	if (url.password.e())
 	    url.password = bookmarks.get("Defaults", "password");
 	    
-	using (var backend = GetBackend(url.ToString()))
+	using (var backend = GetBackend(url))
 	{
-	    bookmarks.set("Defaults", "url", moniker);
+	    bookmarks.set("Defaults", "url", url.ToString(true));
 	    bookmarks.maybeset("Defaults", "user", url.user);
 	    bookmarks.maybeset("Defaults", "password", url.password);
 	    
 	    string p = url.path.StartsWith("/") 
 		? url.path.Substring(1) : url.path;
-	    bookmarks.set("Bookmarks", p, moniker);
+	    bookmarks.set("Bookmarks", p, url.ToString(true));
 	    
 	    try {
 		bookmarks.save();

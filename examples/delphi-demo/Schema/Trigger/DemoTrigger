@@ -1,0 +1,10 @@
+!!SCHEMAMATIC 5da592035a7a479969dab7c1d75b34bc 0xde7e0b4d 
+create trigger DemoTrigger on dbo.DemoTable
+    for insert, update
+as
+
+update DemoTable
+    set LastUpdated=getdate()
+    where DemoTable.id in (select id from Inserted)
+
+
