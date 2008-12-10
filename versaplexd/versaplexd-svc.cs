@@ -20,6 +20,7 @@ using Wv.Extensions;
 public class VersaServiceInstaller : Installer
 {
     public static bool auth = false;
+    public static string servname = "Versaplex";
     ServiceProcessInstaller spi;
     ServiceInstaller si; 
 
@@ -37,7 +38,7 @@ public class VersaServiceInstaller : Installer
 	    spi.Username = null;
 	}
 
-	si.ServiceName = "Versaplex";
+	si.ServiceName = servname;
 	si.Description = "Provides a secure connection to SQL Server";
 	si.StartType = ServiceStartMode.Automatic;
 	
@@ -105,6 +106,7 @@ public static class VersaMain
 	wv.printerr("Usage: versaplexd-svc <-i | -u>\n" +
 		    "        -i: install as a Windows service\n" +
 		    "        -u: uninstall Windows service\n" +
+		    "        -n: service name (default=Versaplex)\n" +
 		    "        -A: prompt for account/password info\n");
 	Environment.Exit(1);
     }
@@ -137,7 +139,6 @@ public static class VersaMain
 	    {
 		inst.Install(state);
 		inst.Commit(state);
-		(new ServiceController("Versaplex")).Start();
 	    }
 	    catch
 	    {
@@ -145,6 +146,8 @@ public static class VersaMain
 		throw;
 	    }
 	}
+	
+	new ServiceController(VersaServiceInstaller.servname).Start();
     }
 
     internal static string mydir 
@@ -162,6 +165,8 @@ public static class VersaMain
 		     delegate(string v) { install = true; })
 		.Add("u|uninstall", 
 		     delegate(string v) { uninstall = true; })
+		.Add("n|name=",
+		     delegate(string v) { VersaServiceInstaller.servname = v; })
 		.Add("A|authorize",
 		     delegate(string v) { VersaServiceInstaller.auth = true; })
 		.Add("?|h|help",
