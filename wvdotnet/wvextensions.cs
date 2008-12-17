@@ -65,6 +65,11 @@ namespace Wv.Extensions
 	    return Encoding.UTF8.GetString(b.bytes, b.start, b.len);
 	}
 	
+	public static string ToHex(this byte[] bytes)
+	{
+	    return ((WvBytes)bytes).ToHex();
+	}
+	
 	public static string ToHex(this WvBytes bytes)
 	{
 	    StringBuilder sb = new StringBuilder();
