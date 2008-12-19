@@ -55,6 +55,11 @@ namespace Wv
 	    }
 	}
 	
+	public IEnumerable<string> getSections()
+	{
+            return sections.Keys;
+	}
+	
 	public IDictionary<string,string> this[string sectname]
 	{
 	    get
