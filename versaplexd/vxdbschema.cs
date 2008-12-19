@@ -1668,15 +1668,18 @@ internal class VxDbSchema : ISchemaBackend
             {
                 foreach (VxSchemaTableElement te in ((VxSchemaTable)p.Value))
                 {
-                    if (columns_array.Contains(te.GetParam("name")))
+                    if (te.elemtype == "column")
                     {
-                        coltypes.Add(te.GetParam("name"),te.GetParam("type"));
-                                      
-                        ident_seed = te.GetParam("identity_seed");
-                        ident_incr = te.GetParam("identity_incr");
-                        
-                        if (ident_seed.ne() && ident_incr.ne())
-                            has_ident = true;
+                        if (columns_array.Contains(te.GetParam("name")))
+                        {
+                            coltypes.Add(te.GetParam("name"),te.GetParam("type"));
+                                          
+                            ident_seed = te.GetParam("identity_seed");
+                            ident_incr = te.GetParam("identity_incr");
+                            
+                            if (ident_seed.ne() && ident_incr.ne())
+                                has_ident = true;
+                        }
                     }
                 }
             }
