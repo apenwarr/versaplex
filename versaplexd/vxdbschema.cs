@@ -1755,9 +1755,8 @@ internal class VxDbSchema : ISchemaBackend
         string sql;
         string prefix = "";
         bool has_ident = false;
-        List<string> tab_names = new List<string>();
-        List<KeyValuePair<string,string>> coltypes = 
-                                  new List<KeyValuePair<string,string>>();
+        var tab_names = new List<string>();
+        var coltypes = new List<KeyValuePair<string,string>>();
         VxSchema schema = new VxSchema();
         string ident_seed, ident_incr, coltype;
         
@@ -1821,7 +1820,9 @@ internal class VxDbSchema : ISchemaBackend
                                                 asarray[i].ToString()
                                                           .Replace("\n","")));
                         else
-                            sql += "'"+ asarray[i].ToString() + "'";
+                            sql += "'"
+		               + asarray[i].ToString().Replace("'", "''") 
+			       + "'";
                     else
                         sql += asarray[i].ToString();
                 else
