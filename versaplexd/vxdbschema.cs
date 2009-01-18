@@ -29,7 +29,7 @@ internal class VxDbSchema : ISchemaBackend
 		  (string m, object o) => new VxDbSchema(WvDbi.create(m)));
     }
 	
-    static string[] ProcedureTypes = new string[] { 
+    static string[] ProcedureTypes = new string[] {  /*
 //            "CheckCnst", 
 //            "Constraint",
 //            "Default",
@@ -50,7 +50,7 @@ internal class VxDbSchema : ISchemaBackend
             "Trigger",
 //            "UniqueCnst",
             "View",
-//            "OwnerId"
+//            "OwnerId" */
         };
 
     WvDbi dbi;
