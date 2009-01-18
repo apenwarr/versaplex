@@ -58,8 +58,8 @@ internal class VxDbSchema : ISchemaBackend
     public VxDbSchema(WvDbi _dbi)
     {
         dbi = _dbi;
-        dbi.execute("set quoted_identifier off");
-        dbi.execute("set ansi_nulls on");
+        //dbi.execute("set quoted_identifier off");
+        //dbi.execute("set ansi_nulls on");
     }
     
     public void Dispose()
