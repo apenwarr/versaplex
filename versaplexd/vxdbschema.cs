@@ -822,10 +822,13 @@ internal class VxDbSchema : ISchemaBackend
             transaction_started = true;
             dbi.execute("BEGIN TRANSACTION TableUpdate");
 
+	    bool kill_and_recreate = false;
+
             foreach (var elem in coldel)
             {
+		kill_and_recreate = true;
                 log.print("Dropping {0}\n", elem.ToString());
-                DropTableColumn(newtable, elem);
+                //DropTableColumn(newtable, elem);
             }
 
             foreach (var elem in colchanged)
@@ -844,14 +847,22 @@ internal class VxDbSchema : ISchemaBackend
             // Now that all the columns are finalized, add in any new indices.
             foreach (var elem in otheradd)
             {
+		kill_and_recreate = true;
                 log.print("Adding {0}\n", elem.ToString());
-                VxSchemaError err = PutSchemaTableIndex(key, curtable, elem);
-                if (err != null)
-                {
-                    errs.Add(key, err);
-                    goto done;
-                }
+               // VxSchemaError err = PutSchemaTableIndex(key, curtable, elem);
+                //if (err != null)
+                //{
+                //    errs.Add(key, err);
+                //    goto done;
+                //}
             }
+
+	    if (kill_and_recreate)
+	    {
+		dbi.execute("DROP TABLE " + newtable.name);
+		dbi.execute("DELETE FROM sm_hidden WHERE tablen = '" + newtable.name + "'");
+		dbi.execute(newtable.ToSql());
+	    }
 
             log.print("All changes made, committing transaction.\n");
 
