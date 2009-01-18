@@ -261,12 +261,10 @@ internal class VxDiskSchema : ISchemaBackend
         // Parse the header line
         char[] space = {' '};
         string[] headers = header.Split(space, 3);
-        if (headers.Length != 3)
-            return false;
 
         string prefix = headers[0];
-        string header_md5 = headers[1];
-        string dbsum = headers[2];
+        string header_md5 = headers.Length >= 2 ? headers[1] : "";
+        string dbsum = headers.Length >= 3 ? headers[2] : "";
 
         if (prefix != "!!SCHEMAMATIC")
             return false;
