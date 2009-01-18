@@ -15,6 +15,7 @@ using System.Text.RegularExpressions;
 using System.IO;
 using Wv;
 using Wv.Extensions;
+using System.Security.Cryptography;
 
 // An ISchemaBackend that uses a direct database connection as a backing
 // store.
@@ -213,6 +214,7 @@ internal class VxDbSchema : ISchemaBackend
 
                 GetProcChecksums(sums, type, 0);
 
+		/* FIXME:  Doesn't work 
                 if (type == "Procedure")
                 {
                     // Self-test the checksum feature.  If mssql's checksum
@@ -230,7 +232,7 @@ internal class VxDbSchema : ISchemaBackend
                             got_csum, want_csum));
                     }
                     sums.Remove(test_csum);
-                }
+                } */
             }
             finally
             {
@@ -247,10 +249,10 @@ internal class VxDbSchema : ISchemaBackend
         GetTableChecksums(sums);
 
         // Do indexes separately
-        AddIndexChecksumsToTables(sums);
+        // AddIndexChecksumsToTables(sums);
 
         // Do XML schema collections separately (FIXME: only if SQL2005)
-        GetXmlSchemaChecksums(sums);
+        // GetXmlSchemaChecksums(sums);
 
         return sums;
     }
@@ -552,6 +554,8 @@ internal class VxDbSchema : ISchemaBackend
                 table.name, table.ColumnToSql(newelem, false));
 
             log.print("Executing {0}\n", query);
+	    //FIXME:  OMG LUKE HACK
+	    query = String.Format("UPDATE sm_hidden SET description = '{0}' WHERE tablen = '{1}' AND description = '{2}'", newelem.ToString(), table.name, oldelem.ToString());
             
             dbi.execute(query);
         }
@@ -1006,6 +1010,7 @@ internal class VxDbSchema : ISchemaBackend
         {
             string name = row[0];
 
+	    /*
             // Ignore dt_* functions and sys* views
             if (name.StartsWith("dt_") || name.StartsWith("sys"))
                 continue;
@@ -1016,6 +1021,8 @@ internal class VxDbSchema : ISchemaBackend
                 checksum <<= 8;
                 checksum |= b;
             }
+	    */
+	    string checksum = MD5.Create().ComputeHash(row[1]).ToHex().ToLower();
 
             // Fix characters not allowed in filenames
             name.Replace('/', '!');
@@ -1035,6 +1042,8 @@ internal class VxDbSchema : ISchemaBackend
         // mssql (SQL7 vs. SQL2005, at least) add different numbers of parens
         // around the default values.  Weird, but it messes up the checksums,
         // so we just remove all the parens altogether.
+	
+	/*
         string query = @"
             select convert(varchar(128), t.name) tabname,
                convert(varchar(128), c.name) colname,
@@ -1061,16 +1070,29 @@ internal class VxDbSchema : ISchemaBackend
            select tabname, convert(varbinary(8), getchecksum(tabname))
                from #checksum_calc
            drop table #checksum_calc";
+	*/
+	string query = @"select tbl_name,sql from sqlite_master
+			    where type = 'table' and name != 'sm_hidden'";
 
+	Console.WriteLine("LUKE 1");
         foreach (WvSqlRow row in DbiSelect(query))
         {
             string name = row[0];
+	Console.WriteLine("LUKE 1.5");
+	    //FIXME:  Should be doing checksum over givens, not over the
+	    //actual sql text
+	    /*
             ulong checksum = 0;
             foreach (byte b in (byte[])row[1])
             {
                 checksum <<= 8;
                 checksum |= b;
-            }
+            } */
+
+	    //FIXME:  BROKEN
+	    //string checksum = MD5.Create().ComputeHash(checkme).ToHex().ToLower();
+	    string checksum = "DEADBEEF";
+	Console.WriteLine("LUKE 1.6");
 
             // Tasks_#* should be ignored
             if (name.StartsWith("Tasks_#")) 
@@ -1081,10 +1103,12 @@ internal class VxDbSchema : ISchemaBackend
             log.print("name={0}, checksum={1}, key={2}\n", name, checksum, key);
             sums.AddSum(key, checksum);
         }
+	Console.WriteLine("LUKE 2");
     }
 
     void AddIndexChecksumsToTables(VxSchemaChecksums sums)
     {
+	/*  COMMENT ME OUT
         string query = @"
             select 
                convert(varchar(128), object_name(i.object_id)) tabname,
@@ -1111,27 +1135,31 @@ internal class VxDbSchema : ISchemaBackend
                tabname, idxname, colid, 
                convert(varbinary(8), getchecksum(idxname))
               from #checksum_calc
-            drop table #checksum_calc";
+            drop table #checksum_calc"; */
+	string query = @"
+	    select tabl_name, name from sqlite_master where type = 'index'";
 
         foreach (WvSqlRow row in DbiSelect(query))
         {
             string tablename = row[0];
             string indexname = row[1];
-            ulong checksum = 0;
+            /* ulong checksum = 0;
             foreach (byte b in (byte[])row[3])
             {
                 checksum <<= 8;
                 checksum |= b;
-            }
+            } */
+	    string checksum = MD5.Create().ComputeHash(row[1]).ToHex().ToLower();
 
             string key = String.Format("Table/{0}", tablename);
 
-            log.print("tablename={0}, indexname={1}, checksum={2}, colid={3}\n", 
-                tablename, indexname, checksum, (int)row[2]);
+            log.print("tablename={0}, indexname={1}, checksum={2}\n", 
+                tablename, indexname, checksum);
             sums.AddSum(key, checksum);
         }
     }
 
+    /* FIXME:  GOne for now... don't need for non MSSQL?
     void GetXmlSchemaChecksums(VxSchemaChecksums sums)
     {
         string query = @"
@@ -1165,7 +1193,7 @@ internal class VxDbSchema : ISchemaBackend
                 schemaname, checksum, key);
             sums.AddSum(key, checksum);
         }
-    }
+    } */
 
     // Functions used for GetSchema
 
@@ -1418,6 +1446,7 @@ internal class VxDbSchema : ISchemaBackend
             ? "and t.name in ('" + names.join("','") + "')"
             : "");
 
+	/*
         string query = @"select t.name tabname,
 	   c.name colname,
 	   typ.name typename,
@@ -1437,10 +1466,42 @@ internal class VxDbSchema : ISchemaBackend
 	    and typ.name <> 'sysname' " + 
 	    tablenames + @"
 	  order by tabname, c.colorder, typ.status";
+	*/
+	//string query = @"select tbl_name,sql from sqlite_master where type='table' and name != 'sm_hidden'";
+	string query = @"select * from sm_hidden";
 
-        VxSchemaTable table = null;
+	Dictionary<string, string> tables = new Dictionary<string, string>();
+	foreach (WvSqlRow row in DbiSelect(query))
+	{
+	    string table = row[0];
+	    string line = "";
+	    if (tables.TryGetValue(table, out line))
+	    {
+		tables[table] = line + row[1] + "\n";
+	    }
+	    else
+	    {
+		tables[table] = row[1] + "\n";
+	    }
+	}
+
+	Dictionary<string, string>.KeyCollection keys = tables.Keys;
+	foreach (string k in keys)
+	{
+	    VxSchemaTable table = (VxSchemaTable)VxSchemaElement.create("Table", k,
+							tables[k], false);
+	    schema.Add(table.key, table);
+	}
+
+
+	/* FIXME:  LUKE OMG BROKEN
         foreach (WvSqlRow row in DbiSelect(query))
         {
+	    string tabname = row[0];
+	    string colname = "TEST";
+	    string typename = "int";
+	    int isnullable = 0; 
+
             string tabname = row[0];
             string colname = row[1];
             string typename = row[2];
@@ -1452,6 +1513,10 @@ internal class VxDbSchema : ISchemaBackend
             int isident = row[8];
             string ident_seed = row[9];
             string ident_incr = row[10];
+	    string defval = null;
+	    int isident = 0;
+	    string ident_seed = null;
+	    string ident_incr = null;
 
             if (table != null && tabname != table.name)
             {
@@ -1465,6 +1530,7 @@ internal class VxDbSchema : ISchemaBackend
             string lenstr = "";
             string precstr = null;
             string scalestr = null;
+
             if (typename.EndsWith("nvarchar") || typename.EndsWith("nchar"))
             {
                 if (len == -1)
@@ -1504,9 +1570,10 @@ internal class VxDbSchema : ISchemaBackend
         {
             log.print("Adding table {0}\n", table.key);
             schema.Add(table.key, table);
-        }
+        } */
 
-        AddIndexesToTables(schema, names);
+	/* FIXME:  YEs we need me */
+        //AddIndexesToTables(schema, names);
     }
     
     public bool RequiresQuotes(string text)

@@ -255,6 +255,7 @@ internal class VxDiskSchema : ISchemaBackend
 
         // Read the body
         string body = utf8.GetString(bytes, ii, bytes.Length - ii);
+	//LUKE look at this!!! OMG OMG
 	elem = VxSchemaElement.create(type, name, body, false);
 
         // Parse the header line
@@ -275,7 +276,7 @@ internal class VxDiskSchema : ISchemaBackend
             (int)fileinfo.Length - ii);
         string content_md5 = md5.ToHex().ToLower();
 
-        IEnumerable<ulong> sumlist;
+        IEnumerable<string> sumlist;
 
         // If the MD5 sums don't match, we want to make it obvious that the
         // database and local file aren't in sync, so we don't load any actual
@@ -288,7 +289,7 @@ internal class VxDiskSchema : ISchemaBackend
         else
         {
             log.print(WvLog.L.Info, "Checksum mismatch for {0}\n", filename);
-            sumlist = new List<ulong>();
+            sumlist = new List<string>();
         }
 
         sum = new VxSchemaChecksum(elem.key, sumlist);

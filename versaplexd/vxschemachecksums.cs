@@ -23,16 +23,16 @@ internal class VxSchemaChecksum
         get { return _key; }
     }
 
-    readonly IEnumerable<ulong> _checksums;
-    public IEnumerable<ulong> checksums {
+    readonly IEnumerable<string> _checksums;
+    public IEnumerable<string> checksums {
         get { return _checksums; }
     }
 
     public VxSchemaChecksum(VxSchemaChecksum copy)
     {
         _key = copy.key;
-        var list = new List<ulong>();
-        foreach (ulong sum in copy.checksums)
+        var list = new List<string>();
+        foreach (string sum in copy.checksums)
             list.Add(sum);
         _checksums = list;
     }
@@ -40,18 +40,18 @@ internal class VxSchemaChecksum
     public VxSchemaChecksum(string newkey)
     {
         _key = newkey;
-        _checksums = new List<ulong>();
+        _checksums = new List<string>();
     }
 
-    public VxSchemaChecksum(string newkey, ulong newchecksum)
+    public VxSchemaChecksum(string newkey, string newchecksum)
     {
         _key = newkey;
-        var list = new List<ulong>();
+        var list = new List<string>();
         list.Add(newchecksum);
         _checksums = list;
     }
 
-    public VxSchemaChecksum(string newkey, IEnumerable<ulong> sumlist)
+    public VxSchemaChecksum(string newkey, IEnumerable<string> sumlist)
     {
         _key = newkey;
 
@@ -62,7 +62,7 @@ internal class VxSchemaChecksum
         VxSchemaChecksums.ParseKey(newkey, out type, out name);
         if (type == "Table")
         {
-            List<ulong> sorted = sumlist.ToList();
+            List<string> sorted = sumlist.ToList();
             sorted.Sort();
             _checksums = sorted;
         }
@@ -73,8 +73,9 @@ internal class VxSchemaChecksum
     public string GetSumString()
     {
         List<string> l = new List<string>();
-        foreach (ulong sum in checksums)
-            l.Add("0x" + sum.ToString("x8"));
+        foreach (string sum in checksums)
+            l.Add("0x" + sum);
+            //l.Add("0x" + sum.ToString("x8"));
         return l.join(" ");
     }
 
@@ -103,8 +104,8 @@ internal class VxSchemaChecksum
 
         // FIXME: This can be replaced with Linq's SequenceEquals(), once
         // we're using a version of mono that implements it (>= 1.9).
-        ulong[] mysums = this.checksums.ToArray();
-        ulong[] theirsums = other.checksums.ToArray();
+        string[] mysums = this.checksums.ToArray();
+        string[] theirsums = other.checksums.ToArray();
 
         if (mysums.Count() != theirsums.Count())
             return false;
@@ -118,15 +119,17 @@ internal class VxSchemaChecksum
 
     public override int GetHashCode() 
     {
-        ulong xor = checksums.Aggregate((cur, next) => cur ^ next);
-        return ((int)xor ^ (int)(xor>>32));
+	//FIXME:  BROKEN!!!  B0RK3D!
+        //ulong xor = checksums.Aggregate((cur, next) => cur ^ next);
+        //return ((int)xor ^ (int)(xor>>32));
+	return 0;
     }
 
     // Given a string containing database sums, returns their parsed version.
     // Leading "0x" prefixes are optional, though all numbers are assumed to
     // be hex.  The sums must be separated by spaces, e.g. "0xdeadbeef badf00d"
     // Prints an error message and ignores any unparseable elements.
-    public static IEnumerable<ulong> ParseSumString(string dbsums)
+    public static IEnumerable<string> ParseSumString(string dbsums)
     {
         return ParseSumString(dbsums, null);
     }
@@ -135,14 +138,14 @@ internal class VxSchemaChecksum
     // some context for errors.  If errctx isn't null, it's printed before any
     // error messages produced.  A suitable string might be "Error while 
     // reading file $filename: ".
-    public static IEnumerable<ulong> ParseSumString(string dbsums, 
+    public static IEnumerable<string> ParseSumString(string dbsums, 
         string errctx)
     {
         if (dbsums == null)
-            return new List<ulong>();
+            return new List<string>();
 
         string[] sums = dbsums.Split(' ');
-        var sumlist = new List<ulong>();
+        var sumlist = new List<string>();
         foreach (string sumstr in sums)
         {
             // Ignore trailing spaces.
@@ -154,6 +157,7 @@ internal class VxSchemaChecksum
             if (stripped.StartsWith("0x"))
                 stripped = stripped.Remove(0, 2);
 
+	    /*
             ulong longsum;
             if (UInt64.TryParse(stripped,
                     System.Globalization.NumberStyles.HexNumber, null, 
@@ -168,14 +172,15 @@ internal class VxSchemaChecksum
                     "due to the malformed element '{1}'.\n", 
                     dbsums, sumstr);
                 log.print("{0}{1}", errctx == null ? "" : errctx, msg);
-            }
+            }*/
+	    sumlist.Add(stripped);
         }
         return sumlist;
     }
 
     public static string GetDbusSignature()
     {
-        return "sat";
+        return "sas";
     }
 }
 
@@ -202,7 +207,7 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
 	{
 	    var ii = i.GetEnumerator();
 	    string key = ii.pop();
-	    var sums = ii.pop().Cast<UInt64>();
+	    var sums = ii.pop();
 	    var cs = new VxSchemaChecksum(key, sums);
 	    Add(cs.key, cs);
 	}
@@ -216,13 +221,13 @@ internal class VxSchemaChecksums : Dictionary<string, VxSchemaChecksum>
 	});
     }
 
-    public void AddSum(string key, ulong checksum)
+    public void AddSum(string key, string checksum)
     {
         if (this.ContainsKey(key))
         {
             VxSchemaChecksum old = this[key];
 
-            List<ulong> list = new List<ulong>(old.checksums);
+            List<string> list = new List<string>(old.checksums);
             list.Add(checksum);
 
             this[key] = new VxSchemaChecksum(key, list);
