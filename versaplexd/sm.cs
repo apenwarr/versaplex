@@ -833,10 +833,10 @@ public static class SchemamaticCli
 	// provide a default username/password if they weren't provided
 	// FIXME: are there URLs that should have a blank username/password?
 	WvUrl url = new WvUrl(moniker);
-	if (url.user.e())
-	    url.user = bookmarks.get("Defaults", "user");
-	if (url.password.e())
-	    url.password = bookmarks.get("Defaults", "password");
+	//if (url.user.e())
+	//    url.user = bookmarks.get("Defaults", "user");
+	//if (url.password.e())
+	//    url.password = bookmarks.get("Defaults", "password");
 	    
 	using (var backend = GetBackend(url))
 	{
