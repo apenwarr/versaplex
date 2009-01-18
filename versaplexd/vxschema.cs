@@ -410,11 +410,15 @@ internal class VxSchemaTable : VxSchemaElement,
     {
         List<string> cols = new List<string>();
         List<string> indexes = new List<string>();
+	List<VxSchemaTableElement> colcmds = new List<VxSchemaTableElement>();
         string pkey = "";
         foreach (var elem in elems)
         {
             if (elem.elemtype == "column")
+	    {
                 cols.Add(ColumnToSql(elem));
+		colcmds.Add(elem);
+	    }
             else if (elem.elemtype == "index")
                 indexes.Add(IndexToSql(elem));
             else if (elem.elemtype == "primary-key")
@@ -433,7 +437,12 @@ internal class VxSchemaTable : VxSchemaElement,
         if (cols.Count == 0)
             throw new VxBadSchemaException("No columns in schema.");
 
-        string table = String.Format("CREATE TABLE [{0}] (\n\t{1});\n\n{2}{3}\n",
+	string table = "";
+	foreach (var elem in colcmds)
+	{
+	    table += String.Format("INSERT INTO sm_hidden VALUES ('{0}', '{1}'); ", name, elem.ToString());
+	}
+        table += String.Format("CREATE TABLE [{0}] (\n\t{1});\n\n{2}{3}\n",
             name, cols.join(",\n\t"), pkey, indexes.join("\n"));
         return table;
     }
