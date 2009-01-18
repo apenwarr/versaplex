@@ -164,6 +164,8 @@ namespace Wv
 	{
 	    IDbCommand cmd = db.CreateCommand();
 	    cmd.CommandText = sql;
+
+	    Console.WriteLine("WTF ARE WE DOING:  {0}", sql);
 	    
 	    for (int i = 0; i < args.Length; i++)
 	    {
