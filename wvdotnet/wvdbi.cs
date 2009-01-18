@@ -9,7 +9,7 @@ using System.Data.Common;
 using System.Data.Odbc;
 using System.Data.SqlTypes;
 using System.Data.SqlClient;
-using Mono.Data.SqliteClient;
+using Mono.Data.Sqlite;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
