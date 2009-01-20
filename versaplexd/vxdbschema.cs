@@ -1800,10 +1800,13 @@ internal class VxDbSchema : ISchemaBackend
             }
         }
         
-        if (has_ident)
-            result.Append("SET IDENTITY_INSERT [" + tablename + "] ON;\n");
+// not in sqlite
+//        if (has_ident)
+//            result.Append("SET IDENTITY_INSERT [" + tablename + "] ON;\n");
         
-        prefix = "INSERT INTO " + tablename + " ([" + 
+	result.Append("BEGIN TRANSACTION\n");
+	
+        prefix = "INSERT INTO [" + tablename + "] ([" + 
                           String.Join("],[",columns_array)+"]) VALUES (";
 
         if (!csvhandler.hasMore())
@@ -1842,9 +1845,12 @@ internal class VxDbSchema : ISchemaBackend
 
             result.Append(sql + ");\n");
         }
+	
+	result.Append("COMMIT TRANSACTION\n");
         
-        if (has_ident)
-            result.Append("SET IDENTITY_INSERT [" + tablename + "] OFF;\n");
+// not in sqlite
+//        if (has_ident)
+//            result.Append("SET IDENTITY_INSERT [" + tablename + "] OFF;\n");
         
         return result.ToString();
     }
