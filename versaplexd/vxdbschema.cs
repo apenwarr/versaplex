@@ -1804,7 +1804,7 @@ internal class VxDbSchema : ISchemaBackend
 //        if (has_ident)
 //            result.Append("SET IDENTITY_INSERT [" + tablename + "] ON;\n");
         
-	result.Append("BEGIN TRANSACTION\n");
+	result.Append("BEGIN TRANSACTION;\n");
 	
         prefix = "INSERT INTO [" + tablename + "] ([" + 
                           String.Join("],[",columns_array)+"]) VALUES (";
@@ -1825,20 +1825,16 @@ internal class VxDbSchema : ISchemaBackend
 
                 coltype = GetColType(columns_array[i],coltypes);
                 if (asarray[i]!=null)
-                    if ((coltype == "varchar") ||
-                        (coltype == "datetime") ||
-                        (coltype == "char") ||
-                        (coltype == "image") )
-                        if (coltype == "image")
-                            sql += "0x"+bin2hex(System.Convert.FromBase64String(
-                                                asarray[i].ToString()
-                                                          .Replace("\n","")));
-                        else
-                            sql += "'"
-		               + asarray[i].ToString().Replace("'", "''") 
-			       + "'";
-                    else
-                        sql += asarray[i].ToString();
+		{
+		    if (coltype == "image")
+			sql += "0x"+bin2hex(System.Convert.FromBase64String(
+						    asarray[i].ToString()
+						    .Replace("\n","")));
+		    else
+			sql += "'"
+			    + asarray[i].ToString().Replace("'", "''") 
+			    + "'";
+		}
                 else
                     sql += "NULL";
             }
@@ -1846,7 +1842,7 @@ internal class VxDbSchema : ISchemaBackend
             result.Append(sql + ");\n");
         }
 	
-	result.Append("COMMIT TRANSACTION\n");
+	result.Append("COMMIT TRANSACTION;\n");
         
 // not in sqlite
 //        if (has_ident)
