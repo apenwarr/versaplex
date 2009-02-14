@@ -79,8 +79,11 @@ public class WvUrlTests
 	WVPASSEQ(u.port, 0);
 	WVPASSEQ(u.path, "");
 	
+	// since there's no hostname, we expect it to trim out the
+	// username/password as well; they're useless without a host to 
+	// log into!
 	u = new WvUrl("://:47@:");
-	WVPASSEQ(u.ToString(), "://");
-	WVPASSEQ(u.ToString(true), "://:47@");
+	WVPASSEQ(u.ToString(), ":");
+	WVPASSEQ(u.ToString(true), ":");
     }
 }

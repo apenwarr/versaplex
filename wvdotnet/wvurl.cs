@@ -114,7 +114,9 @@ namespace Wv
 	    
 	    sb.Append(method + ":");
 	    
-	    if (host != null || port != 0 || user != null || password != null)
+	    // we intentionally ignore the username/password if there's
+	    // no hostname; what would it mean?
+	    if (host != null || port != 0)
 	    {
 		sb.Append("//");
 		
