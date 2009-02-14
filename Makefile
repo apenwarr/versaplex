@@ -10,7 +10,8 @@ PKGS += /r:System.Data /r:System.Web /r:Mono.Data.Sqlite
 
 servtest.exe: PKGS += /r:System.ServiceProcess /r:System.Configuration.Install
 
-streamtest.exe servtest.exe httpservtest.exe htmlgentest.exe: wv.dll
+streamtest.exe servtest.exe httpservtest.exe htmlgentest.exe wraptest.exe: \
+	wv.dll
 
 wv.dll: assemblyinfo.cs \
 	wvutils.cs wvtest.cs wvdata.cs wvmoniker.cs wvurl.cs \
