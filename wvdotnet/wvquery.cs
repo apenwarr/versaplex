@@ -18,9 +18,10 @@ namespace Wv.Query
     {
 	public struct WhereClause
 	{
-	    public WhereClause(string name, string op, string value)
+	    public WhereClause(string name, string op, object value)
 	        { this.name = name; this.op = op; this.value = value; }
-	    public string name, op, value;
+	    public string name, op;
+	    public object value;
 	}
 	
 	WvDbi dbi;
@@ -36,19 +37,19 @@ namespace Wv.Query
 	    : this(dbi, new List<WhereClause>())
 	    { }
 	
-	public QuerySet<T> filter(string name, string op, string value)
+	public QuerySet<T> filter(string name, string op, object value)
 	{
 	    var wl = new List<WhereClause>(wheres);
 	    wl.Add(new WhereClause(name, op, value));
 	    return new QuerySet<T>(dbi, wl);
 	}
 	
-	public QuerySet<T> filter(string name, string value)
+	public QuerySet<T> filter(string name, object value)
 	{
 	    return filter(name, "=", value);
 	}
 	
-	public QuerySet<T> exclude(string name, string value)
+	public QuerySet<T> exclude(string name, object value)
 	{
 	    return filter(name, "<>", value);
 	}
@@ -64,8 +65,12 @@ namespace Wv.Query
 	    string q = wv.fmt("select {0} from {1}",
 			      colnames.join(", "), typeof(T).Name);
 	    
-	    var names = from w in wheres select (w.name + "=?");
-	    var values = from w in wheres select w.value;
+	    // FIXME: @col## syntax is mssql-only!
+	    int ii = 0;
+	    var names = from w in wheres 
+		select wv.fmt("{0}{1}@col{2}", w.name, w.op, ii++);
+	    var values = from w in wheres
+		select w.value;
 	    
 	    if (wheres.Count > 0) 
 		q += " where " + names.join(" and ");
