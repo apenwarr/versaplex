@@ -41,6 +41,18 @@ namespace Wv
 		yield return m;
 	    }
 	}
+	
+	public static IEnumerable<MemberInfo> find_members(this Type t,
+							   Type attrtype)
+	{
+	    foreach (MemberInfo m in t.GetMembers())
+	    {
+		if (!m.IsDefined(attrtype, false))
+		    continue;
+		
+		yield return m;
+	    }
+	}
     }
 }
 
