@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Wv;
 using Wv.Extensions;
 
@@ -12,13 +13,8 @@ namespace Wv.Query
      
     class ColumnAttribute : Attribute { }
     class PrimaryKeyColumnAttribute : ColumnAttribute { }
-     
-    internal abstract class Queryable
-    {
-	abstract internal void _fill(WvSqlRow r);
-    }
     
-    class QuerySet<T> : IEnumerable<T> where T: Queryable, new()
+    class QuerySet<T> : IEnumerable<T> where T: new()
     {
 	public struct WhereClause
 	{
@@ -59,13 +55,14 @@ namespace Wv.Query
 	
 	IEnumerable<T> runq()
 	{
-	    string[] m = 
-		(from i
-		in WvReflection.find_members(typeof(T), typeof(ColumnAttribute))
-		select i.Name).ToArray();
+	    FieldInfo[] fi = 
+		WvReflection
+		  .find_fields(typeof(T), typeof(ColumnAttribute))
+		  .ToArray();
+	    string[] colnames = (from f in fi select f.Name).ToArray();
 	    
 	    string q = wv.fmt("select {0} from {1}",
-			      m.join(", "), typeof(T).Name);
+			      colnames.join(", "), typeof(T).Name);
 	    
 	    var names = from w in wheres select (w.name + "=?");
 	    var values = from w in wheres select w.value;
@@ -78,7 +75,13 @@ namespace Wv.Query
 	    foreach (var r in dbi.select(q, values.ToArray()))
 	    {
 		T t = new T();
-		t._fill(r);
+		
+		int i = 0;
+		foreach (var col in r)
+		{
+		    FieldInfo f = fi[i++];
+		    f.SetValue(t, col.to(f.FieldType));
+		}
 		yield return t;
 	    }
 	}
@@ -95,48 +98,55 @@ namespace Wv.Query
 		yield return r;
 	}
     }
-     
-    class MyDb
+    
+    class Database : IDisposable
     {
-	WvDbi dbi;
+	protected WvDbi dbi { get; private set; }
 	
-	public MyDb(WvDbi dbi)
+	public Database(WvDbi dbi)
 	{
 	    this.dbi = dbi;
 	}
 	
-	public QuerySet<Testy> Testy()
-	    { return new QuerySet<Testy>(dbi); }
+	public Database(string dbi_moniker) : this(WvDbi.create(dbi_moniker))
+	    { }
+	
+	public void Dispose()
+	{
+	    using (dbi)
+		;
+	}
+    }
+}
+
+namespace Whatever
+{
+    using Wv.Query;
+    
+    class MyDb : Database
+    {
+        public MyDb(WvDbi dbi) : base(dbi) { }
+        public MyDb(string dbi_moniker) : base(dbi_moniker) { }
+	
+	public QuerySet<Testy> Testy {
+	    get { return new QuerySet<Testy>(dbi); }
+	}
     }
     
-    class Testy : Queryable
+    class Testy
     {
 	[PrimaryKeyColumn] public int id;
 	[Column] public string name;
 	[Column] public int age;
 	[Column] public DateTime birthdate;
-	
-	public Testy() { }
-        internal override void _fill(WvSqlRow _r)
-	{
-	    var _e = _r.GetEnumerator();
-	    id = _e.pop();
-	    name = _e.pop();
-	    age = _e.pop();
-	    birthdate = _e.pop();
-	}
     }
     
     public static class WrapTest
     {
 	public static void Main()
 	{
-	    wv.print("Hello, world\n");
-	    
-	    WvDbi dbi = WvDbi.create("sqlite:foo.db");
-	    var db = new MyDb(dbi);
-	    
-	    foreach (Testy t in db.Testy().filter("name", "Jana"))
+	    var db = new MyDb("sqlite:foo.db");
+	    foreach (Testy t in db.Testy.filter("name", "Jana"))
 		wv.print("X: '{0};{1};{2};{3}'\n", 
 			 t.id, t.name, t.age, t.birthdate);
 	}

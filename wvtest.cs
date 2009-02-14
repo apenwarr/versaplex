@@ -53,6 +53,16 @@ namespace Wv
 		yield return m;
 	    }
 	}
+	
+	public static IEnumerable<FieldInfo> find_fields(this Type t,
+							 Type attrtype)
+	{
+	    foreach (MemberInfo m in find_members(t, attrtype))
+	    {
+		if (m is FieldInfo)
+		    yield return (FieldInfo)m;
+	    }
+	}
     }
 }
 
