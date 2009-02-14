@@ -16,6 +16,7 @@ streamtest.exe servtest.exe httpservtest.exe htmlgentest.exe wraptest.exe: \
 wv.dll: assemblyinfo.cs \
 	wvutils.cs wvtest.cs wvdata.cs wvmoniker.cs wvurl.cs \
 	wvdbi.cs wvini.cs \
+	wvquery.cs \
 	wveventer.cs wvbuf.cs \
 	wvstream.cs wvstreamstream.cs wvsockstream.cs \
 	wvloopback.cs wvlog.cs wvhexdump.cs \
