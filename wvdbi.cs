@@ -253,9 +253,6 @@ namespace Wv
 	    
 	    log.print("Sqlite create: '{0}'\n", path);
 	    opendb(new SqliteConnection(path));
-	    try {
-		execute("CREATE TABLE sm_hidden (tablen TEXT, description TEXT);");
-	    } catch {}
 	}
     }
     
