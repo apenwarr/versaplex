@@ -248,14 +248,11 @@ namespace Wv
 
 	public WvDbi_Sqlite(string moniker)
 	{
-	    //URI=file:filename.db
-	    string real;
-	    if (!moniker.StartsWith("//"))
-		real = moniker;
-	    else
-		real = "file:" + moniker.Substring(2);
-		
-	    opendb(new SqliteConnection("URI=" + real));
+	    WvUrl url = new WvUrl(moniker);
+	    string path = "URI=file:" + url.path;
+	    
+	    log.print("Sqlite create: '{0}'\n", path);
+	    opendb(new SqliteConnection(path));
 	    try {
 		execute("CREATE TABLE sm_hidden (tablen TEXT, description TEXT);");
 	    } catch {}
