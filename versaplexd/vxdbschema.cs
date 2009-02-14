@@ -60,6 +60,9 @@ internal class VxDbSchema : ISchemaBackend
         dbi = _dbi;
         //dbi.execute("set quoted_identifier off");
         //dbi.execute("set ansi_nulls on");
+	try {
+	    dbi.execute("CREATE TABLE sm_hidden (tablen TEXT, description TEXT);");
+	} catch {}
     }
     
     public void Dispose()
