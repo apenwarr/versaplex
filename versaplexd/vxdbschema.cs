@@ -1484,11 +1484,11 @@ internal class VxDbSchema : ISchemaBackend
 	//string query = @"select tbl_name,sql from sqlite_master where type='table' and name != 'sm_hidden'";
 	string query = @"select * from sm_hidden";
 
-	Dictionary<string, string> tables = new Dictionary<string, string>();
-	foreach (WvSqlRow row in DbiSelect(query))
+	var tables = new Dictionary<string, string>();
+	foreach (var row in DbiSelect(query))
 	{
 	    string table = row[0];
-	    string line = "";
+	    string line;
 	    if (tables.TryGetValue(table, out line))
 	    {
 		tables[table] = line + row[1] + "\n";
@@ -1499,8 +1499,7 @@ internal class VxDbSchema : ISchemaBackend
 	    }
 	}
 
-	Dictionary<string, string>.KeyCollection keys = tables.Keys;
-	foreach (string k in keys)
+	foreach (string k in tables.Keys)
 	{
 	    VxSchemaTable table = (VxSchemaTable)VxSchemaElement.create("Table", k,
 							tables[k], false);
