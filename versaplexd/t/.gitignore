@@ -1,5 +1,0 @@
-*.cs.E
-*.pass
-all.t
-.wvtest-total
-valgrind.log

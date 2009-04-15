@@ -1,15 +1,12 @@
 
 
-Most of the files in Versaplex are covered by the following license, with
-these exceptions:
+Files in wvdotnet are covered by the following license.
 
- - Packages in the wv/ subdirectory each have their own license.
- 
- - wvdbus-sharp is derived from dbus-sharp, and is covered under the same
-   license, which can be found in wvdbus-sharp/COPYING.
+wvdbus-sharp is derived from dbus-sharp, and is covered under the same
+license, which can be found in wvdbus-sharp/COPYING.
 
 
--- apenwarr, 2008-12-03
+-- apenwarr, 2009/04/15
 
 
 

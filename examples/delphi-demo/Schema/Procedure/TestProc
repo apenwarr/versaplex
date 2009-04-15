@@ -1,6 +1,0 @@
-!!SCHEMAMATIC 48fa2664532518e1ff96db8c7b9540a2 0x7e4b13a3 
-create procedure TestProc as
-
-select 'hello world'
-print 'this is a test message'
-

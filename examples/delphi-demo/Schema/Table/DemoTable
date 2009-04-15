@@ -1,6 +1,0 @@
-!!SCHEMAMATIC 0d85d23df53488e18ab4a81e45fa782d 0x1e1bebe3 0x2b8b18f4 0x2db3cb9a 0x5f50c485 0x83eee68f 
-column: name=Id,type=int,null=0,identity_seed=1,identity_incr=1
-column: name=LastName,type=varchar,null=0,length=30
-column: name=FirstName,type=varchar,null=0,length=30
-column: name=Puppies,type=int,null=0
-column: name=LastUpdated,type=datetime,null=1

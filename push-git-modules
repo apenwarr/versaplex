@@ -1,8 +1,0 @@
-#!/bin/sh -x
-set -e
-test -e wv/wvstreams/Makefile
-(cd wv/wvstreams && git push origin HEAD:master) &&
-(cd wv && git push origin HEAD:master) &&
-git push origin HEAD:master ||
-echo "Failed!"
-

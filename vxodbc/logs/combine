@@ -1,9 +1,0 @@
-#!/bin/bash
-for d in *.trace.log; do
-	./counts $d
-done \
-	| awk '
-		{list[$3]=list[$3] " " $2} 
-		END {for (d in list) 
-			{ printf("%-20s %s\n", d, list[d]); } }' \
-	| sort

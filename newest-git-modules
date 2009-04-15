@@ -1,7 +1,0 @@
-#!/bin/sh -x
-set -e
-test -e wv/wvstreams/Makefile
-git pull origin master &&
-(cd wv && git pull origin master) &&
-(cd wv/wvstreams && git pull origin master) ||
-echo "Failed!"
