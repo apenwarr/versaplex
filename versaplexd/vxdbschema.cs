@@ -1868,10 +1868,39 @@ internal class VxDbSchema : ISchemaBackend
             {
                 csvtext = "";
                 tablename = line.Substring(6).Trim();
-                
-                //gotta get the CSV part only
-                while (!String.IsNullOrEmpty(line = txt.ReadLine()))
-                    csvtext += line + "\n";
+
+                /* gotta get the CSV part only
+		 * NOTE:  In a CSV, we can have multiple newlines within a
+		 * "" block, so we need something more complicated than the two
+		 * commented-out lines below, say, something about as
+		 * complicated as the while() loop following.  We might want to
+		 * be checking for other points at which we (improperly) load
+		 * a .csv file to WvCsv.
+                //while (!String.IsNullOrEmpty(line = txt.ReadLine()))
+                //    csvtext += line + "\n";
+		 */
+		uint in_string = 0;
+		while ((line = txt.ReadLine()) != null)
+		{
+		    if (!String.IsNullOrEmpty(line))
+		    {
+			csvtext += line;
+			foreach (char c in line)
+			    if (c == '"')
+			    {
+				if (in_string < 2)
+				    ++in_string;
+				else //if (in_string == 2)
+				    in_string = 1;
+			    }
+			    else if (in_string == 2)
+				in_string = 0;
+		    }
+		    else if (in_string != 1)
+			break;
+
+		    csvtext += "\n";
+		}
                 
                 //Will return CSV part as INSERTs
                 tmp = Csv2Inserts(tablename,csvtext);
