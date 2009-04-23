@@ -1769,7 +1769,7 @@ internal class VxDbSchema : ISchemaBackend
         var coltypes = new List<KeyValuePair<string,string>>();
         VxSchema schema = new VxSchema();
         string ident_seed, ident_incr, coltype;
-        
+
         tab_names.Add(tablename);
         RetrieveTableSchema(schema, tab_names);
 
@@ -1912,7 +1912,7 @@ internal class VxDbSchema : ISchemaBackend
 	    log.print("Split into {0} parts.\n", parts.Length);
 	    
 	    log.print("Part 1...\n");
-	    
+
 	    DbiExec(parts[0]);
 	    
 	    int count = 1;
