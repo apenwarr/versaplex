@@ -1088,11 +1088,9 @@ internal class VxDbSchema : ISchemaBackend
 	string query = @"select tbl_name,sql from sqlite_master
 			    where type = 'table' and name != 'sm_hidden'";
 
-	Console.WriteLine("LUKE 1");
         foreach (WvSqlRow row in DbiSelect(query))
         {
             string name = row[0];
-	Console.WriteLine("LUKE 1.5");
 	    //FIXME:  Should be doing checksum over givens, not over the
 	    //actual sql text
 	    /*
@@ -1106,7 +1104,6 @@ internal class VxDbSchema : ISchemaBackend
 	    //FIXME:  BROKEN
 	    //string checksum = MD5.Create().ComputeHash(checkme).ToHex().ToLower();
 	    string checksum = "DEADBEEF";
-	Console.WriteLine("LUKE 1.6");
 
             // Tasks_#* should be ignored
             if (name.StartsWith("Tasks_#")) 
@@ -1117,7 +1114,6 @@ internal class VxDbSchema : ISchemaBackend
             log.print("name={0}, checksum={1}, key={2}\n", name, checksum, key);
             sums.AddSum(key, checksum);
         }
-	Console.WriteLine("LUKE 2");
     }
 
     void AddIndexChecksumsToTables(VxSchemaChecksums sums)
@@ -1772,7 +1768,7 @@ internal class VxDbSchema : ISchemaBackend
         var coltypes = new List<KeyValuePair<string,string>>();
         VxSchema schema = new VxSchema();
         string ident_seed, ident_incr, coltype;
-        
+
         tab_names.Add(tablename);
         RetrieveTableSchema(schema, tab_names);
 
@@ -1871,10 +1867,39 @@ internal class VxDbSchema : ISchemaBackend
             {
                 csvtext = "";
                 tablename = line.Substring(6).Trim();
-                
-                //gotta get the CSV part only
-                while (!String.IsNullOrEmpty(line = txt.ReadLine()))
-                    csvtext += line + "\n";
+
+                /* gotta get the CSV part only
+		 * NOTE:  In a CSV, we can have multiple newlines within a
+		 * "" block, so we need something more complicated than the two
+		 * commented-out lines below, say, something about as
+		 * complicated as the while() loop following.  We might want to
+		 * be checking for other points at which we (improperly) load
+		 * a .csv file to WvCsv.
+                //while (!String.IsNullOrEmpty(line = txt.ReadLine()))
+                //    csvtext += line + "\n";
+		 */
+		uint in_string = 0;
+		while ((line = txt.ReadLine()) != null)
+		{
+		    if (!String.IsNullOrEmpty(line))
+		    {
+			csvtext += line;
+			foreach (char c in line)
+			    if (c == '"')
+			    {
+				if (in_string < 2)
+				    ++in_string;
+				else //if (in_string == 2)
+				    in_string = 1;
+			    }
+			    else if (in_string == 2)
+				in_string = 0;
+		    }
+		    else if (in_string != 1)
+			break;
+
+		    csvtext += "\n";
+		}
                 
                 //Will return CSV part as INSERTs
                 tmp = Csv2Inserts(tablename,csvtext);
@@ -1915,7 +1940,7 @@ internal class VxDbSchema : ISchemaBackend
 	    log.print("Split into {0} parts.\n", parts.Length);
 	    
 	    log.print("Part 1...\n");
-	    
+
 	    DbiExec(parts[0]);
 	    
 	    int count = 1;
