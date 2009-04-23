@@ -45,10 +45,7 @@ namespace Wv
         //returns the next line parsed into an ArrayList
         public ArrayList GetLine()
         {
-            char lastChar;
             string field = "";
-            string tmp = "";
-            string temp;
             asarray = new ArrayList();
             
             while (pos < astext.Length)
@@ -60,13 +57,11 @@ namespace Wv
                     return asarray;
                 }
                 
-                lastChar = ' ';
-
                 //certainly a string                
                 if (astext[pos] == '"')
                 {
+		    char lastChar = '"';
                     pos++;
-                    lastChar = '"';
                     while (pos < astext.Length)
                     {
                         if ((lastChar=='"') && ((astext[pos]==',') || 
@@ -74,8 +69,8 @@ namespace Wv
                         {
                             if (field.EndsWith("\""))
                             {
-                                tmp = field.Substring(0,field.Length-1);
-                                temp = tmp.Replace("\"\"","");
+                                string tmp = field.Substring(0,field.Length-1);
+                                string temp = tmp.Replace("\"\"","");
                                 if (((tmp.Length - temp.Length) %2 == 0) && 
                                     (!temp.EndsWith("\"")))
                                 {
