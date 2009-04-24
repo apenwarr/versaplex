@@ -294,7 +294,7 @@ internal class VxSchemaTable : VxSchemaElement,
                 int index = line.IndexOf(typeseparator);
                 if (index < 0)
                     throw new ArgumentException
-		       (wv.fmt("Malformed line in {0}: '{1}'", key, line));
+		       (wv.fmt("[Malformed line in '{0}': '{1}']", key, line));
                 string type = line.Remove(index);
                 string rest = line.Substring(index + typeseparator.Length);
 
