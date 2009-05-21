@@ -752,6 +752,9 @@ public static class SchemamaticCli
 
     public static int Main(string[] args)
     {
+	if (args.Length == 1 && args[0] == "pipe")
+	    return pipe_mode(); 
+	
         try {
             return _Main(args);
         }
@@ -775,6 +778,36 @@ public static class SchemamaticCli
 	string dir       = extra[2];
 	
 	do_pascalgen(classname, dir, global_syms, outfile);
+	return 0;
+    }
+    
+    static int pipe_mode()
+    {
+	var wvin = WvStreamStream.wvin;
+	var wvout = WvStreamStream.wvout;
+	try {
+	    while (wvin.ok)
+	    {
+		string s = wvin.getline(-1, '\n').trim();
+		if (s == "quit")
+		    return 0;
+		if (s.ne())
+		{
+		    int ret;
+		    try {
+			ret = _Main(s.split("\t").ToArray());
+		    }
+		    catch (Exception e) {
+			wv.printerr("{0}\n", e);
+			ret = 101;
+		    }
+		    wvout.print("!RESULT: {0}\n", ret);
+		}
+	    }
+	}
+	finally {
+	    wvin.close();
+	}
 	return 0;
     }
     
@@ -868,6 +901,7 @@ public static class SchemamaticCli
 	    {
 		Console.Error.WriteLine("\nUnknown command '{0}'\n", cmd);
 		ShowHelp();
+		return 95;
 	    }
 	}
 	

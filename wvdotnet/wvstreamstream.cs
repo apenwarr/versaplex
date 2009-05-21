@@ -5,6 +5,7 @@
  */
 using System;
 using System.IO;
+using System.Threading;
 
 namespace Wv
 {
@@ -36,63 +37,68 @@ namespace Wv
 	}
 	
 	object readlock = new object();
-	WvBytes inbuf = new byte[4096];
-	int in_ofs = 0, in_left = 0;
-	bool got_eof = false;
+	WvBuf inbuf = new WvBuf();
+	bool got_eof = false, reading = false;
+	Thread reader = null;
+
+	void read_thread()
+	{
+	    WvBytes buf = new byte[4096];
+	    int len = inner.Read(buf.bytes, 0, buf.len);
+	    lock (readlock)
+	    {
+		if (len > 0)
+		    inbuf.put(buf.sub(0, len));
+		else
+		    got_eof = true;
+		reading = false;
+		post_readable();
+	    }
+	}
 	
 	void start_reading()
 	{
-	    //wv.printerr("starting...\n");
-	    if (got_eof)
+	    lock (readlock)
 	    {
-		//wv.printerr("eof close!\n");
-		noread();
-		nowrite();
-		return;
+		if (got_eof)
+		{
+		    //wv.printerr("eof close!\n");
+		    noread();
+		    nowrite();
+		    return;
+		}
+		
+		if (reading)
+		    return;
+		if (reader != null)
+		    reader.Join();
+		reading = true;
+		reader = new Thread(read_thread);
+		reader.Start();
 	    }
-	    
-	    in_ofs = 0;
-	    in_left = 0;
-	    try {
-		inner.BeginRead(inbuf.bytes, inbuf.start, inbuf.len,
-				delegate(IAsyncResult ar) {
-				    lock (readlock)
-				    {
-					in_ofs = 0;
-					in_left = inner.EndRead(ar);
-					//wv.printerr("ending... {0}\n", in_left);
-					if (in_left == 0)
-					    got_eof = true;
-					post_readable();
-				    }
-				},
-				null);
-	    } finally {} /* catch (Exception e) {
-		err = e;
-	    }*/
 	}
 	
 	public override int read(WvBytes b)
 	{
-	    lock (readlock)
+	    try
 	    {
-		if (in_left > 0)
+		lock (readlock)
 		{
-		    int max = in_left <= b.len ? in_left : b.len;
-		    b.put(0, inbuf.sub(in_ofs, max));
-		    in_ofs += max;
-		    in_left -= max;
-		    if (in_left > 0)
-			post_readable();
+		    if (inbuf.used > 0)
+		    {
+			int max = inbuf.used <= b.len ? inbuf.used : b.len;
+			b.put(0, inbuf.get(max));
+			if (inbuf.used > 0)
+			    post_readable(); // _still_ readable
+			return max;
+		    }
 		    else
-			start_reading();
-		    return max;
+			return 0;
 		}
-		else
-		{
-		    start_reading();
-		    return 0;
-		}
+	    }
+	    finally
+	    {
+		start_reading();
 	    }
 	}
 	
@@ -125,9 +131,57 @@ namespace Wv
 	public override void close()
 	{
 	    base.close();
+	    if (reader != null)
+		reader.Abort();
 	    if (hasinner)
 		inner.Dispose();
 	    inner = null;
+	}
+	
+	static int c = 0;
+	public override bool wait(int msec_timeout,
+				  bool readable, bool writable)
+	{
+	    start_reading();
+	    foreach (var remain in wv.until(msec_timeout))
+	    {
+		lock (readlock)
+		{
+		    if (readable && inbuf.used > 0)
+			return true;
+		}
+		if (writable)
+		    return true;
+		if (!ok || got_eof)
+		    return false;
+		WvStream.runonce(remain);
+	    }
+	    return false;
+	}
+	
+	static WvInBufStream _wvin = null;
+	static WvStream _wvout = null, _wverr = null;
+	public static WvInBufStream wvin {
+	    get { 
+		if (_wvin == null)
+		    _wvin = new WvInBufStream(
+		      new WvStreamStream(Console.OpenStandardInput()));
+		return _wvin;
+	    }
+	}
+	public static WvStream wvout {
+	    get { 
+		if (_wvout == null)
+		    _wvout = new WvStreamStream(Console.OpenStandardOutput());
+		return _wvout;
+	    }
+	}
+	public static WvStream wverr {
+	    get { 
+		if (_wverr == null)
+		    _wverr = new WvStreamStream(Console.OpenStandardError());
+		return _wverr;
+	    }
 	}
     }
     

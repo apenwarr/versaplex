@@ -397,6 +397,11 @@ internal class VxSchemaTable : VxSchemaElement,
         string clustered = elem.GetParam("clustered") == "1" ? 
             " CLUSTERED" : " NONCLUSTERED";
 
+	// LUKE HACK!!!
+	// FIXME:  Sqlite doesn't support ADD CONSTRAINT on ALTER TABLE
+	// statements
+	return "";
+
         if (idxname.e())
             idxname = GetDefaultPKName();
 
