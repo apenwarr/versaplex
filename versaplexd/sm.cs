@@ -795,7 +795,7 @@ public static class SchemamaticCli
 		{
 		    int ret;
 		    try {
-			ret = _Main(s.split(" ").ToArray());
+			ret = _Main(s.split("\t").ToArray());
 		    }
 		    catch (Exception e) {
 			wv.printerr("{0}\n", e);
