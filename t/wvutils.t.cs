@@ -66,4 +66,20 @@ public class WvUtilsTests
         WVPASSEQ(wv.add_breaks_to_newlines("foo\nfoo\n"), "foo<br/>\nfoo<br/>\n");
         WVPASSEQ(wv.add_breaks_to_newlines("foo\nfoo"), "foo<br/>\nfoo");
     }
+    
+    [Test] public void until_test()
+    {
+	DateTime t1 = DateTime.Now;
+	bool first = true;
+	foreach (var remain in wv.until(1000))
+	{
+	    if (first)
+	    {
+		first = false;
+		WVPASS(remain > 500);
+	    }
+	}
+	DateTime t2 = DateTime.Now;
+	WVPASS((t2-t1).TotalMilliseconds >= 1000);
+    }
 }
