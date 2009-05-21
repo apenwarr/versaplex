@@ -52,7 +52,6 @@ namespace Wv
 		else
 		    got_eof = true;
 		reading = false;
-		
 		post_readable();
 	    }
 	}
@@ -85,23 +84,12 @@ namespace Wv
 	    {
 		lock (readlock)
 		{
-		    wv.printerr("reading ({0}/{1})...\n", reading, inbuf.used);
-		    if (reading)
-			wv.printerr(".");
-		    else
-			wv.printerr("X");
-		    wv.sleep(90);
-		    
 		    if (inbuf.used > 0)
 		    {
 			int max = inbuf.used <= b.len ? inbuf.used : b.len;
 			b.put(0, inbuf.get(max));
-			wv.printerr("got {0} bytes\n", max);
 			if (inbuf.used > 0)
-			{
-			    wv.printerr("posting readable\n");
 			    post_readable(); // _still_ readable
-			}
 			return max;
 		    }
 		    else
@@ -150,12 +138,30 @@ namespace Wv
 	    inner = null;
 	}
 	
-	static WvStream _wvin = null;
+	static int c = 0;
+	public override bool wait(int msec_timeout,
+				  bool readable, bool writable)
+	{
+	    start_reading();
+	    foreach (var remain in wv.until(msec_timeout))
+	    {
+		if (readable && inbuf.used > 0)
+		    return true;
+		if (writable)
+		    return true;
+		if (!ok || got_eof)
+		    return false;
+		WvStream.runonce(remain);
+	    }
+	    return false;
+	}
+	
+	static WvInBufStream _wvin = null;
 	static WvStream _wvout = null, _wverr = null;
-	public static WvStream wvin {
+	public static WvInBufStream wvin {
 	    get { 
 		if (_wvin == null)
-		    _wvin = /*new WvInBufStream*/(
+		    _wvin = new WvInBufStream(
 		      new WvStreamStream(Console.OpenStandardInput()));
 		return _wvin;
 	    }
