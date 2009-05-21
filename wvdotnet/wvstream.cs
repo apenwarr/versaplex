@@ -178,26 +178,22 @@ namespace Wv
 	 * Wait up to msec_timeout milliseconds for the stream to become
 	 * readable or writable, respectively.
 	 * 
-	 * Our default implementation always returns immediately, consistent
-	 * with the Unix select() behaviour of returning immediately on
-	 * non-select()able file handles.
-	 * 
 	 * Returns true if the stream is readable or writable before the 
 	 * timeout, false otherwise.
 	 * 
 	 * Waiting synchronously is usually a bad idea in WvStreams
 	 * programs.  Use onreadable/onwritable/onclose instead whenever
 	 * you can.
+	 * 
+	 * WARNING: Our default implementation always returns immediately,
+	 * consistent with the Unix select() behaviour of returning
+	 * immediately on non-select()able file handles.  There's not really
+	 * anything more reasonable to do, since we obviously can't wait
+	 * *forever*.
 	 */
 	public virtual bool wait(int msec_timeout,
 				 bool readable, bool writable)
 	{
-	    if (readable && is_readable)
-		return true;
-	    if (writable && is_writable)
-		return true;
-	    if (!ok || (readable && !canread) || (writable && !canwrite))
-		return false;
 	    return true;
 	}
 

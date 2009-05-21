@@ -1,0 +1,6 @@
+server-side cursors don't work
+varchar(max) doesn't come back as a plain varchar
+
+better API logging
+odbc log parser
+vxodbc log parser

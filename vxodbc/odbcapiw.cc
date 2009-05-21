@@ -726,7 +726,9 @@ RETCODE SQL_API SQLNativeSqlW(HDBC hdbc,
     SQLLEN slen;
     SQLINTEGER buflen, olen;
     ConnectionClass *conn = (ConnectionClass *) hdbc;
-    mylog("Start\n");
+    mylog("Start (%x, %p, %d, %p, %d, %p)\n",
+	  hdbc, szSqlStrIn, cbSqlStrIn,
+	  szSqlStr, cbSqlStrMax, pcbSqlStr);
 
     ENTER_CONN_CS(conn);
     CC_clear_error(conn);
@@ -755,6 +757,8 @@ RETCODE SQL_API SQLNativeSqlW(HDBC hdbc,
 	    ConnectionClass *conn = (ConnectionClass *) hdbc;
 
 	    ret = SQL_SUCCESS_WITH_INFO;
+	    mylog("Sql string too large: %d(%d) > %d\n", 
+		  szcount, olen, cbSqlStrMax); 
 	    CC_set_error(conn, CONN_TRUNCATED, "Sql string too large",
 			 func);
 	}
