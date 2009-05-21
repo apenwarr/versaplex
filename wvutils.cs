@@ -285,7 +285,7 @@ namespace Wv
 		    yield return -1;
 		else
 		{
-		    int s = (int)((n-t).TotalMilliseconds);
+		    int s = (int)((t-n).TotalMilliseconds);
 		    if (s < 0)
 			s = 0;
 		    yield return s;
