@@ -145,8 +145,11 @@ namespace Wv
 	    start_reading();
 	    foreach (var remain in wv.until(msec_timeout))
 	    {
-		if (readable && inbuf.used > 0)
-		    return true;
+		lock (readlock)
+		{
+		    if (readable && inbuf.used > 0)
+			return true;
+		}
 		if (writable)
 		    return true;
 		if (!ok || got_eof)
