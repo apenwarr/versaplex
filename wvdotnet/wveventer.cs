@@ -26,7 +26,10 @@ namespace Wv
     
     public class WvEventer : IWvEventer
     {
-	// CAREFUL! The 'pending' structure might be accessed from other threads!
+	WvLoopSock loop = new WvLoopSock();
+	
+	// CAREFUL! The 'pending' structure might be accessed from other
+	// threads!
 	Dictionary<object, Action> 
 	    pending = new Dictionary<object, Action>();
 	
@@ -73,6 +76,7 @@ namespace Wv
 	    ta.Remove(cookie);
 	    if (a != null)
 		ta.Add(cookie, new TimeAction(t, a));
+	    loop.set();
 	}
     
 	// NOTE: 
@@ -85,6 +89,7 @@ namespace Wv
 	    {
 		pending.Remove(cookie);
 		pending.Add(cookie, a);
+		loop.set();
 	    }
 	}
     
@@ -108,10 +113,15 @@ namespace Wv
     
 	public void runonce(int msec_timeout)
 	{
-	    // Console.WriteLine("Pending: {0}", pending.Count);
-
+	    // we do this first; anybody who has enqueued any events will
+	    // be processed below before select().  If anyone does
+	    // loop.set() between now and select(), we'll end up returning
+	    // right away, which is harmless.
+	    loop.drain();
+	    
 	    IList<Socket> rlist = r.Keys.ToList();
 	    IList<Socket> wlist = w.Keys.ToList();
+	    rlist.Add(loop.readsock);
 	    IList<TimeAction> talist = ta.Values.ToList();
 	    if (msec_timeout < 0)
 		msec_timeout = 1000000;
@@ -148,7 +158,8 @@ namespace Wv
 	
 	    DateTime now = DateTime.Now;
 	    foreach (Socket s in rlist)
-		r[s]();
+		if (s != loop.readsock)
+		    r[s]();
 	    foreach (Socket s in wlist)
 		w[s]();
 	    foreach (Object cookie in ta.Keys)
