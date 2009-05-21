@@ -339,6 +339,13 @@ namespace Wv
 	    if (hasinner)
 		inner.nowrite();
 	}
+	
+	public override void close()
+	{
+	    base.close();
+	    if (hasinner)
+		inner.close();
+	}
 
 	public override bool flush(int msec_timeout)
 	{
