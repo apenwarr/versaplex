@@ -173,11 +173,11 @@ public class WvStreamTests
 	    WVPASSEQ(f.getline(-1, '\r'), "ine 1\nLine 2!!\nLine 3\r");
 	    WvStream.runonce(10000);
 	    WVPASSEQ(f.read(1024).FromUTF8(), "with CR\n");
+	    WVPASSEQ(rcount, 2);
+	    WvStream.runonce(0);
 	    WVPASSEQ(rcount, 3);
 	    WvStream.runonce(0);
-	    WVPASSEQ(rcount, 4);
-	    WvStream.runonce(0);
-	    WVPASSEQ(rcount, 4);
+	    WVPASSEQ(rcount, 3);
 	}
     }
 }
