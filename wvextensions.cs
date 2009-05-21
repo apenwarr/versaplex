@@ -106,6 +106,14 @@ namespace Wv.Extensions
 	    return !wv.isempty(s);
 	}
 	
+	public static string trim(this string s)
+	{
+	    if (s != null)
+		return s.Trim();
+	    else
+		return null;
+	}
+	
 	public static IEnumerable<T2> map<T1,T2>(this IEnumerable<T1> list,
 					  Func<T1,T2> f)
 	{
