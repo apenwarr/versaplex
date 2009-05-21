@@ -253,6 +253,8 @@ namespace Wv
 	    
 	    log.print("Sqlite create: '{0}'\n", path);
 	    opendb(new SqliteConnection(path));
+	    
+	    execute("PRAGMA synchronous = OFF");
 	}
 	
 	protected override IDbCommand prepare(string sql, params object[] args)
