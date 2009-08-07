@@ -259,7 +259,12 @@ namespace Wv
 	
 	protected override IDbCommand prepare(string sql, params object[] args)
 	{
-	    log.print("Preparing: '{0}' ({1})\n", sql, args.join(","));
+	    string printsql;
+	    if (sql.Length > 50)
+		printsql = sql.Substring(0, 50) + "...<truncated>";
+	    else
+		printsql = sql;
+	    log.print("Preparing: '{0}' ({1})\n", printsql, args.join(","));
 	    return base.prepare(sql, args);
 	}
     }
