@@ -157,7 +157,13 @@ namespace Wv
 	
 	public override int execute(string sql, params object[] args)
 	{
-	    return prepare(sql, args).ExecuteNonQuery();
+	    int ret = 0;
+	    using (IDbCommand cmd = prepare(sql, args))
+	    {
+		ret = cmd.ExecuteNonQuery();
+	    }
+
+	    return ret;
 	}
 	
 	protected virtual IDbCommand prepare(string sql, params object[] args)
