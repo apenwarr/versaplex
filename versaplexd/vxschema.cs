@@ -770,7 +770,7 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
             log.print("Updating and adding elements.\n");
             put_errs = dest.Put(to_put, srcsums, putopts);
         }
-	log.print("TIME INDEX {0}: {1}\", 9, DateTime.Now);
+	log.print("TIME INDEX {0}: {1}\n", 9, DateTime.Now);
 
         // Combine the two sets of errors.
         foreach (var kvp in drop_errs)
