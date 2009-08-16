@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Text;
 
 namespace Wv
 {
@@ -45,7 +46,7 @@ namespace Wv
         //returns the next line parsed into an ArrayList
         public List<string> GetLine()
         {
-            string field = "";
+            StringBuilder field = new StringBuilder();
             asarray = new List<string>();
             
             while (pos < astext.Length)
@@ -63,54 +64,54 @@ namespace Wv
 		    char lastChar = '"';
                     while (++pos < astext.Length)
                     {
+			int fminus1 = field.Length - 1;
                         if (lastChar == '"' && (astext[pos] == ',' || 
                                                 astext[pos] == '\n'))
                         {
-                            if (field.EndsWith("\""))
+                            if (fminus1 >= 0 && field[fminus1] == '"')
                             {
-                                string tmp = field.Substring(0, field.Length-1);
-                                string temp = tmp.Replace("\"\"","");
-                                if ((tmp.Length - temp.Length) % 2 == 0 && 
+                                string tmp = field.ToString(0, fminus1);
+                                string temp = tmp.Replace("\"\"", null);
+                                if ((fminus1 - temp.Length) % 2 == 0 && 
                                     !temp.EndsWith("\""))
                                 {
-                                    field = tmp;
+                                    field.Remove(fminus1, 1);
                                     break;
                                 }
                             }
                         }
                              
-                        field += astext[pos];
-                        lastChar = astext[pos];
+                        field.Append(lastChar = astext[pos]);
                     }
+
+		    int flenminus1 = field.Length - 1;
+                    if (pos == astext.Length && astext[pos - 1] != '\n' && 
+                        field[flenminus1] == '"')
+                        field.Remove(flenminus1, 1);
                     
-                    if (pos == astext.Length && astext[pos-1] != '\n' && 
-                        field.EndsWith("\""))
-                        field = field.Substring(0, field.Length - 1);
-                    
-                    asarray.Add(field.Replace("\"\"","\""));
+                    asarray.Add(field.Replace("\"\"","\"").ToString());
                 }
                 else
                 {
-                    while ((pos < astext.Length) && (astext[pos]!=',') && 
-                                                    (astext[pos]!='\n'))
+                    while (pos < astext.Length && astext[pos] != ',' && 
+                           astext[pos] != '\n')
                     {
-                        field += astext[pos];
-                        ++pos;
+                        field.Append(astext[pos++]);
                     }
 
-                    if (String.IsNullOrEmpty(field))
+                    if (field.Length == 0)
                         asarray.Add(null);
                     else
-                        asarray.Add(field.Replace("\"\"","\""));
+                        asarray.Add(field.Replace("\"\"","\"").ToString());
 
                 }
-                if ((pos < astext.Length) && (astext[pos]=='\n'))
+                if (pos < astext.Length && astext[pos] == '\n')
                 {
                     ++pos;
                     return asarray;
                 }
                     
-                field = "";
+                field = new StringBuilder();
                 ++pos;
             }
 
