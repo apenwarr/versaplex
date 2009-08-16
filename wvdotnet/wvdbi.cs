@@ -9,7 +9,7 @@ using System.Data.Common;
 using System.Data.Odbc;
 using System.Data.SqlTypes;
 using System.Data.SqlClient;
-using Mono.Data.Sqlite;
+using Mono.Data.SqliteClient;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
@@ -255,7 +255,7 @@ namespace Wv
 	public WvDbi_Sqlite(string moniker)
 	{
 	    WvUrl url = new WvUrl(moniker);
-	    string path = "URI=file:" + url.path;
+	    string path = "URI=file:" + url.path + ",Version=3";
 	    
 	    log.print("Sqlite create: '{0}'\n", path);
 	    opendb(new SqliteConnection(path));
@@ -266,7 +266,7 @@ namespace Wv
 	protected override IDbCommand prepare(string sql, params object[] args)
 	{
 	    string printsql;
-	    if (sql.Length > 50)
+	    if (false && sql.Length > 50)
 		printsql = sql.Substring(0, 50) + "...<truncated>";
 	    else
 		printsql = sql;
