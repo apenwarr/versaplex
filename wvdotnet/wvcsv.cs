@@ -44,16 +44,14 @@ namespace Wv
                 //certainly a string                
                 if (astext[pos] == '"')
                 {
-		    char lastChar = '"';
 		    if (++pos < astext.Length)
 		    {
-                        field.Append(lastChar = astext[pos]);
+                        field.Append(astext[pos]);
 
 			while (++pos < astext.Length)
 			{
 			    int fminus1 = field.Length - 1;
-			    if (lastChar == '"' && (astext[pos] == ',' || 
-						    astext[pos] == '\n') &&
+			    if ((astext[pos] == ',' || astext[pos] == '\n') &&
 				field[fminus1] == '"')
 			    {
 				string tmp = field.ToString(0, fminus1);
@@ -66,7 +64,7 @@ namespace Wv
 				}
 			    }
                              
-			    field.Append(lastChar = astext[pos]);
+			    field.Append(astext[pos]);
 			}
 		    }
 
