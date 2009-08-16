@@ -13,7 +13,6 @@ namespace Wv
     public class WvCsv
     {
         string astext;
-        List<string> asarray;
         int pos = 0;
         
         public WvCsv(string toparse)
@@ -21,33 +20,15 @@ namespace Wv
             astext = toparse;
         }
         
-        public WvCsv(List<string> tounparse)
-        {
-            asarray = tounparse;
-        }
-        
         public bool hasMore()
         {
             return (pos < astext.Length);
         }
         
-        //return first line of the ArrayList (or the ArrayList) as a string
-        public string GetCsvLine()
-        {
-            return "";
-        }
-        
-        //return the full ArrayList (multiple lines) as CSV
-        public string GetCsvText()
-        {
-            return "";
-        }
-        
         //returns the next line parsed into an ArrayList
         public List<string> GetLine()
         {
-            StringBuilder field = new StringBuilder();
-            asarray = new List<string>();
+            List<string> asarray = new List<string>();
             
             while (pos < astext.Length)
             {
@@ -57,32 +38,37 @@ namespace Wv
                     pos++;
                     return asarray;
                 }
+
+		StringBuilder field = new StringBuilder();
                 
                 //certainly a string                
                 if (astext[pos] == '"')
                 {
 		    char lastChar = '"';
-                    while (++pos < astext.Length)
-                    {
-			int fminus1 = field.Length - 1;
-                        if (lastChar == '"' && (astext[pos] == ',' || 
-                                                astext[pos] == '\n'))
-                        {
-                            if (fminus1 >= 0 && field[fminus1] == '"')
-                            {
-                                string tmp = field.ToString(0, fminus1);
-                                string temp = tmp.Replace("\"\"", null);
-                                if ((fminus1 - temp.Length) % 2 == 0 && 
-                                    !temp.EndsWith("\""))
-                                {
-                                    field.Remove(fminus1, 1);
-                                    break;
-                                }
-                            }
-                        }
-                             
+		    if (++pos < astext.Length)
+		    {
                         field.Append(lastChar = astext[pos]);
-                    }
+
+			while (++pos < astext.Length)
+			{
+			    int fminus1 = field.Length - 1;
+			    if (lastChar == '"' && (astext[pos] == ',' || 
+						    astext[pos] == '\n') &&
+				field[fminus1] == '"')
+			    {
+				string tmp = field.ToString(0, fminus1);
+				string temp = tmp.Replace("\"\"", null);
+				if ((fminus1 - temp.Length) % 2 == 0 && 
+				    !temp.EndsWith("\""))
+				{
+				    field.Remove(fminus1, 1);
+				    break;
+				}
+			    }
+                             
+			    field.Append(lastChar = astext[pos]);
+			}
+		    }
 
 		    int flenminus1 = field.Length - 1;
                     if (pos == astext.Length && astext[pos - 1] != '\n' && 
@@ -95,9 +81,7 @@ namespace Wv
                 {
                     while (pos < astext.Length && astext[pos] != ',' && 
                            astext[pos] != '\n')
-                    {
                         field.Append(astext[pos++]);
-                    }
 
                     if (field.Length == 0)
                         asarray.Add(null);
@@ -111,7 +95,6 @@ namespace Wv
                     return asarray;
                 }
                     
-                field = new StringBuilder();
                 ++pos;
             }
 
