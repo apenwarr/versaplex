@@ -1756,26 +1756,19 @@ internal class VxDbSchema : ISchemaBackend
         }
     }
     
-    public string Csv2Inserts(string tablename, string csvtext)
+    public IEnumerable<string> Csv2Inserts(string tablename, string csvtext)
     {
-        StringBuilder result = new StringBuilder();
         WvCsv csvhandler = new WvCsv(csvtext);
-        ArrayList asarray, columns;
-        string sql;
-        string prefix = "";
-        bool has_ident = false;
+        //bool has_ident = false;  NOT in sqlite
         var tab_names = new List<string>();
         var coltypes = new List<KeyValuePair<string,string>>();
         VxSchema schema = new VxSchema();
-        string ident_seed, ident_incr, coltype;
+        //string ident_seed, ident_incr;  NOT in sqlite
 
         tab_names.Add(tablename);
         RetrieveTableSchema(schema, tab_names);
 
-        columns = csvhandler.GetLine(); //columns' names
-        string[] columns_array = (string[])columns.ToArray(
-                                             Type.GetType("System.String"));
-        
+        string[] columns_array = csvhandler.GetLine().ToArray();
         foreach (KeyValuePair<string,VxSchemaElement> p in schema)
         {
             if (p.Value is VxSchemaTable)
@@ -1787,12 +1780,13 @@ internal class VxDbSchema : ISchemaBackend
                         coltypes.Add(new KeyValuePair<string,string>(
                                       te.GetParam("name"),
                                       te.GetParam("type")));
-                                      
-                        ident_seed = te.GetParam("identity_seed");
-                        ident_incr = te.GetParam("identity_incr");
+
+			// NOTE NOT in sqlite
+                        //ident_seed = te.GetParam("identity_seed");
+                        //ident_incr = te.GetParam("identity_incr");
                         
-                        if (ident_seed.ne() && ident_incr.ne())
-                            has_ident = true;
+                        //if (ident_seed.ne() && ident_incr.ne())
+                            //has_ident = true;
                     }
                 }
             }
@@ -1801,66 +1795,68 @@ internal class VxDbSchema : ISchemaBackend
 // not in sqlite
 //        if (has_ident)
 //            result.Append("SET IDENTITY_INSERT [" + tablename + "] ON;\n");
-        
-	result.Append("BEGIN TRANSACTION;\n");
-	
-        prefix = "INSERT INTO [" + tablename + "] ([" + 
-                          String.Join("],[",columns_array)+"]) VALUES (";
 
-        if (!csvhandler.hasMore())
-            return "";
+        if (csvhandler.hasMore())
+	{
+	    yield return "BEGIN TRANSACTION;\n";
         
-        while (csvhandler.hasMore())
-        {
-            sql = "";
-            asarray = csvhandler.GetLine();
-            if (asarray.Count < columns_array.Length)
-                return "";
-                
-            for (int i=0;i<asarray.Count;i++)
-            {
-                sql += (i==0 ? prefix : ",");
+	    while (csvhandler.hasMore())
+	    {
+		StringBuilder sql = new StringBuilder(1024);
+		sql.AppendFormat("INSERT INTO [{0}] ([{1}]) VALUES (",
+				 tablename, String.Join("],[", columns_array));
 
-                coltype = GetColType(columns_array[i],coltypes);
-                if (asarray[i]!=null)
+		// 'asarray' below is now csvhandler.GetLine()
+		// FIXME:  Handle this some other way?  This is just an error
+		// right here
+		//if (asarray.Count < columns_array.Length)
+		//   return "";
+
+		int i = 0;
+		foreach (string elt in csvhandler.GetLine())
 		{
-		    if (coltype == "image")
-			sql += "0x"+bin2hex(System.Convert.FromBase64String(
-						    asarray[i].ToString()
-						    .Replace("\n","")));
-		    else
-			sql += "'"
-			    + asarray[i].ToString().Replace("'", "''") 
-			    + "'";
-		}
-                else
-                    sql += "NULL";
-            }
+		    if (i > 0)
+			sql.Append(',');
 
-            result.Append(sql + ");\n");
-        }
+		    string coltype = GetColType(columns_array[i++], coltypes);
+		    if (elt != null)
+		    {
+			if (coltype == "image")
+			    sql.AppendFormat("0x{0}",
+				   bin2hex(System.Convert.FromBase64String(
+						    elt.Replace("\n", ""))));
+			else
+			    sql.AppendFormat("'{0}'", elt.Replace("'", "''"));
+		    }
+		    else
+			sql.Append("NULL");
+		}
+
+		yield return sql.Append(");\n").ToString();
+	    }
 	
-	result.Append("COMMIT TRANSACTION;\n");
+	    yield return "COMMIT TRANSACTION;\n";
+	}
         
 // not in sqlite
 //        if (has_ident)
 //            result.Append("SET IDENTITY_INSERT [" + tablename + "] OFF;\n");
-        
-        return result.ToString();
     }
     
     //If there is CSV anywhere, make it SQL statements
-    public string Normalize(string text)
+    public IEnumerable<string> Normalize(WvInBufStream text)
     {
-        TextReader txt = new StringReader(text);
-        StringBuilder result = new StringBuilder();
+        //TextReader txt = new StringReader(text);
+        //StringBuilder result = new StringBuilder();
         string line = "";
         string csvtext = "";
-        string tmp = "";
         string tablename = "";
+	char[] totrim = { '\r', '\n' };
         
-        while ((line = txt.ReadLine()) != null)
+        while ((line = text.getline(-1, '\n')) != null)
         {
+	    line = line.TrimEnd(totrim);
+
             if (line.StartsWith("-- SCHEMAMATIC "))
                 log.print("-- SCHEMAMATIC found");
             else if (line.StartsWith("TABLE "))
@@ -1879,8 +1875,9 @@ internal class VxDbSchema : ISchemaBackend
                 //    csvtext += line + "\n";
 		 */
 		uint in_string = 0;
-		while ((line = txt.ReadLine()) != null)
+		while ((line = text.getline(-1, '\n')) != null)
 		{
+		    line = line.TrimEnd(totrim);
 		    if (!String.IsNullOrEmpty(line))
 		    {
 			csvtext += line;
@@ -1902,26 +1899,30 @@ internal class VxDbSchema : ISchemaBackend
 		}
                 
                 //Will return CSV part as INSERTs
-                tmp = Csv2Inserts(tablename,csvtext);
-                result.Append(tmp);
+
+		foreach (string ret in Csv2Inserts(tablename,csvtext))
+		    yield return ret;
             }
             else
             {
                 if (line.Trim() != "GO")
-                    result.Append(line+"\n");
+                    yield return line + "\n";
                 // avoid going back to the loop above and through the 
                 // comparisons, since it will be back here
-                while (!String.IsNullOrEmpty(line = txt.ReadLine()))
+                while (!String.IsNullOrEmpty(line = text.getline(-1, '\n')))
+		{
+		    line = line.TrimEnd(totrim);
                     if (line.Trim() != "GO")
-                        result.Append(line+"\n");
+                        yield return line+"\n";
+		}
             }
         }
-        return result.ToString();
+        //return result.ToString();
     }
 
     // Delete all rows from the given table and replace them with the given
     // data.  text is an opaque hunk of text returned from GetSchemaData.
-    public void PutSchemaData(string tablename, string text, int seqnum)
+    public void PutSchemaData(string tablename, WvInBufStream textf, int seqnum)
     {
         log.print("Calling PutSchemaData on {0}\n", tablename);
         // There may be extra static files in the DATA/ directory that 
@@ -1931,39 +1932,30 @@ internal class VxDbSchema : ISchemaBackend
         if (tablename.ne())
             DbiExec(String.Format("DELETE FROM [{0}]", tablename));
 
-        text = Normalize(text);
-	
-	log.print("text size: {0}\n", text.Length);
-	if (text.Length > 50000)
+	int len = 0;
+	StringBuilder req = new StringBuilder(4096, 50000);
+        foreach (string line in Normalize(textf))
 	{
-	    string[] parts = text.split("\nINSERT ");
-	    log.print("Split into {0} parts.\n", parts.Length);
-	    
-	    log.print("Part 1...\n");
+	    log.print("Luke says:  {0}\n", line);
+	    int mylen = line.Length;
+	    if ((len + mylen) > 50000)
+	    {
+		DbiExec(req.ToString());
+		len = 0;
+		req = new StringBuilder(4096, 50000);
+		log.print("Luke says:  written\n");
+	    }
 
-	    DbiExec(parts[0]);
-	    
-	    int count = 1;
-	    var sb = new StringBuilder();
-	    for (int i = 1; i < parts.Length; i++)
-	    {
-		sb.Append("\nINSERT ");
-		sb.Append(parts[i]);
-		if (sb.Length > 50000)
-		{
-		    log.print("Part {0}...\n", ++count);
-		    DbiExec(sb.ToString());
-		    sb = new StringBuilder();
-		}
-	    }
-	    if (sb.Length > 0)
-	    {
-		log.print("Part {0}...\n", ++count);
-		DbiExec(sb.ToString());
-	    }
+	    len += mylen;
+	    req.Append(line);
 	}
-	else
-	    if (!String.IsNullOrEmpty(text))
-                DbiExec(text);
+
+	string exec = req.ToString();
+	if (!String.IsNullOrEmpty(exec))
+	{
+	    log.print("Luke says one more:  {0}\n", exec);
+            DbiExec(exec);
+	    log.print("Luke says:  written\n");
+	}
     }
 }

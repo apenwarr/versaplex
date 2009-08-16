@@ -144,14 +144,23 @@ internal class VxDiskSchema : ISchemaBackend
         return File.ReadAllText(fullpath);
     }
 
-    public void PutSchemaData(string tablename, string text, int seqnum)
+    public void PutSchemaData(string tablename, WvInBufStream text, int seqnum)
     {
         string datadir = Path.Combine(exportdir, "DATA");
         string filename = wv.fmt("{0}-{1}.sql", seqnum, tablename);
         string fullpath = Path.Combine(datadir, filename);
 
         Directory.CreateDirectory(datadir);
-        File.WriteAllBytes(fullpath, text.ToUTF8());
+	WvBuf dynbuf = new WvBuf();
+	int used;
+	//FIXME:  Instead of WriteAllBytes, we could incrementally write the
+	//        stream.
+	do
+	{
+	    used = dynbuf.used;
+	    text.read(dynbuf, 2048);
+	} while (used == dynbuf.used);
+        File.WriteAllBytes(fullpath, (byte[])dynbuf.getall());
     }
 
     //

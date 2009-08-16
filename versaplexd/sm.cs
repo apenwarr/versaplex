@@ -367,7 +367,7 @@ public static class SchemamaticCli
         Array.Sort(files);
         foreach (string file in files)
         {
-            string data = File.ReadAllText(file, Encoding.UTF8);
+	    WvFile dataf = new WvFile(file, "r");
             ParsePath(file, out seqnum, out tablename);
 
             if (tablename == "ZAP")
@@ -379,12 +379,12 @@ public static class SchemamaticCli
 
             if (seqnum > 0)
             {
-                remote.PutSchemaData(tablename, data, seqnum);
+                remote.PutSchemaData(tablename, dataf, seqnum);
             }
             else
             {
                 // File we didn't generate, try to apply it anyway.
-                remote.PutSchemaData("", data, 0);
+                remote.PutSchemaData("", dataf, 0);
             }
         }
 	log.print("PUSH TIME INDEX {0}: {1}\n", 2, DateTime.Now);

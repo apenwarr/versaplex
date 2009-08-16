@@ -170,14 +170,22 @@ internal class VxDbusSchema : ISchemaBackend
 	return reply.iter().pop();
     }
 
-    public void PutSchemaData(string tablename, string text, int seqnum)
+    public void PutSchemaData(string tablename, WvInBufStream text, int seqnum)
     {
         WvDbusMsg call = methodcall("PutSchemaData", "ss");
 
         WvDbusWriter writer = new WvDbusWriter();
 
         writer.Write(tablename);
-        writer.Write(text);
+	WvBuf dynbuf = new WvBuf();
+	int used;
+	//FIXME:  writer could certainly take a WvStream instead.
+	do
+	{
+	    used = dynbuf.used;
+	    text.read(dynbuf, 2048);
+	} while (used == dynbuf.used);
+        writer.Write(dynbuf.getstr());
         call.Body = writer.ToArray();
 
         WvDbusMsg reply = bus.send_and_wait(call);

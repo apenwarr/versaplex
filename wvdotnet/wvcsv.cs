@@ -4,7 +4,7 @@
  *       See the included file named LICENSE for license information.
  */
 using System;
-using System.Collections;
+using System.Collections.Generic;
 using System.Globalization;
 
 namespace Wv
@@ -12,7 +12,7 @@ namespace Wv
     public class WvCsv
     {
         string astext;
-        ArrayList asarray;
+        List<string> asarray;
         int pos = 0;
         
         public WvCsv(string toparse)
@@ -20,7 +20,7 @@ namespace Wv
             astext = toparse;
         }
         
-        public WvCsv(ArrayList tounparse)
+        public WvCsv(List<string> tounparse)
         {
             asarray = tounparse;
         }
@@ -43,10 +43,10 @@ namespace Wv
         }
         
         //returns the next line parsed into an ArrayList
-        public ArrayList GetLine()
+        public List<string> GetLine()
         {
             string field = "";
-            asarray = new ArrayList();
+            asarray = new List<string>();
             
             while (pos < astext.Length)
             {
@@ -61,18 +61,17 @@ namespace Wv
                 if (astext[pos] == '"')
                 {
 		    char lastChar = '"';
-                    pos++;
-                    while (pos < astext.Length)
+                    while (++pos < astext.Length)
                     {
-                        if ((lastChar=='"') && ((astext[pos]==',') || 
-                                                (astext[pos]=='\n')) )
+                        if (lastChar == '"' && (astext[pos] == ',' || 
+                                                astext[pos] == '\n'))
                         {
                             if (field.EndsWith("\""))
                             {
-                                string tmp = field.Substring(0,field.Length-1);
+                                string tmp = field.Substring(0, field.Length-1);
                                 string temp = tmp.Replace("\"\"","");
-                                if (((tmp.Length - temp.Length) %2 == 0) && 
-                                    (!temp.EndsWith("\"")))
+                                if ((tmp.Length - temp.Length) % 2 == 0 && 
+                                    !temp.EndsWith("\""))
                                 {
                                     field = tmp;
                                     break;
@@ -82,12 +81,11 @@ namespace Wv
                              
                         field += astext[pos];
                         lastChar = astext[pos];
-                        pos++;
                     }
                     
-                    if ((pos==astext.Length) && (astext[pos-1]!='\n') && 
-                                                field.EndsWith("\""))
-                        field = field.Substring(0,field.Length-1);
+                    if (pos == astext.Length && astext[pos-1] != '\n' && 
+                        field.EndsWith("\""))
+                        field = field.Substring(0, field.Length - 1);
                     
                     asarray.Add(field.Replace("\"\"","\""));
                 }
@@ -97,7 +95,7 @@ namespace Wv
                                                     (astext[pos]!='\n'))
                     {
                         field += astext[pos];
-                        pos++;
+                        ++pos;
                     }
 
                     if (String.IsNullOrEmpty(field))
@@ -108,12 +106,12 @@ namespace Wv
                 }
                 if ((pos < astext.Length) && (astext[pos]=='\n'))
                 {
-                    pos++;
+                    ++pos;
                     return asarray;
                 }
                     
                 field = "";
-                pos++;
+                ++pos;
             }
 
             

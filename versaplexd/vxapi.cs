@@ -12,6 +12,7 @@ using System.Data.SqlClient;
 using System.Collections.Generic;
 using Wv;
 using Wv.Extensions;
+using System.IO;
 
 internal static class VxDb {
     static WvLog log = new WvLog("VxDb", WvLog.L.Debug2);
@@ -1160,12 +1161,12 @@ public class VxDbusRouter
 
 	var it = call.iter();
         string tablename = it.pop();
-        string text = it.pop();
+	WvBufStream dynbuf = new WvBufStream(new WvStreamStream(new MemoryStream(it.pop().ToUTF8(), false)));
 
         using (var dbi = VxSqlPool.create(clientid))
         {
             VxDbSchema backend = new VxDbSchema(dbi);
-            backend.PutSchemaData(tablename, text, 0);
+            backend.PutSchemaData(tablename, dynbuf, 0);
         }
 
         reply = call.reply();

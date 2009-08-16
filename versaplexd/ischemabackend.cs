@@ -5,6 +5,7 @@
  */
 using System;
 using System.Collections.Generic;
+using Wv;
 
 // An interface to a Schemamatic schema backend.
 internal interface ISchemaBackend : IDisposable
@@ -40,7 +41,7 @@ internal interface ISchemaBackend : IDisposable
     // data.  text is an opaque hunk of text returned from GetSchemaData.
     // Seqnum provides a hint about the priority of the table when batch
     // processing, and is used to locate the file on disk.
-    void PutSchemaData(string tablename, string text, int seqnum);
+    void PutSchemaData(string tablename, WvInBufStream text, int seqnum);
 }
 
 [Flags]
