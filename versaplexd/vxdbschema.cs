@@ -1936,14 +1936,12 @@ internal class VxDbSchema : ISchemaBackend
 	StringBuilder req = new StringBuilder(4096, 50000);
         foreach (string line in Normalize(textf))
 	{
-	    log.print("Luke says:  {0}\n", line);
 	    int mylen = line.Length;
 	    if ((len + mylen) > 50000)
 	    {
 		DbiExec(req.ToString());
 		len = 0;
 		req = new StringBuilder(4096, 50000);
-		log.print("Luke says:  written\n");
 	    }
 
 	    len += mylen;
@@ -1952,10 +1950,6 @@ internal class VxDbSchema : ISchemaBackend
 
 	string exec = req.ToString();
 	if (!String.IsNullOrEmpty(exec))
-	{
-	    log.print("Luke says one more:  {0}\n", exec);
             DbiExec(exec);
-	    log.print("Luke says:  written\n");
-	}
     }
 }
