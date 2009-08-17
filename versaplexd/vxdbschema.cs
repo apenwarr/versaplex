@@ -1755,89 +1755,106 @@ internal class VxDbSchema : ISchemaBackend
             throw new Exception("Error in base64Encode" + e.Message);
         }
     }
-    
-    public IEnumerable<string> Csv2Inserts(string tablename, string csvtext)
+
+    public StringBuilder create_one_insert(List<string> line, string starting,
+					   List<string> ordered_coltypes)
     {
-        WvCsv csvhandler = new WvCsv(csvtext);
+	StringBuilder sql = new StringBuilder(1024);
+	sql.Append(starting);
+
+	// 'asarray' below is now line
+	// FIXME:  Handle this some other way?  This is just an
+	// error right here
+	//if (asarray.Count < columns_array.Length)
+	//   return "";
+	
+	List<string>.Enumerator i = ordered_coltypes.GetEnumerator();
+	i.MoveNext();
+
+	foreach (string elt in line)
+	{
+	    if (elt == null)
+		sql.Append("NULL");
+	    else if (i.Current == "image")
+		sql.AppendFormat("0x{0}",
+				 bin2hex(System.Convert.FromBase64String(
+						elt.Replace("\n", ""))));
+	    else
+		sql.AppendFormat("'{0}'", elt.Replace("'", "''"));
+
+	    //This presumes ordered_coltypes.Length == line.Length.  We in fact
+	    //need to ensure that.  FIXME.
+	    if (i.MoveNext())
+		sql.Append(',');
+	}
+
+	return sql.Append(");\n");
+    }
+    
+    public IEnumerable<string> Csv2Inserts(string tablename, WvInBufStream text)
+    {
+        WvCsv csvhandler = new WvCsv();
         //bool has_ident = false;  NOT in sqlite
-        var tab_names = new List<string>();
-        var coltypes = new List<KeyValuePair<string,string>>();
         VxSchema schema = new VxSchema();
         //string ident_seed, ident_incr;  NOT in sqlite
 
+        var tab_names = new List<string>();
         tab_names.Add(tablename);
         RetrieveTableSchema(schema, tab_names);
 
-        string[] columns_array = csvhandler.GetLine().ToArray();
-        foreach (KeyValuePair<string,VxSchemaElement> p in schema)
-        {
-            if (p.Value is VxSchemaTable)
-            {
-                foreach (VxSchemaTableElement te in ((VxSchemaTable)p.Value))
-                {
-                    if (columns_array.Contains(te.GetParam("name")))
-                    {
-                        coltypes.Add(new KeyValuePair<string,string>(
-                                      te.GetParam("name"),
-                                      te.GetParam("type")));
+	string starting = "";
 
-			// NOTE NOT in sqlite
-                        //ident_seed = te.GetParam("identity_seed");
-                        //ident_incr = te.GetParam("identity_incr");
-                        
-                        //if (ident_seed.ne() && ident_incr.ne())
-                            //has_ident = true;
-                    }
-                }
-            }
-        }
-        
-// not in sqlite
-//        if (has_ident)
-//            result.Append("SET IDENTITY_INSERT [" + tablename + "] ON;\n");
-
-        if (csvhandler.hasMore())
+	List<string> ordered_coltypes = new List<string>();
+	bool has_columns = false;
+	foreach (List<string> l in csvhandler.GetLines(text))
 	{
-	    yield return "BEGIN TRANSACTION;\n";
-        
-	    while (csvhandler.hasMore())
+	    if (!has_columns)
 	    {
-		StringBuilder sql = new StringBuilder(1024);
-		sql.AppendFormat("INSERT INTO [{0}] ([{1}]) VALUES (",
-				 tablename, String.Join("],[", columns_array));
-
-		// 'asarray' below is now csvhandler.GetLine()
-		// FIXME:  Handle this some other way?  This is just an error
-		// right here
-		//if (asarray.Count < columns_array.Length)
-		//   return "";
-
-		int i = 0;
-		foreach (string elt in csvhandler.GetLine())
+		string[] columns_array = l.ToArray();
+		var coltypes = new List<KeyValuePair<string,string>>();
+		foreach (KeyValuePair<string,VxSchemaElement> p in schema)
 		{
-		    if (i > 0)
-			sql.Append(',');
-
-		    string coltype = GetColType(columns_array[i++], coltypes);
-		    if (elt != null)
+		    if (p.Value is VxSchemaTable)
 		    {
-			if (coltype == "image")
-			    sql.AppendFormat("0x{0}",
-				   bin2hex(System.Convert.FromBase64String(
-						    elt.Replace("\n", ""))));
-			else
-			    sql.AppendFormat("'{0}'", elt.Replace("'", "''"));
-		    }
-		    else
-			sql.Append("NULL");
-		}
+			foreach (VxSchemaTableElement te in
+							(VxSchemaTable)p.Value)
+			{
+			    if (columns_array.Contains(te.GetParam("name")))
+			    {
+				coltypes.Add(new KeyValuePair<string,string>(
+					    te.GetParam("name"),
+					    te.GetParam("type")));
 
-		yield return sql.Append(");\n").ToString();
+				// NOTE NOT in sqlite
+				//ident_seed = te.GetParam("identity_seed");
+				//ident_incr = te.GetParam("identity_incr");
+
+				//if (ident_seed.ne() && ident_incr.ne())
+				    //has_ident = true;
+			    }
+			}
+		    }
+		}
+		foreach (string colinfo in columns_array)
+		    ordered_coltypes.Add(GetColType(colinfo, coltypes));
+
+		starting = String.Format("INSERT INTO [{0}] ([{1}]) VALUES (",
+					 tablename, String.Join("],[",
+						    columns_array));
+		has_columns = true;
+		yield return "BEGIN TRANSACTION;\n";
+
+		// not in sqlite
+		//        if (has_ident)
+		//            result.Append("SET IDENTITY_INSERT [" +
+		//				tablename + "] ON;\n");
 	    }
-	
-	    yield return "COMMIT TRANSACTION;\n";
+	    else
+		yield return create_one_insert(l, starting, ordered_coltypes)
+			     .ToString();
 	}
-        
+
+	yield return "COMMIT TRANSACTION;\n";
 // not in sqlite
 //        if (has_ident)
 //            result.Append("SET IDENTITY_INSERT [" + tablename + "] OFF;\n");
@@ -1848,10 +1865,8 @@ internal class VxDbSchema : ISchemaBackend
     {
         //TextReader txt = new StringReader(text);
         //StringBuilder result = new StringBuilder();
-        string line = "";
-        string csvtext = "";
-        string tablename = "";
-	char[] totrim = { '\r', '\n' };
+        string line;
+	char[] totrim = {'\r', '\n'};
         
         while ((line = text.getline(-1, '\n')) != null)
         {
@@ -1861,46 +1876,11 @@ internal class VxDbSchema : ISchemaBackend
                 log.print("-- SCHEMAMATIC found");
             else if (line.StartsWith("TABLE "))
             {
-                csvtext = "";
-                tablename = line.Substring(6).Trim();
+                string tablename = line.Substring(6).Trim();
 
-                /* gotta get the CSV part only
-		 * NOTE:  In a CSV, we can have multiple newlines within a
-		 * "" block, so we need something more complicated than the two
-		 * commented-out lines below, say, something about as
-		 * complicated as the while() loop following.  We might want to
-		 * be checking for other points at which we (improperly) load
-		 * a .csv file to WvCsv.
-                //while (!String.IsNullOrEmpty(line = txt.ReadLine()))
-                //    csvtext += line + "\n";
-		 */
-		uint in_string = 0;
-		while ((line = text.getline(-1, '\n')) != null)
-		{
-		    line = line.TrimEnd(totrim);
-		    if (!String.IsNullOrEmpty(line))
-		    {
-			csvtext += line;
-			foreach (char c in line)
-			    if (c == '"')
-			    {
-				if (in_string < 2)
-				    ++in_string;
-				else //if (in_string == 2)
-				    in_string = 1;
-			    }
-			    else if (in_string == 2)
-				in_string = 0;
-		    }
-		    else if (in_string != 1)
-			break;
-
-		    csvtext += "\n";
-		}
-                
                 //Will return CSV part as INSERTs
 
-		foreach (string ret in Csv2Inserts(tablename,csvtext))
+		foreach (string ret in Csv2Inserts(tablename, text))
 		    yield return ret;
             }
             else
@@ -1909,12 +1889,9 @@ internal class VxDbSchema : ISchemaBackend
                     yield return line + "\n";
                 // avoid going back to the loop above and through the 
                 // comparisons, since it will be back here
-                while (!String.IsNullOrEmpty(line = text.getline(-1, '\n')))
-		{
-		    line = line.TrimEnd(totrim);
-                    if (line.Trim() != "GO")
-                        yield return line+"\n";
-		}
+                while ((line = text.getline(-1, '\n')) != null)
+                    if (line.TrimEnd(totrim).ne() && line.Trim() != "GO")
+                        yield return line + "\n";
             }
         }
         //return result.ToString();

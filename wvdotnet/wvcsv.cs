@@ -12,46 +12,35 @@ namespace Wv
 {
     public class WvCsv
     {
-        string astext;
-        int pos = 0;
+	public WvCsv()
+	{
+	}
         
-        public WvCsv(string toparse)
-        {
-            astext = toparse;
-        }
-        
-        public bool hasMore()
-        {
-            return (pos < astext.Length);
-        }
-        
-        //returns the next line parsed into an ArrayList
-        public List<string> GetLine()
-        {
-            List<string> asarray = new List<string>();
-            
-            while (pos < astext.Length)
+	public List<string> GetOne(string line)
+	{
+	    List<string> asarray = new List<string>();
+	    int pos = 0;
+            while (pos < line.Length)
             {
-                if (astext[pos] == '\n')
+                if (line[pos] == '\n')
                 {
                     asarray.Add(null);
                     pos++;
-                    return asarray;
+		    continue;
                 }
 
 		StringBuilder field = new StringBuilder();
-                
                 //certainly a string                
-                if (astext[pos] == '"')
+                if (line[pos] == '"')
                 {
-		    if (++pos < astext.Length)
+		    if (++pos < line.Length)
 		    {
-                        field.Append(astext[pos]);
+                        field.Append(line[pos]);
 
-			while (++pos < astext.Length)
+			while (++pos < line.Length)
 			{
 			    int fminus1 = field.Length - 1;
-			    if ((astext[pos] == ',' || astext[pos] == '\n') &&
+			    if ((line[pos] == ',' || line[pos] == '\n') &&
 				field[fminus1] == '"')
 			    {
 				string tmp = field.ToString(0, fminus1);
@@ -64,12 +53,12 @@ namespace Wv
 				}
 			    }
                              
-			    field.Append(astext[pos]);
+			    field.Append(line[pos]);
 			}
 		    }
 
 		    int flenminus1 = field.Length - 1;
-                    if (pos == astext.Length && astext[pos - 1] != '\n' && 
+                    if (pos == line.Length && line[pos - 1] != '\n' && 
                         field[flenminus1] == '"')
                         field.Remove(flenminus1, 1);
                     
@@ -77,9 +66,9 @@ namespace Wv
                 }
                 else
                 {
-                    while (pos < astext.Length && astext[pos] != ',' && 
-                           astext[pos] != '\n')
-                        field.Append(astext[pos++]);
+                    while (pos < line.Length && line[pos] != ',' && 
+                           line[pos] != '\n')
+                        field.Append(line[pos++]);
 
                     if (field.Length == 0)
                         asarray.Add(null);
@@ -87,17 +76,51 @@ namespace Wv
                         asarray.Add(field.Replace("\"\"","\"").ToString());
 
                 }
-                if (pos < astext.Length && astext[pos] == '\n')
-                {
-                    ++pos;
-                    return asarray;
-                }
-                    
+
                 ++pos;
             }
-
-            
             return asarray;
+	}
+        
+        public IEnumerable< List<string> > GetLines(WvInBufStream text)
+        {
+	    char[] totrim = {'\r', '\n'};
+	    StringBuilder csvtext = new StringBuilder();
+
+	    string line;
+	    uint in_string = 0;
+	    while ((line = text.getline(-1, '\n')) != null)
+	    {
+		//FIXME: OH GOD am I broken if we're showing binary data
+		//with \r\n.
+		line = line.TrimEnd(totrim);
+		if (!String.IsNullOrEmpty(line))
+		{
+		    csvtext.Append(line);
+		    foreach (char c in line)
+			if (c == '"')
+			{
+			    if (in_string < 2)
+				++in_string;
+			    else //if (in_string == 2)
+				in_string = 1;
+			}
+			else if (in_string == 2)
+			    in_string = 0;
+		}
+		else if (in_string != 1)
+		    break;
+ 
+		csvtext.Append('\n');
+		if (in_string != 1)
+		{
+		    yield return GetOne(csvtext.ToString());
+		    csvtext = new StringBuilder();
+		}
+	    }
+
+	    if (csvtext.Length > 0)
+		yield return GetOne(csvtext.ToString());
         }
     }
 } //namespace
