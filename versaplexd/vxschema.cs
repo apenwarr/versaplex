@@ -682,7 +682,6 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
         ISchemaBackend dest, VxCopyOpts opts)
     {
         WvLog log = new WvLog("CopySchema");
-	log.print("TIME INDEX {0}: {1}\n", 1, DateTime.Now);
 
         if ((opts & VxCopyOpts.ShowProgress) == 0)
             log = new WvLog("CopySchema", WvLog.L.Debug5);
@@ -693,11 +692,9 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
 
         log.print("Retrieving schema checksums from source.\n");
         VxSchemaChecksums srcsums = source.GetChecksums();
-	log.print("TIME INDEX {0}: {1}\n", 2, DateTime.Now);
 
         log.print("Retrieving schema checksums from dest.\n");
         VxSchemaChecksums destsums = dest.GetChecksums();
-	log.print("TIME INDEX {0}: {1}\n", 3, DateTime.Now);
 
         if (srcsums.Count == 0 && destsums.Count != 0)
         {
@@ -710,7 +707,6 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
 
         log.print("Computing diff.\n");
         VxSchemaDiff diff = new VxSchemaDiff(destsums, srcsums);
-	log.print("TIME INDEX {0}: {1}\n", 4, DateTime.Now);
 
         if (diff.Count == 0)
         {
@@ -723,7 +719,6 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
             log.print("Changes to apply:\n");
             log.print(WvLog.L.Info, diff.ToString());
         }
-	log.print("TIME INDEX {0}: {1}\n", 5, DateTime.Now);
 
         log.print("Parsing diff.\n");
         List<string> to_drop = new List<string>();
@@ -740,11 +735,9 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
                 break;
             }
         }
-	log.print("TIME INDEX {0}: {1}\n", 6, DateTime.Now);
 
         log.print("Retrieving updated schema.\n");
         VxSchema to_put = source.Get(names);
-	log.print("TIME INDEX {0}: {1}\n", 7, DateTime.Now);
 
         if (dry_run)
             return new VxSchemaErrors();
@@ -760,7 +753,6 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
             log.print("Dropping deleted elements.\n");
             drop_errs = dest.DropSchema(to_drop);
         }
-	log.print("TIME INDEX {0}: {1}\n", 8, DateTime.Now);
 
         VxPutOpts putopts = VxPutOpts.None;
         if (destructive)
@@ -770,12 +762,10 @@ internal class VxSchema : Dictionary<string, VxSchemaElement>
             log.print("Updating and adding elements.\n");
             put_errs = dest.Put(to_put, srcsums, putopts);
         }
-	log.print("TIME INDEX {0}: {1}\n", 9, DateTime.Now);
 
         // Combine the two sets of errors.
         foreach (var kvp in drop_errs)
             put_errs.Add(kvp.Key, kvp.Value);
-	log.print("TIME INDEX {0}: {1}\n", 10, DateTime.Now);
 
         return put_errs;
     }
