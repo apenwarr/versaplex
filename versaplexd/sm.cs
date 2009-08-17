@@ -363,7 +363,6 @@ public static class SchemamaticCli
         int seqnum;
         string tablename;
 
-	log.print("PUSH TIME INDEX {0}: {1}\n", 1, DateTime.Now);
         Array.Sort(files);
         foreach (string file in files)
         {
@@ -387,7 +386,6 @@ public static class SchemamaticCli
                 remote.PutSchemaData("", dataf, 0);
             }
         }
-	log.print("PUSH TIME INDEX {0}: {1}\n", 2, DateTime.Now);
 	
 	return 0;
     }
