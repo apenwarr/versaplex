@@ -862,8 +862,9 @@ internal class VxDbSchema : ISchemaBackend
 
 	    if (kill_and_recreate)
 	    {
-		dbi.execute("DROP TABLE " + newtable.name);
-		dbi.execute("DELETE FROM sm_hidden WHERE tablen = '" + newtable.name + "'");
+		dbi.execute(wv.fmt("DROP TABLE [{0}]", newtable.name));
+		dbi.execute("DELETE FROM sm_hidden WHERE tablen = ?",
+			    newtable.name);
 		dbi.execute(newtable.ToSql());
 	    }
 
