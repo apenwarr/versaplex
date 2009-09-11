@@ -3,4 +3,4 @@ set -e
 git submodule init
 git submodule update
 test -e wv/Makefile
-(cd wv && ./get-git-modules)
+[ ! -e wv/get-git-modules ] || (cd wv && ./get-git-modules)
