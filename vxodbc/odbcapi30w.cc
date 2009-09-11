@@ -286,7 +286,7 @@ SQLRETURN SQL_API SQLColAttributeW(SQLHSTMT hstmt,
 	for (;; bMax = blen + 1, rgbD = (char *)realloc(rgbD, bMax))
 	{
 	    ret = PGAPI_ColAttributes(hstmt, iCol, iField, rgbD,
-				      bMax, rgbL, (SQLINTEGER *)pNumAttr);
+				      bMax, rgbL, (SQLLEN *)pNumAttr);
 	    if (SQL_SUCCESS_WITH_INFO != ret || blen < bMax)
 		break;
 	}
@@ -314,7 +314,7 @@ SQLRETURN SQL_API SQLColAttributeW(SQLHSTMT hstmt,
 	bMax = cbCharAttrMax;
 	rgbL = pcbCharAttr;
 	ret = PGAPI_ColAttributes(hstmt, iCol, iField, rgbD,
-				  bMax, rgbL, (SQLINTEGER *)pNumAttr);
+				  bMax, rgbL, (SQLLEN *)pNumAttr);
 	break;
     }
     ret = DiscardStatementSvp(stmt, ret, FALSE);
