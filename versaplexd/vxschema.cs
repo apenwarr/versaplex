@@ -290,9 +290,9 @@ internal class VxSchemaTable : VxSchemaElement,
             elemdict.Clear();
             char[] equals = {'='};
             char[] comma = {','};
-            foreach (string line in value.Split('\n'))
+            foreach (string _line in value.Split('\n'))
             {
-                line.Trim();
+                string line = _line.Trim();
                 if (line.Length == 0)
                     continue;
 
@@ -300,7 +300,7 @@ internal class VxSchemaTable : VxSchemaElement,
                 int index = line.IndexOf(typeseparator);
                 if (index < 0)
                     throw new ArgumentException
-		       (wv.fmt("Malformed line in {0}: {1}", key, line));
+		       (wv.fmt("Malformed line in {0}: '{1}'", key, line));
                 string type = line.Remove(index);
                 string rest = line.Substring(index + typeseparator.Length);
 

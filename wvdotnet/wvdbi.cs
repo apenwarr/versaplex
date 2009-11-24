@@ -9,6 +9,7 @@ using System.Data.Common;
 using System.Data.Odbc;
 using System.Data.SqlTypes;
 using System.Data.SqlClient;
+using Mono.Data.Sqlite;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
@@ -234,6 +235,25 @@ namespace Wv
 	    opendb(new OdbcConnection(real));
 	}
 	
+    }
+
+    [WvMoniker]
+    public class WvDbi_Sqlite : WvDbi_IDbConnection
+    {
+	public static void wvmoniker_register()
+	{
+	    WvMoniker<WvDbi>.register("sqlite",
+		(string m, object o) => new WvDbi_Sqlite(m));
+	}
+
+	public WvDbi_Sqlite(string moniker)
+	{
+	    WvUrl url = new WvUrl(moniker);
+	    string path = "URI=file:" + url.path;
+	    
+	    log.print("Sqlite create: '{0}'\n", path);
+	    opendb(new SqliteConnection(path));
+	}
     }
     
     [WvMoniker]

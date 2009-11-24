@@ -53,3 +53,13 @@ portclean: clean
 	
 distclean: clean
 	rm -f config.mk
+
+dist:
+	rm -rf versaplex-dist
+	mkdir versaplex-dist
+	cp versaplexd/*.exe versaplexd/*.dll versaplex-dist/
+	cp versaplexd/README*.txt versaplex-dist/
+	todos versaplex-dist/*.txt
+	cp vxodbc/*.dll versaplex-dist/
+	git rev-parse HEAD >versaplex-dist/version
+	cp versaplexd/versaplexd.ini.tmpl versaplex-dist/versaplexd.ini
