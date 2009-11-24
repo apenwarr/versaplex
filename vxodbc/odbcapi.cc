@@ -316,7 +316,7 @@ RETCODE SQL_API SQLFetch(HSTMT StatementHandle)
 	IRDFields *irdopts = SC_get_IRDF(stmt);
 	ARDFields *ardopts = SC_get_ARDF(stmt);
 	SQLUSMALLINT *rowStatusArray = irdopts->rowStatusArray;
-	SQLUINTEGER *pcRow = irdopts->rowsFetched;
+	SQLULEN *pcRow = irdopts->rowsFetched;
 
 	ret = PGAPI_ExtendedFetch(StatementHandle, SQL_FETCH_NEXT, 0,
 				  pcRow, rowStatusArray, 0,

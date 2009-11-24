@@ -174,6 +174,12 @@ public static class VxCli
 	    LineEditor le = new LineEditor("VxCli");
 	    string inp;
 	    
+	    // Temporary solution to solve a bug when running with Mono JIT
+	    // compiler version 2.0.1 for AMD64 architecture. When a clause that
+	    // do not return any value is called first, the method throws a
+	    // NullReferenceException
+	    dbi.select("select 1").Dispose();
+	    
 	    while (true)
 	    {
 		Console.WriteLine();

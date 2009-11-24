@@ -2277,8 +2277,8 @@ static BOOL enlargeUpdated(QResultClass * res, Int4 number,
     if (alloc <= res->up_alloc)
 	return TRUE;
 
-    if (updated = (SQLUINTEGER *)
-	realloc(res->updated, sizeof(UInt4) * alloc), !updated)
+    if (updated = (SQLULEN *)
+	realloc(res->updated, sizeof(SQLULEN) * alloc), !updated)
     {
 	if (res->updated_keyset)
 	{

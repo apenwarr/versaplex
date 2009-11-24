@@ -162,12 +162,12 @@ static BOOL out_check(void *out, size_t len, const char *name)
 
     for (i = 0; i < tbsize; i++)
     {
-	if ((UInt4) out < (UInt4) (altbl[i].aladr))
+	if ((UInt8) out < (UInt8) (altbl[i].aladr))
 	    continue;
-	if ((UInt4) out < (UInt4) (altbl[i].aladr) + altbl[i].len)
+	if ((UInt8) out < (UInt8) (altbl[i].aladr) + altbl[i].len)
 	{
-	    if ((UInt4) out + len >
-		(UInt4) (altbl[i].aladr) + altbl[i].len)
+	    if ((UInt8) out + len >
+		(UInt8) (altbl[i].aladr) + altbl[i].len)
 	    {
 		ret = FALSE;
 		mylog

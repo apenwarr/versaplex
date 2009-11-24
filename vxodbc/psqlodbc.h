@@ -93,15 +93,19 @@
 #include "gpps.h"
 #endif
 
+#include <stdint.h>
+
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
-#define Int4 int
-#define UInt4 unsigned int
-#define Int2 short
-#define UInt2 unsigned short
+#define Int4 int32_t
+#define UInt4 uint32_t
+#define Int2 int16_t
+#define UInt2 uint16_t
 typedef	UInt4	OID;
+#define Int8 int64_t
+#define UInt8 uint64_t
 
 #ifdef	WIN32
 #define	ssize_t	SSIZE_T
