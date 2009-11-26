@@ -1651,7 +1651,7 @@ internal class VxDbSchema : ISchemaBackend
         string prefix = "";
         bool has_ident = false;
         var tab_names = new List<string>();
-        var coltypes = new List<KeyValuePair<string,string>>();
+        var coltypes = new Dictionary<string,string>();
         VxSchema schema = new VxSchema();
         string ident_seed, ident_incr, coltype;
         
