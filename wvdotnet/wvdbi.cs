@@ -37,7 +37,14 @@ namespace Wv
 		var sect = settings[moniker];
 		
 		if (sect["driver"] == "SqlClient")
-		    return create(wv.fmt("mssql:"
+		    if ((sect["user"]+sect["password"]).e())
+		        return create(wv.fmt("mssql:"
+		                         + "Integrated Security=SSPI;"
+					 + "server={0};database={1};",
+					 sect["server"],
+					 sect["database"]));
+                    else
+                        return create(wv.fmt("mssql:"
 					 + "server={0};database={1};"
 					 + "User ID={2};Password={3};",
 					 sect["server"],
@@ -276,9 +283,14 @@ namespace Wv
 		WvUrl url = new WvUrl(moniker);
 		if (url.path.StartsWith("/"))
 		    url.path = url.path.Substring(1);
-		real = wv.fmt("server={0};database={1};"
-			      + "User ID={2};Password={3};",
-			      url.host, url.path, url.user, url.password);
+                if ((url.user+url.password).e())
+                    real = wv.fmt("server={0};database={1};"
+		                  + "Integrated Security=SSPI;",
+			          url.host, url.path);
+                else
+		    real = wv.fmt("server={0};database={1};"
+		                  + "User ID={2};Password={3};",
+			          url.host, url.path, url.user, url.password);
 	    }
 	    
 	    log.print("MSSQL create: '{0}'\n", real);
