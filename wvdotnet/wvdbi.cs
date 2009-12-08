@@ -10,6 +10,7 @@ using System.Data.Odbc;
 using System.Data.SqlTypes;
 using System.Data.SqlClient;
 using Mono.Data.Sqlite;
+using MySql.Data.MySqlClient;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
@@ -35,7 +36,7 @@ namespace Wv
 	    if (!moniker.Contains(":") && settings[moniker].Count > 0)
 	    {
 		var sect = settings[moniker];
-		
+		log.print("Driver is '{0}'\n", sect["driver"]);
 		if (sect["driver"] == "SqlClient")
 		    if ((sect["user"]+sect["password"]).e())
 		        return create(wv.fmt("mssql:"
@@ -47,6 +48,14 @@ namespace Wv
                         return create(wv.fmt("mssql:"
 					 + "server={0};database={1};"
 					 + "User ID={2};Password={3};",
+					 sect["server"],
+					 sect["database"],
+					 sect["user"], sect["password"]));
+                else if(sect["driver"] == "MySqlClient")
+                        return create(wv.fmt("mysql:"
+					 + "Server={0};Database={1};"
+					 + "User ID={2};Password={3};"
+					 + "Pooling=false",
 					 sect["server"],
 					 sect["database"],
 					 sect["user"], sect["password"]));
@@ -212,8 +221,6 @@ namespace Wv
 		 (string m, object o) => new WvDbi_ODBC(m));
 	    WvMoniker<WvDbi>.register("odbc",
 		 (string m, object o) => new WvDbi_ODBC(m));
-	    WvMoniker<WvDbi>.register("mysql",
-		 (string m, object o) => new WvDbi_ODBC("MySQL:" + m));
 	}
 	
 	public WvDbi_ODBC(string moniker)
@@ -263,6 +270,52 @@ namespace Wv
 	}
     }
     
+    [WvMoniker]
+    public class WvDbi_MySQL : WvDbi_IDbConnection
+    {
+	public static void wvmoniker_register()
+	{
+	    WvMoniker<WvDbi>.register("mysql",
+		 (string m, object o) => new WvDbi_MySQL(m));
+	}
+	
+	public WvDbi_MySQL(string moniker)
+	{
+	    string real;
+	    if (!moniker.StartsWith("//"))
+		real = moniker;
+	    else
+	    {
+		// try to parse it as an URL
+		WvUrl url = new WvUrl(moniker);
+		if (url.path.StartsWith("/"))
+		    url.path = url.path.Substring(1);
+                if ((url.user+url.password).e())
+                    real = wv.fmt("Server={0};Database={1};"
+		                  + "Integrated Security=SSPI;"
+		                  + "Pooling=false",
+			          url.host, url.path);
+                else
+		    real = wv.fmt("Server={0};Database={1};"
+		                  + "User ID={2};Password={3};"
+		                  + "Pooling=false",
+			          url.host, url.path, url.user, url.password);
+	    }
+	    
+	    log.print("MySQL create: '{0}'\n", real);
+	    
+	    try
+	    {
+		opendb(new MySqlConnection(real));
+	    }
+	    catch
+	    {
+		try { Dispose(); } catch {}
+		throw;
+	    }
+	}
+    }
+
     [WvMoniker]
     public class WvDbi_MSSQL : WvDbi_IDbConnection
     {
