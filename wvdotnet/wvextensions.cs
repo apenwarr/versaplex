@@ -256,6 +256,7 @@ namespace Wv.Extensions
 	
 	static int acto<TI,T>(this IEnumerator<TI> e, out T o)
 	{
+            o = default (T);
 	    if (e.MoveNext())
 	    {
 		o = (T)e.Current.autocast().to(typeof(T));
