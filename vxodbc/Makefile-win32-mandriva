@@ -1,0 +1,46 @@
+WINDRES=i586-pc-mingw32-windres
+W32API=$(WVPORTS)/win32api/build/w32api
+CXXFLAGS+=\
+	-D_MSC_VER=1300 \
+	-D_WIN32_WINNT=0x0501 \
+	-DWIN_MULTITHREAD_SUPPORT \
+	-I$(W32API)/include
+LIBS=\
+	-L$(DBUS) -ldbus-1 \
+	-L$(OPENSSL) -lssl -lcrypto \
+	-L$(ZLIB) -lz -L$(W32API)/lib \
+	-limagehlp \
+	-lole32 -lrpcrt4 \
+	-lodbc32 -lodbccp32 \
+	-lws2_32 -lwinmm -lgdi32 -lkernel32  -lcrypt32
+LDFLAGS=--enable-stdcall-fixup -s
+
+OBJS+=\
+	setup.o \
+	vxodbc.res.o \
+	vxodbc.def
+	
+all: wvdbusd.dll vxodbc.dll regwriter.exe
+
+%.res.o: %.rc
+	$(WINDRES) $< $@
+
+%.dll: %.def
+	@echo Linking $@...
+	@$(CXX) \
+		-o $@ \
+		-shared \
+		$(LDFLAGS) \
+		$^ \
+		-Wl,--out-implib,$*.a \
+		-Wl,-Map,$*.map \
+		$(LIBS) \
+		2>&1 | grep -v '^Warning: resolving .* by linking to' >&2
+
+wvdbusd.dll: wvdbusd.o $(LIBWVSTATIC)
+
+vxodbc.dll: $(OBJS) $(LIBWVSTATIC)
+
+regwriter.exe: regwriter.o $(LIBWVSTATIC)
+
+test: vxodbc.dll vxodbc.a
