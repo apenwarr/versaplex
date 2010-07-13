@@ -130,7 +130,7 @@ public static class SchemamaticCli
             return null;
 
         newcmd.cmd = parts[1].ToLower();
-        if (newcmd.cmd == "export")
+        if ((newcmd.cmd == "export") || (newcmd.cmd == "export-nosort"))
         {
             // You can say "12345 export foo" or "12345 export foo where bar"
             if (parts.Length == 3)
@@ -289,6 +289,20 @@ public static class SchemamaticCli
                 data.Append(remote.GetSchemaData(cmd.table, cmd.pri, cmd.where,
                                                  replaces, skipfields));
             }
+            else if (cmd.cmd == "export-nosort")
+            {
+		//TODO: dry-run!
+                FileStream f = new FileStream(Path.Combine(datadir,
+                               wv.fmt("{0:d5}-{1}.cql", cmd.pri, cmd.table)),
+                               FileMode.OpenOrCreate, FileAccess.Write);
+                StreamWriter sw = new StreamWriter(f);
+                sw.Write(wv.fmt("TABLE {0}\n", cmd.table));
+                remote.WriteSchemaData(sw, cmd.table, cmd.pri, cmd.where, 
+                                       replaces, skipfields);
+                sw.Close();
+                f.Close();
+                continue;
+            }
             else if (cmd.cmd == "zap")
             {
                 foreach (string table in cmd.table.Split(whitespace, 
@@ -313,9 +327,10 @@ public static class SchemamaticCli
                 }
                 cmd.table = "ZAP";
             }
-
+      
             string outname = Path.Combine(datadir, 
                 wv.fmt("{0:d5}-{1}.sql", cmd.pri, cmd.table));
+
             if ((opts & VxCopyOpts.DryRun) != 0)
                 log.print("Would have written '{0}'\n", outname);
             else

@@ -4,6 +4,7 @@
  *       See the included file named LICENSE for license information.
  */
 using System;
+using System.IO;
 using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
@@ -149,6 +150,14 @@ internal class VxDbusSchema : ISchemaBackend
 	else
 	    reply.check(VxSchemaErrors.GetDbusSignature());
 	return null;
+    }
+
+    public void WriteSchemaData(StreamWriter sw, string tablename, int seqnum, 
+                                string where, 
+                                Dictionary<string,string> replaces,
+                                List<string> skipfields)
+    {
+        // I guess it won't be called ever anyway, we'll see...
     }
     
     public string GetSchemaData(string tablename, int seqnum, string where,

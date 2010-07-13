@@ -4,6 +4,7 @@
  *       See the included file named LICENSE for license information.
  */
 using System;
+using System.IO;
 using System.Collections.Generic;
 
 // An interface to a Schemamatic schema backend.
@@ -34,6 +35,11 @@ internal interface ISchemaBackend : IDisposable
     // "skipfields" is the list of fields to skip during export
     string GetSchemaData(string tablename, int seqnum, string where,
                          Dictionary<string,string> replaces,
+			 List<string> skipfields);
+
+    // writes straight to file, without sorting
+    void WriteSchemaData(StreamWriter sw, string tablename, int seqnum,
+                         string where, Dictionary<string,string> replaces,
 			 List<string> skipfields);
 
     // Delete all rows from the given table and replace them with the given

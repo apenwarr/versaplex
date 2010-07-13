@@ -147,6 +147,12 @@ internal class VxDiskSchema : ISchemaBackend
         return File.ReadAllText(fullpath);
     }
 
+    public void WriteSchemaData(StreamWriter sw, string tablename, int seqnum, string where,
+		Dictionary<string,string> replaces, List<string> skipfields)
+    {
+        // ewww
+    }
+
     public void PutSchemaData(string tablename, string text, int seqnum)
     {
         string datadir = Path.Combine(exportdir, "DATA");

@@ -58,8 +58,15 @@ internal class VxDbSchema : ISchemaBackend
     public VxDbSchema(WvDbi _dbi)
     {
         dbi = _dbi;
-        dbi.execute("set quoted_identifier off");
-        dbi.execute("set ansi_nulls on");
+        if (dbi.GetType().ToString() == "Wv.WvDbi_MySQL")
+        {
+           //place holder
+        } 
+        else
+        {
+            dbi.execute("set quoted_identifier off");
+            dbi.execute("set ansi_nulls on");
+        }
     }
     
     public void Dispose()
@@ -1001,7 +1008,6 @@ internal class VxDbSchema : ISchemaBackend
                 order by name, colid
             drop table #checksum_calc";
 
-
         foreach (WvSqlRow row in DbiSelect(query, encrypted))
         {
             string name = row[0];
@@ -1631,6 +1637,123 @@ internal class VxDbSchema : ISchemaBackend
         result.Sort(StringComparer.Ordinal);
 
         return colsstr+result.join("");
+    }
+
+    // Writes straight to file, therefore without sorting
+    public void WriteSchemaData(StreamWriter sw, string tablename, int seqnum, string where, 
+                                Dictionary<string,string> replaces,
+                                List<string> skipfields)
+    {
+        log.print("GetSchemaData({0},{1},{2})\n", tablename, seqnum, where);
+        
+        if (replaces == null)
+            replaces = new Dictionary<string,string>();
+        if (skipfields == null)
+            skipfields = new List<string>();
+            
+        int[] fieldstoskip = new int[skipfields.Count];
+        for (int i=0; i < skipfields.Count; i++)
+            fieldstoskip[i] = -1;
+
+        string query = "SELECT * FROM " + tablename;
+
+        if (where != null && where.Length > 0)
+            if (where.ToLower().StartsWith("select "))
+                query = where;
+            else
+                query += " WHERE " + where;
+
+        System.Type[] types = null;
+
+        string colsstr;
+        List<string> result = new List<string>();
+        ArrayList values = new ArrayList();
+        List<string> cols = new List<string>();
+        List<string> allcols = new List<string>();
+        WvSqlRows rows = DbiSelect(query);
+        types = new System.Type[rows.columns.Count()];
+
+        int ii = 0;
+        foreach (WvColInfo col in rows.columns)
+        {
+            allcols.Add(col.name.ToLower());
+            if (skipfields.Contains(col.name.ToLower()))
+                fieldstoskip[skipfields.IndexOf(col.name.ToLower())] = ii;
+            else if (skipfields.Contains(
+                                 tablename.ToLower()+"."+col.name.ToLower()))
+                fieldstoskip[skipfields.IndexOf(
+                            tablename.ToLower()+"."+col.name.ToLower())] = ii;
+            else
+            {
+                cols.Add(col.name);
+                types[ii] = col.type;
+            }
+            ii++;
+        }
+        colsstr = "\"" + cols.join("\",\"") + "\"\n";
+	sw.Write(colsstr);
+        // Read the column name and type information for the query.
+        foreach (WvSqlRow row in rows)
+        {
+            values.Clear();
+            int colnum = 0;
+            foreach (WvAutoCast _elem in row)
+            {
+                WvAutoCast elem = _elem;
+                if (Array.IndexOf(fieldstoskip,colnum)>=0)
+                {
+                    colnum++;
+                    continue;
+                }
+                
+                if (replaces.ContainsKey(allcols[colnum]))
+                    elem = new WvAutoCast(replaces[allcols[colnum]]);
+                    
+                if (replaces.ContainsKey(
+                                    tablename.ToLower()+"."+allcols[colnum]))
+                    elem = new WvAutoCast(replaces[
+                                    tablename.ToLower()+"."+allcols[colnum]]);
+
+                if (elem.IsNull)
+                    values.Add(null);
+                else if (types[colnum] == typeof(System.String) || 
+                    types[colnum] == typeof(System.DateTime))
+                {
+                    string str;
+                    // The default formatting is locale-dependent, and stupid.
+                    if (types[colnum] == typeof(System.DateTime))
+                        str = ((DateTime)elem).ToString("yyyy-MM-dd HH:mm:ss");
+                    else
+                        str = (string)elem;
+
+                    values.Add(str);
+                }
+                else if (types[colnum] == typeof(System.Byte[]))
+                {
+                    string temp = System.Convert.ToBase64String(elem);
+                    string tmp = "";
+                    while (temp.Length > 0)
+                    {
+                        if (temp.Length > 75)
+                        {
+                            tmp += temp.Substring(0,76) + "\n";
+                            temp = temp.Substring(76);
+                        }
+                        else
+                        {
+                            tmp += temp + "\n";
+                            break;
+                        }
+                    }
+                    values.Add(tmp);
+                }
+                else
+                    values.Add((string)elem);
+
+                colnum++;
+            }
+            sw.Write(WvCsv.GetCsvLine(values) + "\n");
+        }
     }
     
     public string bin2hex(byte [] data)
