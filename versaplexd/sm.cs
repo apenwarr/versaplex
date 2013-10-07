@@ -130,7 +130,7 @@ public static class SchemamaticCli
             return null;
 
         newcmd.cmd = parts[1].ToLower();
-        if (newcmd.cmd == "export")
+        if ((newcmd.cmd == "export") || (newcmd.cmd == "export-nosort"))
         {
             // You can say "12345 export foo" or "12345 export foo where bar"
             if (parts.Length == 3)
@@ -289,6 +289,20 @@ public static class SchemamaticCli
                 data.Append(remote.GetSchemaData(cmd.table, cmd.pri, cmd.where,
                                                  replaces, skipfields));
             }
+            else if (cmd.cmd == "export-nosort")
+            {
+		//TODO: dry-run!
+                FileStream f = new FileStream(Path.Combine(datadir,
+                               wv.fmt("{0:d5}-{1}.cql", cmd.pri, cmd.table)),
+                               FileMode.OpenOrCreate, FileAccess.Write);
+                StreamWriter sw = new StreamWriter(f);
+                sw.Write(wv.fmt("TABLE {0}\n", cmd.table));
+                remote.WriteSchemaData(sw, cmd.table, cmd.pri, cmd.where, 
+                                       replaces, skipfields);
+                sw.Close();
+                f.Close();
+                continue;
+            }
             else if (cmd.cmd == "zap")
             {
                 foreach (string table in cmd.table.Split(whitespace, 
@@ -313,9 +327,10 @@ public static class SchemamaticCli
                 }
                 cmd.table = "ZAP";
             }
-
+      
             string outname = Path.Combine(datadir, 
                 wv.fmt("{0:d5}-{1}.sql", cmd.pri, cmd.table));
+
             if ((opts & VxCopyOpts.DryRun) != 0)
                 log.print("Would have written '{0}'\n", outname);
             else
@@ -325,49 +340,17 @@ public static class SchemamaticCli
 	return 0;
     }
 
-    // Extracts the table name and priority out of a path.  E.g. for 
-    // "/foo/12345-bar.sql", returns "12345" and "bar" as the priority and 
-    // table name.  Returns -1/null if the parse fails.
-    static void ParsePath(string pathname, out int seqnum, 
-        out string tablename)
-    {
-        FileInfo info = new FileInfo(pathname);
-        seqnum = -1;
-        tablename = null;
-
-        int dashidx = info.Name.IndexOf('-');
-        if (dashidx < 0)
-            return;
-
-        string pristr = info.Name.Remove(dashidx);
-        string rest = info.Name.Substring(dashidx + 1);
-        int pri = wv.atoi(pristr);
-
-        if (pri < 0)
-            return;
-
-        if (info.Extension.ToLower() == ".sql")
-            rest = rest.Remove(rest.ToLower().LastIndexOf(".sql"));
-        else
-            return;
-
-        seqnum = pri;
-        tablename = rest;
-
-        return;
-    }
-
     static int ApplyFiles(string[] files, ISchemaBackend remote,
 			  VxCopyOpts opts)
     {
-        int seqnum;
-        string tablename;
+        int seqnum = 0;
+        string tablename = "";
 
         Array.Sort(files);
         foreach (string file in files)
         {
             string data = File.ReadAllText(file, Encoding.UTF8);
-            ParsePath(file, out seqnum, out tablename);
+            VxDiskSchema.ParsePath(file, out seqnum, out tablename);
 
             if (tablename == "ZAP")
                 tablename = "";
@@ -819,6 +802,17 @@ public static class SchemamaticCli
 	string moniker = extra.Count > 1 
 	    ? extra[1] : bookmarks.get("Defaults", "url", null);
         string dir     = extra.Count > 2 ? extra[2] : ".";
+	
+	if (cmd == "dfix")
+        {
+            VxDiskSchema disk = new VxDiskSchema(dir);
+            bool consider_rules = true;
+            if (consider_rules)
+                return disk.FixSchemaData(disk.GetReplaceRules(),
+                                          disk.GetFieldsToSkip());
+            else
+                return disk.FixSchemaData(null,null);
+        }
 	
 	if (moniker.e())
 	{

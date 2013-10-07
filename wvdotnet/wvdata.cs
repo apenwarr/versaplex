@@ -517,7 +517,18 @@ namespace Wv
 		    // mono gets an OverflowException when trying to use
 		    // GetDecimal() on a very large decimal(38,38) field.
 		    // But GetSqlDecimal works... in that particular case.
-		    SqlDecimal sd = r.GetSqlDecimal(col);
+
+		    SqlDecimal sd;
+		    try {
+                        // the following throws an InvalidCastException if
+                        // the data is an Int64 (decimal(18,0) in the DB,
+                        // for example). Bug 613087 submitted for Mono.
+		    	sd = r.GetSqlDecimal(col);
+		    }
+		    catch (InvalidCastException) {
+			sd = new SqlDecimal((long)r.GetValue(col));
+		    }
+
 		    try
 		    {
 			return (decimal)sd;

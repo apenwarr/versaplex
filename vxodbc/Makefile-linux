@@ -2,7 +2,7 @@ LIBS=\
 	$(DBUS)/libdbus-1.a \
 	$(OPENSSL)/libssl.a $(OPENSSL)/libcrypto.a \
 	$(ZLIB)/libz.a -ldl \
-	/usr/lib/libodbc.a -lpthread
+	/usr/lib/libodbcinst.so -lpthread
 LDFLAGS=-g
 
 all: wvdbusd.so vxodbc.so vxodbc-test.so test-linker

@@ -60,6 +60,7 @@ internal class VxSchemaElement : IComparable
 	} catch (ArgumentException) { 
 	    // if the table data is invalid, just ignore it.
 	    // We'll fall through and load a VxSchemaElement instead.
+	    Console.WriteLine("Warning: table data invalid for {0}",name);
 	}
 	
 	return new VxSchemaElement(type, name, text, encrypted);
@@ -205,6 +206,11 @@ internal class VxSchemaTableElement
             return elemtype;
         else
             return elemtype + ": " + GetParam("name");
+    }
+    
+    public string GetElemType()
+    {
+        return elemtype;
     }
 }
 

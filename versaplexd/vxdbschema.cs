@@ -58,8 +58,15 @@ internal class VxDbSchema : ISchemaBackend
     public VxDbSchema(WvDbi _dbi)
     {
         dbi = _dbi;
-        dbi.execute("set quoted_identifier off");
-        dbi.execute("set ansi_nulls on");
+        if (dbi.GetType().ToString() == "Wv.WvDbi_MySQL")
+        {
+           //place holder
+        } 
+        else
+        {
+            dbi.execute("set quoted_identifier off");
+            dbi.execute("set ansi_nulls on");
+        }
     }
     
     public void Dispose()
@@ -1001,7 +1008,6 @@ internal class VxDbSchema : ISchemaBackend
                 order by name, colid
             drop table #checksum_calc";
 
-
         foreach (WvSqlRow row in DbiSelect(query, encrypted))
         {
             string name = row[0];
@@ -1508,15 +1514,6 @@ internal class VxDbSchema : ISchemaBackend
 
         AddIndexesToTables(schema, names);
     }
-    
-    public bool RequiresQuotes(string text)
-    {
-        return ((text.IndexOf(" ") >= 0) || 
-                (text.IndexOf(",") >= 0) ||
-                (text.IndexOf("\n") >= 0) || 
-                (text.IndexOf("\"") >= 0) ||
-                (text.Length == 0) );
-    }    
 
     // Returns a blob of text that can be used with PutSchemaData to fill 
     // the given table.
@@ -1547,7 +1544,7 @@ internal class VxDbSchema : ISchemaBackend
 
         string colsstr;
         List<string> result = new List<string>();
-        List<string> values = new List<string>();
+        ArrayList values = new ArrayList();
         List<string> cols = new List<string>();
         List<string> allcols = new List<string>();
 
@@ -1597,7 +1594,7 @@ internal class VxDbSchema : ISchemaBackend
                                     tablename.ToLower()+"."+allcols[colnum]]);
                 
                 if (elem.IsNull)
-                    values.Add("");
+                    values.Add(null);
                 else if (types[colnum] == typeof(System.String) || 
                     types[colnum] == typeof(System.DateTime))
                 {
@@ -1608,13 +1605,7 @@ internal class VxDbSchema : ISchemaBackend
                     else
                         str = (string)elem;
 
-                    // Double-quote chars for SQL safety
-                    string esc = str.Replace("\"", "\"\"");
-                    esc = str.Replace("'", "''");
-                    if (RequiresQuotes(esc))
-                        values.Add('"' + esc + '"');
-                    else
-                        values.Add(esc);
+                    values.Add(str);
                 }
                 else if (types[colnum] == typeof(System.Byte[]))
                 {
@@ -1633,28 +1624,136 @@ internal class VxDbSchema : ISchemaBackend
                             break;
                         }
                     }
-                    values.Add("\""+tmp+"\"");
+                    values.Add(tmp);
                 }
                 else
-                    values.Add(elem);
+                    values.Add((string)elem);
 
                 colnum++;
             }
-            result.Add(values.join(",") + "\n");
+            result.Add(WvCsv.GetCsvLine(values) + "\n");
         }
 
         result.Sort(StringComparer.Ordinal);
 
         return colsstr+result.join("");
     }
-    
-    public string GetColType(string colname, 
-                             List<KeyValuePair<string,string>> coltypes)
+
+    // Writes straight to file, therefore without sorting
+    public void WriteSchemaData(StreamWriter sw, string tablename, int seqnum, string where, 
+                                Dictionary<string,string> replaces,
+                                List<string> skipfields)
     {
-        foreach (var col in coltypes)
-            if (col.Key == colname)
-                return col.Value;
-        return "";
+        log.print("GetSchemaData({0},{1},{2})\n", tablename, seqnum, where);
+        
+        if (replaces == null)
+            replaces = new Dictionary<string,string>();
+        if (skipfields == null)
+            skipfields = new List<string>();
+            
+        int[] fieldstoskip = new int[skipfields.Count];
+        for (int i=0; i < skipfields.Count; i++)
+            fieldstoskip[i] = -1;
+
+        string query = "SELECT * FROM " + tablename;
+
+        if (where != null && where.Length > 0)
+            if (where.ToLower().StartsWith("select "))
+                query = where;
+            else
+                query += " WHERE " + where;
+
+        System.Type[] types = null;
+
+        string colsstr;
+        List<string> result = new List<string>();
+        ArrayList values = new ArrayList();
+        List<string> cols = new List<string>();
+        List<string> allcols = new List<string>();
+        WvSqlRows rows = DbiSelect(query);
+        types = new System.Type[rows.columns.Count()];
+
+        int ii = 0;
+        foreach (WvColInfo col in rows.columns)
+        {
+            allcols.Add(col.name.ToLower());
+            if (skipfields.Contains(col.name.ToLower()))
+                fieldstoskip[skipfields.IndexOf(col.name.ToLower())] = ii;
+            else if (skipfields.Contains(
+                                 tablename.ToLower()+"."+col.name.ToLower()))
+                fieldstoskip[skipfields.IndexOf(
+                            tablename.ToLower()+"."+col.name.ToLower())] = ii;
+            else
+            {
+                cols.Add(col.name);
+                types[ii] = col.type;
+            }
+            ii++;
+        }
+        colsstr = "\"" + cols.join("\",\"") + "\"\n";
+	sw.Write(colsstr);
+        // Read the column name and type information for the query.
+        foreach (WvSqlRow row in rows)
+        {
+            values.Clear();
+            int colnum = 0;
+            foreach (WvAutoCast _elem in row)
+            {
+                WvAutoCast elem = _elem;
+                if (Array.IndexOf(fieldstoskip,colnum)>=0)
+                {
+                    colnum++;
+                    continue;
+                }
+                
+                if (replaces.ContainsKey(allcols[colnum]))
+                    elem = new WvAutoCast(replaces[allcols[colnum]]);
+                    
+                if (replaces.ContainsKey(
+                                    tablename.ToLower()+"."+allcols[colnum]))
+                    elem = new WvAutoCast(replaces[
+                                    tablename.ToLower()+"."+allcols[colnum]]);
+
+                if (elem.IsNull)
+                    values.Add(null);
+                else if (types[colnum] == typeof(System.String) || 
+                    types[colnum] == typeof(System.DateTime))
+                {
+                    string str;
+                    // The default formatting is locale-dependent, and stupid.
+                    if (types[colnum] == typeof(System.DateTime))
+                        str = ((DateTime)elem).ToString("yyyy-MM-dd HH:mm:ss");
+                    else
+                        str = (string)elem;
+
+                    values.Add(str);
+                }
+                else if (types[colnum] == typeof(System.Byte[]))
+                {
+                    string temp = System.Convert.ToBase64String(elem);
+                    string tmp = "";
+                    while (temp.Length > 0)
+                    {
+                        if (temp.Length > 75)
+                        {
+                            tmp += temp.Substring(0,76) + "\n";
+                            temp = temp.Substring(76);
+                        }
+                        else
+                        {
+                            tmp += temp + "\n";
+                            break;
+                        }
+                    }
+                    values.Add(tmp);
+                }
+                else
+                    values.Add((string)elem);
+
+                colnum++;
+            }
+            sw.Write(WvCsv.GetCsvLine(values) + "\n");
+        }
     }
     
     public string bin2hex(byte [] data)
@@ -1666,20 +1765,6 @@ internal class VxDbSchema : ISchemaBackend
         return result;
     }
     
-    public string base64Encode(string data)
-    {
-        try
-        {
-            byte[] encData_byte = new byte[data.Length];
-            encData_byte = System.Text.Encoding.UTF8.GetBytes(data);    
-            return Convert.ToBase64String(encData_byte);
-        }
-        catch(Exception e)
-        {
-            throw new Exception("Error in base64Encode" + e.Message);
-        }
-    }
-    
     public string Csv2Inserts(string tablename, string csvtext)
     {
         StringBuilder result = new StringBuilder();
@@ -1689,7 +1774,7 @@ internal class VxDbSchema : ISchemaBackend
         string prefix = "";
         bool has_ident = false;
         var tab_names = new List<string>();
-        var coltypes = new List<KeyValuePair<string,string>>();
+        var coltypes = new Dictionary<string,string>();
         VxSchema schema = new VxSchema();
         string ident_seed, ident_incr, coltype;
         
@@ -1706,17 +1791,18 @@ internal class VxDbSchema : ISchemaBackend
             {
                 foreach (VxSchemaTableElement te in ((VxSchemaTable)p.Value))
                 {
-                    if (columns_array.Contains(te.GetParam("name")))
+                    if (te.elemtype == "column")
                     {
-                        coltypes.Add(new KeyValuePair<string,string>(
-                                      te.GetParam("name"),
-                                      te.GetParam("type")));
-                                      
-                        ident_seed = te.GetParam("identity_seed");
-                        ident_incr = te.GetParam("identity_incr");
-                        
-                        if (ident_seed.ne() && ident_incr.ne())
-                            has_ident = true;
+                        if (columns_array.Contains(te.GetParam("name")))
+                        {
+                            coltypes.Add(te.GetParam("name"),te.GetParam("type"));
+                                          
+                            ident_seed = te.GetParam("identity_seed");
+                            ident_incr = te.GetParam("identity_incr");
+                            
+                            if (ident_seed.ne() && ident_incr.ne())
+                                has_ident = true;
+                        }
                     }
                 }
             }
@@ -1741,8 +1827,10 @@ internal class VxDbSchema : ISchemaBackend
             for (int i=0;i<asarray.Count;i++)
             {
                 sql += (i==0 ? prefix : ",");
+                coltype = "";
+                if (coltypes[columns_array[i]] != null)
+                    coltype = coltypes[columns_array[i]];
 
-                coltype = GetColType(columns_array[i],coltypes);
                 if (asarray[i]!=null)
                     if ((coltype == "varchar") ||
                         (coltype == "datetime") ||

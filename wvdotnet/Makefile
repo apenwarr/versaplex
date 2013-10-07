@@ -6,7 +6,7 @@ all: wv.dll
 
 tests: all streamtest servtest httpservtest htmlgentest t/tests
 
-PKGS += /r:System.Data /r:System.Web /r:Mono.Data.Sqlite
+PKGS += /r:System.Data /r:System.Web /r:Mono.Data.Sqlite /r:../bin/MySql.Data.dll
 
 servtest.exe: PKGS += /r:System.ServiceProcess /r:System.Configuration.Install
 

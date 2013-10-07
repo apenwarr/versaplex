@@ -480,7 +480,7 @@ static void dconn_get_attributes(copyfunc func,
 	if (!pair)
 	    break;
 
-	equals = strchr(pair, '=');
+	equals = strchr((char *)pair, '=');
 	if (!equals)
 	    continue;
 

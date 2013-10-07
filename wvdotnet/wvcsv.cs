@@ -5,7 +5,9 @@
  */
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Globalization;
+using Wv.Extensions;
 
 namespace Wv
 {
@@ -14,6 +16,16 @@ namespace Wv
         string astext;
         ArrayList asarray;
         int pos = 0;
+        int line = 0;
+        
+        public static bool RequiresQuotes(string text)
+        {
+            return ((text.IndexOf(" ") >= 0) || 
+                    (text.IndexOf(",") >= 0) ||
+                    (text.IndexOf("\n") >= 0) || 
+                    (text.IndexOf("\"") >= 0) ||
+                    (text.Length == 0) );
+        }
         
         public WvCsv(string toparse)
         {
@@ -30,16 +42,60 @@ namespace Wv
             return (pos < astext.Length);
         }
         
-        //return first line of the ArrayList (or the ArrayList) as a string
+        //return first line of the ArrayList (or the ArrayList) as a CSV string
         public string GetCsvLine()
         {
+            int tmp = 0;
+            foreach (object item in asarray)
+            {
+                if (tmp == line)
+                {
+                    line++;
+                    if (item is ArrayList)
+                        return GetCsvLine((ArrayList)item);
+                    else
+                        return GetCsvLine(asarray);
+                }
+                        
+                tmp++;
+            }
+            line++;
             return "";
+        }
+        
+        public static string GetCsvLine(ArrayList al)
+        {
+            string[] csvarray = (string[])al.ToArray(Type
+                                                 .GetType("System.String"));
+            List<string> values = new List<string>();
+            string tmp;
+            
+            for (int i=0; i<csvarray.Length; i++)
+            {
+                if (csvarray[i] == null)
+                    values.Add("");
+                else
+                {
+                    tmp = csvarray[i];
+                    tmp = tmp.Replace("'","''");
+                    tmp = tmp.Replace("\"","\"\"");                
+                    
+                    if (RequiresQuotes(tmp))
+                        values.Add('"' + tmp + '"'); 
+                    else
+                        values.Add(tmp);
+                }
+            }
+            return values.join(",");
         }
         
         //return the full ArrayList (multiple lines) as CSV
         public string GetCsvText()
         {
-            return "";
+            string tmp = "";
+            for (int i=0; i<asarray.Count; i++)
+                tmp += GetCsvLine()+"\n";
+            return tmp;
         }
         
         //returns the next line parsed into an ArrayList
